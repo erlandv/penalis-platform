@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Generated frontend build output
+build/
+.vite/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Test and tooling caches
+.phpunit.result.cache
+.phpunit.cache/
+.phpstan/
+coverage/
+.eslintcache
+.php-cs-fixer.cache
+
+# Logs
+*.log
+npm-debug.log*
+
+# Merge and patch leftovers
+*.orig
+*.rej
