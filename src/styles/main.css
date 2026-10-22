@@ -1,0 +1,841 @@
+/* ==========================================================================
+   Penalis writing dashboard
+   Scoped to .penalis-dashboard-root so it does not disturb the public theme.
+   ========================================================================== */
+
+.penalis-dashboard-root {
+  --penalis-bg: #f7f9f8;
+  --penalis-surface: #ffffff;
+  --penalis-surface-alt: #fbfaf8;
+  --penalis-border: #e4ded6;
+  --penalis-text: #241f1a;
+  --penalis-muted: #6f655b;
+  --penalis-accent: #7c3aed;
+  --penalis-accent-strong: #5b21b6;
+  --penalis-accent-soft: #f1e9ff;
+  --penalis-success: #166534;
+  --penalis-success-soft: #dcfce7;
+  --penalis-warning: #92400e;
+  --penalis-warning-soft: #fef3c7;
+  --penalis-danger: #991b1b;
+  --penalis-danger-soft: #fee2e2;
+  --penalis-radius: 14px;
+  --penalis-shadow: 0 10px 30px rgba(36, 31, 26, 0.08);
+
+  color: var(--penalis-text);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  background: var(--penalis-bg);
+  min-height: 100vh;
+  padding: 0;
+  margin: 0;
+}
+
+.penalis-dashboard-root *,
+.penalis-dashboard-root *::before,
+.penalis-dashboard-root *::after {
+  box-sizing: border-box;
+}
+
+.penalis-dashboard-root h1,
+.penalis-dashboard-root h2,
+.penalis-dashboard-root h3 {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  line-height: 1.2;
+  margin: 0 0 0.35em;
+  color: var(--penalis-text);
+}
+
+.penalis-dashboard-root h1 { font-size: clamp(1.6rem, 3vw, 2.1rem); }
+.penalis-dashboard-root h2 { font-size: clamp(1.35rem, 2.4vw, 1.75rem); }
+.penalis-dashboard-root h3 { font-size: 1.05rem; }
+
+.penalis-dashboard-root p { margin: 0 0 0.75em; }
+
+.penalis-dashboard-root a {
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.penalis-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--penalis-border);
+  margin-bottom: 1.5rem;
+}
+
+.penalis-header h1 { margin-bottom: 0; }
+
+.penalis-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.penalis-user {
+  font-weight: 600;
+}
+
+.penalis-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--penalis-accent-strong);
+  margin: 0 0 0.4em;
+}
+
+.penalis-muted {
+  color: var(--penalis-muted);
+  font-size: 0.92rem;
+}
+
+.penalis-link {
+  color: var(--penalis-muted);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.penalis-link:hover { border-bottom-color: currentColor; }
+
+.penalis-link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--penalis-accent-strong);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.penalis-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.penalis-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: sticky;
+  top: 1.5rem;
+}
+
+.penalis-nav__item {
+  text-align: left;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--penalis-muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.penalis-nav__item:hover:not(:disabled) {
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+}
+
+.penalis-nav__item.is-active {
+  background: var(--penalis-accent-soft);
+  border-color: #ddc9ff;
+  color: var(--penalis-accent-strong);
+  font-weight: 700;
+}
+
+.penalis-nav__item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.penalis-main { min-width: 0; }
+
+.penalis-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.penalis-page-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.penalis-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f7f2ff 100%);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  padding: 1.6rem;
+  box-shadow: var(--penalis-shadow);
+}
+
+.penalis-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.penalis-card {
+  background: var(--penalis-surface);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  padding: 1.1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.penalis-card__value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: 'Iowan Old Style', Georgia, serif;
+}
+
+.penalis-card__label {
+  color: var(--penalis-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.penalis-panel {
+  background: var(--penalis-surface);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  padding: 1.25rem;
+}
+
+.penalis-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.penalis-panel__header h3 { margin: 0; }
+
+.penalis-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 0.93rem;
+}
+
+.penalis-banner--info {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+.penalis-banner--success {
+  background: var(--penalis-success-soft);
+  border-color: #86efac;
+  color: var(--penalis-success);
+}
+
+.penalis-banner--warning {
+  background: var(--penalis-warning-soft);
+  border-color: #fcd34d;
+  color: var(--penalis-warning);
+}
+
+.penalis-banner--error,
+.penalis-banner--danger {
+  background: var(--penalis-danger-soft);
+  border-color: #fca5a5;
+  color: var(--penalis-danger);
+}
+
+.penalis-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.penalis-badge--success { background: var(--penalis-success-soft); color: var(--penalis-success); }
+.penalis-badge--warning { background: var(--penalis-warning-soft); color: var(--penalis-warning); }
+.penalis-badge--danger { background: var(--penalis-danger-soft); color: var(--penalis-danger); }
+.penalis-badge--neutral { background: #ece7e1; color: #57534e; }
+
+.penalis-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.62rem 1.05rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.penalis-button:active:not(:disabled) { transform: translateY(1px); }
+
+.penalis-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.penalis-button--primary {
+  background: var(--penalis-accent);
+  color: #ffffff;
+}
+
+.penalis-button--primary:hover:not(:disabled) { background: var(--penalis-accent-strong); }
+
+.penalis-button--ghost {
+  background: var(--penalis-surface);
+  border-color: var(--penalis-border);
+  color: var(--penalis-text);
+}
+
+.penalis-button--ghost:hover:not(:disabled) { border-color: #c9bfb3; }
+
+.penalis-button--danger {
+  background: transparent;
+  border-color: #f3c4c4;
+  color: var(--penalis-danger);
+}
+
+.penalis-button--danger:hover:not(:disabled) { background: var(--penalis-danger-soft); }
+
+.penalis-actions-row,
+.penalis-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.penalis-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.penalis-form--narrow { max-width: 520px; }
+
+.penalis-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.penalis-field > span {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.penalis-field small {
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+}
+
+.penalis-dashboard-root input[type='text'],
+.penalis-dashboard-root input[type='email'],
+.penalis-dashboard-root input[type='password'],
+.penalis-dashboard-root input[type='url'],
+.penalis-dashboard-root input[type='search'],
+.penalis-dashboard-root input[type='file'],
+.penalis-dashboard-root select,
+.penalis-dashboard-root textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 10px;
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font: inherit;
+  font-size: 0.95rem;
+}
+
+.penalis-dashboard-root textarea {
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.6;
+}
+
+.penalis-dashboard-root input:focus,
+.penalis-dashboard-root select:focus,
+.penalis-dashboard-root textarea:focus {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 1px;
+  border-color: var(--penalis-accent);
+}
+
+.penalis-dashboard-root [aria-invalid='true'] {
+  border-color: #dc2626;
+}
+
+.penalis-field-error {
+  color: var(--penalis-danger);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.penalis-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.penalis-checkbox input { margin-top: 0.25rem; }
+
+.penalis-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.penalis-honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.penalis-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  background: var(--penalis-bg);
+}
+
+.penalis-auth__panel {
+  width: 100%;
+  max-width: 520px;
+  background: var(--penalis-surface);
+  border: 1px solid var(--penalis-border);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: var(--penalis-shadow);
+}
+
+.penalis-auth__panel h1 { font-size: 1.8rem; }
+
+.penalis-auth__switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--penalis-border);
+  font-size: 0.88rem;
+}
+
+.penalis-fineprint {
+  margin-top: 1rem;
+  font-size: 0.82rem;
+  color: var(--penalis-muted);
+}
+
+.penalis-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-surface);
+}
+
+.penalis-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.penalis-table th,
+.penalis-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--penalis-border);
+}
+
+.penalis-table th {
+  background: var(--penalis-surface-alt);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--penalis-muted);
+}
+
+.penalis-table tr:last-child td { border-bottom: 0; }
+
+.penalis-table td p { margin: 0.2rem 0 0; }
+
+.penalis-article-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.penalis-article-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--penalis-border);
+}
+
+.penalis-article-row:last-child { border-bottom: 0; }
+
+.penalis-article-row__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  color: var(--penalis-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.penalis-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--penalis-border);
+  padding-bottom: 0.6rem;
+}
+
+.penalis-tab {
+  border: 0;
+  background: transparent;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--penalis-muted);
+  cursor: pointer;
+}
+
+.penalis-tab.is-active {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+  font-weight: 700;
+}
+
+.penalis-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.penalis-editor__main,
+.penalis-editor__side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.penalis-editor__main textarea { min-height: 360px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.9rem; }
+
+.penalis-featured img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  margin-bottom: 0.6rem;
+  display: block;
+}
+
+.penalis-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.penalis-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.penalis-chip button {
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.penalis-suggestions {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0.35rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 10px;
+  background: var(--penalis-surface);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.penalis-suggestions button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.penalis-suggestions button:hover { background: var(--penalis-accent-soft); }
+
+.penalis-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.penalis-media-card {
+  margin: 0;
+  background: var(--penalis-surface);
+  border: 1px solid var(--penalis-border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.penalis-media-card img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  display: block;
+  background: #eee;
+}
+
+.penalis-media-card figcaption {
+  padding: 0.6rem 0.7rem;
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.penalis-media-card .penalis-row-actions { padding: 0 0.7rem 0.7rem; }
+
+.penalis-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(24, 20, 16, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 100000;
+}
+
+.penalis-modal__content {
+  background: var(--penalis-surface);
+  border-radius: 16px;
+  padding: 1.25rem;
+  width: 100%;
+  max-width: 760px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+
+.penalis-modal__content--wide { max-width: 900px; }
+
+.penalis-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.penalis-modal__header h3 { margin: 0; }
+
+.penalis-preview-frame {
+  width: 100%;
+  height: 65vh;
+  border: 1px solid var(--penalis-border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.penalis-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0;
+}
+
+.penalis-details div {
+  border-top: 1px solid var(--penalis-border);
+  padding-top: 0.6rem;
+}
+
+.penalis-details dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--penalis-muted);
+}
+
+.penalis-details dd {
+  margin: 0.2rem 0 0;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.penalis-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  border: 1px dashed var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-surface-alt);
+}
+
+.penalis-empty h3 { margin-bottom: 0.4rem; }
+
+.penalis-empty p { color: var(--penalis-muted); max-width: 44ch; margin: 0 auto 1rem; }
+
+.penalis-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--penalis-muted);
+  padding: 1rem 0;
+}
+
+.penalis-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--penalis-border);
+  border-top-color: var(--penalis-accent);
+  animation: penalis-spin 700ms linear infinite;
+}
+
+@keyframes penalis-spin {
+  to { transform: rotate(360deg); }
+}
+
+.penalis-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--penalis-muted);
+}
+
+.penalis-noscript,
+.penalis-build-missing {
+  max-width: 720px;
+  margin: 2rem auto;
+  padding: 1rem;
+  border: 1px solid #f0c36d;
+  background: #fff8e5;
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .penalis-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .penalis-nav {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .penalis-nav__item {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  .penalis-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .penalis-app { padding: 1.25rem 0.9rem 3rem; }
+  .penalis-auth__panel { padding: 1.4rem; }
+  .penalis-hero { flex-direction: column; }
+  .penalis-article-row { flex-direction: column; }
+  .penalis-article-row__meta { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .penalis-spinner { animation-duration: 2s; }
+  .penalis-dashboard-root * { scroll-behavior: auto !important; }
+}
+
+.penalis-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border: 1px dashed var(--penalis-border);
+  border-radius: 10px;
+  background: var(--penalis-surface-alt);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.penalis-upload small {
+  color: var(--penalis-muted);
+  font-weight: 400;
+}
