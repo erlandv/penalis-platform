@@ -1,0 +1,27 @@
+{
+  "name": "penalis-platform/penalis-platform",
+  "description": "Penalis Platform WordPress plugin: controlled UGC workflow and React writing dashboard.",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "require": {
+    "php": ">=7.4"
+  },
+  "require-dev": {
+    "wp-coding-standards/wpcs": "^3.1",
+    "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    }
+  },
+  "scripts": {
+    "lint": "phpcs --standard=phpcs.xml.dist",
+    "lint:fix": "phpcbf --standard=phpcs.xml.dist",
+    "test": "php tests/run-tests.php",
+    "check": [
+      "@lint",
+      "@test"
+    ]
+  }
+}
