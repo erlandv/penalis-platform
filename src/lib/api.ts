@@ -6,6 +6,7 @@
  */
 
 import { getBootstrap } from './bootstrap';
+import { decodeEntities } from './format';
 import type {
   Account,
   ApiErrorShape,
@@ -102,6 +103,18 @@ function stripTags(value: string): string {
   return value.replace(/<[^>]*>/g, '').trim();
 }
 
+/**
+ * Decode a taxonomy name for display.
+ *
+ * WordPress stores term names as HTML and the taxonomy endpoints return them
+ * encoded (`Budaya &amp; Agama`). Article titles and content are deliberately
+ * left alone: they are editable fields, so decoding them would rewrite the
+ * stored value the next time the writer saves.
+ */
+function decodeTermName<T extends { name: string }>(term: T): T {
+  return { ...term, name: decodeEntities(term.name) };
+}
+
 /* ------------------------------ Account ------------------------------ */
 
 export const accountApi = {
@@ -150,7 +163,12 @@ export const articlesApi = {
     return request<ArticleList>(`/articles?${params.toString()}`);
   },
 
-  get: (id: number) => request<Article>(`/articles/${id}`),
+  get: (id: number) =>
+    request<Article>(`/articles/${id}`).then((article) => ({
+      ...article,
+      categories: article.categories.map(decodeTermName),
+      tags: article.tags.map(decodeTermName),
+    })),
 
   publish: (id: number) => request<{ id: number }>(`/articles/${id}/publish`, { method: 'POST' }),
 
@@ -204,7 +222,7 @@ export const taxonomyApi = {
   categories: () =>
     request<Term[]>('/categories?per_page=100&orderby=name&order=asc&_fields=id,name,count,parent', {
       absoluteUrl: getBootstrap().wpRestUrl,
-    }),
+    }).then((terms) => terms.map(decodeTermName)),
 
   tags: (search: string) => {
     const params = new URLSearchParams({
@@ -216,11 +234,16 @@ export const taxonomyApi = {
     if (search) {
       params.set('search', search);
     }
-    return request<Term[]>(`/tags?${params.toString()}`, { absoluteUrl: getBootstrap().wpRestUrl });
+    return request<Term[]>(`/tags?${params.toString()}`, { absoluteUrl: getBootstrap().wpRestUrl }).then((terms) =>
+      terms.map(decodeTermName),
+    );
   },
 
   createTag: (name: string) =>
-    request<{ id: number; name: string }>('/tags', { method: 'POST', body: { name } }),
+    request<{ id: number; name: string }>('/tags', { method: 'POST', body: { name } }).then((created) => ({
+      id: created.id,
+      name: decodeEntities(created.name),
+    })),
 };
 
 /* -------------------------------- Media ------------------------------ */
