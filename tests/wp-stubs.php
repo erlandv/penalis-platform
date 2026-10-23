@@ -453,5 +453,74 @@ if ( ! function_exists( 'delete_transient' ) ) {
 	}
 }
 
+if ( ! class_exists( 'WP_Post' ) ) {
+	/**
+	 * Minimal post stub for avatar identifier resolution.
+	 */
+	class WP_Post {
+		/** @var int */
+		public $ID = 0;
+		/** @var string */
+		public $post_type = 'post';
+		/** @var int */
+		public $post_author = 0;
+		/** @var string */
+		public $post_mime_type = '';
+	}
+}
+
+if ( ! class_exists( 'WP_Comment' ) ) {
+	/**
+	 * Minimal comment stub for avatar identifier resolution.
+	 */
+	class WP_Comment {
+		/** @var int */
+		public $comment_ID = 0;
+		/** @var int */
+		public $user_id = 0;
+	}
+}
+
+if ( ! function_exists( 'is_email' ) ) {
+	/**
+	 * Email check stub.
+	 *
+	 * @param mixed $email Email.
+	 * @return bool
+	 */
+	function is_email( $email ) {
+		return is_string( $email ) && false !== filter_var( $email, FILTER_VALIDATE_EMAIL );
+	}
+}
+
+if ( ! function_exists( 'get_user_by' ) ) {
+	/**
+	 * User lookup stub backed by the test user registry.
+	 *
+	 * @param string $field Field.
+	 * @param mixed  $value Value.
+	 * @return WP_User|false
+	 */
+	function get_user_by( $field, $value ) {
+		$users = isset( $GLOBALS['penalis_test_users'] ) ? $GLOBALS['penalis_test_users'] : array();
+
+		foreach ( $users as $user ) {
+			if ( 'id' === $field && (int) $user->ID === (int) $value ) {
+				return $user;
+			}
+
+			if ( 'email' === $field && $user->user_email === $value ) {
+				return $user;
+			}
+
+			if ( 'login' === $field && $user->user_login === $value ) {
+				return $user;
+			}
+		}
+
+		return false;
+	}
+}
+
 $GLOBALS['penalis_test_options']    = array();
 $GLOBALS['penalis_test_transients'] = array();

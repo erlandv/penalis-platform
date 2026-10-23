@@ -156,30 +156,26 @@ export function Profile({
           <h3>Profile photo</h3>
           <p className="penalis-muted">Shown on your articles and author page.</p>
 
-          {account.avatarSupported ? (
-            <div className="penalis-actions-row">
+          <div className="penalis-actions-row">
+            <button
+              type="button"
+              className="penalis-button penalis-button--ghost"
+              onClick={() => void openPicker()}
+              disabled={avatarBusy}
+            >
+              Change photo
+            </button>
+            {account.avatarId > 0 ? (
               <button
                 type="button"
-                className="penalis-button penalis-button--ghost"
-                onClick={() => void openPicker()}
+                className="penalis-button penalis-button--danger"
+                onClick={() => void removeAvatar()}
                 disabled={avatarBusy}
               >
-                Change photo
+                Remove photo
               </button>
-              {account.avatarId > 0 ? (
-                <button
-                  type="button"
-                  className="penalis-button penalis-button--danger"
-                  onClick={() => void removeAvatar()}
-                  disabled={avatarBusy}
-                >
-                  Remove photo
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <p className="penalis-muted">Profile photo changes require the One User Avatar plugin.</p>
-          )}
+            ) : null}
+          </div>
 
           {avatarError ? <ErrorBanner message={avatarError} /> : null}
         </div>

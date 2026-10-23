@@ -28,6 +28,7 @@ legacy contributor accounts remain untouched by activation and normal operation.
 | Data storage | User meta for account status/tokens; options for plugin settings |
 | Admin workflow | WordPress admin list table under **Users → Penalis Writers** |
 | Email | `wp_mail()` with failure reporting and retry-safe token behavior |
+| Avatars | Storage shared with One User Avatar; this plugin serves avatars when that plugin is inactive |
 | Uninstall | Non-destructive by default; explicit opt-in for data removal |
 
 ### Why Vite instead of `@wordpress/scripts`
@@ -47,6 +48,30 @@ title, content textarea/HTML, categories, tags, excerpt, featured image, and
 media insertion. It does **not** claim to be a block editor replacement. The
 content is submitted to the native WordPress posts endpoint and rendered by the
 existing theme exactly like any other post.
+
+### Avatar provider
+
+Profile photos are stored as an attachment ID in `{prefix}user_avatar`, the key
+One User Avatar uses, so existing assignments survive and both plugins read the
+same data.
+
+- While One User Avatar is active it stays the only provider. This plugin writes
+  that storage and registers no avatar filter, so the rendered avatar can never
+  depend on hook order.
+- When One User Avatar is inactive this plugin registers `pre_get_avatar_data`
+  and resolves the attachment for both `get_avatar()` and `get_avatar_url()`,
+  including the 2x srcset entry. It honours `force_default`, falls back when the
+  attachment is missing or is not an image, and leaves rendering to WordPress
+  when a user has no photo.
+- The site default photo lives in the `avatar_default_wp_user_avatar` option and
+  applies only while `avatar_default` is `wp_user_avatar`, mirroring One User
+  Avatar. It is managed under **Users → Penalis Writers**.
+- Deactivating One User Avatar therefore needs no data migration: the same meta
+  is read by this plugin, and reactivating that plugin hands rendering back to it
+  while this plugin's filter stays dormant.
+- Uninstall leaves `{prefix}user_avatar` in place even when data removal is
+  enabled: the key is shared with One User Avatar and may still be owned by that
+  plugin.
 
 ## 3. Account lifecycle
 
@@ -76,7 +101,7 @@ Additional metadata:
 | `_penalis_approved_by` | Administrator user ID |
 | `_penalis_status_log` | Bounded audit log of status transitions |
 | `_penalis_display_name_mode` | Preferred public name source: `auto`, `first`, `last`, `username`, `custom`; absent means `custom` |
-| `{prefix}user_avatar` | Profile photo attachment ID, owned by the One User Avatar plugin |
+| `{prefix}user_avatar` | Profile photo attachment ID, shared with One User Avatar |
 | `_penalis_verification_token_hash` | SHA-256 hash of the raw token |
 | `_penalis_verification_token_expires` | Expiry timestamp |
 | `_penalis_verification_token_created` | Issue timestamp for resend throttling |
@@ -221,6 +246,11 @@ Administrators use **Users → Penalis Writers**:
 - Approve, reject, suspend, or reactivate with nonce-protected actions.
 - View bounded status history.
 - Resend verification for unverified accounts.
+- Choose the default profile photo used for accounts without one.
+
+The default photo is stored in the `avatar_default_wp_user_avatar` option and
+only applies while `avatar_default` is `wp_user_avatar`, matching One User
+Avatar's behaviour.
 
 Transitions are centralized in `Penalis_Account_Status::transition()` and
 validate allowed source/target pairs. Every transition appends to a bounded
@@ -314,10 +344,9 @@ These are **not** verified against the live site:
 - Legacy profile claiming is out of scope.
 - Multisite behavior is not specifically implemented or tested.
 - No custom database tables are introduced.
-- Profile photos depend on the One User Avatar plugin. The dashboard writes that
-  plugin's storage and does not register an avatar filter of its own, so the
-  control is hidden when the plugin is inactive. No crop UI is provided; the
-  image is used as uploaded.
+- Profile photos share One User Avatar's storage. While that plugin is active it
+  remains the provider; once it is inactive this plugin serves avatars from the
+  same meta. No crop UI is provided; the image is used as uploaded.
 
 ## 13. Manual test checklist
 

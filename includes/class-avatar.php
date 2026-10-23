@@ -165,16 +165,176 @@ final class Penalis_Avatar {
 	}
 
 	/**
-	 * Account payload fields for the dashboard.
+	 * Register the built-in avatar provider.
 	 *
-	 * @param int $user_id User ID.
+	 * One User Avatar stays authoritative while it is active: registering a
+	 * second filter would make the rendered avatar depend on hook order. The
+	 * built-in provider only takes over once that plugin is gone.
+	 *
+	 * @return void
+	 */
+	public static function register_provider() {
+		if ( self::is_supported() ) {
+			return;
+		}
+
+		add_filter( 'pre_get_avatar_data', array( __CLASS__, 'filter_avatar_data' ), 10, 2 );
+	}
+
+	/**
+	 * Whether this plugin currently renders avatars.
+	 *
+	 * @return bool
+	 */
+	public static function is_provider() {
+		return ! self::is_supported();
+	}
+
+	/**
+	 * Supply avatar data from the stored attachment.
+	 *
+	 * WordPress calls this filter for both get_avatar() and get_avatar_url(),
+	 * and re-invokes it with a doubled size for the 2x srcset entry, so only the
+	 * requested size has to be resolved here.
+	 *
+	 * Identifiers that resolve to no user (guest commenters, Gravatar hashes)
+	 * still receive the site default photo, matching the previous provider.
+	 * Gravatar accounts are not consulted while a default photo is configured,
+	 * which keeps rendering deterministic and avoids an outbound request.
+	 *
+	 * @param array<string,mixed> $args        Avatar arguments.
+	 * @param mixed               $id_or_email User identifier.
 	 * @return array<string,mixed>
 	 */
-	public static function get_account_fields( $user_id ) {
-		return array(
-			'avatarSupported' => self::is_supported(),
-			'avatarId'        => self::get_id( $user_id ),
-			'avatarUrl'       => self::get_url( $user_id ),
-		);
+	public static function filter_avatar_data( $args, $id_or_email ) {
+		if ( ! empty( $args['force_default'] ) ) {
+			return $args;
+		}
+
+		$user_id = self::resolve_user_id( $id_or_email );
+
+		$size = isset( $args['size'] ) ? (int) $args['size'] : 96;
+		$size = $size > 0 ? $size : 96;
+
+		$attachment_id = $user_id > 0 ? self::get_id( $user_id ) : 0;
+
+		if ( $attachment_id > 0 && wp_attachment_is_image( $attachment_id ) ) {
+			$image = self::image_src( $attachment_id, $size );
+
+			if ( $image ) {
+				$args['url']          = $image[0];
+				$args['found_avatar'] = true;
+				$args['width']        = (int) $image[1];
+				$args['height']       = (int) $image[2];
+
+				if ( isset( $args['alt'] ) && '' === (string) $args['alt'] ) {
+					$user = get_userdata( $user_id );
+
+					if ( $user ) {
+						$args['alt'] = $user->display_name;
+					}
+				}
+
+				return $args;
+			}
+		}
+
+		return self::apply_default_avatar( $args, $size );
+	}
+
+	/**
+	 * Use the site default photo for users without one.
+	 *
+	 * Mirrors One User Avatar: the custom default only applies while the core
+	 * `avatar_default` option selects it, so an administrator can still choose
+	 * Gravatar or Mystery Person.
+	 *
+	 * @param array<string,mixed> $args Avatar arguments.
+	 * @param int                 $size Requested size.
+	 * @return array<string,mixed>
+	 */
+	private static function apply_default_avatar( $args, $size ) {
+		$attachment_id = self::default_avatar_id();
+
+		if ( $attachment_id <= 0 ) {
+			return $args;
+		}
+
+		$image = self::image_src( $attachment_id, $size );
+
+		if ( ! $image ) {
+			return $args;
+		}
+
+		$args['url']          = $image[0];
+		$args['found_avatar'] = false; // Keep the avatar-default class.
+		$args['width']        = (int) $image[1];
+		$args['height']       = (int) $image[2];
+
+		return $args;
+	}
+
+	/**
+	 * Attachment image source for a square size, falling back to the original.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @param int $size          Requested square size.
+	 * @return array<int,mixed>|false
+	 */
+	private static function image_src( $attachment_id, $size ) {
+		$image = wp_get_attachment_image_src( $attachment_id, array( $size, $size ) );
+
+		if ( ! $image ) {
+			$image = wp_get_attachment_image_src( $attachment_id, 'full' );
+		}
+
+		return $image;
+	}
+
+	/**
+	 * Default photo attachment ID, when the site has selected one.
+	 *
+	 * @return int
+	 */
+	public static function default_avatar_id() {
+		if ( 'wp_user_avatar' !== (string) get_option( 'avatar_default' ) ) {
+			return 0;
+		}
+
+		$attachment_id = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
+
+		return $attachment_id > 0 && wp_attachment_is_image( $attachment_id ) ? $attachment_id : 0;
+	}
+
+	/**
+	 * Resolve a user ID from the shapes core passes to avatar filters.
+	 *
+	 * @param mixed $id_or_email User ID, email, WP_User, WP_Post, or WP_Comment.
+	 * @return int
+	 */
+	public static function resolve_user_id( $id_or_email ) {
+		if ( $id_or_email instanceof WP_User ) {
+			return (int) $id_or_email->ID;
+		}
+
+		if ( $id_or_email instanceof WP_Post ) {
+			return (int) $id_or_email->post_author;
+		}
+
+		if ( $id_or_email instanceof WP_Comment ) {
+			return (int) $id_or_email->user_id;
+		}
+
+		if ( is_numeric( $id_or_email ) ) {
+			return (int) $id_or_email;
+		}
+
+		if ( is_string( $id_or_email ) && is_email( $id_or_email ) ) {
+			$user = get_user_by( 'email', $id_or_email );
+
+			return $user ? (int) $user->ID : 0;
+		}
+
+		return 0;
 	}
 }

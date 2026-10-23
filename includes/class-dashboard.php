@@ -251,7 +251,6 @@ final class Penalis_Dashboard {
 					'firstName'       => (string) get_user_meta( $user_id, 'first_name', true ),
 					'lastName'        => (string) get_user_meta( $user_id, 'last_name', true ),
 					'displayNameMode' => Penalis_Account_Status::get_display_name_mode( $user_id ),
-					'avatarSupported' => Penalis_Avatar::is_supported(),
 					'avatarId'        => Penalis_Avatar::get_id( $user_id ),
 					'avatarUrl'       => Penalis_Avatar::get_url( $user_id ),
 					'email'           => $user->user_email,

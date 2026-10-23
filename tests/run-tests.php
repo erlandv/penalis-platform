@@ -15,6 +15,7 @@ require_once __DIR__ . '/wp-stubs.php';
 require_once __DIR__ . '/../includes/class-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
+require_once __DIR__ . '/../includes/class-avatar.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -446,6 +447,30 @@ penalis_assert( '' !== Penalis_Policy::validate_avatar( 'application/pdf', 400, 
 penalis_assert( '' !== Penalis_Policy::validate_avatar( 'image/png', 80, 400, true ), 'Images below the minimum edge are rejected.' );
 penalis_assert( '' !== Penalis_Policy::validate_avatar( 'image/png', 400, 400, false ), 'Images owned by another user are rejected.' );
 penalis_same( array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' ), Penalis_Policy::avatar_mimes(), 'Avatar mime list matches the upload policy.' );
+
+/* -------------------------------------------------------------------------
+ * Avatar identifier resolution
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][12] = new WP_User( 12, array( 'author' ) );
+
+penalis_same( 12, Penalis_Avatar::resolve_user_id( 12 ), 'Numeric identifiers resolve.' );
+penalis_same( 12, Penalis_Avatar::resolve_user_id( '12' ), 'Numeric strings resolve.' );
+penalis_same( 12, Penalis_Avatar::resolve_user_id( new WP_User( 12 ) ), 'WP_User objects resolve.' );
+penalis_same( 12, Penalis_Avatar::resolve_user_id( 'user12@example.com' ), 'Email addresses resolve.' );
+penalis_same( 0, Penalis_Avatar::resolve_user_id( 'not-an-email' ), 'Unknown strings resolve to zero.' );
+penalis_same( 0, Penalis_Avatar::resolve_user_id( 'nobody@example.com' ), 'Unknown emails resolve to zero.' );
+
+$penalis_post            = new WP_Post();
+$penalis_post->post_author = 12;
+penalis_same( 12, Penalis_Avatar::resolve_user_id( $penalis_post ), 'Post authors resolve.' );
+
+$penalis_comment           = new WP_Comment();
+$penalis_comment->user_id  = 12;
+penalis_same( 12, Penalis_Avatar::resolve_user_id( $penalis_comment ), 'Comment authors resolve.' );
+
+penalis_same( true, Penalis_Avatar::is_provider(), 'The built-in provider is active without One User Avatar.' );
 
 /* -------------------------------------------------------------------------
  * Report

@@ -26,6 +26,8 @@ final class Penalis_Admin {
 		add_filter( 'manage_users_columns', array( __CLASS__, 'add_status_column' ) );
 		add_filter( 'manage_users_custom_column', array( __CLASS__, 'render_status_column' ), 10, 3 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_styles' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_scripts' ) );
+		add_action( 'admin_post_penalis_save_default_avatar', array( __CLASS__, 'save_default_avatar' ) );
 	}
 
 	/**
@@ -66,6 +68,85 @@ final class Penalis_Admin {
 			. '.penalis-actions form{display:inline-block;margin:0 4px 4px 0}'
 			. '.penalis-log{margin:8px 0 0;padding-left:18px;color:#50575e;font-size:12px}'
 		);
+	}
+
+	/**
+	 * Enqueue the media picker used for the default profile photo.
+	 *
+	 * @param string $hook Current admin page.
+	 * @return void
+	 */
+	public static function admin_scripts( $hook ) {
+		if ( 'users_page_penalis-writers' !== $hook ) {
+			return;
+		}
+
+		wp_enqueue_media();
+
+		wp_register_script( 'penalis-admin-avatar', '', array( 'jquery' ), PENALIS_PLATFORM_VERSION, true );
+		wp_enqueue_script( 'penalis-admin-avatar' );
+
+		$script = <<<'JS'
+jQuery( function ( $ ) {
+	var frame;
+
+	$( '#penalis-default-avatar-choose' ).on( 'click', function ( event ) {
+		event.preventDefault();
+
+		if ( ! frame ) {
+			frame = wp.media( {
+				title: 'Default profile photo',
+				button: { text: 'Use this image' },
+				library: { type: 'image' },
+				multiple: false
+			} );
+
+			frame.on( 'select', function () {
+				var attachment = frame.state().get( 'selection' ).first().toJSON();
+				$( '#penalis-default-avatar-id' ).val( attachment.id );
+				$( '#penalis-default-avatar-preview' ).attr( 'src', attachment.url ).show();
+			} );
+		}
+
+		frame.open();
+	} );
+} );
+JS;
+
+		wp_add_inline_script( 'penalis-admin-avatar', $script );
+	}
+
+	/**
+	 * Save the default profile photo.
+	 *
+	 * @return void
+	 */
+	public static function save_default_avatar() {
+		if ( ! current_user_can( 'list_users' ) ) {
+			wp_die( esc_html__( 'You do not have permission to change this setting.', 'penalis-platform' ) );
+		}
+
+		check_admin_referer( 'penalis_default_avatar' );
+
+		$redirect = admin_url( 'users.php?page=penalis-writers' );
+		$clear    = isset( $_POST['penalis_clear_default_avatar'] );
+		$avatar   = isset( $_POST['penalis_default_avatar_id'] ) ? absint( wp_unslash( $_POST['penalis_default_avatar_id'] ) ) : 0;
+
+		if ( ! $clear && ( $avatar <= 0 || ! wp_attachment_is_image( $avatar ) ) ) {
+			wp_safe_redirect( add_query_arg( 'penalis_error', 'avatar_invalid', $redirect ) );
+			exit;
+		}
+
+		if ( $clear ) {
+			update_option( 'avatar_default_wp_user_avatar', '' );
+			update_option( 'avatar_default', 'mystery' );
+		} else {
+			update_option( 'avatar_default_wp_user_avatar', $avatar );
+			update_option( 'avatar_default', 'wp_user_avatar' );
+		}
+
+		wp_safe_redirect( add_query_arg( 'penalis_message', 'avatar_saved', $redirect ) );
+		exit;
 	}
 
 	/**
@@ -151,6 +232,9 @@ final class Penalis_Admin {
 		$users = $query->get_results();
 		$total = (int) $query->get_total();
 
+		$default_avatar_id  = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
+		$default_avatar_url = $default_avatar_id > 0 ? (string) wp_get_attachment_image_url( $default_avatar_id, 'thumbnail' ) : '';
+
 		$statuses = array(
 			''                                          => 'All managed',
 			Penalis_Policy::STATUS_PENDING_VERIFICATION => 'Pending verification',
@@ -171,6 +255,36 @@ final class Penalis_Admin {
 			<?php if ( isset( $_GET['penalis_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 				<div class="notice notice-error is-dismissible"><p><?php echo esc_html( self::message_for( sanitize_key( wp_unslash( $_GET['penalis_error'] ) ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?></p></div>
 			<?php endif; ?>
+
+			<div class="card" style="max-width:720px;padding:1rem 1.25rem;margin:1rem 0;">
+				<h2 style="margin-top:0;">Default profile photo</h2>
+				<p class="description">
+					Shown for users who have not chosen a photo. It is stored as the site avatar default.
+					<?php if ( Penalis_Avatar::is_supported() ) : ?>
+						The One User Avatar plugin is active and manages the same setting.
+					<?php endif; ?>
+				</p>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="penalis_save_default_avatar" />
+					<?php wp_nonce_field( 'penalis_default_avatar' ); ?>
+					<input type="hidden" name="penalis_default_avatar_id" id="penalis-default-avatar-id" value="<?php echo esc_attr( (string) $default_avatar_id ); ?>" />
+					<p>
+						<img
+							id="penalis-default-avatar-preview"
+							src="<?php echo esc_url( $default_avatar_url ); ?>"
+							alt=""
+							style="width:96px;height:96px;border-radius:50%;object-fit:cover;background:#f0f0f1;<?php echo esc_attr( '' === $default_avatar_url ? 'display:none;' : '' ); ?>"
+						/>
+					</p>
+					<p>
+						<button type="button" class="button" id="penalis-default-avatar-choose">Choose image</button>
+						<button type="submit" class="button button-primary">Save</button>
+						<?php if ( $default_avatar_id > 0 ) : ?>
+							<button type="submit" class="button-link-delete" name="penalis_clear_default_avatar" value="1">Remove default photo</button>
+						<?php endif; ?>
+					</p>
+				</form>
+			</div>
 
 			<form method="get">
 				<input type="hidden" name="page" value="penalis-writers">
@@ -474,6 +588,8 @@ final class Penalis_Admin {
 			'protected_account'          => 'Administrator accounts cannot be changed here.',
 			'penalis_invalid_transition' => 'That status change is not allowed for this account.',
 			'penalis_email_failed'       => 'The verification email could not be sent. The account was not advanced.',
+			'avatar_saved'               => 'The default profile photo was updated.',
+			'avatar_invalid'             => 'Please choose a valid image for the default profile photo.',
 		);
 
 		return isset( $messages[ $key ] ) ? $messages[ $key ] : 'The request was completed.';

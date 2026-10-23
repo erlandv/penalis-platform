@@ -49,9 +49,11 @@ A React single-page dashboard at the plugin-managed `/penalis-dashboard/` page:
 - Preview and publish/unpublish actions.
 - Writer profile with first name, last name, and a public name choice: first +
   last, first only, last only, username, or a custom pen name.
-- Profile photo selection from the writer's own media library, using the
-  [One User Avatar](https://wordpress.org/plugins/one-user-avatar/) plugin's
-  storage and rendering.
+- Profile photo selection from the writer's own media library. Avatars are
+  served by the [One User Avatar](https://wordpress.org/plugins/one-user-avatar/)
+  plugin while it is active, and by this plugin once that plugin is deactivated.
+- A default profile photo for accounts without one, managed under
+  **Users → Penalis Writers**.
 - Account settings including password change.
 - Media library view.
 
@@ -278,8 +280,9 @@ checklist in [PROJECT-SPECIFICATION.md](PROJECT-SPECIFICATION.md#13-manual-test-
 
 ## Known limitations
 
-- Profile photos require the One User Avatar plugin; the control is hidden when
-  it is inactive and no crop UI is provided.
+- Profile photos have no crop UI; the uploaded image is used as-is. One User
+  Avatar remains the avatar provider while it is active, so this plugin's own
+  provider only takes over after that plugin is deactivated.
 - The dashboard editor is not a block editor.
 - Email delivery depends on host configuration; no SMTP library is bundled.
 - Rate limiting uses transients, not a distributed store.

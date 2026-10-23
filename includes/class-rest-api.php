@@ -373,7 +373,6 @@ final class Penalis_Rest_Api {
 				'firstName'       => (string) get_user_meta( $user_id, 'first_name', true ),
 				'lastName'        => (string) get_user_meta( $user_id, 'last_name', true ),
 				'displayNameMode' => Penalis_Account_Status::get_display_name_mode( $user_id ),
-				'avatarSupported' => Penalis_Avatar::is_supported(),
 				'avatarId'        => Penalis_Avatar::get_id( $user_id ),
 				'avatarUrl'       => Penalis_Avatar::get_url( $user_id ),
 				'email'           => $user->user_email,
@@ -505,14 +504,6 @@ final class Penalis_Rest_Api {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function set_avatar( $request ) {
-		if ( ! Penalis_Avatar::is_supported() ) {
-			return new WP_Error(
-				'penalis_avatar_unavailable',
-				'Profile photos are not available on this site.',
-				array( 'status' => 501 )
-			);
-		}
-
 		$result = Penalis_Avatar::set( get_current_user_id(), (int) $request['attachment_id'] );
 
 		if ( is_wp_error( $result ) ) {
@@ -528,14 +519,6 @@ final class Penalis_Rest_Api {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function remove_avatar() {
-		if ( ! Penalis_Avatar::is_supported() ) {
-			return new WP_Error(
-				'penalis_avatar_unavailable',
-				'Profile photos are not available on this site.',
-				array( 'status' => 501 )
-			);
-		}
-
 		Penalis_Avatar::clear( get_current_user_id() );
 
 		return self::get_account();
