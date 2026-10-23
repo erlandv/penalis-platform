@@ -312,6 +312,27 @@
   cursor: not-allowed;
 }
 
+/**
+ * Reset inherited theme button defaults.
+ *
+ * The active theme applies `margin-bottom: 35px` to every `button` element and
+ * clears it only on `:last-child`. In a flex row that lifts every button except
+ * the last one by half that margin, so any row with more than one button renders
+ * out of alignment. The theme also pins `height: 45px` and a computed
+ * `line-height`, which clips labels that wrap on narrow screens.
+ *
+ * Two classes give this rule enough specificity to win over the theme's
+ * element-level selectors without changing global theme styles.
+ */
+.penalis-dashboard-root .penalis-button {
+  box-sizing: border-box;
+  margin: 0;
+  height: auto;
+  min-height: 45px;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
 .penalis-button--primary {
   background: var(--penalis-accent);
   color: #ffffff;
