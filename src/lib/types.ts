@@ -18,6 +18,9 @@ export interface BootstrapUser {
   firstName?: string;
   lastName?: string;
   displayNameMode?: DisplayNameMode;
+  avatarId?: number;
+  avatarUrl?: string;
+  avatarSupported?: boolean;
   email: string;
   description?: string;
   website?: string;
@@ -58,6 +61,9 @@ export interface Account {
   firstName: string;
   lastName: string;
   displayNameMode: DisplayNameMode;
+  avatarId: number;
+  avatarUrl: string;
+  avatarSupported: boolean;
   email: string;
   description: string;
   website: string;

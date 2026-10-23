@@ -32,6 +32,7 @@ final class Penalis_Policy {
 	public const MIN_DISPLAY_NAME = 2;
 	public const MAX_DISPLAY_NAME = 80;
 	public const MAX_PERSON_NAME  = 50;
+	public const AVATAR_MIN_EDGE  = 100;
 
 	/**
 	 * Multibyte-safe string length with a non-mbstring fallback.
@@ -452,6 +453,47 @@ final class Penalis_Policy {
 		}
 
 		return $errors;
+	}
+
+	/**
+	 * Mime types accepted for profile photos.
+	 *
+	 * @return string[]
+	 */
+	public static function avatar_mimes() {
+		return array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
+	}
+
+	/**
+	 * Validate an avatar attachment.
+	 *
+	 * Returns an empty string when the attachment is acceptable. SVG is
+	 * deliberately excluded: avatar URLs are public and SVG can carry script.
+	 *
+	 * @param string $mime      Attachment mime type.
+	 * @param int    $width     Image width.
+	 * @param int    $height    Image height.
+	 * @param bool   $permitted Whether the user may use this attachment.
+	 * @return string Validation message, empty when valid.
+	 */
+	public static function validate_avatar( $mime, $width, $height, $permitted ) {
+		if ( ! $permitted ) {
+			return 'You can only use images you uploaded yourself.';
+		}
+
+		if ( ! in_array( (string) $mime, self::avatar_mimes(), true ) ) {
+			return 'Avatars must be JPEG, PNG, GIF, or WebP images.';
+		}
+
+		if (
+			(int) $width > 0 &&
+			(int) $height > 0 &&
+			( (int) $width < self::AVATAR_MIN_EDGE || (int) $height < self::AVATAR_MIN_EDGE )
+		) {
+			return 'Please choose an image that is at least 100 by 100 pixels.';
+		}
+
+		return '';
 	}
 
 	/**

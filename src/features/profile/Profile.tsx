@@ -1,13 +1,13 @@
 /**
- * Writer profile: identity fields and public name preference.
+ * Writer profile: identity fields, public name preference, and profile photo.
  */
 
 import { useMemo, useState, type FormEvent } from 'react';
 
-import { accountApi, ApiError } from '../../lib/api';
+import { accountApi, ApiError, mediaApi } from '../../lib/api';
 import { displayNameOptions, resolveDisplayName } from '../../lib/profile';
-import type { Account, DisplayNameMode, FieldErrors } from '../../lib/types';
-import { ErrorBanner, FieldError, Notice } from '../../components/ui';
+import type { Account, DisplayNameMode, FieldErrors, MediaItem } from '../../lib/types';
+import { ErrorBanner, FieldError, Notice, Spinner } from '../../components/ui';
 
 export function Profile({
   account,
@@ -26,6 +26,14 @@ export function Profile({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   const options = useMemo(
     () => displayNameOptions(firstName, lastName, account.username),
@@ -68,6 +76,67 @@ export function Profile({
     }
   };
 
+  const openPicker = async () => {
+    setPickerOpen(true);
+    setMediaLoading(true);
+    setUploadError('');
+
+    try {
+      const list = await mediaApi.list(1);
+      setMedia(list.items);
+    } catch {
+      setMedia([]);
+    } finally {
+      setMediaLoading(false);
+    }
+  };
+
+  const chooseAvatar = async (attachmentId: number) => {
+    setAvatarBusy(true);
+    setAvatarError('');
+
+    try {
+      const updated = await accountApi.setAvatar(attachmentId);
+      onUpdated(updated);
+      setPickerOpen(false);
+      setNotice('Your profile photo has been updated.');
+    } catch (caught) {
+      setAvatarError(caught instanceof ApiError ? caught.message : 'Your profile photo could not be updated.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    setAvatarBusy(true);
+    setAvatarError('');
+
+    try {
+      const updated = await accountApi.removeAvatar();
+      onUpdated(updated);
+      setNotice('Your profile photo has been removed.');
+    } catch (caught) {
+      setAvatarError(caught instanceof ApiError ? caught.message : 'Your profile photo could not be removed.');
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const uploadAvatar = async (file: File) => {
+    setUploading(true);
+    setUploadError('');
+
+    try {
+      const uploaded = await mediaApi.upload(file);
+      setMedia((current) => [uploaded, ...current]);
+      await chooseAvatar(uploaded.id);
+    } catch (caught) {
+      setUploadError(caught instanceof ApiError ? caught.message : 'The image could not be uploaded.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="penalis-stack">
       <div className="penalis-page-heading">
@@ -79,6 +148,42 @@ export function Profile({
           </p>
         </div>
       </div>
+
+      <section className="penalis-avatar" aria-label="Profile photo">
+        <img className="penalis-avatar__preview" src={account.avatarUrl} alt="" width={96} height={96} />
+
+        <div className="penalis-avatar__body">
+          <h3>Profile photo</h3>
+          <p className="penalis-muted">Shown on your articles and author page.</p>
+
+          {account.avatarSupported ? (
+            <div className="penalis-actions-row">
+              <button
+                type="button"
+                className="penalis-button penalis-button--ghost"
+                onClick={() => void openPicker()}
+                disabled={avatarBusy}
+              >
+                Change photo
+              </button>
+              {account.avatarId > 0 ? (
+                <button
+                  type="button"
+                  className="penalis-button penalis-button--danger"
+                  onClick={() => void removeAvatar()}
+                  disabled={avatarBusy}
+                >
+                  Remove photo
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <p className="penalis-muted">Profile photo changes require the One User Avatar plugin.</p>
+          )}
+
+          {avatarError ? <ErrorBanner message={avatarError} /> : null}
+        </div>
+      </section>
 
       {error ? <ErrorBanner message={error} /> : null}
       {notice ? <Notice tone="success">{notice}</Notice> : null}
@@ -192,6 +297,67 @@ export function Profile({
           {saving ? 'Saving…' : 'Save profile'}
         </button>
       </form>
+
+      {pickerOpen ? (
+        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Choose a profile photo">
+          <div className="penalis-modal__content">
+            <div className="penalis-modal__header">
+              <h3>Choose a profile photo</h3>
+              <button
+                type="button"
+                className="penalis-button penalis-button--ghost"
+                onClick={() => setPickerOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <label className="penalis-upload">
+              <span>{uploading ? 'Uploading…' : 'Upload an image'}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                disabled={uploading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void uploadAvatar(file);
+                  }
+                  event.target.value = '';
+                }}
+              />
+              <small>JPEG, PNG, GIF, or WebP, at least 100 × 100 pixels.</small>
+            </label>
+
+            {uploadError ? <ErrorBanner message={uploadError} /> : null}
+
+            {mediaLoading ? (
+              <Spinner label="Loading media…" />
+            ) : media.length === 0 ? (
+              <p className="penalis-muted">You have not uploaded any images yet. Use the upload control above.</p>
+            ) : (
+              <div className="penalis-media-grid">
+                {media.map((item) => (
+                  <figure key={item.id} className="penalis-media-card">
+                    {item.thumbnail ? <img src={item.thumbnail} alt={item.title} /> : null}
+                    <figcaption>{item.title}</figcaption>
+                    <div className="penalis-row-actions">
+                      <button
+                        type="button"
+                        className="penalis-button penalis-button--primary"
+                        onClick={() => void chooseAvatar(item.id)}
+                        disabled={avatarBusy}
+                      >
+                        Use as photo
+                      </button>
+                    </div>
+                  </figure>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

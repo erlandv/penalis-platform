@@ -134,6 +134,31 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/account/avatar',
+			array(
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( __CLASS__, 'set_avatar' ),
+					'permission_callback' => array( __CLASS__, 'require_logged_in' ),
+					'args'                => array(
+						'attachment_id' => array(
+							'required'          => true,
+							'type'              => 'integer',
+							'minimum'           => 1,
+							'sanitize_callback' => 'absint',
+						),
+					),
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( __CLASS__, 'remove_avatar' ),
+					'permission_callback' => array( __CLASS__, 'require_logged_in' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/articles',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -348,6 +373,9 @@ final class Penalis_Rest_Api {
 				'firstName'       => (string) get_user_meta( $user_id, 'first_name', true ),
 				'lastName'        => (string) get_user_meta( $user_id, 'last_name', true ),
 				'displayNameMode' => Penalis_Account_Status::get_display_name_mode( $user_id ),
+				'avatarSupported' => Penalis_Avatar::is_supported(),
+				'avatarId'        => Penalis_Avatar::get_id( $user_id ),
+				'avatarUrl'       => Penalis_Avatar::get_url( $user_id ),
 				'email'           => $user->user_email,
 				'description'     => (string) get_user_meta( $user_id, 'description', true ),
 				'website'         => $user->user_url,
@@ -466,6 +494,49 @@ final class Penalis_Rest_Api {
 		if ( Penalis_Policy::is_valid_display_mode( $mode ) ) {
 			update_user_meta( $user_id, Penalis_Account_Status::META_DISPLAY_NAME_MODE, $mode );
 		}
+
+		return self::get_account();
+	}
+
+	/**
+	 * Assign a profile photo from the writer's media library.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function set_avatar( $request ) {
+		if ( ! Penalis_Avatar::is_supported() ) {
+			return new WP_Error(
+				'penalis_avatar_unavailable',
+				'Profile photos are not available on this site.',
+				array( 'status' => 501 )
+			);
+		}
+
+		$result = Penalis_Avatar::set( get_current_user_id(), (int) $request['attachment_id'] );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return self::get_account();
+	}
+
+	/**
+	 * Remove the current profile photo.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function remove_avatar() {
+		if ( ! Penalis_Avatar::is_supported() ) {
+			return new WP_Error(
+				'penalis_avatar_unavailable',
+				'Profile photos are not available on this site.',
+				array( 'status' => 501 )
+			);
+		}
+
+		Penalis_Avatar::clear( get_current_user_id() );
 
 		return self::get_account();
 	}

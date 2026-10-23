@@ -76,6 +76,7 @@ Additional metadata:
 | `_penalis_approved_by` | Administrator user ID |
 | `_penalis_status_log` | Bounded audit log of status transitions |
 | `_penalis_display_name_mode` | Preferred public name source: `auto`, `first`, `last`, `username`, `custom`; absent means `custom` |
+| `{prefix}user_avatar` | Profile photo attachment ID, owned by the One User Avatar plugin |
 | `_penalis_verification_token_hash` | SHA-256 hash of the raw token |
 | `_penalis_verification_token_expires` | Expiry timestamp |
 | `_penalis_verification_token_created` | Issue timestamp for resend throttling |
@@ -156,6 +157,8 @@ Server-side guards additionally:
 | `/account` | GET | logged in | Current account state |
 | `/account/profile` | POST | logged in | Update safe profile fields |
 | `/account/password` | POST | logged in, enabled | Change own password |
+| `/account/avatar` | POST | logged in | Assign the profile photo from own media (One User Avatar) |
+| `/account/avatar` | DELETE | logged in | Detach the profile photo |
 | `/articles` | GET | active writer | Paginated own articles |
 | `/articles/(?P<id>\d+)` | GET | owner | Single own article |
 | `/articles/(?P<id>\d+)/publish` | POST | owner + active | Publish own draft |
@@ -311,6 +314,10 @@ These are **not** verified against the live site:
 - Legacy profile claiming is out of scope.
 - Multisite behavior is not specifically implemented or tested.
 - No custom database tables are introduced.
+- Profile photos depend on the One User Avatar plugin. The dashboard writes that
+  plugin's storage and does not register an avatar filter of its own, so the
+  control is hidden when the plugin is inactive. No crop UI is provided; the
+  image is used as uploaded.
 
 ## 13. Manual test checklist
 

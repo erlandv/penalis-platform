@@ -132,6 +132,13 @@ export const accountApi = {
 
   changePassword: (payload: { current_password: string; new_password: string }) =>
     request<{ message: string }>('/account/password', { method: 'POST', body: payload }),
+
+  /** Assign an existing media attachment as the profile photo. */
+  setAvatar: (attachmentId: number) =>
+    request<Account>('/account/avatar', { method: 'POST', body: { attachment_id: attachmentId } }),
+
+  /** Detach the profile photo and fall back to the site default. */
+  removeAvatar: () => request<Account>('/account/avatar', { method: 'DELETE' }),
 };
 
 /* ----------------------------- Registration ---------------------------- */
