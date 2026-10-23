@@ -388,6 +388,28 @@
   font-size: 0.78rem;
 }
 
+.penalis-field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 560px) {
+  .penalis-field-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.penalis-profile-preview {
+  margin: -0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--penalis-muted);
+}
+
+.penalis-profile-preview strong {
+  color: var(--penalis-text);
+}
+
 .penalis-dashboard-root input[type='text'],
 .penalis-dashboard-root input[type='email'],
 .penalis-dashboard-root input[type='password'],
@@ -410,6 +432,21 @@
   resize: vertical;
   min-height: 120px;
   line-height: 1.6;
+}
+
+/**
+ * The theme sets `appearance: none` on selects without providing a replacement
+ * arrow, which makes them indistinguishable from text inputs. Draw a chevron so
+ * controls like "Display name publicly as" read as dropdowns.
+ */
+.penalis-dashboard-root select {
+  appearance: none;
+  padding-right: 2.4rem;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2012%208'%20fill='none'%20stroke='%2371717a'%20stroke-width='1.6'%3E%3Cpath%20d='M1%201.5%206%206.5l5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 0.75rem;
+  cursor: pointer;
 }
 
 .penalis-dashboard-root input:focus,

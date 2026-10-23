@@ -60,6 +60,7 @@ $penalis_meta_keys = array(
 	'_penalis_approved_at',
 	'_penalis_approved_by',
 	'_penalis_status_log',
+	'_penalis_display_name_mode',
 	'_penalis_verification_token_hash',
 	'_penalis_verification_token_expires',
 	'_penalis_verification_token_created',

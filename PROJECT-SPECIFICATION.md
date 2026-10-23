@@ -75,6 +75,7 @@ Additional metadata:
 | `_penalis_approved_at` | Approval timestamp |
 | `_penalis_approved_by` | Administrator user ID |
 | `_penalis_status_log` | Bounded audit log of status transitions |
+| `_penalis_display_name_mode` | Preferred public name source: `auto`, `first`, `last`, `username`, `custom`; absent means `custom` |
 | `_penalis_verification_token_hash` | SHA-256 hash of the raw token |
 | `_penalis_verification_token_expires` | Expiry timestamp |
 | `_penalis_verification_token_created` | Issue timestamp for resend throttling |
@@ -241,7 +242,8 @@ Views:
 - **My Articles** — paginated list with status filters and actions.
 - **Editor** — create/edit title, content, excerpt, categories, tags, featured
   image, inline media insertion.
-- **Profile** — display name, bio, website, safe profile fields.
+- **Profile** — first name, last name, public name choice (first + last, first,
+  last, username, or a custom pen name), bio, website.
 - **Settings** — account status, password change, sign out.
 
 UX requirements implemented:

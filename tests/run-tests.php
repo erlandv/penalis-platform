@@ -318,6 +318,123 @@ penalis_assert( true === Penalis_Account_Status::transition( 6, 'pending_approva
 penalis_assert( ! Penalis_Account_Status::can_write( 6 ), 'Reopened application still cannot write.' );
 
 /* -------------------------------------------------------------------------
+ * Public display name
+ * ---------------------------------------------------------------------- */
+
+penalis_same(
+	'Siti Sukentari',
+	Penalis_Policy::resolve_display_name( 'auto', 'Siti', 'Sukentari', 'sukentari' ),
+	'Automatic mode uses first and last name.'
+);
+penalis_same(
+	'Siti',
+	Penalis_Policy::resolve_display_name( 'auto', 'Siti', '', 'sukentari' ),
+	'Automatic mode falls back to the first name.'
+);
+penalis_same(
+	'Sukentari',
+	Penalis_Policy::resolve_display_name( 'auto', '', 'Sukentari', 'sukentari' ),
+	'Automatic mode falls back to the last name.'
+);
+penalis_same(
+	'sukentari',
+	Penalis_Policy::resolve_display_name( 'auto', '', '', 'sukentari' ),
+	'Automatic mode falls back to the username.'
+);
+penalis_same(
+	'Siti',
+	Penalis_Policy::resolve_display_name( 'first', 'Siti', 'Sukentari', 'sukentari' ),
+	'First-name mode ignores the last name.'
+);
+penalis_same(
+	'Sukentari',
+	Penalis_Policy::resolve_display_name( 'last', 'Siti', 'Sukentari', 'sukentari' ),
+	'Last-name mode ignores the first name.'
+);
+penalis_same(
+	'sukentari',
+	Penalis_Policy::resolve_display_name( 'username', 'Siti', 'Sukentari', 'sukentari' ),
+	'Username mode uses the login.'
+);
+penalis_same(
+	'Sang Pujangga',
+	Penalis_Policy::resolve_display_name( 'custom', 'Siti', 'Sukentari', 'sukentari', '  Sang   Pujangga ' ),
+	'Custom names are normalised.'
+);
+penalis_same(
+	'Siti Sukentari',
+	Penalis_Policy::normalize_person_name( "  Siti \t Sukentari  " ),
+	'Person names are trimmed and collapsed.'
+);
+
+$errors = Penalis_Policy::validate_profile(
+	array(
+		'display_name_mode' => 'first',
+		'first_name'        => '',
+		'last_name'         => 'Sukentari',
+	)
+);
+penalis_assert( isset( $errors['first_name'] ), 'First-name mode requires a first name.' );
+
+$errors = Penalis_Policy::validate_profile(
+	array(
+		'display_name_mode' => 'last',
+		'first_name'        => 'Siti',
+		'last_name'         => '',
+	)
+);
+penalis_assert( isset( $errors['last_name'] ), 'Last-name mode requires a last name.' );
+
+$errors = Penalis_Policy::validate_profile( array( 'display_name_mode' => 'nickname' ) );
+penalis_assert( isset( $errors['display_name_mode'] ), 'Unknown modes are rejected.' );
+
+$errors = Penalis_Policy::validate_profile(
+	array(
+		'display_name_mode' => 'custom',
+		'display_name'      => 'A',
+	)
+);
+penalis_assert( isset( $errors['display_name'] ), 'Short custom display names are rejected.' );
+
+$errors = Penalis_Policy::validate_profile(
+	array(
+		'display_name_mode' => 'auto',
+		'first_name'        => str_repeat( 'a', 45 ),
+		'last_name'         => str_repeat( 'b', 45 ),
+	)
+);
+penalis_assert( isset( $errors['display_name_mode'] ), 'Derived names longer than 80 characters are rejected.' );
+
+$errors = Penalis_Policy::validate_profile( array( 'first_name' => str_repeat( 'a', 51 ) ) );
+penalis_assert( isset( $errors['first_name'] ), 'Overlong first names are rejected.' );
+
+penalis_assert(
+	empty(
+		Penalis_Policy::validate_profile(
+			array(
+				'display_name_mode' => 'auto',
+				'first_name'        => 'Siti',
+				'last_name'         => 'Sukentari',
+			)
+		)
+	),
+	'Valid name fields pass validation.'
+);
+
+penalis_assert(
+	empty( Penalis_Policy::validate_profile( array( 'first_name' => '', 'last_name' => '' ) ) ),
+	'Empty optional name fields pass validation.'
+);
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][7] = new WP_User( 7, array( 'subscriber' ) );
+penalis_same( 'custom', Penalis_Account_Status::get_display_name_mode( 7 ), 'Missing preference defaults to a custom name.' );
+update_user_meta( 7, Penalis_Account_Status::META_DISPLAY_NAME_MODE, 'auto' );
+penalis_same( 'auto', Penalis_Account_Status::get_display_name_mode( 7 ), 'Stored preference is returned.' );
+update_user_meta( 7, Penalis_Account_Status::META_DISPLAY_NAME_MODE, 'bogus' );
+penalis_same( 'custom', Penalis_Account_Status::get_display_name_mode( 7 ), 'Unknown stored preferences fall back to custom.' );
+
+/* -------------------------------------------------------------------------
  * Report
  * ---------------------------------------------------------------------- */
 

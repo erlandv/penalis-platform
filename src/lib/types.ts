@@ -10,9 +10,14 @@ export type AccountStatus =
   | 'suspended'
   | '';
 
+export type DisplayNameMode = 'auto' | 'first' | 'last' | 'username' | 'custom';
+
 export interface BootstrapUser {
   id: number;
   displayName: string;
+  firstName?: string;
+  lastName?: string;
+  displayNameMode?: DisplayNameMode;
   email: string;
   description?: string;
   website?: string;
@@ -50,6 +55,9 @@ export interface Account {
   id: number;
   username: string;
   displayName: string;
+  firstName: string;
+  lastName: string;
+  displayNameMode: DisplayNameMode;
   email: string;
   description: string;
   website: string;

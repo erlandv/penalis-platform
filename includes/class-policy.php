@@ -29,6 +29,10 @@ final class Penalis_Policy {
 	public const MIN_PASSWORD      = 12;
 	public const MAX_PASSWORD      = 200;
 
+	public const MIN_DISPLAY_NAME = 2;
+	public const MAX_DISPLAY_NAME = 80;
+	public const MAX_PERSON_NAME  = 50;
+
 	/**
 	 * Multibyte-safe string length with a non-mbstring fallback.
 	 *
@@ -37,6 +41,83 @@ final class Penalis_Policy {
 	 */
 	private static function length( $value ) {
 		return function_exists( 'mb_strlen' ) ? mb_strlen( $value, 'UTF-8' ) : strlen( $value );
+	}
+
+	/**
+	 * Supported sources for the public display name.
+	 *
+	 * @return string[]
+	 */
+	public static function display_name_modes() {
+		return array( 'auto', 'first', 'last', 'username', 'custom' );
+	}
+
+	/**
+	 * Whether a display-name mode is known.
+	 *
+	 * @param mixed $mode Mode value.
+	 * @return bool
+	 */
+	public static function is_valid_display_mode( $mode ) {
+		return is_string( $mode ) && in_array( $mode, self::display_name_modes(), true );
+	}
+
+	/**
+	 * Trim a person name and collapse internal whitespace.
+	 *
+	 * @param string $value Raw value.
+	 * @return string
+	 */
+	public static function normalize_person_name( $value ) {
+		$value = trim( (string) $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		return (string) preg_replace( '/\s+/u', ' ', $value );
+	}
+
+	/**
+	 * Resolve the public display name for a mode.
+	 *
+	 * Mirrors the WordPress core fallback used when no display name is supplied:
+	 * first and last name, then first name, then last name, then the username.
+	 *
+	 * @param string $mode     Display name mode.
+	 * @param string $first    First name.
+	 * @param string $last     Last name.
+	 * @param string $login    Username, used as the final fallback.
+	 * @param string $custom   Custom display name for the `custom` mode.
+	 * @return string
+	 */
+	public static function resolve_display_name( $mode, $first, $last, $login, $custom = '' ) {
+		$first = self::normalize_person_name( $first );
+		$last  = self::normalize_person_name( $last );
+		$login = trim( (string) $login );
+
+		switch ( $mode ) {
+			case 'first':
+				return $first;
+			case 'last':
+				return $last;
+			case 'username':
+				return $login;
+			case 'custom':
+				return self::normalize_person_name( $custom );
+			case 'auto':
+			default:
+				if ( '' !== $first && '' !== $last ) {
+					return $first . ' ' . $last;
+				}
+				if ( '' !== $first ) {
+					return $first;
+				}
+				if ( '' !== $last ) {
+					return $last;
+				}
+				return $login;
+		}
 	}
 
 	/**
@@ -309,10 +390,49 @@ final class Penalis_Policy {
 	public static function validate_profile( $data ) {
 		$errors = array();
 
-		if ( array_key_exists( 'display_name', $data ) ) {
-			$display_name = trim( (string) $data['display_name'] );
-			if ( self::length( $display_name ) < 2 || self::length( $display_name ) > 80 ) {
+		$mode = isset( $data['display_name_mode'] ) ? (string) $data['display_name_mode'] : '';
+
+		if ( '' !== $mode && ! self::is_valid_display_mode( $mode ) ) {
+			$errors['display_name_mode'] = 'Please choose a valid public name option.';
+		}
+
+		$first = isset( $data['first_name'] ) ? self::normalize_person_name( $data['first_name'] ) : '';
+		$last  = isset( $data['last_name'] ) ? self::normalize_person_name( $data['last_name'] ) : '';
+
+		if ( isset( $data['first_name'] ) && self::length( $first ) > self::MAX_PERSON_NAME ) {
+			$errors['first_name'] = 'Please enter a first name of 50 characters or fewer.';
+		}
+
+		if ( isset( $data['last_name'] ) && self::length( $last ) > self::MAX_PERSON_NAME ) {
+			$errors['last_name'] = 'Please enter a last name of 50 characters or fewer.';
+		}
+
+		if ( 'first' === $mode && '' === $first ) {
+			$errors['first_name'] = 'Please enter a first name to use it as your public name.';
+		}
+
+		if ( 'last' === $mode && '' === $last ) {
+			$errors['last_name'] = 'Please enter a last name to use it as your public name.';
+		}
+
+		if ( array_key_exists( 'display_name', $data ) && ( '' === $mode || 'custom' === $mode ) ) {
+			$display_name = self::normalize_person_name( $data['display_name'] );
+
+			if (
+				self::length( $display_name ) < self::MIN_DISPLAY_NAME ||
+				self::length( $display_name ) > self::MAX_DISPLAY_NAME
+			) {
 				$errors['display_name'] = 'Please enter a display name between 2 and 80 characters.';
+			}
+		}
+
+		if ( '' !== $mode && 'custom' !== $mode ) {
+			// The username is the final fallback and is always within the limit,
+			// so only the composed name fields can overflow.
+			$resolved = self::resolve_display_name( $mode, $first, $last, '' );
+
+			if ( self::length( $resolved ) > self::MAX_DISPLAY_NAME ) {
+				$errors['display_name_mode'] = 'The selected public name is longer than 80 characters. Please shorten your name.';
 			}
 		}
 

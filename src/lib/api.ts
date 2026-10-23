@@ -12,6 +12,7 @@ import type {
   ApiErrorShape,
   Article,
   ArticleList,
+  DisplayNameMode,
   FieldErrors,
   MediaItem,
   MediaList,
@@ -120,8 +121,14 @@ function decodeTermName<T extends { name: string }>(term: T): T {
 export const accountApi = {
   get: () => request<Account>('/account'),
 
-  updateProfile: (payload: { display_name?: string; description?: string; user_url?: string }) =>
-    request<Account>('/account/profile', { method: 'POST', body: payload }),
+  updateProfile: (payload: {
+    first_name?: string;
+    last_name?: string;
+    display_name_mode?: DisplayNameMode;
+    display_name?: string;
+    description?: string;
+    user_url?: string;
+  }) => request<Account>('/account/profile', { method: 'POST', body: payload }),
 
   changePassword: (payload: { current_password: string; new_password: string }) =>
     request<{ message: string }>('/account/password', { method: 'POST', body: payload }),

@@ -345,6 +345,9 @@ final class Penalis_Rest_Api {
 				'id'              => (int) $user_id,
 				'username'        => $user->user_login,
 				'displayName'     => $user->display_name,
+				'firstName'       => (string) get_user_meta( $user_id, 'first_name', true ),
+				'lastName'        => (string) get_user_meta( $user_id, 'last_name', true ),
+				'displayNameMode' => Penalis_Account_Status::get_display_name_mode( $user_id ),
 				'email'           => $user->user_email,
 				'description'     => (string) get_user_meta( $user_id, 'description', true ),
 				'website'         => $user->user_url,
@@ -373,14 +376,33 @@ final class Penalis_Rest_Api {
 		$user_id = get_current_user_id();
 		$input   = array();
 
-		foreach ( array( 'display_name', 'description', 'user_url' ) as $field ) {
+		$fields = array( 'display_name', 'display_name_mode', 'first_name', 'last_name', 'description', 'user_url' );
+
+		foreach ( $fields as $field ) {
 			$value = $request->get_param( $field );
 			if ( null !== $value ) {
 				$input[ $field ] = $value;
 			}
 		}
 
-		$errors = Penalis_Policy::validate_profile( $input );
+		$mode       = isset( $input['display_name_mode'] ) ? sanitize_key( (string) $input['display_name_mode'] ) : '';
+		$validation = $input;
+		$mode_field = array(
+			'first' => 'first_name',
+			'last'  => 'last_name',
+		);
+
+		// A partial update may switch the public-name mode without resending the
+		// name fields, so validate that mode against the stored values.
+		if ( isset( $mode_field[ $mode ] ) ) {
+			$required = $mode_field[ $mode ];
+
+			if ( ! isset( $validation[ $required ] ) ) {
+				$validation[ $required ] = (string) get_user_meta( $user_id, $required, true );
+			}
+		}
+
+		$errors = Penalis_Policy::validate_profile( $validation );
 		if ( ! empty( $errors ) ) {
 			return new WP_Error(
 				'penalis_profile_invalid',
@@ -392,10 +414,19 @@ final class Penalis_Rest_Api {
 			);
 		}
 
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return new WP_Error( 'penalis_not_authenticated', 'You must be signed in.', array( 'status' => 401 ) );
+		}
+
 		$update = array( 'ID' => $user_id );
 
-		if ( isset( $input['display_name'] ) ) {
-			$update['display_name'] = sanitize_text_field( $input['display_name'] );
+		if ( isset( $input['first_name'] ) ) {
+			$update['first_name'] = Penalis_Policy::normalize_person_name( sanitize_text_field( (string) $input['first_name'] ) );
+		}
+
+		if ( isset( $input['last_name'] ) ) {
+			$update['last_name'] = Penalis_Policy::normalize_person_name( sanitize_text_field( (string) $input['last_name'] ) );
 		}
 
 		if ( isset( $input['description'] ) ) {
@@ -406,6 +437,22 @@ final class Penalis_Rest_Api {
 			$update['user_url'] = esc_url_raw( trim( (string) $input['user_url'] ) );
 		}
 
+		if ( Penalis_Policy::is_valid_display_mode( $mode ) ) {
+			if ( 'custom' === $mode ) {
+				$update['display_name'] = sanitize_text_field( (string) ( $input['display_name'] ?? '' ) );
+			} else {
+				// Resolve against the incoming names, falling back to stored ones.
+				$first = $update['first_name'] ?? (string) get_user_meta( $user_id, 'first_name', true );
+				$last  = $update['last_name'] ?? (string) get_user_meta( $user_id, 'last_name', true );
+
+				$update['display_name'] = Penalis_Policy::resolve_display_name( $mode, $first, $last, $user->user_login );
+			}
+		} elseif ( isset( $input['display_name'] ) ) {
+			// Backwards compatibility for clients that only send display_name.
+			$update['display_name'] = sanitize_text_field( (string) $input['display_name'] );
+			$mode                   = 'custom';
+		}
+
 		$result = wp_update_user( $update );
 
 		if ( is_wp_error( $result ) ) {
@@ -414,6 +461,10 @@ final class Penalis_Rest_Api {
 				'Your profile could not be updated. Please try again.',
 				array( 'status' => 400 )
 			);
+		}
+
+		if ( Penalis_Policy::is_valid_display_mode( $mode ) ) {
+			update_user_meta( $user_id, Penalis_Account_Status::META_DISPLAY_NAME_MODE, $mode );
 		}
 
 		return self::get_account();

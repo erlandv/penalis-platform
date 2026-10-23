@@ -14,18 +14,19 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Penalis_Account_Status {
 
-	public const META_STATUS        = '_penalis_account_status';
-	public const META_ACCESS        = '_penalis_access_enabled';
-	public const META_VERIFIED      = '_penalis_email_verified';
-	public const META_REGISTERED_AT = '_penalis_registered_at';
-	public const META_APPROVED_AT   = '_penalis_approved_at';
-	public const META_APPROVED_BY   = '_penalis_approved_by';
-	public const META_LOG           = '_penalis_status_log';
-	public const META_TOKEN_HASH    = '_penalis_verification_token_hash';
-	public const META_TOKEN_EXPIRES = '_penalis_verification_token_expires';
-	public const META_TOKEN_CREATED = '_penalis_verification_token_created';
-	public const META_MAIL_FAILED   = '_penalis_last_email_failed_at';
-	public const META_MAIL_CONTEXT  = '_penalis_last_email_failed_context';
+	public const META_STATUS            = '_penalis_account_status';
+	public const META_ACCESS            = '_penalis_access_enabled';
+	public const META_VERIFIED          = '_penalis_email_verified';
+	public const META_REGISTERED_AT     = '_penalis_registered_at';
+	public const META_APPROVED_AT       = '_penalis_approved_at';
+	public const META_APPROVED_BY       = '_penalis_approved_by';
+	public const META_LOG               = '_penalis_status_log';
+	public const META_TOKEN_HASH        = '_penalis_verification_token_hash';
+	public const META_TOKEN_EXPIRES     = '_penalis_verification_token_expires';
+	public const META_TOKEN_CREATED     = '_penalis_verification_token_created';
+	public const META_MAIL_FAILED       = '_penalis_last_email_failed_at';
+	public const META_MAIL_CONTEXT      = '_penalis_last_email_failed_context';
+	public const META_DISPLAY_NAME_MODE = '_penalis_display_name_mode';
 
 	public const LOG_LIMIT = 20;
 
@@ -48,6 +49,21 @@ final class Penalis_Account_Status {
 	 */
 	public static function is_access_enabled( $user_id ) {
 		return '1' === (string) get_user_meta( (int) $user_id, self::META_ACCESS, true );
+	}
+
+	/**
+	 * Public-name preference for a user.
+	 *
+	 * Accounts created before the preference existed keep the display name
+	 * WordPress already stored, so the fallback is `custom`.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string One of the Penalis_Policy display name modes.
+	 */
+	public static function get_display_name_mode( $user_id ) {
+		$mode = get_user_meta( (int) $user_id, self::META_DISPLAY_NAME_MODE, true );
+
+		return Penalis_Policy::is_valid_display_mode( $mode ) ? (string) $mode : 'custom';
 	}
 
 	/**

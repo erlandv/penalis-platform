@@ -47,7 +47,8 @@ A React single-page dashboard at the plugin-managed `/penalis-dashboard/` page:
 - Article editor with title, content, excerpt, categories, tags, featured
   image, and image upload/insertion.
 - Preview and publish/unpublish actions.
-- Writer profile with safe fields only.
+- Writer profile with first name, last name, and a public name choice: first +
+  last, first only, last only, username, or a custom pen name.
 - Account settings including password change.
 - Media library view.
 
@@ -113,6 +114,7 @@ penalis-platform/
 | Verification token hash | User meta `_penalis_verification_token_hash` |
 | Token expiry | User meta `_penalis_verification_token_expires` |
 | Audit trail | User meta `_penalis_status_log` (bounded) |
+| Public name preference | User meta `_penalis_display_name_mode` |
 | Dashboard page ID | Option `penalis_dashboard_page_id` |
 | Settings | Options `penalis_registration_enabled`, `penalis_remove_data_on_uninstall` |
 
