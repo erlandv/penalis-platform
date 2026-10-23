@@ -29,6 +29,7 @@ final class Penalis_Dashboard {
 		add_action( 'template_redirect', array( __CLASS__, 'set_login_test_cookie' ), 2 );
 		add_filter( 'wp_robots', array( __CLASS__, 'noindex' ) );
 		add_filter( 'body_class', array( __CLASS__, 'body_class' ) );
+		add_action( 'template_redirect', array( __CLASS__, 'redirect_legacy_slug' ), 5 );
 	}
 	/**
 	 * Dashboard page ID.
@@ -47,7 +48,7 @@ final class Penalis_Dashboard {
 	 */
 	public static function dashboard_url( $args = array() ) {
 		$page_id = self::page_id();
-		$url     = $page_id > 0 ? get_permalink( $page_id ) : home_url( '/penalis-dashboard/' );
+		$url     = $page_id > 0 ? get_permalink( $page_id ) : home_url( '/' . Penalis_Activator::SLUG . '/' );
 
 		if ( ! $url ) {
 			$url = home_url( '/' );
@@ -63,6 +64,45 @@ final class Penalis_Dashboard {
 	 */
 	public static function registration_url() {
 		return self::dashboard_url();
+	}
+
+	/**
+	 * Redirect the pre-0.2.0 dashboard URL to the current one.
+	 *
+	 * Links in emails sent before the rename would otherwise dead-end.
+	 *
+	 * @return void
+	 */
+	public static function redirect_legacy_slug() {
+		if ( ! is_404() ) {
+			return;
+		}
+
+		$path = trim( (string) wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '', PHP_URL_PATH ), '/' );
+		$home = trim( (string) wp_parse_url( home_url(), PHP_URL_PATH ), '/' );
+
+		if ( '' !== $home && 0 === strpos( $path, $home . '/' ) ) {
+			$path = substr( $path, strlen( $home ) + 1 );
+		}
+
+		if ( Penalis_Activator::LEGACY_SLUG !== $path ) {
+			return;
+		}
+
+		// Verification links sent before the rename carry a single-use token in
+		// the query string, so the arguments have to survive the redirect.
+		$args = array();
+
+		foreach ( wp_unslash( $_GET ) as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( is_scalar( $value ) ) {
+				$args[ sanitize_key( (string) $key ) ] = sanitize_text_field( (string) $value );
+			}
+		}
+
+		$target = empty( $args ) ? self::dashboard_url() : add_query_arg( $args, self::dashboard_url() );
+
+		wp_safe_redirect( $target, 301 );
+		exit;
 	}
 
 	/**
@@ -256,6 +296,7 @@ final class Penalis_Dashboard {
 					'email'           => $user->user_email,
 					'description'     => (string) get_user_meta( $user_id, 'description', true ),
 					'website'         => $user->user_url,
+					'authorUrl'       => get_author_posts_url( $user_id ),
 				) : null,
 				'i18n'         => array(
 					'signIn'       => __( 'Sign in', 'penalis-platform' ),

@@ -60,56 +60,43 @@ export function resolveDisplayName(
   }
 }
 
-/** Describe which fields the automatic option currently uses. */
-export function automaticSource(firstName: string, lastName: string): string {
-  const first = normalizePersonName(firstName);
-  const last = normalizePersonName(lastName);
-
-  if (first && last) {
-    return 'First + Last name';
-  }
-  if (first) {
-    return 'First name';
-  }
-  if (last) {
-    return 'Last name';
-  }
-  return 'Username';
-}
-
 /**
  * Options for the "Display name publicly as" control.
  *
- * Options that need a field the writer has not filled in are omitted, so the
- * select never offers a value the server would reject.
+ * Each option shows only the resulting public name. Options that need a field
+ * the writer has not filled in are omitted, and values that would render the
+ * same text as the automatic option are dropped, so the select never offers a
+ * choice the server would reject or a duplicate label.
  */
 export function displayNameOptions(firstName: string, lastName: string, username: string): DisplayNameOption[] {
   const first = normalizePersonName(firstName);
   const last = normalizePersonName(lastName);
   const login = username.trim();
 
-  const options: DisplayNameOption[] = [
-    {
-      mode: 'auto',
-      label: `${resolveDisplayName('auto', first, last, login)} (${automaticSource(first, last)})`,
-    },
-  ];
+  const automatic = resolveDisplayName('auto', first, last, login);
+  const options: DisplayNameOption[] = [{ mode: 'auto', label: automatic }];
+  const seen = new Set<string>([automatic]);
+
+  const add = (mode: DisplayNameMode, label: string) => {
+    if ('' !== label && !seen.has(label)) {
+      seen.add(label);
+      options.push({ mode, label });
+    }
+  };
 
   if (first) {
-    options.push({ mode: 'first', label: `${first} (First name only)` });
+    add('first', first);
   }
 
   if (last) {
-    options.push({ mode: 'last', label: `${last} (Last name only)` });
+    add('last', last);
   }
 
-  // With no name fields the automatic option already resolves to the username,
-  // so a separate username entry would be a duplicate.
-  if (login && (first || last)) {
-    options.push({ mode: 'username', label: `${login} (Username)` });
+  if (login) {
+    add('username', login);
   }
 
-  options.push({ mode: 'custom', label: 'Custom (pen name)…' });
+  options.push({ mode: 'custom', label: 'Custom' });
 
   return options;
 }

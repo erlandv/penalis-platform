@@ -400,16 +400,6 @@
   }
 }
 
-.penalis-profile-preview {
-  margin: -0.25rem 0 0;
-  font-size: 0.85rem;
-  color: var(--penalis-muted);
-}
-
-.penalis-profile-preview strong {
-  color: var(--penalis-text);
-}
-
 .penalis-avatar {
   display: flex;
   align-items: center;

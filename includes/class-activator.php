@@ -20,6 +20,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Penalis_Activator {
 
 	/**
+	 * Preferred dashboard page slug.
+	 */
+	public const SLUG = 'dashboard';
+
+	/**
+	 * Slug used before 0.2.0.
+	 */
+	public const LEGACY_SLUG = 'penalis-dashboard';
+
+	/**
 	 * Run on activation.
 	 *
 	 * @return void
@@ -63,6 +73,7 @@ final class Penalis_Activator {
 		if ( $existing_id > 0 ) {
 			$existing = get_post( $existing_id );
 			if ( $existing && 'page' === $existing->post_type && 'trash' !== $existing->post_status ) {
+				self::maybe_migrate_slug( $existing );
 				return $existing_id;
 			}
 		}
@@ -70,7 +81,7 @@ final class Penalis_Activator {
 		$page_id = wp_insert_post(
 			array(
 				'post_title'     => 'Writing Dashboard',
-				'post_name'      => 'penalis-dashboard',
+				'post_name'      => self::SLUG,
 				'post_content'   => '[penalis_dashboard]',
 				'post_status'    => 'publish',
 				'post_type'      => 'page',
@@ -92,6 +103,38 @@ final class Penalis_Activator {
 		update_option( 'penalis_dashboard_page_created_by_plugin', '1', false );
 
 		return (int) $page_id;
+	}
+
+	/**
+	 * Rename a plugin-managed dashboard page created under the legacy slug.
+	 *
+	 * Only pages this plugin created are touched, and only when the preferred
+	 * slug is free; anything else is left alone.
+	 *
+	 * @param WP_Post $page Dashboard page.
+	 * @return void
+	 */
+	private static function maybe_migrate_slug( $page ) {
+		if ( self::SLUG === $page->post_name || self::LEGACY_SLUG !== $page->post_name ) {
+			return;
+		}
+
+		if ( '1' !== (string) get_option( 'penalis_dashboard_page_created_by_plugin', '0' ) ) {
+			return;
+		}
+
+		$conflict = get_page_by_path( self::SLUG, OBJECT, 'page' );
+
+		if ( $conflict && (int) $conflict->ID !== (int) $page->ID ) {
+			return;
+		}
+
+		wp_update_post(
+			array(
+				'ID'        => (int) $page->ID,
+				'post_name' => self::SLUG,
+			)
+		);
 	}
 
 	/**

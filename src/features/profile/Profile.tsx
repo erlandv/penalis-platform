@@ -5,7 +5,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 
 import { accountApi, ApiError, mediaApi } from '../../lib/api';
-import { displayNameOptions, resolveDisplayName } from '../../lib/profile';
+import { displayNameOptions } from '../../lib/profile';
 import type { Account, DisplayNameMode, FieldErrors, MediaItem } from '../../lib/types';
 import { ErrorBanner, FieldError, Notice, Spinner } from '../../components/ui';
 
@@ -21,7 +21,6 @@ export function Profile({
   const [mode, setMode] = useState<DisplayNameMode>(account.displayNameMode);
   const [customName, setCustomName] = useState(account.displayNameMode === 'custom' ? account.displayName : '');
   const [description, setDescription] = useState(account.description);
-  const [website, setWebsite] = useState(account.website);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -43,7 +42,6 @@ export function Profile({
   // Clearing a name removes the option that depended on it. Fall back to the
   // automatic option rather than submitting a selection the server rejects.
   const selectedMode: DisplayNameMode = options.some((option) => option.mode === mode) ? mode : 'auto';
-  const publicName = resolveDisplayName(selectedMode, firstName, lastName, account.username, customName);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -59,7 +57,6 @@ export function Profile({
         display_name_mode: selectedMode,
         ...(selectedMode === 'custom' ? { display_name: customName.trim() } : {}),
         description,
-        user_url: website.trim(),
       });
       onUpdated(updated);
       setCustomName(updated.displayNameMode === 'custom' ? updated.displayName : customName);
@@ -245,10 +242,6 @@ export function Profile({
           </label>
         ) : null}
 
-        <p className="penalis-profile-preview">
-          Public name: <strong>{publicName || '—'}</strong>
-        </p>
-
         <label className="penalis-field">
           <span>Biography</span>
           <textarea
@@ -260,18 +253,6 @@ export function Profile({
           />
           <small>{description.length}/500 characters</small>
           <FieldError errors={errors} name="description" />
-        </label>
-
-        <label className="penalis-field">
-          <span>Website</span>
-          <input
-            type="url"
-            value={website}
-            onChange={(event) => setWebsite(event.target.value)}
-            placeholder="https://"
-            aria-invalid={Boolean(errors.user_url)}
-          />
-          <FieldError errors={errors} name="user_url" />
         </label>
 
         <dl className="penalis-details">

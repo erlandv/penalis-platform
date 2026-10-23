@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { automaticSource, displayNameOptions, normalizePersonName, resolveDisplayName } from './profile';
+import { displayNameOptions, normalizePersonName, resolveDisplayName } from './profile';
 
 describe('normalizePersonName', () => {
   it('trims and collapses whitespace', () => {
@@ -34,37 +34,36 @@ describe('resolveDisplayName', () => {
   });
 });
 
-describe('automaticSource', () => {
-  it('describes the fields used by the automatic option', () => {
-    expect(automaticSource('Siti', 'Sukentari')).toBe('First + Last name');
-    expect(automaticSource('Siti', '')).toBe('First name');
-    expect(automaticSource('', 'Sukentari')).toBe('Last name');
-    expect(automaticSource('', '')).toBe('Username');
-  });
-});
-
 describe('displayNameOptions', () => {
-  it('offers every option when both names are filled in', () => {
-    const modes = displayNameOptions('Siti', 'Sukentari', 'sukentari').map((option) => option.mode);
-    expect(modes).toEqual(['auto', 'first', 'last', 'username', 'custom']);
-  });
-
-  it('labels the automatic option with the derived value and its source', () => {
-    const [automatic] = displayNameOptions('Siti', 'Sukentari', 'sukentari');
-    expect(automatic?.label).toBe('Siti Sukentari (First + Last name)');
+  it('labels every option with the resulting public name only', () => {
+    const options = displayNameOptions('Siti', 'Sukentari', 'sukentari');
+    expect(options.map((option) => option.mode)).toEqual(['auto', 'first', 'last', 'username', 'custom']);
+    expect(options.map((option) => option.label)).toEqual([
+      'Siti Sukentari',
+      'Siti',
+      'Sukentari',
+      'sukentari',
+      'Custom',
+    ]);
   });
 
   it('omits options whose field is empty', () => {
-    const modes = displayNameOptions('', '', 'sukentari').map((option) => option.mode);
-    // Automatic already resolves to the username here, so no duplicate entry.
-    expect(modes).toEqual(['auto', 'custom']);
-
-    const [automatic] = displayNameOptions('', '', 'sukentari');
-    expect(automatic?.label).toBe('sukentari (Username)');
+    const options = displayNameOptions('', '', 'sukentari');
+    expect(options.map((option) => option.mode)).toEqual(['auto', 'custom']);
+    expect(options[0]?.label).toBe('sukentari');
   });
 
-  it('always keeps the custom option available', () => {
-    const options = displayNameOptions('', '', '');
-    expect(options.map((option) => option.mode)).toContain('custom');
+  it('never repeats a label', () => {
+    // The automatic option already resolves to the first name here.
+    const options = displayNameOptions('Siti', '', 'sukentari');
+    expect(options.map((option) => option.label)).toEqual(['Siti', 'sukentari', 'Custom']);
+
+    // Username identical to the first name: only one entry survives.
+    const sameName = displayNameOptions('sukentari', '', 'sukentari');
+    expect(sameName.map((option) => option.label)).toEqual(['sukentari', 'Custom']);
+  });
+
+  it('always offers the custom option', () => {
+    expect(displayNameOptions('', '', '').map((option) => option.mode)).toContain('custom');
   });
 });

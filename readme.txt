@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -160,6 +160,16 @@ Screenshots are not provided yet.
 
 == Changelog ==
 
+= 0.2.0 =
+* Dashboard page moved from `/penalis-dashboard/` to `/dashboard/`; existing
+  plugin-managed pages are renamed on upgrade and the old URL redirects.
+* Writer profile: first and last name with a public name choice, and profile
+  photo management.
+* Avatars are served by this plugin when One User Avatar is inactive, with a
+  default photo setting under Users -> Penalis Writers.
+* Taxonomy names containing HTML entities are decoded before display.
+* Action rows keep their alignment when the active theme styles buttons.
+
 = 0.1.0 =
 * Initial release.
 * Account lifecycle: registration, email verification, administrator approval,
@@ -173,6 +183,10 @@ Screenshots are not provided yet.
   production build pipeline.
 
 == Upgrade Notice ==
+
+= 0.2.0 =
+Renames the plugin-managed dashboard page to `/dashboard/`. No content or user
+data is migrated; the previous URL redirects to the new one.
 
 = 0.1.0 =
 Initial release; no upgrade path required.

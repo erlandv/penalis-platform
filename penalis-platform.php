@@ -3,7 +3,7 @@
  * Plugin Name:       Penalis Platform
  * Plugin URI:        https://penalis.example/
  * Description:       A controlled user-generated content workflow and React writing dashboard for Penalis.
- * Version:           0.1.0
+ * Version:           0.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Penalis
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PENALIS_PLATFORM_VERSION', '0.1.0' );
+define( 'PENALIS_PLATFORM_VERSION', '0.2.0' );
 define( 'PENALIS_PLATFORM_FILE', __FILE__ );
 define( 'PENALIS_PLATFORM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PENALIS_PLATFORM_URL', plugin_dir_url( __FILE__ ) );

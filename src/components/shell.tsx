@@ -123,6 +123,14 @@ export function Shell({
               Manage writers
             </a>
           ) : null}
+          <a
+            className="penalis-link"
+            href={account.authorUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            View public profile
+          </a>
           <a className="penalis-link" href={bootstrap.logoutUrl}>
             Sign out
           </a>

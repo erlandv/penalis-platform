@@ -40,7 +40,7 @@ This plugin was originally developed for internal use at [Penalis](https://penal
 
 ### Dashboard
 
-A React single-page dashboard at the plugin-managed `/penalis-dashboard/` page:
+A React single-page dashboard at the plugin-managed `/dashboard/` page:
 
 - Overview with account status and article counts.
 - Paginated list of the writer's own articles.
@@ -54,6 +54,7 @@ A React single-page dashboard at the plugin-managed `/penalis-dashboard/` page:
   plugin while it is active, and by this plugin once that plugin is deactivated.
 - A default profile photo for accounts without one, managed under
   **Users → Penalis Writers**.
+- A **View public profile** link to the writer's author archive.
 - Account settings including password change.
 - Media library view.
 
@@ -217,7 +218,7 @@ Activation:
 - Configure an SMTP plugin and send a test email. The plugin records delivery
   failures in user meta and does not advance verification state when sending
   fails.
-- Exclude `/penalis-dashboard/` and `/wp-json/penalis/*` from full-page and CDN
+- Exclude `/dashboard/` and `/wp-json/penalis/*` from full-page and CDN
   caches. The plugin sends `no-store`/`private` headers, but host caches must
   also honor them.
 - Confirm the dashboard page slug does not conflict with an existing page. If it

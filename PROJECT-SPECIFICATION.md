@@ -267,7 +267,9 @@ Suspension removes publishing ability immediately:
 ## 8. Dashboard
 
 Route: a plugin-managed page with shortcode `[penalis_dashboard]` and the
-`/penalis-dashboard/` slug. The page is created once on activation if missing.
+`/dashboard/` slug. The page is created once on activation if missing. Pages
+created before 0.2.0 are renamed on upgrade, and the previous
+`/penalis-dashboard/` URL returns a 301 to the new one.
 
 Views:
 
@@ -275,8 +277,9 @@ Views:
 - **My Articles** — paginated list with status filters and actions.
 - **Editor** — create/edit title, content, excerpt, categories, tags, featured
   image, inline media insertion.
-- **Profile** — first name, last name, public name choice (first + last, first,
-  last, username, or a custom pen name), bio, website.
+- **Profile** — profile photo, first name, last name, public name choice (first
+  + last, first, last, username, or a custom name), bio. The name options show
+  only the resulting public name.
 - **Settings** — account status, password change, sign out.
 
 UX requirements implemented:
@@ -309,9 +312,9 @@ These are **not** verified against the live site:
 2. Elementor does not override single-post rendering for writer articles.
 3. The site's mail configuration can deliver `wp_mail()` messages; SMTP may be
    required.
-4. The dashboard page slug `/penalis-dashboard/` does not conflict with an
-   existing page. If it does, the plugin reuses/creates a suffixed slug and
-   stores the ID in an option.
+4. The dashboard page slug `/dashboard/` does not conflict with an existing
+   page. If it does, the plugin keeps the page's current slug (legacy installs
+   are not renamed) or creates a unique slug, and stores the ID in an option.
 5. Existing contributor accounts have no `_penalis_access_enabled` meta.
 6. The site uses standard WordPress authentication without a custom SSO plugin
    that bypasses `authenticate`.
