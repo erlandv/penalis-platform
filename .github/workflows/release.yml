@@ -1,0 +1,173 @@
+name: Build & Release
+
+# Triggered when a version tag is pushed (e.g. v1.0.0, v1.1.0).
+on:
+  push:
+    tags:
+      - 'v*'
+
+# One release at a time; never cancel a run that may already be publishing.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify, build plugin ZIP, and create GitHub Release
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # required to create releases and upload assets
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout the tagged commit
+      # -----------------------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Toolchain
+      #    PHP and Node are build-time only; neither ships with the plugin.
+      #    Composer pulls the coding standards used by the quality gate.
+      # -----------------------------------------------------------------------
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install PHP tooling
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # -----------------------------------------------------------------------
+      # 3. Extract version number from the tag (strips the leading "v")
+      #    e.g. tag "v1.0.0" → VERSION="1.0.0"
+      # -----------------------------------------------------------------------
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------------
+      # 4. Fail fast when the tag and the plugin metadata disagree.
+      #    A release whose ZIP reports a different version than its tag is
+      #    impossible to support later.
+      # -----------------------------------------------------------------------
+      - name: Verify version metadata
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          HEADER_VERSION=$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*\([0-9.]*\).*/\1/p' penalis-platform.php | head -n1)
+          CONST_VERSION=$(sed -n "s/^define( 'PENALIS_PLATFORM_VERSION', '\([0-9.]*\)' );.*/\1/p" penalis-platform.php | head -n1)
+          STABLE_TAG=$(sed -n 's/^Stable tag:[[:space:]]*\([0-9.]*\).*/\1/p' readme.txt | head -n1)
+
+          echo "tag=$VERSION header=$HEADER_VERSION constant=$CONST_VERSION readme=$STABLE_TAG"
+
+          [ "$HEADER_VERSION" = "$VERSION" ] || { echo "::error::Plugin header version ($HEADER_VERSION) does not match tag ($VERSION)."; exit 1; }
+          [ "$CONST_VERSION"  = "$VERSION" ] || { echo "::error::PENALIS_PLATFORM_VERSION ($CONST_VERSION) does not match tag ($VERSION)."; exit 1; }
+          [ "$STABLE_TAG"     = "$VERSION" ] || { echo "::error::readme.txt Stable tag ($STABLE_TAG) does not match tag ($VERSION)."; exit 1; }
+
+          if ! grep -q "^= ${VERSION} =" readme.txt; then
+            echo "::warning::readme.txt has no changelog entry for ${VERSION}."
+          fi
+
+      # -----------------------------------------------------------------------
+      # 5. Quality gate. Nothing is packaged unless every check passes.
+      # -----------------------------------------------------------------------
+      - name: PHP coding standards
+        run: composer lint
+
+      - name: PHP tests
+        run: composer test
+
+      - name: Frontend lint, types, tests, and build
+        run: npm run check
+
+      # -----------------------------------------------------------------------
+      # 6. Build the distributable ZIP
+      #    Only runtime files are included. The React dashboard is compiled into
+      #    build/ here because that directory is not tracked in Git.
+      # -----------------------------------------------------------------------
+      - name: Build ZIP
+        id: zip
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          PLUGIN_SLUG="penalis-platform"
+          ZIP_NAME="${PLUGIN_SLUG}-${VERSION}.zip"
+
+          for path in penalis-platform.php uninstall.php readme.txt license.txt includes templates build; do
+            [ -e "$path" ] || { echo "::error::Missing required path: $path"; exit 1; }
+          done
+
+          # WordPress requires a single top-level folder matching the plugin slug.
+          mkdir -p "/tmp/${PLUGIN_SLUG}"
+
+          cp penalis-platform.php uninstall.php readme.txt license.txt "/tmp/${PLUGIN_SLUG}/"
+          cp -r includes templates build "/tmp/${PLUGIN_SLUG}/"
+
+          # Ship translations when the directory exists.
+          if [ -d languages ]; then cp -r languages "/tmp/${PLUGIN_SLUG}/"; fi
+
+          cd /tmp
+          zip -rq "$ZIP_NAME" "${PLUGIN_SLUG}/"
+          mv "$ZIP_NAME" "$GITHUB_WORKSPACE/"
+
+          echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------------
+      # 7. Inspect the archive: the compiled dashboard must be inside, and no
+      #    development files may leak into the release.
+      # -----------------------------------------------------------------------
+      - name: Validate ZIP contents
+        env:
+          ZIP_NAME: ${{ steps.zip.outputs.ZIP_NAME }}
+        run: |
+          unzip -l "$ZIP_NAME"
+
+          if ! unzip -Z1 "$ZIP_NAME" | grep -qx 'penalis-platform/build/manifest.json'; then
+            echo "::error::build/manifest.json is missing from the ZIP; the dashboard would not load."
+            exit 1
+          fi
+
+          if unzip -Z1 "$ZIP_NAME" | grep -qE '^penalis-platform/(src|tests|vendor|node_modules|\.github)/'; then
+            echo "::error::Development files leaked into the ZIP."
+            exit 1
+          fi
+
+          echo "ZIP contents look correct."
+
+      # -----------------------------------------------------------------------
+      # 8. Create a GitHub Release and attach the ZIP as a release asset
+      # -----------------------------------------------------------------------
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          name: "v${{ steps.version.outputs.VERSION }}"
+          tag_name: ${{ github.ref_name }}
+          body: |
+            ## Penalis Platform v${{ steps.version.outputs.VERSION }}
+
+            Download the ZIP below and upload it via **WordPress Admin → Plugins → Add New → Upload Plugin**.
+
+            The archive already contains the compiled writing dashboard in `build/`, so no Node.js
+            toolchain is required on the server.
+
+            **Requirements:** WordPress 6.0+, PHP 7.4+.
+
+            Release notes are also listed in
+            [readme.txt](https://github.com/${{ github.repository }}/blob/main/readme.txt).
+          files: ${{ steps.zip.outputs.ZIP_NAME }}
+          draft: false
+          prerelease: false

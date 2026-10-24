@@ -1,0 +1,114 @@
+name: CI
+
+# Runs on every push to the integration branches and on every pull request.
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # PHP tests and coding standards, using the same tooling the release uses.
+  # ---------------------------------------------------------------------------
+  php:
+    name: PHP tests and coding standards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP tooling
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Coding standards
+        run: composer lint
+
+      - name: Policy and status tests
+        run: composer test
+
+  # ---------------------------------------------------------------------------
+  # The plugin declares PHP 7.4 support. Tooling cannot run there, but every
+  # shipped file must at least parse.
+  # ---------------------------------------------------------------------------
+  php-syntax:
+    name: PHP 7.4 syntax compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 7.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          coverage: none
+
+      - name: Lint shipped PHP files
+        run: |
+          mapfile -t files < <(git ls-files '*.php')
+          for file in "${files[@]}"; do
+            php -l "$file" > /dev/null || exit 1
+          done
+          echo "All ${#files[@]} PHP files parse under 7.4."
+
+  # ---------------------------------------------------------------------------
+  # React dashboard: lint, type check, unit tests, and a production build.
+  # The final step proves the Vite manifest the plugin enqueues is usable.
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend lint, types, tests, and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint, type check, test, and build
+        run: npm run check
+
+      - name: Verify the dashboard manifest
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          manifest_path = pathlib.Path('build/manifest.json')
+          if not manifest_path.is_file():
+              sys.exit('build/manifest.json was not produced')
+
+          entry = json.loads(manifest_path.read_text()).get('src/app/index.tsx')
+          if not entry:
+              sys.exit('manifest is missing the src/app/index.tsx entry')
+
+          for relative in [entry['file'], *entry.get('css', [])]:
+              asset = pathlib.Path('build') / relative
+              if not asset.is_file():
+                  sys.exit(f'missing built asset: {asset}')
+
+          print(f"Dashboard bundle built: {entry['file']}")
+          PY
