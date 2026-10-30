@@ -6,6 +6,7 @@ import { useState, type FormEvent } from 'react';
 
 import { ApiError, legacyApi, passwordApi, registrationApi } from '../../lib/api';
 import { getBootstrap } from '../../lib/bootstrap';
+import { DEEPLINK, hasParam, isTokenShaped, readParam } from '../../lib/deeplink';
 import type { FieldErrors } from '../../lib/types';
 import { hasErrors, validateRegistration } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner } from '../../components/ui';
@@ -32,18 +33,34 @@ const DESCRIPTIONS: Record<Mode, string> = {
 /**
  * Which mode a deep link opens.
  *
- * `?penalis_forgot=1` opens the reset request and `?penalis_activate=1` opens
- * the legacy activation request, so the public page can link straight to them.
+ * Every form has a flag parameter so the public site can link straight to it:
+ *
+ * | Parameter | Opens |
+ * | --- | --- |
+ * | `penalis_signin=1` | Login (also the default) |
+ * | `penalis_register=1` | Registration |
+ * | `penalis_activate=1` | Legacy account activation |
+ * | `penalis_forgot=1` | Password reset request |
+ * | `penalis_resend=1` | Verification resend |
+ *
+ * `penalis_activate` is special: a token-shaped value is handled earlier by
+ * `App` as a confirmation link, so only the flag form reaches this function.
  */
 function initialMode(): Mode {
-  const params = new URLSearchParams(window.location.search);
+  if (hasParam(DEEPLINK.register)) {
+    return 'register';
+  }
 
-  if (params.has('penalis_activate')) {
+  if (hasParam(DEEPLINK.activate) && !isTokenShaped(readParam(DEEPLINK.activate))) {
     return 'activate';
   }
 
-  if (params.has('penalis_forgot')) {
+  if (hasParam(DEEPLINK.forgot)) {
     return 'forgot';
+  }
+
+  if (hasParam(DEEPLINK.resend)) {
+    return 'resend';
   }
 
   return 'login';
@@ -59,11 +76,11 @@ export function AuthGate() {
   const [loginFailed] = useState(() => {
     const url = new URL(window.location.href);
 
-    if (!url.searchParams.has('penalis_login_error')) {
+    if (!url.searchParams.has(DEEPLINK.loginError)) {
       return false;
     }
 
-    url.searchParams.delete('penalis_login_error');
+    url.searchParams.delete(DEEPLINK.loginError);
     window.history.replaceState({}, '', url.toString());
 
     return true;

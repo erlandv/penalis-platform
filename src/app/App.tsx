@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { accountApi, ApiError, legacyApi, passwordApi, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
+import { DEEPLINK, isTokenShaped, readParam } from '../lib/deeplink';
 import type { Account, FieldErrors, ViewName } from '../lib/types';
 import { PASSWORD_MIN_LENGTH } from '../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner } from '../components/ui';
@@ -41,7 +42,7 @@ function VerificationPage({ token }: { token: string }) {
 
       // Remove the single-use token from the address bar and history.
       const url = new URL(window.location.href);
-      url.searchParams.delete('penalis_verify');
+      url.searchParams.delete(DEEPLINK.verify);
       window.history.replaceState({}, '', url.toString());
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Tautan verifikasi tidak dapat diproses.');
@@ -129,8 +130,8 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
 
       // The key is single-use; drop it from the address bar and history.
       const url = new URL(window.location.href);
-      url.searchParams.delete('penalis_reset');
-      url.searchParams.delete('login');
+      url.searchParams.delete(DEEPLINK.reset);
+      url.searchParams.delete(DEEPLINK.resetLogin);
       window.history.replaceState({}, '', url.toString());
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -249,7 +250,7 @@ function ActivationPage({ token }: { token: string }) {
 
       // The token is single-use; drop it from the address bar and history.
       const url = new URL(window.location.href);
-      url.searchParams.delete('penalis_activate');
+      url.searchParams.delete(DEEPLINK.activate);
       window.history.replaceState({}, '', url.toString());
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -345,22 +346,27 @@ export function App() {
   //
   // The values are captured once: the pages below strip the token from the
   // address bar after use, and re-reading the URL would unmount them mid-flow.
-  const [verificationToken] = useState(() =>
-    new URLSearchParams(window.location.search).get('penalis_verify'),
-  );
+  const [verificationToken] = useState(() => {
+    const value = readParam(DEEPLINK.verify);
+    return isTokenShaped(value) ? value : null;
+  });
 
   // A password reset link carries a single-use key. It is handled before the
   // dashboard so a signed-in visitor can still complete the reset.
-  const [resetKey] = useState(() => new URLSearchParams(window.location.search).get('penalis_reset'));
-  const [resetLogin] = useState(
-    () => new URLSearchParams(window.location.search).get('penalis_login') ?? '',
-  );
+  const [resetKey] = useState(() => {
+    const value = readParam(DEEPLINK.reset);
+    return isTokenShaped(value) ? value : null;
+  });
+  const [resetLogin] = useState(() => readParam(DEEPLINK.resetLogin) ?? '');
 
-  // A legacy activation link carries a single-use token. It is handled before
-  // the dashboard so a signed-in visitor can still complete the activation.
-  const [activationToken] = useState(() =>
-    new URLSearchParams(window.location.search).get('penalis_activate'),
-  );
+  // A legacy activation link carries a single-use token, but the same
+  // parameter is also used as a flag (`=1`) to open the request form. Only a
+  // token-shaped value may reach the confirmation page; otherwise the flag is
+  // left for AuthGate to interpret.
+  const [activationToken] = useState(() => {
+    const value = readParam(DEEPLINK.activate);
+    return isTokenShaped(value) ? value : null;
+  });
 
   const loadAccount = useCallback(async () => {
     setLoading(true);
