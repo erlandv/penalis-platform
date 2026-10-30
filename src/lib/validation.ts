@@ -45,8 +45,65 @@ export function validateRegistration(input: {
   return errors;
 }
 
-export function validateArticle(input: { title: string; content: string }): FieldErrors {
-  const errors: FieldErrors = {};
+/**
+ * Validate an email address for the request forms.
+ *
+ * These forms intentionally answer generically on the server, so a client-side
+ * check is the only place a visitor learns that the field is empty or
+ * malformed. Without it, submitting an empty form shows the same "we sent a
+ * link" notice as a real request, which reads as a success.
+ *
+ * @param value Raw input.
+ * @return Error message, or an empty string when valid.
+ */
+export function validateEmail(value: string): string {
+  const email = value.trim();
+
+  if (email === '') {
+    return 'Masukkan alamat email kamu.';
+  }
+
+  if (email.length > 254) {
+    return 'Alamat email terlalu panjang.';
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return 'Masukkan alamat email yang valid.';
+  }
+
+  return '';
+}
+
+/**
+ * Validate the login-or-email field used by the password reset request.
+ *
+ * The server accepts either a username or an email address, so this only
+ * rejects an empty value and an obviously malformed address. A bare username
+ * is valid.
+ *
+ * @param value Raw input.
+ * @return Error message, or an empty string when valid.
+ */
+export function validateLoginOrEmail(value: string): string {
+  const login = value.trim();
+
+  if (login === '') {
+    return 'Masukkan email atau nama pengguna kamu.';
+  }
+
+  if (login.length > 254) {
+    return 'Nilai yang dimasukkan terlalu panjang.';
+  }
+
+  // Only validate the shape when it looks like an email attempt.
+  if (login.includes('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(login)) {
+    return 'Masukkan alamat email yang valid.';
+  }
+
+  return '';
+}
+
+export function validateArticle(input: { title: string; content: string }): FieldErrors {  const errors: FieldErrors = {};
 
   if (input.title.trim().length < 3) {
     errors.title = 'Judul minimal 3 karakter.';

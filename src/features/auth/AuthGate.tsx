@@ -8,7 +8,7 @@ import { ApiError, legacyApi, passwordApi, registrationApi } from '../../lib/api
 import { getBootstrap } from '../../lib/bootstrap';
 import { DEEPLINK, hasParam, isTokenShaped, readParam } from '../../lib/deeplink';
 import type { FieldErrors } from '../../lib/types';
-import { hasErrors, validateRegistration } from '../../lib/validation';
+import { hasErrors, validateEmail, validateLoginOrEmail, validateRegistration } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner } from '../../components/ui';
 
 type Mode = 'login' | 'register' | 'resend' | 'forgot' | 'activate';
@@ -366,6 +366,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
 
 function ResendForm() {
   const [email, setEmail] = useState('');
+  const [fieldError, setFieldError] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -374,10 +375,19 @@ function ResendForm() {
     event.preventDefault();
     setError('');
     setMessage('');
+
+    // The server answers generically for every outcome, so an empty or
+    // malformed address would otherwise look like a successful request.
+    const invalid = validateEmail(email);
+    if (invalid) {
+      setFieldError(invalid);
+      return;
+    }
+    setFieldError('');
     setSubmitting(true);
 
     try {
-      const result = await registrationApi.resend(email);
+      const result = await registrationApi.resend(email.trim());
       setMessage(result.message);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
@@ -401,10 +411,17 @@ function ResendForm() {
         <input
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setFieldError('');
+          }}
           autoComplete="email"
+          maxLength={254}
+          aria-invalid={Boolean(fieldError)}
+          aria-describedby={fieldError ? 'resend_email-error' : undefined}
           required
         />
+        <FieldError errors={{ resend_email: fieldError }} name="resend_email" />
       </label>
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
@@ -423,6 +440,7 @@ function ResendForm() {
 function ForgotForm({ onDone }: { onDone: () => void }) {
   const [login, setLogin] = useState('');
   const [honeypot, setHoneypot] = useState('');
+  const [fieldError, setFieldError] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -431,6 +449,15 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
     event.preventDefault();
     setError('');
     setMessage('');
+
+    // The server answers generically for every outcome, so an empty field
+    // would otherwise look like a successful request.
+    const invalid = validateLoginOrEmail(login);
+    if (invalid) {
+      setFieldError(invalid);
+      return;
+    }
+    setFieldError('');
     setSubmitting(true);
 
     try {
@@ -467,11 +494,17 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
         <input
           type="text"
           value={login}
-          onChange={(event) => setLogin(event.target.value)}
+          onChange={(event) => {
+            setLogin(event.target.value);
+            setFieldError('');
+          }}
           autoComplete="username"
           maxLength={254}
+          aria-invalid={Boolean(fieldError)}
+          aria-describedby={fieldError ? 'forgot_login-error' : undefined}
           required
         />
+        <FieldError errors={{ forgot_login: fieldError }} name="forgot_login" />
       </label>
 
       {/* Honeypot: hidden from users, must remain empty. */}
@@ -509,6 +542,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
 function ActivateForm({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState('');
   const [honeypot, setHoneypot] = useState('');
+  const [fieldError, setFieldError] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -517,6 +551,15 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
     event.preventDefault();
     setError('');
     setMessage('');
+
+    // The server answers generically for every outcome, so an empty or
+    // malformed address would otherwise look like a successful request.
+    const invalid = validateEmail(email);
+    if (invalid) {
+      setFieldError(invalid);
+      return;
+    }
+    setFieldError('');
     setSubmitting(true);
 
     try {
@@ -553,12 +596,18 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
         <input
           type="email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setFieldError('');
+          }}
           autoComplete="email"
           maxLength={254}
+          aria-invalid={Boolean(fieldError)}
+          aria-describedby={fieldError ? 'activate_email-error' : undefined}
           required
         />
         <small>Tidak ingat email mana yang dipakai? Hubungi admin Penalis.</small>
+        <FieldError errors={{ activate_email: fieldError }} name="activate_email" />
       </label>
 
       {/* Honeypot: hidden from users, must remain empty. */}
