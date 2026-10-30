@@ -287,13 +287,19 @@ final class Penalis_Account_Status {
 	 * The user ID never changes, so existing posts, author archives, and
 	 * metadata stay attached to the same account. Posts are never modified.
 	 *
-	 * @param int    $user_id User ID.
-	 * @param string $to      Target status: pending_verification or pending_approval.
-	 * @param string $reason  Reason for the audit log.
-	 * @param int    $actor   Acting user ID.
+	 * @param int    $user_id        User ID.
+	 * @param string $to             Target status: pending_verification or pending_approval.
+	 * @param string $reason         Reason for the audit log.
+	 * @param int    $actor          Acting user ID.
+	 * @param bool   $needs_password Whether the owner still has to set a password.
+	 *                               Only the administrator "vouch" path passes
+	 *                               true: it skips the email step, so the owner
+	 *                               never chose a password. Self-service
+	 *                               activation sets one before converting and
+	 *                               must pass false.
 	 * @return true|WP_Error
 	 */
-	public static function convert_legacy( $user_id, $to, $reason = 'legacy_converted', $actor = 0 ) {
+	public static function convert_legacy( $user_id, $to, $reason = 'legacy_converted', $actor = 0, $needs_password = false ) {
 		$user_id = (int) $user_id;
 
 		if ( ! self::is_legacy_account( $user_id ) ) {
@@ -319,12 +325,16 @@ final class Penalis_Account_Status {
 			// The administrator vouched for the identity out of band, so the
 			// email step is skipped. Approval is still required.
 			update_user_meta( $user_id, self::META_VERIFIED, '1' );
-
-			// The account still has no password. Flag it so the dashboard can
-			// ask the owner to set one before they can sign in.
-			update_user_meta( $user_id, self::META_NEEDS_PASSWORD, '1' );
 		} else {
 			update_user_meta( $user_id, self::META_VERIFIED, '0' );
+		}
+
+		// The flag is driven by the caller, not by the target status. A
+		// self-service activation has already set a password by this point, so
+		// setting the flag here would wrongly tell the owner they have none.
+		if ( $needs_password ) {
+			update_user_meta( $user_id, self::META_NEEDS_PASSWORD, '1' );
+		} else {
 			delete_user_meta( $user_id, self::META_NEEDS_PASSWORD );
 		}
 

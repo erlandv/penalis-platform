@@ -330,7 +330,7 @@ penalis_assert( ! Penalis_Policy::can_promote_roles( array( 'administrator' ) ),
 penalis_assert( ! Penalis_Policy::can_promote_roles( array( 'author' ) ), 'Authors are never promoted by the workflow.' );
 
 // Conversion keeps the user ID and never touches posts.
-$result = Penalis_Account_Status::convert_legacy( 5, 'pending_approval', 'admin_vouched', 2 );
+$result = Penalis_Account_Status::convert_legacy( 5, 'pending_approval', 'admin_vouched', 2, true );
 penalis_assert( true === $result, 'A legacy account can be converted to pending approval.' );
 penalis_same( 'pending_approval', Penalis_Account_Status::get_status( 5 ), 'Converted account is pending approval.' );
 penalis_assert( ! Penalis_Account_Status::is_access_enabled( 5 ), 'Converted account has no access before approval.' );
@@ -351,6 +351,23 @@ penalis_assert( true === $result, 'A converted legacy account can be approved.' 
 penalis_assert( Penalis_Account_Status::can_write( 5 ), 'Approved legacy account can write.' );
 penalis_assert( in_array( 'penalis_writer', $GLOBALS['penalis_test_users'][5]->roles, true ), 'Approved legacy account receives the writer role.' );
 
+// Regression: self-service activation sets a password before converting, so
+// the account must not be flagged as still needing one.
+penalis_reset();
+$GLOBALS['penalis_test_users'][10] = new WP_User( 10, array( 'contributor' ) );
+$result = Penalis_Account_Status::convert_legacy( 10, 'pending_approval', 'legacy_self_activated', 0, false );
+penalis_assert( true === $result, 'Self-service activation converts to pending approval.' );
+penalis_assert( ! Penalis_Account_Status::needs_password( 10 ), 'Self-service activation does not flag the account as needing a password.' );
+penalis_same( '1', (string) get_user_meta( 10, Penalis_Account_Status::META_VERIFIED, true ), 'Self-service activation marks the email verified.' );
+
+// A stale flag from an earlier state is cleared by a self-service conversion.
+penalis_reset();
+$GLOBALS['penalis_test_users'][11] = new WP_User( 11, array( 'contributor' ) );
+update_user_meta( 11, Penalis_Account_Status::META_NEEDS_PASSWORD, '1' );
+$result = Penalis_Account_Status::convert_legacy( 11, 'pending_approval', 'legacy_self_activated', 0, false );
+penalis_assert( true === $result, 'Conversion succeeds with a stale flag present.' );
+penalis_assert( ! Penalis_Account_Status::needs_password( 11 ), 'Self-service conversion clears a stale needs-password flag.' );
+
 // A legacy account converted through email verification starts unverified.
 penalis_reset();
 $GLOBALS['penalis_test_users'][7] = new WP_User( 7, array( 'contributor' ) );
@@ -358,6 +375,7 @@ $result = Penalis_Account_Status::convert_legacy( 7, 'pending_verification', 'le
 penalis_assert( true === $result, 'A legacy account can start at email verification.' );
 penalis_same( '0', (string) get_user_meta( 7, Penalis_Account_Status::META_VERIFIED, true ), 'Self-service conversion leaves the email unverified.' );
 penalis_assert( ! Penalis_Account_Status::can_write( 7 ), 'Unverified converted account cannot write.' );
+penalis_assert( ! Penalis_Account_Status::needs_password( 7 ), 'Email-verification conversion does not flag a missing password.' );
 
 // Non-legacy accounts cannot be converted.
 penalis_reset();

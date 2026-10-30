@@ -334,6 +334,22 @@
   vertical-align: middle;
 }
 
+/**
+ * Anchor-styled buttons.
+ *
+ * The plugin's own `.penalis-dashboard-root a` rule (specificity 0,1,1)
+ * outranks the button variant color classes (0,1,0), so a `.penalis-button`
+ * rendered as an `<a>` — "Lanjut ke halaman masuk", "Keluar", etc. — shows the
+ * link color on the button background instead of the variant's label color.
+ *
+ * Re-declare the label colors scoped to the root so they always win whatever
+ * element the class is applied to. These stay `<a>` because they navigate;
+ * `<button>` would drop open-in-new-tab and middle-click behaviour.
+ */
+.penalis-dashboard-root .penalis-button--primary { color: #ffffff; }
+.penalis-dashboard-root .penalis-button--ghost { color: var(--penalis-text); }
+.penalis-dashboard-root .penalis-button--danger { color: var(--penalis-danger); }
+
 .penalis-button--primary {
   background: var(--penalis-accent);
   color: #ffffff;

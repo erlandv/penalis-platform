@@ -173,13 +173,17 @@ final class Penalis_Legacy_Activation {
 		// Set the first password. reset_password() hashes it and fires the
 		// standard core hooks, so other plugins see a normal password change.
 		reset_password( $user, $password );
-		Penalis_Account_Status::clear_needs_password( $user_id );
 
+		// The owner has just chosen a password, so the account must not be
+		// flagged as needing one. The flag is passed explicitly because the
+		// conversion below targets pending_approval, which the administrator
+		// "vouch" path uses for accounts that still have no password.
 		$result = Penalis_Account_Status::convert_legacy(
 			$user_id,
 			Penalis_Policy::STATUS_PENDING_APPROVAL,
 			'legacy_self_activated',
-			0
+			0,
+			false
 		);
 
 		if ( is_wp_error( $result ) ) {

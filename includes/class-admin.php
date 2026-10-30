@@ -553,7 +553,8 @@ JS;
 					$user_id,
 					Penalis_Policy::STATUS_PENDING_APPROVAL,
 					'admin_vouched',
-					$actor
+					$actor,
+					true
 				);
 
 				// The account still has no password. Send a reset link so the
