@@ -34,7 +34,7 @@ final class Penalis_Registration {
 		if ( ! self::is_registration_enabled() ) {
 			return new WP_Error(
 				'penalis_registration_closed',
-				'Registration is currently closed.',
+				'Pendaftaran saat ini ditutup.',
 				array( 'status' => 403 )
 			);
 		}
@@ -44,7 +44,7 @@ final class Penalis_Registration {
 		if ( ! Penalis_Rate_Limiter::is_allowed( 'registration_ip', 5, HOUR_IN_SECONDS, $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
-				'Too many registration attempts. Please try again later.',
+				'Terlalu banyak percobaan pendaftaran. Silakan coba lagi nanti.',
 				array( 'status' => 429 )
 			);
 		}
@@ -60,7 +60,7 @@ final class Penalis_Registration {
 		if ( ! empty( $errors['_honeypot'] ) ) {
 			return new WP_Error(
 				'penalis_registration_failed',
-				'Registration could not be completed. Please check your details and try again.',
+				'Pendaftaran tidak dapat diproses. Periksa kembali data kamu lalu coba lagi.',
 				array( 'status' => 400 )
 			);
 		}
@@ -68,7 +68,7 @@ final class Penalis_Registration {
 		if ( ! empty( $errors ) ) {
 			return new WP_Error(
 				'penalis_registration_invalid',
-				'Please correct the highlighted fields.',
+				'Perbaiki kolom yang ditandai.',
 				array(
 					'status' => 400,
 					'fields' => $errors,
@@ -94,7 +94,7 @@ final class Penalis_Registration {
 			return array(
 				'status'     => Penalis_Policy::STATUS_PENDING_VERIFICATION,
 				'email_sent' => true,
-				'message'    => 'Check your email for a verification link before signing in.',
+				'message'    => 'Periksa email kamu untuk mendapatkan link verifikasi sebelum masuk.',
 			);
 		}
 
@@ -115,7 +115,7 @@ final class Penalis_Registration {
 			// Do not surface the specific core error (it may reveal existence).
 			return new WP_Error(
 				'penalis_registration_failed',
-				'Registration could not be completed. Please check your details and try again.',
+				'Pendaftaran tidak dapat diproses. Periksa kembali data kamu lalu coba lagi.',
 				array( 'status' => 400 )
 			);
 		}
@@ -133,8 +133,8 @@ final class Penalis_Registration {
 			'status'     => Penalis_Policy::STATUS_PENDING_VERIFICATION,
 			'email_sent' => (bool) $sent,
 			'message'    => $sent
-				? 'Check your email for a verification link before signing in.'
-				: 'Your account was created, but the verification email could not be sent. Please contact the site administrators.',
+				? 'Periksa email kamu untuk mendapatkan link verifikasi sebelum masuk.'
+				: 'Akun kamu telah dibuat, tetapi email verifikasi tidak dapat dikirim. Silakan hubungi admin Penalis.',
 		);  }
 
 	/**
@@ -169,8 +169,8 @@ final class Penalis_Registration {
 
 		$site     = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
 		$subject  = sprintf( '[%s] Registration attempt', $site );
-		$message  = "Someone attempted to register with your email address or username.\n\n";
-		$message .= "If this was you, try signing in or resetting your password instead. If it was not you, no action is needed.\n";
+		$message  = "Seseorang mencoba mendaftar menggunakan alamat email atau nama pengguna kamu.\n\n";
+		$message .= "Jika ini adalah kamu, cobalah untuk masuk atau mengatur ulang kata sandi kamu. Jika bukan kamu, tidak ada tindakan yang perlu dilakukan.\n";
 
 		wp_mail( $user->user_email, $subject, $message );
 	}
@@ -187,7 +187,7 @@ final class Penalis_Registration {
 		if ( ! Penalis_Rate_Limiter::is_allowed( 'verification_ip', 20, HOUR_IN_SECONDS, $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
-				'Too many verification attempts. Please try again later.',
+				'Terlalu banyak percobaan verifikasi. Silakan coba lagi nanti.',
 				array( 'status' => 429 )
 			);
 		}
@@ -197,7 +197,7 @@ final class Penalis_Registration {
 		if ( ! Penalis_Policy::is_token_format_valid( $raw_token ) ) {
 			return new WP_Error(
 				'penalis_invalid_token',
-				'This verification link is invalid or has expired.',
+				'Link verifikasi ini tidak valid atau sudah kedaluwarsa.',
 				array( 'status' => 400 )
 			);
 		}
@@ -207,7 +207,7 @@ final class Penalis_Registration {
 		if ( $user_id <= 0 ) {
 			return new WP_Error(
 				'penalis_invalid_token',
-				'This verification link is invalid or has expired.',
+				'Link verifikasi ini tidak valid atau sudah kedaluwarsa.',
 				array( 'status' => 400 )
 			);
 		}
@@ -218,7 +218,7 @@ final class Penalis_Registration {
 			Penalis_Account_Status::clear_token( $user_id );
 			return new WP_Error(
 				'penalis_expired_token',
-				'This verification link has expired. Please request a new one.',
+				'Link verifikasi ini sudah kedaluwarsa. Silakan minta yang baru.',
 				array( 'status' => 400 )
 			);
 		}
@@ -230,7 +230,7 @@ final class Penalis_Registration {
 			Penalis_Account_Status::clear_token( $user_id );
 			return new WP_Error(
 				'penalis_invalid_token',
-				'This verification link is invalid or has already been used.',
+				'Link verifikasi ini tidak valid atau sudah digunakan.',
 				array( 'status' => 400 )
 			);
 		}
@@ -252,7 +252,7 @@ final class Penalis_Registration {
 
 		return array(
 			'status'  => Penalis_Policy::STATUS_PENDING_APPROVAL,
-			'message' => 'Your email address is confirmed. Your application is now awaiting administrator approval.',
+			'message' => 'Alamat email kamu telah dikonfirmasi. Pendaftaran kamu kini menunggu persetujuan administrator.',
 		);
 	}
 
@@ -268,7 +268,7 @@ final class Penalis_Registration {
 		if ( ! Penalis_Rate_Limiter::is_allowed( 'resend_ip', 5, HOUR_IN_SECONDS, $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
-				'Too many requests. Please try again later.',
+				'Terlalu banyak permintaan. Silakan coba lagi nanti.',
 				array( 'status' => 429 )
 			);
 		}
@@ -278,7 +278,7 @@ final class Penalis_Registration {
 		$email = sanitize_email( (string) $email );
 		if ( ! is_email( $email ) ) {
 			return array(
-				'message' => 'If that address belongs to an account awaiting verification, a new email has been sent.',
+				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
 			);
 		}
 
@@ -287,7 +287,7 @@ final class Penalis_Registration {
 		if ( ! $user ) {
 			// Generic success to avoid user enumeration.
 			return array(
-				'message' => 'If that address belongs to an account awaiting verification, a new email has been sent.',
+				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
 			);
 		}
 
@@ -295,7 +295,7 @@ final class Penalis_Registration {
 
 		if ( Penalis_Policy::STATUS_PENDING_VERIFICATION !== $status ) {
 			return array(
-				'message' => 'If that address belongs to an account awaiting verification, a new email has been sent.',
+				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
 			);
 		}
 
@@ -305,7 +305,7 @@ final class Penalis_Registration {
 			// Silent no-op with a generic response to avoid revealing that the
 			// account exists and was recently emailed.
 			return array(
-				'message' => 'If that address belongs to an account awaiting verification, a new email has been sent.',
+				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
 			);
 		}
 
@@ -313,7 +313,7 @@ final class Penalis_Registration {
 		if ( is_wp_error( $token ) ) {
 			// Generic response: do not reveal that the account exists.
 			return array(
-				'message' => 'If that address belongs to an account awaiting verification, a new email has been sent.',
+				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
 			);
 		}
 
@@ -324,12 +324,12 @@ final class Penalis_Registration {
 			// administrators. The account state does not advance, and the
 			// public response stays generic to avoid enumeration.
 			return array(
-				'message' => 'If that address belongs to an account awaiting verification, a new email has been sent.',
+				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
 			);
 		}
 
 		return array(
-			'message' => 'If that address belongs to an account awaiting verification, a new email has been sent.',
+			'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
 		);
 	}
 }

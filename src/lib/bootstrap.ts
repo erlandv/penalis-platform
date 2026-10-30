@@ -30,7 +30,6 @@ const fallback: DashboardBootstrap = {
   adminUrl: '',
   siteName: 'Penalis',
   user: null,
-  i18n: {},
 };
 
 export function getBootstrap(): DashboardBootstrap {

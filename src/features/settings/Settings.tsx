@@ -25,12 +25,12 @@ export function Settings({ account }: { account: Account }) {
     setNotice('');
 
     if (newPassword.length < 12) {
-      setError('Your new password must be at least 12 characters long.');
+      setError('Kata sandi baru Anda minimal 12 karakter.');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('The new passwords do not match.');
+      setError('Kata sandi baru tidak cocok.');
       return;
     }
 
@@ -41,7 +41,7 @@ export function Settings({ account }: { account: Account }) {
         current_password: currentPassword,
         new_password: newPassword,
       });
-      setNotice(`${result.message} Redirecting to sign in…`);
+      setNotice(`${result.message} Mengalihkan ke halaman masuk…`);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -50,7 +50,7 @@ export function Settings({ account }: { account: Account }) {
         window.location.href = bootstrap.loginUrl;
       }, 2000);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Your password could not be changed.');
+      setError(caught instanceof ApiError ? caught.message : 'Kata sandi Anda tidak dapat diubah.');
     } finally {
       setSaving(false);
     }
@@ -60,14 +60,14 @@ export function Settings({ account }: { account: Account }) {
     <div className="penalis-stack">
       <div className="penalis-page-heading">
         <div>
-          <h2>Account settings</h2>
-          <p className="penalis-muted">Manage your sign-in credentials and review your account state.</p>
+          <h2>Pengaturan akun</h2>
+          <p className="penalis-muted">Kelola kredensial masuk Anda dan tinjau status akun Anda.</p>
         </div>
       </div>
 
       <section className="penalis-panel">
         <div className="penalis-panel__header">
-          <h3>Account</h3>
+          <h3>Akun</h3>
           <StatusBadge status={account.status} label={account.statusLabel} />
         </div>
 
@@ -77,15 +77,15 @@ export function Settings({ account }: { account: Account }) {
             <dd>{account.statusLabel}</dd>
           </div>
           <div>
-            <dt>Email verified</dt>
-            <dd>{account.emailVerified ? 'Yes' : 'No'}</dd>
+            <dt>Email terverifikasi</dt>
+            <dd>{account.emailVerified ? 'Ya' : 'Tidak'}</dd>
           </div>
           <div>
-            <dt>Registered</dt>
+            <dt>Terdaftar</dt>
             <dd>{account.registeredAt ? formatDate(account.registeredAt) : '—'}</dd>
           </div>
           <div>
-            <dt>Approved</dt>
+            <dt>Disetujui</dt>
             <dd>{account.approvedAt ? formatDate(account.approvedAt) : '—'}</dd>
           </div>
         </dl>
@@ -93,7 +93,7 @@ export function Settings({ account }: { account: Account }) {
 
       <section className="penalis-panel">
         <div className="penalis-panel__header">
-          <h3>Change password</h3>
+          <h3>Ganti kata sandi</h3>
         </div>
 
         {error ? <ErrorBanner message={error} /> : null}
@@ -101,7 +101,7 @@ export function Settings({ account }: { account: Account }) {
 
         <form className="penalis-form penalis-form--narrow" onSubmit={submit} noValidate>
           <label className="penalis-field">
-            <span>Current password</span>
+            <span>Kata sandi saat ini</span>
             <input
               type="password"
               value={currentPassword}
@@ -112,7 +112,7 @@ export function Settings({ account }: { account: Account }) {
           </label>
 
           <label className="penalis-field">
-            <span>New password</span>
+            <span>Kata sandi baru</span>
             <input
               type="password"
               value={newPassword}
@@ -120,11 +120,11 @@ export function Settings({ account }: { account: Account }) {
               autoComplete="new-password"
               required
             />
-            <small>At least 12 characters.</small>
+            <small>Minimal 12 karakter.</small>
           </label>
 
           <label className="penalis-field">
-            <span>Confirm new password</span>
+            <span>Konfirmasi kata sandi baru</span>
             <input
               type="password"
               value={confirmPassword}
@@ -135,20 +135,20 @@ export function Settings({ account }: { account: Account }) {
           </label>
 
           <button type="submit" className="penalis-button penalis-button--primary" disabled={saving}>
-            {saving ? 'Updating…' : 'Change password'}
+            {saving ? 'Memperbarui…' : 'Ganti kata sandi'}
           </button>
         </form>
       </section>
 
       <section className="penalis-panel">
         <div className="penalis-panel__header">
-          <h3>Session</h3>
+          <h3>Sesi</h3>
         </div>
         <p className="penalis-muted">
-          Signing out ends this browser session. Your articles and drafts are kept.
+          Keluar akan mengakhiri sesi peramban ini. Artikel dan draf Anda tetap tersimpan.
         </p>
         <a className="penalis-button penalis-button--ghost" href={bootstrap.logoutUrl}>
-          Sign out
+          Keluar
         </a>
       </section>
     </div>

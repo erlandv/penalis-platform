@@ -90,7 +90,7 @@ final class Penalis_Avatar {
 		if ( ! $attachment || 'attachment' !== $attachment->post_type ) {
 			return new WP_Error(
 				'penalis_avatar_invalid',
-				'That image is not available in the media library.',
+				'Gambar tersebut tidak tersedia di pustaka media.',
 				array( 'status' => 400 )
 			);
 		}

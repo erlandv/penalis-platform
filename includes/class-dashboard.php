@@ -298,20 +298,6 @@ final class Penalis_Dashboard {
 					'website'         => $user->user_url,
 					'authorUrl'       => get_author_posts_url( $user_id ),
 				) : null,
-				'i18n'         => array(
-					'signIn'       => __( 'Sign in', 'penalis-platform' ),
-					'signOut'      => __( 'Sign out', 'penalis-platform' ),
-					'register'     => __( 'Create account', 'penalis-platform' ),
-					'saveDraft'    => __( 'Save draft', 'penalis-platform' ),
-					'publish'      => __( 'Publish', 'penalis-platform' ),
-					'preview'      => __( 'Preview', 'penalis-platform' ),
-					'delete'       => __( 'Delete', 'penalis-platform' ),
-					'loading'      => __( 'Loading…', 'penalis-platform' ),
-					'noArticles'   => __( 'You have not created any articles yet.', 'penalis-platform' ),
-					'noMedia'      => __( 'You have not uploaded any media yet.', 'penalis-platform' ),
-					'genericError' => __( 'Something went wrong. Please try again.', 'penalis-platform' ),
-					'saved'        => __( 'Saved.', 'penalis-platform' ),
-				),
 			)
 		);
 	}
@@ -329,15 +315,15 @@ final class Penalis_Dashboard {
 		if ( ! $has_build && current_user_can( 'manage_options' ) ) {
 			?>
 			<div class="penalis-build-missing" style="max-width:720px;margin:2rem auto;padding:1.25rem;border:1px solid #f0c36d;background:#fff8e5;border-radius:8px;font-family:system-ui,sans-serif;">
-				<strong><?php esc_html_e( 'Penalis dashboard assets are missing.', 'penalis-platform' ); ?></strong>
-				<p><?php esc_html_e( 'Run "npm ci && npm run build" in the plugin directory and deploy the generated build/ folder.', 'penalis-platform' ); ?></p>
+				<strong><?php echo esc_html( 'Aset dasbor Penalis tidak ditemukan.' ); ?></strong>
+				<p><?php echo esc_html( 'Jalankan "npm ci && npm run build" di direktori plugin, lalu pasang folder build/ yang dihasilkan.' ); ?></p>
 			</div>
 			<?php
 		}
 		?>
 		<div id="penalis-dashboard-root" class="penalis-dashboard-root">
 			<noscript>
-				<p><?php esc_html_e( 'The Penalis writing dashboard requires JavaScript.', 'penalis-platform' ); ?></p>
+				<p><?php echo esc_html( 'Dasbor menulis Penalis memerlukan JavaScript.' ); ?></p>
 			</noscript>
 		</div>
 		<?php

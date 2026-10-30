@@ -96,7 +96,7 @@ export function displayNameOptions(firstName: string, lastName: string, username
     add('username', login);
   }
 
-  options.push({ mode: 'custom', label: 'Custom' });
+  options.push({ mode: 'custom', label: 'Kustom' });
 
   return options;
 }

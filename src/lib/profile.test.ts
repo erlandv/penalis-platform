@@ -43,7 +43,7 @@ describe('displayNameOptions', () => {
       'Siti',
       'Sukentari',
       'sukentari',
-      'Custom',
+      'Kustom',
     ]);
   });
 
@@ -56,11 +56,11 @@ describe('displayNameOptions', () => {
   it('never repeats a label', () => {
     // The automatic option already resolves to the first name here.
     const options = displayNameOptions('Siti', '', 'sukentari');
-    expect(options.map((option) => option.label)).toEqual(['Siti', 'sukentari', 'Custom']);
+    expect(options.map((option) => option.label)).toEqual(['Siti', 'sukentari', 'Kustom']);
 
     // Username identical to the first name: only one entry survives.
     const sameName = displayNameOptions('sukentari', '', 'sukentari');
-    expect(sameName.map((option) => option.label)).toEqual(['sukentari', 'Custom']);
+    expect(sameName.map((option) => option.label)).toEqual(['sukentari', 'Kustom']);
   });
 
   it('always offers the custom option', () => {

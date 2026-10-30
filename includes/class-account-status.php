@@ -144,7 +144,7 @@ final class Penalis_Account_Status {
 		$user    = get_userdata( $user_id );
 
 		if ( ! $user ) {
-			return new WP_Error( 'penalis_user_not_found', 'Account not found.', array( 'status' => 404 ) );
+			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
 		}
 
 		$from = self::get_status( $user_id );
@@ -152,7 +152,7 @@ final class Penalis_Account_Status {
 		if ( ! Penalis_Policy::can_transition( $from, $to ) ) {
 			return new WP_Error(
 				'penalis_invalid_transition',
-				'That account status change is not allowed.',
+				'Perubahan status akun tersebut tidak diizinkan.',
 				array( 'status' => 409 )
 			);
 		}
@@ -167,7 +167,7 @@ final class Penalis_Account_Status {
 			if ( ! empty( $roles ) && array( 'subscriber' ) !== $roles && array( Penalis_Roles::ROLE ) !== $roles ) {
 				return new WP_Error(
 					'penalis_role_conflict',
-					'This account already holds a role that cannot be approved through the writer workflow.',
+					'Akun ini sudah memiliki peran yang tidak dapat disetujui melalui alur kerja penulis.',
 					array( 'status' => 409 )
 				);
 			}
@@ -278,7 +278,7 @@ final class Penalis_Account_Status {
 		$user_id = (int) $user_id;
 		$user    = get_userdata( $user_id );
 		if ( ! $user ) {
-			return new WP_Error( 'penalis_user_not_found', 'Account not found.', array( 'status' => 404 ) );
+			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
 		}
 
 		$token   = Penalis_Policy::generate_token();

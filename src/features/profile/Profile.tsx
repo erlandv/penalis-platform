@@ -60,13 +60,13 @@ export function Profile({
       });
       onUpdated(updated);
       setCustomName(updated.displayNameMode === 'custom' ? updated.displayName : customName);
-      setNotice('Your profile has been updated.');
+      setNotice('Profil Anda telah diperbarui.');
     } catch (caught) {
       if (caught instanceof ApiError) {
         setErrors(caught.fields);
         setError(caught.message);
       } else {
-        setError('Your profile could not be updated.');
+        setError('Profil Anda tidak dapat diperbarui.');
       }
     } finally {
       setSaving(false);
@@ -96,9 +96,9 @@ export function Profile({
       const updated = await accountApi.setAvatar(attachmentId);
       onUpdated(updated);
       setPickerOpen(false);
-      setNotice('Your profile photo has been updated.');
+      setNotice('Foto profil Anda telah diperbarui.');
     } catch (caught) {
-      setAvatarError(caught instanceof ApiError ? caught.message : 'Your profile photo could not be updated.');
+      setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil Anda tidak dapat diperbarui.');
     } finally {
       setAvatarBusy(false);
     }
@@ -111,9 +111,9 @@ export function Profile({
     try {
       const updated = await accountApi.removeAvatar();
       onUpdated(updated);
-      setNotice('Your profile photo has been removed.');
+      setNotice('Foto profil Anda telah dihapus.');
     } catch (caught) {
-      setAvatarError(caught instanceof ApiError ? caught.message : 'Your profile photo could not be removed.');
+      setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil Anda tidak dapat dihapus.');
     } finally {
       setAvatarBusy(false);
     }
@@ -128,7 +128,7 @@ export function Profile({
       setMedia((current) => [uploaded, ...current]);
       await chooseAvatar(uploaded.id);
     } catch (caught) {
-      setUploadError(caught instanceof ApiError ? caught.message : 'The image could not be uploaded.');
+      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat diunggah.');
     } finally {
       setUploading(false);
     }
@@ -138,20 +138,20 @@ export function Profile({
     <div className="penalis-stack">
       <div className="penalis-page-heading">
         <div>
-          <h2>Writer profile</h2>
+          <h2>Profil penulis</h2>
           <p className="penalis-muted">
-            This information may appear alongside your published articles. Your email address and role cannot be
-            changed here.
+            Informasi ini dapat tampil di samping artikel terbit Anda. Alamat email dan peran Anda tidak dapat
+            diubah di sini.
           </p>
         </div>
       </div>
 
-      <section className="penalis-avatar" aria-label="Profile photo">
+      <section className="penalis-avatar" aria-label="Foto profil">
         <img className="penalis-avatar__preview" src={account.avatarUrl} alt="" width={96} height={96} />
 
         <div className="penalis-avatar__body">
-          <h3>Profile photo</h3>
-          <p className="penalis-muted">Shown on your articles and author page.</p>
+          <h3>Foto profil</h3>
+          <p className="penalis-muted">Tampil pada artikel dan halaman penulis Anda.</p>
 
           <div className="penalis-actions-row">
             <button
@@ -160,7 +160,7 @@ export function Profile({
               onClick={() => void openPicker()}
               disabled={avatarBusy}
             >
-              Change photo
+              Ganti foto
             </button>
             {account.avatarId > 0 ? (
               <button
@@ -169,7 +169,7 @@ export function Profile({
                 onClick={() => void removeAvatar()}
                 disabled={avatarBusy}
               >
-                Remove photo
+                Hapus foto
               </button>
             ) : null}
           </div>
@@ -184,7 +184,7 @@ export function Profile({
       <form className="penalis-form penalis-form--narrow" onSubmit={submit} noValidate>
         <div className="penalis-field-row">
           <label className="penalis-field">
-            <span>First name</span>
+            <span>Nama depan</span>
             <input
               type="text"
               value={firstName}
@@ -192,12 +192,12 @@ export function Profile({
               maxLength={50}
               aria-invalid={Boolean(errors.first_name)}
             />
-            <small>Optional</small>
+            <small>Opsional</small>
             <FieldError errors={errors} name="first_name" />
           </label>
 
           <label className="penalis-field">
-            <span>Last name</span>
+            <span>Nama belakang</span>
             <input
               type="text"
               value={lastName}
@@ -205,13 +205,13 @@ export function Profile({
               maxLength={50}
               aria-invalid={Boolean(errors.last_name)}
             />
-            <small>Optional</small>
+            <small>Opsional</small>
             <FieldError errors={errors} name="last_name" />
           </label>
         </div>
 
         <label className="penalis-field">
-          <span>Display name publicly as</span>
+          <span>Tampilkan nama publik sebagai</span>
           <select
             value={selectedMode}
             onChange={(event) => setMode(event.target.value as DisplayNameMode)}
@@ -223,13 +223,13 @@ export function Profile({
               </option>
             ))}
           </select>
-          <small>Shown on your articles and author page.</small>
+          <small>Tampil pada artikel dan halaman penulis Anda.</small>
           <FieldError errors={errors} name="display_name_mode" />
         </label>
 
         {selectedMode === 'custom' ? (
           <label className="penalis-field">
-            <span>Display name</span>
+            <span>Nama tampilan</span>
             <input
               type="text"
               value={customName}
@@ -237,13 +237,13 @@ export function Profile({
               maxLength={80}
               aria-invalid={Boolean(errors.display_name)}
             />
-            <small>Between 2 and 80 characters.</small>
+            <small>2–80 karakter.</small>
             <FieldError errors={errors} name="display_name" />
           </label>
         ) : null}
 
         <label className="penalis-field">
-          <span>Biography</span>
+          <span>Bio</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
@@ -251,13 +251,13 @@ export function Profile({
             maxLength={500}
             aria-invalid={Boolean(errors.description)}
           />
-          <small>{description.length}/500 characters</small>
+          <small>{description.length}/500 karakter</small>
           <FieldError errors={errors} name="description" />
         </label>
 
         <dl className="penalis-details">
           <div>
-            <dt>Username</dt>
+            <dt>Nama pengguna</dt>
             <dd>{account.username}</dd>
           </div>
           <div>
@@ -265,32 +265,32 @@ export function Profile({
             <dd>{account.email}</dd>
           </div>
           <div>
-            <dt>Account status</dt>
+            <dt>Status akun</dt>
             <dd>{account.statusLabel}</dd>
           </div>
         </dl>
 
         <button type="submit" className="penalis-button penalis-button--primary" disabled={saving}>
-          {saving ? 'Saving…' : 'Save profile'}
+          {saving ? 'Menyimpan…' : 'Simpan profil'}
         </button>
       </form>
 
       {pickerOpen ? (
-        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Choose a profile photo">
+        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Pilih foto profil">
           <div className="penalis-modal__content">
             <div className="penalis-modal__header">
-              <h3>Choose a profile photo</h3>
+              <h3>Pilih foto profil</h3>
               <button
                 type="button"
                 className="penalis-button penalis-button--ghost"
                 onClick={() => setPickerOpen(false)}
               >
-                Close
+                Tutup
               </button>
             </div>
 
             <label className="penalis-upload">
-              <span>{uploading ? 'Uploading…' : 'Upload an image'}</span>
+              <span>{uploading ? 'Mengunggah…' : 'Unggah gambar'}</span>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
@@ -303,15 +303,15 @@ export function Profile({
                   event.target.value = '';
                 }}
               />
-              <small>JPEG, PNG, GIF, or WebP, at least 100 × 100 pixels.</small>
+              <small>JPEG, PNG, GIF, atau WebP, minimal 100 × 100 piksel.</small>
             </label>
 
             {uploadError ? <ErrorBanner message={uploadError} /> : null}
 
             {mediaLoading ? (
-              <Spinner label="Loading media…" />
+              <Spinner label="Memuat media…" />
             ) : media.length === 0 ? (
-              <p className="penalis-muted">You have not uploaded any images yet. Use the upload control above.</p>
+              <p className="penalis-muted">Anda belum mengunggah gambar apa pun. Gunakan kontrol unggah di atas.</p>
             ) : (
               <div className="penalis-media-grid">
                 {media.map((item) => (
@@ -325,7 +325,7 @@ export function Profile({
                         onClick={() => void chooseAvatar(item.id)}
                         disabled={avatarBusy}
                       >
-                        Use as photo
+                        Gunakan sebagai foto
                       </button>
                     </div>
                   </figure>

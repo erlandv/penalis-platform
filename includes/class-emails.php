@@ -38,14 +38,14 @@ final class Penalis_Emails {
 			Penalis_Dashboard::registration_url()
 		);
 
-		$subject = sprintf( '[%s] Confirm your email address', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
+		$subject = sprintf( '[%s] Konfirmasi alamat email kamu', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
 
 		$message  = self::greeting( $user ) . "\n\n";
-		$message .= 'Thanks for applying to write for ' . wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) . ".\n\n";
-		$message .= "Confirm your email address by opening this link and pressing the confirmation button:\n\n";
+		$message .= sprintf( 'Terima kasih telah mendaftar untuk menulis di %s.', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) ) . "\n\n";
+		$message .= "Konfirmasi alamat email kamu dengan membuka link ini lalu menekan tombol konfirmasi:\n\n";
 		$message .= $verify_url . "\n\n";
-		$message .= "The link expires in 24 hours and can only be used once.\n\n";
-		$message .= "If you did not create this account, you can ignore this email.\n";
+		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali.\n\n";
+		$message .= "Jika kamu tidak membuat akun ini, abaikan email ini.\n";
 
 		$sent = wp_mail( $user->user_email, $subject, $message );
 
@@ -75,12 +75,12 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$subject  = sprintf( '[%s] Writer application awaiting approval', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
-		$message  = "A writer application is awaiting review.\n\n";
-		$message .= 'Display name: ' . $user->display_name . "\n";
-		$message .= 'Username: ' . $user->user_login . "\n";
-		$message .= 'Registered: ' . $user->user_registered . "\n\n";
-		$message .= 'Review applications: ' . admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) . "\n";
+		$subject  = sprintf( '[%s] Pendaftaran penulis menunggu persetujuan', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
+		$message  = "Ada pendaftaran penulis yang menunggu tinjauan.\n\n";
+		$message .= 'Nama tampilan: ' . $user->display_name . "\n";
+		$message .= 'Nama pengguna: ' . $user->user_login . "\n";
+		$message .= 'Terdaftar: ' . $user->user_registered . "\n\n";
+		$message .= 'Tinjau pendaftaran: ' . admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) . "\n";
 
 		$sent = wp_mail( $admin_email, $subject, $message );
 
@@ -111,18 +111,18 @@ final class Penalis_Emails {
 
 		switch ( $status ) {
 			case Penalis_Policy::STATUS_ACTIVE:
-				$subject = sprintf( '[%s] Your writer account is active', $site );
-				$body    = self::greeting( $user ) . "\n\nYour Penalis writer account has been approved. You can now create and publish articles.\n\nOpen your dashboard: " . $login . "\n";
+				$subject = sprintf( '[%s] Akun penulis kamu telah aktif', $site );
+				$body    = self::greeting( $user ) . "\n\nAkun penulis kamu telah disetujui. Kamu kini dapat membuat dan menerbitkan karya tulis.\n\nBuka dasbor kamu: " . $login . "\n";
 				break;
 
 			case Penalis_Policy::STATUS_REJECTED:
-				$subject = sprintf( '[%s] Update on your writer application', $site );
-				$body    = self::greeting( $user ) . "\n\nYour writer application was not approved at this time. If you believe this is a mistake, please contact the site administrators.\n";
+				$subject = sprintf( '[%s] Pembaruan pendaftaran penulis kamu', $site );
+				$body    = self::greeting( $user ) . "\n\nPendaftaran penulis kamu belum disetujui saat ini. Jika kamu merasa ini keliru, silakan hubungi admin Penalis.\n";
 				break;
 
 			case Penalis_Policy::STATUS_SUSPENDED:
-				$subject = sprintf( '[%s] Your writer account has been suspended', $site );
-				$body    = self::greeting( $user ) . "\n\nYour writer account has been suspended, so publishing and editing are currently unavailable. Please contact the site administrators if you have questions.\n";
+				$subject = sprintf( '[%s] Akun penulis kamu ditangguhkan', $site );
+				$body    = self::greeting( $user ) . "\n\nAkun penulis kamu ditangguhkan, sehingga menerbitkan dan mengubah karya tulis untuk sementara tidak tersedia. Hubungi admin Penalis jika ada pertanyaan.\n";
 				break;
 		}
 
@@ -146,6 +146,6 @@ final class Penalis_Emails {
 	 * @return string
 	 */
 	private static function greeting( $user ) {
-		return 'Hello ' . $user->display_name . ',';
+		return 'Halo ' . $user->display_name . ',';
 	}
 }

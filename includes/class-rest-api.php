@@ -230,7 +230,7 @@ final class Penalis_Rest_Api {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'penalis_not_authenticated',
-				'You must be signed in.',
+				'Kamu harus masuk terlebih dahulu.',
 				array( 'status' => 401 )
 			);
 		}
@@ -244,7 +244,7 @@ final class Penalis_Rest_Api {
 		if ( ! Penalis_Account_Status::can_view_dashboard( $user_id ) ) {
 			return new WP_Error(
 				'penalis_account_inactive',
-				'This account cannot access the writing dashboard.',
+				'Akun ini tidak dapat mengakses dasbor penulis.',
 				array( 'status' => 403 )
 			);
 		}
@@ -268,7 +268,7 @@ final class Penalis_Rest_Api {
 		if ( ! Penalis_Account_Status::can_write( $user_id ) ) {
 			return new WP_Error(
 				'penalis_account_inactive',
-				'Your account is not currently allowed to create or manage articles.',
+				'Akun kamu saat ini tidak diizinkan membuat atau mengelola karya tulis.',
 				array( 'status' => 403 )
 			);
 		}
@@ -276,7 +276,7 @@ final class Penalis_Rest_Api {
 		if ( ! current_user_can( 'edit_posts' ) ) {
 			return new WP_Error(
 				'penalis_forbidden',
-				'You are not allowed to perform this action.',
+				'Kamu tidak diizinkan melakukan tindakan ini.',
 				array( 'status' => rest_authorization_required_code() )
 			);
 		}
@@ -349,7 +349,7 @@ final class Penalis_Rest_Api {
 		$user    = get_userdata( $user_id );
 
 		if ( ! $user ) {
-			return new WP_Error( 'penalis_not_authenticated', 'You must be signed in.', array( 'status' => 401 ) );
+			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus masuk terlebih dahulu.', array( 'status' => 401 ) );
 		}
 
 		$status    = Penalis_Account_Status::get_status( $user_id );
@@ -362,7 +362,7 @@ final class Penalis_Rest_Api {
 		} elseif ( $is_admin ) {
 			$status_label = 'Administrator';
 		} else {
-			$status_label = 'Legacy account';
+			$status_label = 'Akun lama';
 		}
 
 		return new WP_REST_Response(
@@ -434,7 +434,7 @@ final class Penalis_Rest_Api {
 		if ( ! empty( $errors ) ) {
 			return new WP_Error(
 				'penalis_profile_invalid',
-				'Please correct the highlighted fields.',
+				'Perbaiki kolom yang ditandai.',
 				array(
 					'status' => 400,
 					'fields' => $errors,
@@ -444,7 +444,7 @@ final class Penalis_Rest_Api {
 
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
-			return new WP_Error( 'penalis_not_authenticated', 'You must be signed in.', array( 'status' => 401 ) );
+			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus masuk terlebih dahulu.', array( 'status' => 401 ) );
 		}
 
 		$update = array( 'ID' => $user_id );
@@ -486,7 +486,7 @@ final class Penalis_Rest_Api {
 		if ( is_wp_error( $result ) ) {
 			return new WP_Error(
 				'penalis_profile_update_failed',
-				'Your profile could not be updated. Please try again.',
+				'Profil kamu tidak dapat diperbarui. Silakan coba lagi.',
 				array( 'status' => 400 )
 			);
 		}
@@ -537,7 +537,7 @@ final class Penalis_Rest_Api {
 		if ( ! Penalis_Rate_Limiter::is_allowed( 'password_change', 5, HOUR_IN_SECONDS, (string) $user_id ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
-				'Too many attempts. Please try again later.',
+				'Terlalu banyak percobaan. Silakan coba lagi nanti.',
 				array( 'status' => 429 )
 			);
 		}
@@ -550,7 +550,7 @@ final class Penalis_Rest_Api {
 		if ( ! $user || ! wp_check_password( $current, $user->user_pass, $user_id ) ) {
 			return new WP_Error(
 				'penalis_password_invalid',
-				'Your current password is incorrect.',
+				'Kata sandi kamu saat ini salah.',
 				array( 'status' => 400 )
 			);
 		}
@@ -574,7 +574,7 @@ final class Penalis_Rest_Api {
 
 		return new WP_REST_Response(
 			array(
-				'message' => 'Your password has been changed. Please sign in again.',
+				'message' => 'Kata sandi kamu telah diubah. Silakan masuk kembali.',
 			),
 			200
 		);
@@ -700,7 +700,7 @@ final class Penalis_Rest_Api {
 		if ( ! in_array( $post->post_status, array( 'draft', 'pending', 'future' ), true ) ) {
 			return new WP_Error(
 				'penalis_invalid_transition',
-				'This article cannot be published from its current status.',
+				'Karya tulis ini tidak dapat diterbitkan dari statusnya saat ini.',
 				array( 'status' => 409 )
 			);
 		}
@@ -716,7 +716,7 @@ final class Penalis_Rest_Api {
 		if ( is_wp_error( $result ) ) {
 			return new WP_Error(
 				'penalis_publish_failed',
-				'The article could not be published.',
+				'Karya tulis tidak dapat diterbitkan.',
 				array( 'status' => 500 )
 			);
 		}
@@ -741,7 +741,7 @@ final class Penalis_Rest_Api {
 		if ( 'publish' !== $post->post_status ) {
 			return new WP_Error(
 				'penalis_invalid_transition',
-				'Only published articles can be returned to draft.',
+				'Hanya karya tulis yang sudah terbit yang dapat dikembalikan ke draf.',
 				array( 'status' => 409 )
 			);
 		}
@@ -757,7 +757,7 @@ final class Penalis_Rest_Api {
 		if ( is_wp_error( $result ) ) {
 			return new WP_Error(
 				'penalis_unpublish_failed',
-				'The article could not be unpublished.',
+				'karya tulis tidak dapat dikembalikan ke draf.',
 				array( 'status' => 500 )
 			);
 		}
@@ -822,7 +822,7 @@ final class Penalis_Rest_Api {
 		if ( ! Penalis_Rate_Limiter::is_allowed( 'tag_create', 30, HOUR_IN_SECONDS, (string) $user_id ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
-				'Too many tags created. Please try again later.',
+				'Terlalu banyak tag dibuat. Silakan coba lagi nanti.',
 				array( 'status' => 429 )
 			);
 		}
@@ -834,7 +834,7 @@ final class Penalis_Rest_Api {
 		if ( '' === $name || $name_length > 50 ) {
 			return new WP_Error(
 				'penalis_tag_invalid',
-				'Please provide a tag name of 50 characters or fewer.',
+				'Berikan nama tag maksimal 50 karakter.',
 				array( 'status' => 400 )
 			);
 		}
@@ -857,7 +857,7 @@ final class Penalis_Rest_Api {
 		if ( is_wp_error( $term ) ) {
 			return new WP_Error(
 				'penalis_tag_failed',
-				'The tag could not be created.',
+				'Tag tidak dapat dibuat.',
 				array( 'status' => 400 )
 			);
 		}
@@ -886,7 +886,7 @@ final class Penalis_Rest_Api {
 		if ( ! $post || 'post' !== $post->post_type ) {
 			return new WP_Error(
 				'penalis_not_found',
-				'Article not found.',
+				'Karya tulis tidak ditemukan.',
 				array( 'status' => 404 )
 			);
 		}
@@ -896,7 +896,7 @@ final class Penalis_Rest_Api {
 			// another writer's article.
 			return new WP_Error(
 				'penalis_not_found',
-				'Article not found.',
+				'Karya tulis tidak ditemukan.',
 				array( 'status' => 404 )
 			);
 		}

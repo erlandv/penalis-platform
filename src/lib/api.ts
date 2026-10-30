@@ -67,7 +67,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     });
   } catch {
     throw new ApiError(
-      'The server could not be reached. Check your connection and try again.',
+      'Server tidak dapat dihubungi. Periksa koneksi Anda lalu coba lagi.',
       'network_error',
       0,
     );
@@ -87,7 +87,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const message =
       typeof shape.message === 'string' && shape.message.length > 0
         ? stripTags(shape.message)
-        : 'Something went wrong. Please try again.';
+        : 'Terjadi kesalahan. Silakan coba lagi.';
 
     throw new ApiError(
       message,
@@ -314,7 +314,7 @@ export const mediaApi = {
         body: form,
       });
     } catch {
-      throw new ApiError('The image could not be uploaded. Check your connection.', 'network_error', 0);
+      throw new ApiError('Gambar tidak dapat diunggah. Periksa koneksi Anda.', 'network_error', 0);
     }
 
     const payload: unknown = await response.json().catch(() => null);
@@ -322,7 +322,7 @@ export const mediaApi = {
     if (!response.ok) {
       const shape = (payload ?? {}) as ApiErrorShape;
       throw new ApiError(
-        typeof shape.message === 'string' ? stripTags(shape.message) : 'The image could not be uploaded.',
+        typeof shape.message === 'string' ? stripTags(shape.message) : 'Gambar tidak dapat diunggah.',
         shape.code ?? 'upload_failed',
         response.status,
       );

@@ -44,7 +44,6 @@ export interface DashboardBootstrap {
   adminUrl: string;
   siteName: string;
   user: BootstrapUser | null;
-  i18n: Record<string, string>;
 }
 
 export interface AccountCounts {

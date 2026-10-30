@@ -40,7 +40,7 @@ export function Overview({
       })
       .catch((caught: unknown) => {
         if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'Your articles could not be loaded.');
+          setError(caught instanceof ApiError ? caught.message : 'Artikel Anda tidak dapat dimuat.');
         }
       })
       .finally(() => {
@@ -60,12 +60,12 @@ export function Overview({
     <div className="penalis-stack">
       <section className="penalis-hero">
         <div>
-          <p className="penalis-eyebrow">Welcome back</p>
+          <p className="penalis-eyebrow">Selamat datang kembali</p>
           <h2>{account.displayName}</h2>
           <p className="penalis-muted">
             {account.canWrite
-              ? 'Your writing workspace is ready. Draft an article, add a featured image, and publish when you are happy with it.'
-              : 'Your account is not yet able to publish. You can review your account details below.'}
+              ? 'Ruang menulis kamu sudah siap. Buat draf tulisan, tambahkan gambar unggulan, lalu terbitkan saat kamu merasa sudah siap.'
+              : 'Akun kamu belum dapat menerbitkan karya tulis. Kamu dapat meninjau detail akun di bawah ini.'}
           </p>
         </div>
         <div className="penalis-hero__status">
@@ -73,45 +73,45 @@ export function Overview({
         </div>
       </section>
 
-      <section className="penalis-cards" aria-label="Article summary">
-        <StatCard label="Total articles" value={counts.all} />
-        <StatCard label="Published" value={counts.publish} />
-        <StatCard label="Drafts" value={counts.draft} />
-        <StatCard label="Pending review" value={counts.pending} />
+      <section className="penalis-cards" aria-label="Ringkasan karya tulis">
+        <StatCard label="Total karya tulis" value={counts.all} />
+        <StatCard label="Diterbitkan" value={counts.publish} />
+        <StatCard label="Draf" value={counts.draft} />
+        <StatCard label="Menunggu tinjauan" value={counts.pending} />
       </section>
 
       {account.canWrite ? (
         <div className="penalis-actions-row">
           <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
-            Write a new article
+            Tulis karya tulis baru
           </button>
           <button type="button" className="penalis-button penalis-button--ghost" onClick={onOpenArticles}>
-            View all articles
+            Lihat semua karya tulis
           </button>
         </div>
       ) : null}
 
       <section className="penalis-panel">
         <div className="penalis-panel__header">
-          <h3>Recent articles</h3>
+          <h3>Karya Tulis Terbaru</h3>
         </div>
 
         {!account.canWrite ? (
           <p className="penalis-muted">
-            Article management becomes available after your email is confirmed and an administrator approves your
-            account.
+            Kamu dapat mengelola karya tulismu setelah email kamu dikonfirmasi
+            dan mengajuan akunmu disetujui admin.
           </p>
         ) : loading ? (
-          <Spinner label="Loading your articles…" />
+          <Spinner label="Memuat karya tulismu…" />
         ) : error ? (
           <ErrorBanner message={error} />
         ) : data && data.items.length === 0 ? (
           <EmptyState
-            title="No articles yet"
-            description="Your first article starts here. You can save a draft and come back to it at any time."
+            title="Belum ada karya"
+            description="Karya tulis pertama kamu dimulai di sini. Kamu dapat menyimpan draf dan kembali kapan saja."
             action={
               <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
-                Write your first article
+                Buat karya tulis pertama
               </button>
             }
           />
@@ -120,7 +120,7 @@ export function Overview({
             {data?.items.slice(0, 5).map((article) => (
               <li key={article.id} className="penalis-article-row">
                 <div>
-                  <strong>{article.title || 'Untitled'}</strong>
+                  <strong>{article.title || 'Tanpa judul'}</strong>
                   <p className="penalis-muted">{article.excerpt}</p>
                 </div>
                 <div className="penalis-article-row__meta">

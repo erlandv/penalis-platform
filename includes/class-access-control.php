@@ -124,7 +124,7 @@ final class Penalis_Access_Control {
 			if ( ! Penalis_Policy::can_login( $status, Penalis_Account_Status::is_access_enabled( $user->ID ) ) ) {
 				return new WP_Error(
 					'penalis_login_blocked',
-					'This account cannot sign in. Please contact the site administrators.'
+					'Akun ini tidak dapat masuk. Silakan hubungi admin Penalis.'
 				);
 			}
 
@@ -141,7 +141,7 @@ final class Penalis_Access_Control {
 
 			return new WP_Error(
 				'penalis_login_blocked',
-				'This account cannot sign in. Please contact the site administrators.'
+				'Akun ini tidak dapat masuk. Silakan hubungi admin Penalis.'
 			);
 		}
 
@@ -149,7 +149,7 @@ final class Penalis_Access_Control {
 		if ( in_array( Penalis_Roles::ROLE, (array) $user->roles, true ) ) {
 			return new WP_Error(
 				'penalis_login_blocked',
-				'This account cannot sign in. Please contact the site administrators.'
+				'Akun ini tidak dapat masuk. Silakan hubungi admin Penalis.'
 			);
 		}
 
@@ -202,7 +202,7 @@ final class Penalis_Access_Control {
 			return $message;
 		}
 
-		return esc_html__( 'Invalid username or password.', 'penalis-platform' );
+		return 'Nama pengguna atau kata sandi salah.';
 	}
 
 	/**
@@ -325,7 +325,7 @@ final class Penalis_Access_Control {
 				// needed for the dashboard; deny all methods for clarity.
 				return new WP_Error(
 					'penalis_rest_forbidden',
-					'You are not allowed to access this endpoint.',
+					'Kamu tidak diizinkan mengakses endpoint ini.',
 					array( 'status' => rest_authorization_required_code() )
 				);
 			}
@@ -336,7 +336,7 @@ final class Penalis_Access_Control {
 		if ( 0 === strpos( $route, '/wp/v2/comments' ) && 'GET' !== $method ) {
 			return new WP_Error(
 				'penalis_rest_forbidden',
-				'You are not allowed to access this endpoint.',
+				'Kamu tidak diizinkan mengakses endpoint ini.',
 				array( 'status' => rest_authorization_required_code() )
 			);
 		}
@@ -346,7 +346,7 @@ final class Penalis_Access_Control {
 		if ( preg_match( '#^/wp/v2/pages#', $route ) ) {
 			return new WP_Error(
 				'penalis_rest_forbidden',
-				'You are not allowed to access this endpoint.',
+				'Kamu tidak diizinkan mengakses endpoint ini.',
 				array( 'status' => rest_authorization_required_code() )
 			);
 		}
@@ -372,7 +372,7 @@ final class Penalis_Access_Control {
 			if ( ! $is_always_allowed && ! Penalis_Account_Status::can_write( $user->ID ) ) {
 				return new WP_Error(
 					'penalis_account_inactive',
-					'Your account is not currently allowed to create or modify content.',
+					'Akun kamu saat ini tidak diizinkan membuat atau mengubah konten.',
 					array( 'status' => 403 )
 				);
 			}
@@ -395,7 +395,7 @@ final class Penalis_Access_Control {
 			if ( ! $allowed ) {
 				return new WP_Error(
 					'penalis_rest_forbidden',
-					'You are not allowed to access this endpoint.',
+					'Kamu tidak diizinkan mengakses endpoint ini.',
 					array( 'status' => rest_authorization_required_code() )
 				);
 			}
@@ -426,7 +426,7 @@ final class Penalis_Access_Control {
 		if ( ! Penalis_Account_Status::can_write( $user->ID ) ) {
 			return new WP_Error(
 				'penalis_account_inactive',
-				'Your account is not currently allowed to create or modify articles.',
+				'Akun kamu saat ini tidak diizinkan membuat atau mengubah karya tulis.',
 				array( 'status' => 403 )
 			);
 		}
@@ -439,7 +439,7 @@ final class Penalis_Access_Control {
 			if ( ! $existing || 'post' !== $existing->post_type ) {
 				return new WP_Error(
 					'penalis_invalid_post',
-					'Only articles can be edited through this workflow.',
+					'Hanya karya tulis yang dapat diubah melalui alur kerja ini.',
 					array( 'status' => 403 )
 				);
 			}
@@ -447,7 +447,7 @@ final class Penalis_Access_Control {
 			if ( (int) $existing->post_author !== (int) $user->ID ) {
 				return new WP_Error(
 					'penalis_not_owner',
-					'You may not edit another writer\'s article.',
+					'Kamu tidak dapat mengubah karya penulis lain.',
 					array( 'status' => 403 )
 				);
 			}
@@ -467,7 +467,7 @@ final class Penalis_Access_Control {
 			if ( ! Penalis_Policy::is_allowed_post_status( $requested_status ) ) {
 				return new WP_Error(
 					'penalis_invalid_status',
-					'That article status is not allowed.',
+					'Status karya tulis tersebut tidak diizinkan.',
 					array( 'status' => 403 )
 				);
 			}
@@ -478,7 +478,7 @@ final class Penalis_Access_Control {
 		if ( $request->get_param( 'sticky' ) ) {
 			return new WP_Error(
 				'penalis_invalid_field',
-				'That field cannot be changed through this workflow.',
+				'Kolom tersebut tidak dapat diubah melalui alur kerja ini.',
 				array( 'status' => 403 )
 			);
 		}
@@ -489,7 +489,7 @@ final class Penalis_Access_Control {
 		if ( null !== $password && '' !== (string) $password ) {
 			return new WP_Error(
 				'penalis_invalid_field',
-				'That field cannot be changed through this workflow.',
+				'Kolom tersebut tidak dapat diubah melalui alur kerja ini.',
 				array( 'status' => 403 )
 			);
 		}
@@ -498,7 +498,7 @@ final class Penalis_Access_Control {
 		if ( ! empty( $meta ) ) {
 			return new WP_Error(
 				'penalis_invalid_field',
-				'That field cannot be changed through this workflow.',
+				'Kolom tersebut tidak dapat diubah melalui alur kerja ini.',
 				array( 'status' => 403 )
 			);
 		}
@@ -507,7 +507,7 @@ final class Penalis_Access_Control {
 		if ( null !== $template && '' !== (string) $template ) {
 			return new WP_Error(
 				'penalis_invalid_field',
-				'That field cannot be changed through this workflow.',
+				'Kolom tersebut tidak dapat diubah melalui alur kerja ini.',
 				array( 'status' => 403 )
 			);
 		}
@@ -519,7 +519,7 @@ final class Penalis_Access_Control {
 			if ( ! $attachment || 'attachment' !== $attachment->post_type || (int) $attachment->post_author !== (int) $user->ID ) {
 				return new WP_Error(
 					'penalis_invalid_media',
-					'You may only use your own media as a featured image.',
+					'Kamu hanya dapat menggunakan media milik sendiri sebagai gambar unggulan.',
 					array( 'status' => 403 )
 				);
 			}
@@ -625,26 +625,26 @@ final class Penalis_Access_Control {
 		$type    = isset( $file['type'] ) ? (string) $file['type'] : '';
 
 		if ( ! in_array( $type, $allowed, true ) ) {
-			$file['error'] = 'Only JPEG, PNG, GIF, and WebP images may be uploaded.';
+			$file['error'] = 'Hanya gambar JPEG, PNG, GIF, dan WebP yang dapat diunggah.';
 			return $file;
 		}
 
 		// Reject files whose contents do not match an image.
 		$tmp = isset( $file['tmp_name'] ) ? $file['tmp_name'] : '';
 		if ( '' === $tmp || ! is_readable( $tmp ) ) {
-			$file['error'] = 'The uploaded file could not be validated.';
+			$file['error'] = 'File yang diunggah tidak dapat divalidasi.';
 			return $file;
 		}
 
 		$info = @getimagesize( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		if ( false === $info || ! isset( $info[2] ) ) {
-			$file['error'] = 'The uploaded file is not a valid image.';
+			$file['error'] = 'File yang diunggah bukan gambar yang valid.';
 			return $file;
 		}
 
 		$allowed_types = array( IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP );
 		if ( ! in_array( (int) $info[2], $allowed_types, true ) ) {
-			$file['error'] = 'The uploaded image type is not allowed.';
+			$file['error'] = 'Jenis gambar yang diunggah tidak diizinkan.';
 		}
 
 		return $file;

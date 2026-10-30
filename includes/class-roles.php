@@ -76,7 +76,7 @@ final class Penalis_Roles {
 		$role = get_role( self::ROLE );
 
 		if ( ! $role ) {
-			add_role( self::ROLE, 'Penalis Writer', $caps );
+			add_role( self::ROLE, 'Penulis Penalis', $caps );
 			return;
 		}
 

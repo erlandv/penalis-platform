@@ -29,7 +29,7 @@ export function Media() {
       })
       .catch((caught: unknown) => {
         if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'Your media could not be loaded.');
+          setError(caught instanceof ApiError ? caught.message : 'Media Anda tidak dapat dimuat.');
         }
       })
       .finally(() => {
@@ -49,8 +49,8 @@ export function Media() {
         <div>
           <h2>Media</h2>
           <p className="penalis-muted">
-            Images you have uploaded. Add new images from the article editor&rsquo;s media panel; only JPEG, PNG, GIF,
-            and WebP files are accepted.
+            Gambar yang Anda unggah. Tambahkan gambar baru dari panel media editor artikel; hanya file JPEG, PNG, GIF,
+            dan WebP yang diterima.
           </p>
         </div>
       </div>
@@ -58,11 +58,11 @@ export function Media() {
       {error ? <ErrorBanner message={error} /> : null}
 
       {loading ? (
-        <Spinner label="Loading media…" />
+        <Spinner label="Memuat media…" />
       ) : data && data.items.length === 0 ? (
         <EmptyState
-          title="No media yet"
-          description="Images you upload for your articles will appear here."
+          title="Belum ada media"
+          description="Gambar yang Anda unggah untuk artikel akan tampil di sini."
         />
       ) : (
         <div className="penalis-media-grid">

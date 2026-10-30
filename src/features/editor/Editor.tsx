@@ -79,7 +79,7 @@ export function Editor({
         }
       }
     } catch (caught) {
-      setLoadError(caught instanceof ApiError ? caught.message : 'This article could not be loaded.');
+      setLoadError(caught instanceof ApiError ? caught.message : 'Artikel ini tidak dapat dimuat.');
     } finally {
       setLoading(false);
     }
@@ -147,7 +147,7 @@ export function Editor({
       const uploaded = await mediaApi.upload(file);
       setMedia((current) => [uploaded, ...current]);
     } catch (caught) {
-      setUploadError(caught instanceof ApiError ? caught.message : 'The image could not be uploaded.');
+      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat diunggah.');
     } finally {
       setUploading(false);
     }
@@ -195,7 +195,7 @@ export function Editor({
       const created = await taxonomyApi.createTag(name);
       addTag({ id: created.id, name: created.name });
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The tag could not be created.');
+      setError(caught instanceof ApiError ? caught.message : 'Tag tidak dapat dibuat.');
     }
   };
 
@@ -225,14 +225,14 @@ export function Editor({
 
       setId(result.id);
       setStatus(result.status);
-      setNotice(nextStatus === 'publish' ? 'Your article has been published.' : 'Your changes have been saved.');
+      setNotice(nextStatus === 'publish' ? 'Artikel Anda telah diterbitkan.' : 'Perubahan Anda telah disimpan.');
       onSaved(result.id);
     } catch (caught) {
       if (caught instanceof ApiError) {
         setErrors(caught.fields);
         setError(caught.message);
       } else {
-        setError('The article could not be saved.');
+        setError('Artikel tidak dapat disimpan.');
       }
     } finally {
       setSaving(false);
@@ -251,11 +251,11 @@ export function Editor({
       img{max-width:100%;height:auto}
       a{color:#7c3aed}
       blockquote{border-left:4px solid #ddd;margin-left:0;padding-left:1rem;color:#52606d}
-    </style></head><body><h1>${escapeHtml(title || 'Untitled')}</h1>${content}</body></html>`;
+    </style></head><body><h1>${escapeHtml(title || 'Tanpa judul')}</h1>${content}</body></html>`;
   }, [content, title]);
 
   if (loading) {
-    return <Spinner label="Loading article…" />;
+    return <Spinner label="Memuat artikel…" />;
   }
 
   if (loadError) {
@@ -263,7 +263,7 @@ export function Editor({
       <div className="penalis-stack">
         <ErrorBanner message={loadError} onRetry={() => void load()} />
         <button type="button" className="penalis-button penalis-button--ghost" onClick={onCancel}>
-          Back to articles
+          Kembali ke artikel
         </button>
       </div>
     );
@@ -273,23 +273,23 @@ export function Editor({
     <form className="penalis-stack" onSubmit={submit} noValidate>
       <div className="penalis-page-heading">
         <div>
-          <h2>{id ? 'Edit article' : 'New article'}</h2>
+          <h2>{id ? 'Ubah artikel' : 'Artikel baru'}</h2>
           <p className="penalis-muted">
             {id ? (
               <>
                 Status: <StatusBadge status={status} />
               </>
             ) : (
-              'Save a draft at any time. You can publish when the article is ready.'
+              'Simpan draf kapan saja. Anda dapat menerbitkan saat artikel sudah siap.'
             )}
           </p>
         </div>
         <div className="penalis-row-actions">
           <button type="button" className="penalis-button penalis-button--ghost" onClick={onCancel}>
-            Cancel
+            Batal
           </button>
           <button type="button" className="penalis-button penalis-button--ghost" onClick={() => setPreviewOpen(true)}>
-            Preview
+            Pratinjau
           </button>
           <button
             type="button"
@@ -297,7 +297,7 @@ export function Editor({
             onClick={() => void save(status === 'publish' ? 'publish' : 'draft')}
             disabled={saving}
           >
-            {saving ? 'Saving…' : status === 'publish' ? 'Save changes' : 'Save draft'}
+            {saving ? 'Menyimpan…' : status === 'publish' ? 'Simpan perubahan' : 'Simpan draf'}
           </button>
           {status !== 'publish' ? (
             <button
@@ -306,7 +306,7 @@ export function Editor({
               onClick={() => void save('publish')}
               disabled={saving}
             >
-              Publish
+              Terbitkan
             </button>
           ) : null}
         </div>
@@ -318,42 +318,42 @@ export function Editor({
       <div className="penalis-editor">
         <div className="penalis-editor__main">
           <label className="penalis-field">
-            <span>Title</span>
+            <span>Judul</span>
             <input
               type="text"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               maxLength={200}
-              placeholder="Your article title"
+              placeholder="Judul artikel Anda"
               aria-invalid={Boolean(errors.title)}
             />
             <FieldError errors={errors} name="title" />
           </label>
 
           <label className="penalis-field">
-            <span>Article content</span>
+            <span>Isi artikel</span>
             <textarea
               ref={textareaRef}
               value={content}
               onChange={(event) => setContent(event.target.value)}
               rows={18}
-              placeholder="Write your article. Basic HTML is supported."
+              placeholder="Tulis artikel Anda. HTML dasar didukung."
               aria-invalid={Boolean(errors.content)}
             />
             <FieldError errors={errors} name="content" />
             <small>
-              Basic HTML is supported. Use the media panel to insert an image at the cursor.
+              HTML dasar didukung. Gunakan panel media untuk menyisipkan gambar di posisi kursor.
             </small>
           </label>
 
           <label className="penalis-field">
-            <span>Excerpt (optional)</span>
+            <span>Ringkasan (opsional)</span>
             <textarea
               value={excerpt}
               onChange={(event) => setExcerpt(event.target.value)}
               rows={3}
               maxLength={300}
-              placeholder="A short summary used on archive pages."
+              placeholder="Ringkasan singkat yang tampil di halaman arsip."
             />
           </label>
         </div>
@@ -361,7 +361,7 @@ export function Editor({
         <aside className="penalis-editor__side">
           <section className="penalis-panel">
             <div className="penalis-panel__header">
-              <h3>Featured image</h3>
+              <h3>Gambar unggulan</h3>
             </div>
 
             {featuredMedia > 0 ? (
@@ -375,25 +375,25 @@ export function Editor({
                     setFeaturedPreview('');
                   }}
                 >
-                  Remove
+                  Hapus
                 </button>
               </div>
             ) : (
-              <p className="penalis-muted">No featured image selected.</p>
+              <p className="penalis-muted">Belum ada gambar unggulan yang dipilih.</p>
             )}
 
             <button type="button" className="penalis-button penalis-button--ghost" onClick={() => void openMediaPicker()}>
-              Choose from media library
+              Pilih dari pustaka media
             </button>
           </section>
 
           <section className="penalis-panel">
             <div className="penalis-panel__header">
-              <h3>Categories</h3>
+              <h3>Kategori</h3>
             </div>
 
             {categories.length === 0 ? (
-              <p className="penalis-muted">No categories are available.</p>
+              <p className="penalis-muted">Belum ada kategori.</p>
             ) : (
               <div className="penalis-checklist">
                 {categories.map((category) => (
@@ -418,7 +418,7 @@ export function Editor({
 
           <section className="penalis-panel">
             <div className="penalis-panel__header">
-              <h3>Tags</h3>
+              <h3>Tag</h3>
             </div>
 
             <div className="penalis-tag-list">
@@ -427,7 +427,7 @@ export function Editor({
                   {term.name}
                   <button
                     type="button"
-                    aria-label={`Remove ${term.name}`}
+                    aria-label={`Hapus ${term.name}`}
                     onClick={() => setSelectedTags((current) => current.filter((item) => item.id !== term.id))}
                   >
                     ×
@@ -437,12 +437,12 @@ export function Editor({
             </div>
 
             <label className="penalis-field">
-              <span>Add a tag</span>
+              <span>Tambahkan tag</span>
               <input
                 type="text"
                 value={tagSearch}
                 onChange={(event) => setTagSearch(event.target.value)}
-                placeholder="Search or create a tag"
+                placeholder="Cari atau buat tag"
               />
             </label>
 
@@ -460,7 +460,7 @@ export function Editor({
 
             {tagSearch.trim().length >= 2 ? (
               <button type="button" className="penalis-button penalis-button--ghost" onClick={() => void createTag()}>
-                Create “{tagSearch.trim()}”
+                Buat “{tagSearch.trim()}”
               </button>
             ) : null}
           </section>
@@ -468,17 +468,17 @@ export function Editor({
       </div>
 
       {mediaOpen ? (
-        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Media library">
+        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Pustaka media">
           <div className="penalis-modal__content">
             <div className="penalis-modal__header">
-              <h3>Media library</h3>
+              <h3>Pustaka media</h3>
               <button type="button" className="penalis-button penalis-button--ghost" onClick={() => setMediaOpen(false)}>
-                Close
+                Tutup
               </button>
             </div>
 
             <label className="penalis-upload">
-              <span>{uploading ? 'Uploading…' : 'Upload an image'}</span>
+              <span>{uploading ? 'Mengunggah…' : 'Unggah gambar'}</span>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
@@ -491,16 +491,16 @@ export function Editor({
                   event.target.value = '';
                 }}
               />
-              <small>JPEG, PNG, GIF, or WebP. Other file types are rejected by the server.</small>
+              <small>JPEG, PNG, GIF, atau WebP. Jenis file lain ditolak oleh server.</small>
             </label>
 
             {uploadError ? <ErrorBanner message={uploadError} /> : null}
 
             {mediaLoading ? (
-              <Spinner label="Loading media…" />
+              <Spinner label="Memuat media…" />
             ) : media.length === 0 ? (
               <p className="penalis-muted">
-                You have not uploaded any media yet. Use the upload control above to add your first image.
+                Anda belum mengunggah media apa pun. Gunakan kontrol unggah di atas untuk menambahkan gambar pertama.
               </p>
             ) : (
               <div className="penalis-media-grid">
@@ -518,14 +518,14 @@ export function Editor({
                           setMediaOpen(false);
                         }}
                       >
-                        Feature
+                        Jadikan unggulan
                       </button>
                       <button
                         type="button"
                         className="penalis-button penalis-button--ghost"
                         onClick={() => insertMedia(item)}
                       >
-                        Insert
+                        Sisipkan
                       </button>
                     </div>
                   </figure>
@@ -537,10 +537,10 @@ export function Editor({
       ) : null}
 
       {previewOpen ? (
-        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Article preview">
+        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Pratinjau artikel">
           <div className="penalis-modal__content penalis-modal__content--wide">
             <div className="penalis-modal__header">
-              <h3>Preview</h3>
+              <h3>Pratinjau</h3>
               <div className="penalis-row-actions">
                 {status === 'publish' ? (
                   <a
@@ -549,7 +549,7 @@ export function Editor({
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    Open live article
+                    Buka artikel terbit
                   </a>
                 ) : null}
                 <button
@@ -557,12 +557,12 @@ export function Editor({
                   className="penalis-button penalis-button--ghost"
                   onClick={() => setPreviewOpen(false)}
                 >
-                  Close
+                  Tutup
                 </button>
               </div>
             </div>
             <iframe
-              title="Article preview"
+              title="Pratinjau artikel"
               className="penalis-preview-frame"
               sandbox=""
               srcDoc={previewDocument}
@@ -572,7 +572,7 @@ export function Editor({
       ) : null}
 
       {id ? (
-        <p className="penalis-fineprint">Article ID {id}</p>
+        <p className="penalis-fineprint">ID artikel {id}</p>
       ) : null}
     </form>
   );

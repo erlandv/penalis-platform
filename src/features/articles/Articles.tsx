@@ -17,10 +17,10 @@ import {
 } from '../../components/ui';
 
 const FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'publish', label: 'Published' },
-  { value: 'draft', label: 'Drafts' },
-  { value: 'pending', label: 'Pending review' },
+  { value: 'all', label: 'Semua' },
+  { value: 'publish', label: 'Terbit' },
+  { value: 'draft', label: 'Draf' },
+  { value: 'pending', label: 'Menunggu tinjauan' },
 ];
 
 export function Articles({
@@ -46,7 +46,7 @@ export function Articles({
       const result = await articlesApi.list(page, status);
       setData(result);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Your articles could not be loaded.');
+      setError(caught instanceof ApiError ? caught.message : 'Karya tulismu tidak dapat dimuat.');
     } finally {
       setLoading(false);
     }
@@ -67,10 +67,10 @@ export function Articles({
     setNotice('');
     try {
       await articlesApi.publish(id);
-      setNotice('Article published.');
+      setNotice('Karya tulis diterbitkan.');
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The article could not be published.');
+      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat diterbitkan.');
     } finally {
       setBusyId(null);
     }
@@ -82,17 +82,17 @@ export function Articles({
     setNotice('');
     try {
       await articlesApi.unpublish(id);
-      setNotice('Article returned to drafts.');
+      setNotice('Karya tulis dikembalikan ke draf.');
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The article could not be unpublished.');
+      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat dikembalikan ke draf.');
     } finally {
       setBusyId(null);
     }
   };
 
   const remove = async (id: number) => {
-    if (!window.confirm('Delete this article permanently? This cannot be undone.')) {
+    if (!window.confirm('Hapus karya tulis ini secara permanen? Tindakan ini tidak dapat dibatalkan.')) {
       return;
     }
 
@@ -101,10 +101,10 @@ export function Articles({
     setNotice('');
     try {
       await articlesApi.remove(id);
-      setNotice('Article deleted.');
+      setNotice('Karya tulis dihapus.');
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The article could not be deleted.');
+      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat dihapus.');
     } finally {
       setBusyId(null);
     }
@@ -114,15 +114,15 @@ export function Articles({
     <div className="penalis-stack">
       <div className="penalis-page-heading">
         <div>
-          <h2>My articles</h2>
-          <p className="penalis-muted">Only your own articles appear here.</p>
+          <h2>Karya tulismu</h2>
+          <p className="penalis-muted">Kelola karya tulismu di sini.</p>
         </div>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onCreate}>
-          New article
+          Buat Karya Baru
         </button>
       </div>
 
-      <div className="penalis-tabs" role="tablist" aria-label="Filter by status">
+      <div className="penalis-tabs" role="tablist" aria-label="Saring menurut status">
         {FILTERS.map((filter) => (
           <button
             key={filter.value}
@@ -141,18 +141,18 @@ export function Articles({
       {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
 
       {loading ? (
-        <Spinner label="Loading articles…" />
+        <Spinner label="Memuat karya…" />
       ) : data && data.items.length === 0 ? (
         <EmptyState
-          title="Nothing here yet"
+          title="Belum ada apa pun di sini"
           description={
             status === 'all'
-              ? 'You have not written any articles yet.'
-              : `You have no articles with the “${status}” status.`
+              ? 'Kamu belum menulis karya apa pun.'
+              : `Kamu tidak memiliki karya tulis dengan status “${status}”.`
           }
           action={
             <button type="button" className="penalis-button penalis-button--primary" onClick={onCreate}>
-              Write an article
+              Buat Karya Baru
             </button>
           }
         />
@@ -161,17 +161,17 @@ export function Articles({
           <table className="penalis-table">
             <thead>
               <tr>
-                <th scope="col">Title</th>
+                <th scope="col">Judul Karya</th>
                 <th scope="col">Status</th>
-                <th scope="col">Modified</th>
-                <th scope="col">Actions</th>
+                <th scope="col">Diubah</th>
+                <th scope="col">Tindakan</th>
               </tr>
             </thead>
             <tbody>
               {data?.items.map((article) => (
                 <tr key={article.id}>
                   <td>
-                    <strong>{article.title || 'Untitled'}</strong>
+                    <strong>{article.title || 'Tanpa judul'}</strong>
                     <p className="penalis-muted">{truncate(article.excerpt, 100)}</p>
                   </td>
                   <td>
@@ -186,7 +186,7 @@ export function Articles({
                         onClick={() => onEdit(article.id)}
                         disabled={busyId === article.id}
                       >
-                        Edit
+                        Ubah
                       </button>
 
                       {article.link ? (
@@ -196,7 +196,7 @@ export function Articles({
                           target="_blank"
                           rel="noreferrer noopener"
                         >
-                          View
+                          Lihat
                         </a>
                       ) : null}
 
@@ -207,7 +207,7 @@ export function Articles({
                           onClick={() => void unpublish(article.id)}
                           disabled={busyId === article.id}
                         >
-                          Unpublish
+                          Batalkan terbit
                         </button>
                       ) : (
                         <button
@@ -216,7 +216,7 @@ export function Articles({
                           onClick={() => void publish(article.id)}
                           disabled={busyId === article.id}
                         >
-                          Publish
+                          Terbitkan
                         </button>
                       )}
 
@@ -226,7 +226,7 @@ export function Articles({
                         onClick={() => void remove(article.id)}
                         disabled={busyId === article.id}
                       >
-                        Delete
+                        Hapus
                       </button>
                     </div>
                   </td>

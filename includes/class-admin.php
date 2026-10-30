@@ -37,8 +37,8 @@ final class Penalis_Admin {
 	 */
 	public static function register_menu() {
 		add_users_page(
-			'Penalis Writers',
-			'Penalis Writers',
+			'Penulis Penalis',
+			'Penulis Penalis',
 			'list_users',
 			'penalis-writers',
 			array( __CLASS__, 'render_page' )
@@ -95,8 +95,8 @@ jQuery( function ( $ ) {
 
 		if ( ! frame ) {
 			frame = wp.media( {
-				title: 'Default profile photo',
-				button: { text: 'Use this image' },
+				title: 'Foto profil bawaan',
+				button: { text: 'Gunakan gambar ini' },
 				library: { type: 'image' },
 				multiple: false
 			} );
@@ -123,7 +123,7 @@ JS;
 	 */
 	public static function save_default_avatar() {
 		if ( ! current_user_can( 'list_users' ) ) {
-			wp_die( esc_html__( 'You do not have permission to change this setting.', 'penalis-platform' ) );
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.' );
 		}
 
 		check_admin_referer( 'penalis_default_avatar' );
@@ -156,7 +156,7 @@ JS;
 	 * @return array<string,string>
 	 */
 	public static function add_status_column( $columns ) {
-		$columns['penalis_status'] = 'Penalis status';
+		$columns['penalis_status'] = 'Status Penalis';
 		return $columns;
 	}
 
@@ -176,7 +176,7 @@ JS;
 		$status = Penalis_Account_Status::get_status( $user_id );
 
 		if ( '' === $status ) {
-			return '<span class="penalis-status penalis-status--legacy">Legacy / unmanaged</span>';
+			return '<span class="penalis-status penalis-status--legacy">Lama / tidak terkelola</span>';
 		}
 
 		return sprintf(
@@ -193,7 +193,7 @@ JS;
 	 */
 	public static function render_page() {
 		if ( ! current_user_can( 'list_users' ) ) {
-			wp_die( esc_html__( 'You do not have permission to view this page.', 'penalis-platform' ) );
+			wp_die( 'Kamu tidak memiliki izin untuk melihat halaman ini.' );
 		}
 
 		$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -236,17 +236,17 @@ JS;
 		$default_avatar_url = $default_avatar_id > 0 ? (string) wp_get_attachment_image_url( $default_avatar_id, 'thumbnail' ) : '';
 
 		$statuses = array(
-			''                                          => 'All managed',
-			Penalis_Policy::STATUS_PENDING_VERIFICATION => 'Pending verification',
-			Penalis_Policy::STATUS_PENDING_APPROVAL     => 'Pending approval',
-			Penalis_Policy::STATUS_ACTIVE               => 'Active',
-			Penalis_Policy::STATUS_REJECTED             => 'Rejected',
-			Penalis_Policy::STATUS_SUSPENDED            => 'Suspended',
+			''                                          => 'Semua yang dikelola',
+			Penalis_Policy::STATUS_PENDING_VERIFICATION => 'Menunggu verifikasi',
+			Penalis_Policy::STATUS_PENDING_APPROVAL     => 'Menunggu persetujuan',
+			Penalis_Policy::STATUS_ACTIVE               => 'Aktif',
+			Penalis_Policy::STATUS_REJECTED             => 'Ditolak',
+			Penalis_Policy::STATUS_SUSPENDED            => 'Ditangguhkan',
 		);
 
 		?>
 		<div class="wrap">
-			<h1>Penalis Writers</h1>
+			<h1>Penulis Penalis</h1>
 
 			<?php if ( isset( $_GET['penalis_message'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 				<div class="notice notice-success is-dismissible"><p><?php echo esc_html( self::message_for( sanitize_key( wp_unslash( $_GET['penalis_message'] ) ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?></p></div>
@@ -257,7 +257,7 @@ JS;
 			<?php endif; ?>
 
 			<div class="card" style="max-width:720px;padding:1rem 1.25rem;margin:1rem 0;">
-				<h2 style="margin-top:0;">Default profile photo</h2>
+				<h2 style="margin-top:0;">Foto profil bawaan</h2>
 				<p class="description">
 					Shown for users who have not chosen a photo. It is stored as the site avatar default.
 					<?php if ( Penalis_Avatar::is_supported() ) : ?>
@@ -277,10 +277,10 @@ JS;
 						/>
 					</p>
 					<p>
-						<button type="button" class="button" id="penalis-default-avatar-choose">Choose image</button>
-						<button type="submit" class="button button-primary">Save</button>
+						<button type="button" class="button" id="penalis-default-avatar-choose">Pilih gambar</button>
+						<button type="submit" class="button button-primary">Simpan</button>
 						<?php if ( $default_avatar_id > 0 ) : ?>
-							<button type="submit" class="button-link-delete" name="penalis_clear_default_avatar" value="1">Remove default photo</button>
+							<button type="submit" class="button-link-delete" name="penalis_clear_default_avatar" value="1">Hapus foto bawaan</button>
 						<?php endif; ?>
 					</p>
 				</form>
@@ -288,33 +288,34 @@ JS;
 
 			<form method="get">
 				<input type="hidden" name="page" value="penalis-writers">
-				<label for="penalis-status-filter" class="screen-reader-text">Filter by status</label>
+				<label for="penalis-status-filter" class="screen-reader-text">Saring menurut status</label>
 				<select id="penalis-status-filter" name="status">
 					<?php foreach ( $statuses as $value => $label ) : ?>
 						<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $status, $value ); ?>><?php echo esc_html( $label ); ?></option>
 					<?php endforeach; ?>
 				</select>
-				<input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="Search name, username, email">
-				<?php submit_button( 'Filter', 'secondary', '', false ); ?>
+				<input type="search" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="Cari nama, nama pengguna, email">
+				<?php submit_button( 'Saring', 'secondary', '', false ); ?>
 			</form>
 
 			<p class="description">
-				Legacy accounts without Penalis metadata are intentionally excluded from this list. They are never promoted or enabled automatically.
+				Akun lama tanpa metadata Penalis sengaja tidak ditampilkan di daftar ini. Akun tersebut tidak pernah
+				dinaikkan statusnya atau diaktifkan secara otomatis.
 			</p>
 
 			<table class="wp-list-table widefat fixed striped">
 				<thead>
 					<tr>
-						<th scope="col">Writer</th>
+						<th scope="col">Penulis</th>
 						<th scope="col">Email</th>
 						<th scope="col">Status</th>
-						<th scope="col">Registered</th>
-						<th scope="col">Actions</th>
+						<th scope="col">Terdaftar</th>
+						<th scope="col">Tindakan</th>
 					</tr>
 				</thead>
 				<tbody>
 					<?php if ( empty( $users ) ) : ?>
-						<tr><td colspan="5">No accounts match this filter.</td></tr>
+						<tr><td colspan="5">Tidak ada akun yang cocok dengan filter ini.</td></tr>
 					<?php else : ?>
 						<?php foreach ( $users as $user ) : ?>
 							<?php
@@ -338,37 +339,37 @@ JS;
 										<?php echo esc_html( Penalis_Policy::status_label( $user_status ) ); ?>
 									</span>
 									<?php if ( Penalis_Account_Status::has_recent_email_failure( $user_id ) ) : ?>
-										<br><small>Recent email delivery failure</small>
+										<br><small>Pengiriman email terakhir gagal</small>
 									<?php endif; ?>
 								</td>
 								<td><?php echo esc_html( $user->user_registered ); ?></td>
 								<td class="penalis-actions">
 									<?php if ( Penalis_Policy::STATUS_PENDING_VERIFICATION === $user_status ) : ?>
-										<?php self::action_button( $user_id, 'resend_verification', 'Resend verification' ); ?>
+										<?php self::action_button( $user_id, 'resend_verification', 'Kirim ulang verifikasi' ); ?>
 									<?php endif; ?>
 
 									<?php if ( $can_approve && Penalis_Policy::STATUS_PENDING_APPROVAL === $user_status ) : ?>
-										<?php self::action_button( $user_id, 'approve', 'Approve' ); ?>
+										<?php self::action_button( $user_id, 'approve', 'Setujui' ); ?>
 									<?php endif; ?>
 
 									<?php if ( $can_reject ) : ?>
-										<?php self::action_button( $user_id, 'reject', 'Reject', true ); ?>
+										<?php self::action_button( $user_id, 'reject', 'Tolak', true ); ?>
 									<?php endif; ?>
 
 									<?php if ( $can_suspend ) : ?>
-										<?php self::action_button( $user_id, 'suspend', 'Suspend', true ); ?>
+										<?php self::action_button( $user_id, 'suspend', 'Tangguhkan', true ); ?>
 									<?php endif; ?>
 
 									<?php if ( $can_reactivate && Penalis_Policy::STATUS_SUSPENDED === $user_status ) : ?>
-										<?php self::action_button( $user_id, 'reactivate', 'Reactivate' ); ?>
+										<?php self::action_button( $user_id, 'reactivate', 'Aktifkan kembali' ); ?>
 									<?php endif; ?>
 
 									<?php if ( $can_reopen && Penalis_Policy::STATUS_REJECTED === $user_status ) : ?>
-										<?php self::action_button( $user_id, 'reopen', 'Reopen application' ); ?>
+										<?php self::action_button( $user_id, 'reopen', 'Buka kembali pendaftaran' ); ?>
 									<?php endif; ?>
 
 									<?php if ( $access ) : ?>
-										<br><small>Dashboard access enabled</small>
+										<br><small>Akses dasbor diaktifkan</small>
 									<?php endif; ?>
 
 									<?php
@@ -453,7 +454,7 @@ JS;
 	 */
 	public static function handle_account_action() {
 		if ( ! current_user_can( 'list_users' ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'penalis-platform' ) );
+			wp_die( 'Kamu tidak memiliki izin untuk melakukan tindakan ini.' );
 		}
 
 		$user_id = isset( $_POST['user_id'] ) ? (int) $_POST['user_id'] : 0;
@@ -508,7 +509,7 @@ JS;
 				break;
 
 			default:
-				$result = new WP_Error( 'penalis_invalid_action', 'Invalid action.', array( 'status' => 400 ) );
+				$result = new WP_Error( 'penalis_invalid_action', 'Tindakan tidak valid.', array( 'status' => 400 ) );
 		}
 
 		if ( is_wp_error( $result ) ) {
@@ -534,7 +535,7 @@ JS;
 		$status = Penalis_Account_Status::get_status( $user_id );
 
 		if ( Penalis_Policy::STATUS_PENDING_VERIFICATION !== $status ) {
-			return new WP_Error( 'penalis_invalid_transition', 'This account is not awaiting verification.', array( 'status' => 409 ) );
+			return new WP_Error( 'penalis_invalid_transition', 'Akun ini tidak sedang menunggu verifikasi.', array( 'status' => 409 ) );
 		}
 
 		$token = Penalis_Account_Status::issue_verification_token( $user_id );
@@ -545,7 +546,7 @@ JS;
 		$sent = Penalis_Emails::send_verification( $user_id, $token );
 
 		if ( ! $sent ) {
-			return new WP_Error( 'penalis_email_failed', 'The verification email could not be sent.', array( 'status' => 500 ) );
+			return new WP_Error( 'penalis_email_failed', 'Email verifikasi tidak dapat dikirim.', array( 'status' => 500 ) );
 		}
 
 		return true;
@@ -581,18 +582,18 @@ JS;
 	 */
 	private static function message_for( $key ) {
 		$messages = array(
-			'done'                       => 'The account status was updated.',
-			'error'                      => 'The account status could not be updated.',
-			'invalid_user'               => 'The selected account was not found.',
-			'invalid_action'             => 'That action is not allowed.',
-			'protected_account'          => 'Administrator accounts cannot be changed here.',
-			'penalis_invalid_transition' => 'That status change is not allowed for this account.',
-			'penalis_email_failed'       => 'The verification email could not be sent. The account was not advanced.',
-			'avatar_saved'               => 'The default profile photo was updated.',
-			'avatar_invalid'             => 'Please choose a valid image for the default profile photo.',
+			'done'                       => 'Status akun telah diperbarui.',
+			'error'                      => 'Status akun tidak dapat diperbarui.',
+			'invalid_user'               => 'Akun yang dipilih tidak ditemukan.',
+			'invalid_action'             => 'Tindakan tersebut tidak diizinkan.',
+			'protected_account'          => 'Akun administrator tidak dapat diubah di sini.',
+			'penalis_invalid_transition' => 'Perubahan status tersebut tidak diizinkan untuk akun ini.',
+			'penalis_email_failed'       => 'Email verifikasi tidak dapat dikirim. Status akun tidak diubah.',
+			'avatar_saved'               => 'Foto profil bawaan telah diperbarui.',
+			'avatar_invalid'             => 'Pilih gambar yang valid untuk foto profil bawaan.',
 		);
 
-		return isset( $messages[ $key ] ) ? $messages[ $key ] : 'The request was completed.';
+		return isset( $messages[ $key ] ) ? $messages[ $key ] : 'Permintaan telah diselesaikan.';
 	}
 
 	/**
@@ -631,13 +632,12 @@ JS;
 			'<div class="notice notice-info"><p>%s <a href="%s">%s</a></p></div>',
 			esc_html(
 				sprintf(
-					/* translators: %d: number of pending writer applications. */
-					_n( '%d writer application is awaiting review.', '%d writer applications are awaiting review.', $count, 'penalis-platform' ),
+					'%d pendaftaran penulis menunggu tinjauan.',
 					$count
 				)
 			),
 			esc_url( admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) ),
-			esc_html__( 'Review applications', 'penalis-platform' )
+			'Tinjau pendaftaran'
 		);
 	}
 }

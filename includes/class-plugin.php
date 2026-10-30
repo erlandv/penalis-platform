@@ -68,17 +68,7 @@ final class Penalis_Plugin {
 			Penalis_Admin::init();
 		}
 
-		add_action( 'init', array( $this, 'load_textdomain' ) );
 		add_action( 'admin_notices', array( $this, 'activation_notice' ) );
-	}
-
-	/**
-	 * Load translations.
-	 *
-	 * @return void
-	 */
-	public function load_textdomain() {
-		load_plugin_textdomain( 'penalis-platform', false, dirname( PENALIS_PLATFORM_BASENAME ) . '/languages' );
 	}
 
 	/**
@@ -127,7 +117,7 @@ final class Penalis_Plugin {
 
 		printf(
 			'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
-			esc_html__( 'Penalis Platform is active. Review the dashboard page and writer applications under Users → Penalis Writers.', 'penalis-platform' )
+			'Penalis Platform aktif. Tinjau halaman dasbor dan pendaftaran penulis di Pengguna → Penulis Penalis.'
 		);
 	}
 }

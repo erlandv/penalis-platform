@@ -43,7 +43,7 @@ function VerificationPage({ token }: { token: string }) {
       url.searchParams.delete('penalis_verify');
       window.history.replaceState({}, '', url.toString());
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The verification link could not be processed.');
+      setError(caught instanceof ApiError ? caught.message : 'Tautan verifikasi tidak dapat diproses.');
       setState('idle');
     }
   };
@@ -52,9 +52,9 @@ function VerificationPage({ token }: { token: string }) {
     <div className="penalis-auth">
       <div className="penalis-auth__panel">
         <p className="penalis-eyebrow">{bootstrap.siteName}</p>
-        <h1>Confirm your email</h1>
+        <h1>Konfirmasi email kamu</h1>
         <p className="penalis-muted">
-          Confirm that this email address belongs to you. This link can only be used once.
+          Konfirmasikan bahwa alamat email ini milik kamu. Tautan ini cuma bisa dipakai sekali, ya.
         </p>
 
         {error ? <ErrorBanner message={error} /> : null}
@@ -66,7 +66,7 @@ function VerificationPage({ token }: { token: string }) {
               className="penalis-button penalis-button--primary"
               href={bootstrap.isLoggedIn ? bootstrap.dashboardUrl : bootstrap.loginUrl}
             >
-              {bootstrap.isLoggedIn ? 'Go to your dashboard' : 'Continue to sign in'}
+              {bootstrap.isLoggedIn ? 'Buka dasbor penulis' : 'Lanjut ke halaman masuk'}
             </a>
           </>
         ) : (
@@ -76,12 +76,12 @@ function VerificationPage({ token }: { token: string }) {
             onClick={() => void confirm()}
             disabled={state === 'working'}
           >
-            {state === 'working' ? 'Confirming…' : 'Confirm email address'}
+            {state === 'working' ? 'Mengonfirmasi…' : 'Konfirmasi alamat email'}
           </button>
         )}
 
         <p className="penalis-fineprint">
-          <a href={bootstrap.lostPassword}>Need a new verification email?</a>
+          <a href={bootstrap.lostPassword}>Butuh email verifikasi baru?</a>
         </p>
       </div>
     </div>
@@ -117,7 +117,7 @@ export function App() {
       } else if (caught instanceof ApiError && caught.status === 403) {
         setBlocked(true);
       } else {
-        setError(caught instanceof ApiError ? caught.message : 'Your account could not be loaded.');
+        setError(caught instanceof ApiError ? caught.message : 'Akun kamu tidak dapat dimuat.');
       }
     } finally {
       setLoading(false);
@@ -157,13 +157,13 @@ export function App() {
     return (
       <div className="penalis-auth">
         <div className="penalis-auth__panel">
-          <h1>Account unavailable</h1>
+          <h1>Akun tidak tersedia</h1>
           <p className="penalis-muted">
-            This account cannot access the writing dashboard. If you believe this is a mistake, please contact the
-            site administrators.
+            Akun ini tidak dapat mengakses dasbor menulis. Jika kamu merasa ini keliru, silakan hubungi
+            administrator situs.
           </p>
           <a className="penalis-button penalis-button--ghost" href={bootstrap.homeUrl}>
-            Return to the site
+            Kembali ke situs
           </a>
         </div>
       </div>
@@ -174,7 +174,7 @@ export function App() {
     return (
       <div className="penalis-auth">
         <div className="penalis-auth__panel">
-          <Spinner label="Loading your dashboard…" />
+          <Spinner label="Memuat dasbor…" />
         </div>
       </div>
     );
@@ -184,9 +184,9 @@ export function App() {
     return (
       <div className="penalis-auth">
         <div className="penalis-auth__panel">
-          <ErrorBanner message={error || 'Your account could not be loaded.'} onRetry={() => void loadAccount()} />
+          <ErrorBanner message={error || 'Akun kamu tidak dapat dimuat.'} onRetry={() => void loadAccount()} />
           <a className="penalis-button penalis-button--ghost" href={bootstrap.loginUrl}>
-            Sign in again
+            Masuk lagi
           </a>
         </div>
       </div>

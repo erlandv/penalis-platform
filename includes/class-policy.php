@@ -154,11 +154,11 @@ final class Penalis_Policy {
 	 */
 	public static function status_label( $status ) {
 		$labels = array(
-			self::STATUS_PENDING_VERIFICATION => 'Email verification pending',
-			self::STATUS_PENDING_APPROVAL     => 'Awaiting administrator approval',
-			self::STATUS_ACTIVE               => 'Active writer',
-			self::STATUS_REJECTED             => 'Application rejected',
-			self::STATUS_SUSPENDED            => 'Account suspended',
+			self::STATUS_PENDING_VERIFICATION => 'Menunggu verifikasi email',
+			self::STATUS_PENDING_APPROVAL     => 'Menunggu persetujuan admin',
+			self::STATUS_ACTIVE               => 'Penulis aktif',
+			self::STATUS_REJECTED             => 'Pendaftaran ditolak',
+			self::STATUS_SUSPENDED            => 'Akun ditangguhkan',
 		);
 
 		return isset( $labels[ $status ] ) ? $labels[ $status ] : 'Unknown';
@@ -299,7 +299,7 @@ final class Penalis_Policy {
 	public static function resolve_author( $requested_author, $current_user_id ) {
 		$current_user_id = (int) $current_user_id;
 		if ( $current_user_id <= 0 ) {
-			return array( 'error' => 'Authentication is required.' );
+			return array( 'error' => 'Autentikasi diperlukan.' );
 		}
 
 		if ( null === $requested_author || '' === $requested_author ) {
@@ -307,11 +307,11 @@ final class Penalis_Policy {
 		}
 
 		if ( ! is_numeric( $requested_author ) ) {
-			return array( 'error' => 'The author value is invalid.' );
+			return array( 'error' => 'Nilai penulis tidak valid.' );
 		}
 
 		if ( (int) $requested_author !== $current_user_id ) {
-			return array( 'error' => 'You may not assign this article to another author.' );
+			return array( 'error' => 'Kamu tidak dapat menetapkan karya tulis ini kepada penulis lain.' );
 		}
 
 		return array( 'author' => $current_user_id );
@@ -328,17 +328,17 @@ final class Penalis_Policy {
 
 		$display_name = isset( $data['display_name'] ) ? trim( (string) $data['display_name'] ) : '';
 		if ( self::length( $display_name ) < 2 || self::length( $display_name ) > 80 ) {
-			$errors['display_name'] = 'Please enter a display name between 2 and 80 characters.';
+			$errors['display_name'] = 'Masukkan nama tampilan 2-80 karakter.';
 		}
 
 		$user_login = isset( $data['user_login'] ) ? trim( (string) $data['user_login'] ) : '';
 		if ( ! preg_match( '/^[a-zA-Z0-9._-]{3,60}$/', $user_login ) ) {
-			$errors['user_login'] = 'Usernames must be 3–60 characters using letters, numbers, dots, underscores, or hyphens.';
+			$errors['user_login'] = 'Nama pengguna harus 3-60 karakter berupa huruf, angka, titik, garis bawah, atau tanda hubung.';
 		}
 
 		$email = isset( $data['user_email'] ) ? trim( (string) $data['user_email'] ) : '';
 		if ( '' === $email || false === filter_var( $email, FILTER_VALIDATE_EMAIL ) || self::length( $email ) > 254 ) {
-			$errors['user_email'] = 'Please enter a valid email address.';
+			$errors['user_email'] = 'Masukkan alamat email yang valid.';
 		}
 
 		$password = isset( $data['password'] ) ? (string) $data['password'] : '';
@@ -348,13 +348,13 @@ final class Penalis_Policy {
 		}
 
 		if ( empty( $data['penalis_consent'] ) || '1' !== (string) $data['penalis_consent'] ) {
-			$errors['penalis_consent'] = 'You must accept the terms to register.';
+			$errors['penalis_consent'] = 'Kamu harus menyetujui ketentuan untuk mendaftar.';
 		}
 
 		// Honeypot must remain empty. A filled value is treated as a validation
 		// failure but the API responds generically.
 		if ( ! empty( $data['penalis_website'] ) ) {
-			$errors['_honeypot'] = 'Registration could not be completed.';
+			$errors['_honeypot'] = 'Pendaftaran tidak dapat diproses.';
 		}
 
 		return $errors;
@@ -376,7 +376,7 @@ final class Penalis_Policy {
 		}
 
 		if ( trim( $password ) === '' ) {
-			return 'Please choose a stronger password.';
+			return 'Pilih kata sandi yang lebih kuat.';
 		}
 
 		return '';
@@ -394,26 +394,26 @@ final class Penalis_Policy {
 		$mode = isset( $data['display_name_mode'] ) ? (string) $data['display_name_mode'] : '';
 
 		if ( '' !== $mode && ! self::is_valid_display_mode( $mode ) ) {
-			$errors['display_name_mode'] = 'Please choose a valid public name option.';
+			$errors['display_name_mode'] = 'Pilih opsi nama publik yang valid.';
 		}
 
 		$first = isset( $data['first_name'] ) ? self::normalize_person_name( $data['first_name'] ) : '';
 		$last  = isset( $data['last_name'] ) ? self::normalize_person_name( $data['last_name'] ) : '';
 
 		if ( isset( $data['first_name'] ) && self::length( $first ) > self::MAX_PERSON_NAME ) {
-			$errors['first_name'] = 'Please enter a first name of 50 characters or fewer.';
+			$errors['first_name'] = 'Nama depan maksimal 50 karakter.';
 		}
 
 		if ( isset( $data['last_name'] ) && self::length( $last ) > self::MAX_PERSON_NAME ) {
-			$errors['last_name'] = 'Please enter a last name of 50 characters or fewer.';
+			$errors['last_name'] = 'Nama belakang maksimal 50 karakter.';
 		}
 
 		if ( 'first' === $mode && '' === $first ) {
-			$errors['first_name'] = 'Please enter a first name to use it as your public name.';
+			$errors['first_name'] = 'Masukkan nama depan untuk menggunakannya sebagai nama publik.';
 		}
 
 		if ( 'last' === $mode && '' === $last ) {
-			$errors['last_name'] = 'Please enter a last name to use it as your public name.';
+			$errors['last_name'] = 'Masukkan nama belakang untuk menggunakannya sebagai nama publik.';
 		}
 
 		if ( array_key_exists( 'display_name', $data ) && ( '' === $mode || 'custom' === $mode ) ) {
@@ -423,7 +423,7 @@ final class Penalis_Policy {
 				self::length( $display_name ) < self::MIN_DISPLAY_NAME ||
 				self::length( $display_name ) > self::MAX_DISPLAY_NAME
 			) {
-				$errors['display_name'] = 'Please enter a display name between 2 and 80 characters.';
+				$errors['display_name'] = 'Masukkan nama tampilan 2-80 karakter.';
 			}
 		}
 
@@ -433,14 +433,14 @@ final class Penalis_Policy {
 			$resolved = self::resolve_display_name( $mode, $first, $last, '' );
 
 			if ( self::length( $resolved ) > self::MAX_DISPLAY_NAME ) {
-				$errors['display_name_mode'] = 'The selected public name is longer than 80 characters. Please shorten your name.';
+				$errors['display_name_mode'] = 'Nama publik yang dipilih lebih dari 80 karakter. Silakan persingkat nama kamu.';
 			}
 		}
 
 		if ( array_key_exists( 'description', $data ) ) {
 			$description = (string) $data['description'];
 			if ( self::length( $description ) > 500 ) {
-				$errors['description'] = 'Your bio must be 500 characters or fewer.';
+				$errors['description'] = 'Bio maksimal 500 karakter.';
 			}
 		}
 
@@ -448,7 +448,7 @@ final class Penalis_Policy {
 			$url    = trim( (string) $data['user_url'] );
 			$scheme = parse_url( $url, PHP_URL_SCHEME ); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- Intentionally WordPress-independent for testability.
 			if ( ! filter_var( $url, FILTER_VALIDATE_URL ) || ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
-				$errors['user_url'] = 'Please enter a valid http or https website URL.';
+				$errors['user_url'] = 'Masukkan URL situs web http atau https yang valid.';
 			}
 		}
 
@@ -478,11 +478,11 @@ final class Penalis_Policy {
 	 */
 	public static function validate_avatar( $mime, $width, $height, $permitted ) {
 		if ( ! $permitted ) {
-			return 'You can only use images you uploaded yourself.';
+			return 'Kamu hanya dapat menggunakan gambar yang kamu unggah sendiri.';
 		}
 
 		if ( ! in_array( (string) $mime, self::avatar_mimes(), true ) ) {
-			return 'Avatars must be JPEG, PNG, GIF, or WebP images.';
+			return 'Avatar harus berupa gambar JPEG, PNG, GIF, atau WebP.';
 		}
 
 		if (
@@ -490,7 +490,7 @@ final class Penalis_Policy {
 			(int) $height > 0 &&
 			( (int) $width < self::AVATAR_MIN_EDGE || (int) $height < self::AVATAR_MIN_EDGE )
 		) {
-			return 'Please choose an image that is at least 100 by 100 pixels.';
+			return 'Pilih gambar minimal 100 x 100 piksel.';
 		}
 
 		return '';
@@ -504,7 +504,7 @@ final class Penalis_Policy {
 	 */
 	public static function validate_tag_names( $names ) {
 		if ( ! is_array( $names ) ) {
-			return array( 'error' => 'Tags must be provided as a list.' );
+			return array( 'error' => 'Tag harus dikirimkan sebagai daftar.' );
 		}
 
 		$clean = array();
@@ -517,7 +517,7 @@ final class Penalis_Policy {
 				continue;
 			}
 			if ( self::length( $name ) > 50 ) {
-				return array( 'error' => 'Each tag must be 50 characters or fewer.' );
+				return array( 'error' => 'Setiap tag maksimal 50 karakter.' );
 			}
 			$key = strtolower( $name );
 			if ( ! isset( $clean[ $key ] ) ) {
@@ -526,7 +526,7 @@ final class Penalis_Policy {
 		}
 
 		if ( count( $clean ) > 10 ) {
-			return array( 'error' => 'Please use no more than 10 tags.' );
+			return array( 'error' => 'Gunakan maksimal 10 tag.' );
 		}
 
 		return array( 'names' => array_values( $clean ) );

@@ -1,16 +1,15 @@
 <?php
 /**
  * Plugin Name:       Penalis Platform
- * Plugin URI:        https://penalis.example/
+ * Plugin URI:        https://github.com/erlandv/penalis-platform
  * Description:       A controlled user-generated content workflow and React writing dashboard for Penalis.
  * Version:           0.2.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Penalis
+ * Author URI:        https://penalis.com
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       penalis-platform
- * Domain Path:       /languages
  *
  * @package Penalis_Platform
  */

@@ -10,12 +10,12 @@ import type { Account, AccountStatus, ViewName } from '../lib/types';
 import { Notice } from './ui';
 
 const NAV_ITEMS: Array<{ view: ViewName; label: string }> = [
-  { view: 'overview', label: 'Overview' },
-  { view: 'articles', label: 'My Articles' },
-  { view: 'editor', label: 'New Article' },
+  { view: 'overview', label: 'Ringkasan' },
+  { view: 'articles', label: 'Karya Tulis' },
+  { view: 'editor', label: 'Karya Tulis Baru' },
   { view: 'media', label: 'Media' },
-  { view: 'profile', label: 'Profile' },
-  { view: 'settings', label: 'Settings' },
+  { view: 'profile', label: 'Profil' },
+  { view: 'settings', label: 'Pengaturan' },
 ];
 
 export function StatusBanner({ status, email }: { status: AccountStatus; email: string }) {
@@ -26,8 +26,8 @@ export function StatusBanner({ status, email }: { status: AccountStatus; email: 
   if (status === 'pending_approval') {
     return (
       <Notice tone="warning">
-        <strong>Your application is awaiting approval.</strong> An administrator will review your account. Publishing
-        is disabled until you are approved.
+        <strong>Pendaftaran kamu menunggu persetujuan.</strong> Admin akan meninjau akun kamu. Penerbitan
+        dinonaktifkan sampai akun kamu disetujui.
       </Notice>
     );
   }
@@ -35,8 +35,8 @@ export function StatusBanner({ status, email }: { status: AccountStatus; email: 
   if (status === 'rejected') {
     return (
       <Notice tone="danger">
-        <strong>Your application was not approved.</strong> Contact the site administrators if you believe this is a
-        mistake.
+        <strong>Pendaftaran kamu tidak disetujui.</strong> Hubungi Admin Penalis jika kamu merasa ini
+        keliru.
       </Notice>
     );
   }
@@ -44,7 +44,7 @@ export function StatusBanner({ status, email }: { status: AccountStatus; email: 
   if (status === 'suspended') {
     return (
       <Notice tone="danger">
-        <strong>Your account is suspended.</strong> Creating, editing, and publishing are unavailable.
+        <strong>Akun kamu ditangguhkan.</strong> Membuat, mengubah, dan menerbitkan tidak tersedia.
       </Notice>
     );
   }
@@ -71,7 +71,7 @@ function ResendBanner({ email }: { email: string }) {
       setMessage(result.message);
       setState('sent');
     } catch (caught) {
-      setMessage(caught instanceof ApiError ? caught.message : 'The email could not be sent right now.');
+      setMessage(caught instanceof ApiError ? caught.message : 'Email tidak dapat dikirim saat ini.');
       setState('error');
     }
   };
@@ -79,8 +79,8 @@ function ResendBanner({ email }: { email: string }) {
   return (
     <Notice tone="warning">
       <p>
-        <strong>Confirm your email address.</strong> We sent a verification link to <strong>{email}</strong>. You
-        cannot publish until your email is confirmed and an administrator approves your account.
+        <strong>Konfirmasi alamat email kamu.</strong> Kami mengirim tautan verifikasi ke <strong>{email}</strong>. Kamu
+        belum dapat menerbitkan karya tuis sampai email kamu dikonfirmasi dan admin menyetujui akun kamu.
       </p>
       {message ? <p>{message}</p> : null}
       <button
@@ -89,7 +89,7 @@ function ResendBanner({ email }: { email: string }) {
         onClick={() => void resend()}
         disabled={state === 'sending'}
       >
-        {state === 'sending' ? 'Sending…' : 'Resend verification email'}
+        {state === 'sending' ? 'Mengirim…' : 'Kirim ulang email verifikasi'}
       </button>
     </Notice>
   );
@@ -114,13 +114,13 @@ export function Shell({
       <header className="penalis-header">
         <div>
           <p className="penalis-eyebrow">{bootstrap.siteName}</p>
-          <h1>Writing dashboard</h1>
+          <h1>Dasbor Penulis</h1>
         </div>
         <div className="penalis-header__meta">
           <span className="penalis-user">{account.displayName}</span>
           {bootstrap.adminUrl ? (
             <a className="penalis-link" href={bootstrap.adminUrl}>
-              Manage writers
+              Kelola penulis
             </a>
           ) : null}
           <a
@@ -129,25 +129,25 @@ export function Shell({
             target="_blank"
             rel="noreferrer noopener"
           >
-            View public profile
+            Lihat profil kamu
           </a>
           <a className="penalis-link" href={bootstrap.logoutUrl}>
-            Sign out
+            Keluar
           </a>
         </div>
       </header>
 
       {account.isAdministrator ? (
         <Notice tone="info">
-          You are signed in as an administrator. Writer publishing controls apply to writer accounts; use
-          WordPress admin to manage content.
+          Kamu masuk sebagai admin. Kontrol penerbitan penulis hanya berlaku untuk akun penulis; gunakan
+          WordPress Admin untuk mengelola konten para penulis.
         </Notice>
       ) : (
         <StatusBanner status={account.status} email={account.email} />
       )}
 
       <div className="penalis-layout">
-        <nav className="penalis-nav" aria-label="Dashboard sections">
+        <nav className="penalis-nav" aria-label="Bagian dasbor">
           {NAV_ITEMS.map((item) => {
             const disabled =
               !canWrite && item.view !== 'overview' && item.view !== 'profile' && item.view !== 'settings';
@@ -160,7 +160,7 @@ export function Shell({
                 onClick={() => onNavigate(item.view)}
                 aria-current={view === item.view ? 'page' : undefined}
                 disabled={disabled}
-                title={disabled ? 'Available after your account is approved' : undefined}
+                title={disabled ? 'Tersedia setelah akun kamu disetujui' : undefined}
               >
                 {item.label}
               </button>

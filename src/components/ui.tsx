@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import type { FieldErrors } from '../lib/types';
 import { statusLabel, statusTone } from '../lib/format';
 
-export function Spinner({ label = 'Loading…' }: { label?: string }) {
+export function Spinner({ label = 'Memuat…' }: { label?: string }) {
   return (
     <div className="penalis-loading" role="status" aria-live="polite">
       <span className="penalis-spinner" aria-hidden="true" />
@@ -28,7 +28,7 @@ export function ErrorBanner({
       <span>{message}</span>
       {onRetry ? (
         <button type="button" className="penalis-button penalis-button--ghost" onClick={onRetry}>
-          Try again
+          Coba lagi
         </button>
       ) : null}
     </div>
@@ -101,17 +101,17 @@ export function Pagination({
   }
 
   return (
-    <nav className="penalis-pagination" aria-label="Pagination">
+    <nav className="penalis-pagination" aria-label="Navigasi halaman">
       <button
         type="button"
         className="penalis-button penalis-button--ghost"
         onClick={() => onChange(page - 1)}
         disabled={page <= 1}
       >
-        Previous
+        Sebelumnya
       </button>
       <span>
-        Page {page} of {totalPages}
+        Halaman {page} dari {totalPages}
       </span>
       <button
         type="button"
@@ -119,7 +119,7 @@ export function Pagination({
         onClick={() => onChange(page + 1)}
         disabled={page >= totalPages}
       >
-        Next
+        Berikutnya
       </button>
     </nav>
   );

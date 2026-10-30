@@ -20,11 +20,11 @@ export function AuthGate() {
     <div className="penalis-auth">
       <div className="penalis-auth__panel">
         <p className="penalis-eyebrow">{bootstrap.siteName}</p>
-        <h1>{mode === 'register' ? 'Apply to write for Penalis' : 'Writer sign in'}</h1>
+        <h1>{mode === 'register' ? 'Ajukan diri untuk menulis di Penalis' : 'Login'}</h1>
         <p className="penalis-muted">
           {mode === 'register'
-            ? 'Create an account, confirm your email address, and an administrator will review your application.'
-            : 'Sign in with your Penalis writer account to manage your articles.'}
+            ? 'Buat akun, konfirmasi alamat email, lalu kami akan meninjau pendaftaranmu.'
+            : 'Masuk dengan akun Penalis untuk mengelola karya tulis.'}
         </p>
 
         {mode === 'login' ? <LoginForm /> : null}
@@ -34,25 +34,25 @@ export function AuthGate() {
         <div className="penalis-auth__switch">
           {mode !== 'login' ? (
             <button type="button" className="penalis-link-button" onClick={() => setMode('login')}>
-              Back to sign in
+              Kembali ke halaman login
             </button>
           ) : null}
 
           {mode === 'login' && bootstrap.registration ? (
             <button type="button" className="penalis-link-button" onClick={() => setMode('register')}>
-              Create a writer account
+              Buat Akun Penalis
             </button>
           ) : null}
 
           {mode !== 'resend' ? (
             <button type="button" className="penalis-link-button" onClick={() => setMode('resend')}>
-              Resend verification email
+              Kirim ulang email verifikasi
             </button>
           ) : null}
         </div>
 
         <p className="penalis-fineprint">
-          <a href={bootstrap.lostPassword}>Forgot your password?</a>
+          <a href={bootstrap.lostPassword}>Lupa kata sandi?</a>
         </p>
       </div>
     </div>
@@ -73,22 +73,22 @@ function LoginForm() {
       <input type="hidden" name="testcookie" value="1" />
 
       <label className="penalis-field">
-        <span>Username or email</span>
+        <span>Nama pengguna atau email</span>
         <input type="text" name="log" autoComplete="username" required />
       </label>
 
       <label className="penalis-field">
-        <span>Password</span>
+        <span>Kata sandi</span>
         <input type="password" name="pwd" autoComplete="current-password" required />
       </label>
 
       <label className="penalis-checkbox">
         <input type="checkbox" name="rememberme" value="forever" />
-        <span>Keep me signed in</span>
+        <span>Tetap masuk</span>
       </label>
 
       <button type="submit" className="penalis-button penalis-button--primary">
-        Sign in
+        Masuk
       </button>
     </form>
   );
@@ -151,7 +151,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
         setErrors(error.fields);
         setFormError(error.message);
       } else {
-        setFormError('Registration could not be completed. Please try again.');
+        setFormError('Pendaftaran tidak dapat diselesaikan. Silakan coba lagi.');
       }
     } finally {
       setSubmitting(false);
@@ -174,7 +174,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
       {formError ? <ErrorBanner message={formError} /> : null}
 
       <label className="penalis-field">
-        <span>Display name</span>
+        <span>Nama tampilan</span>
         <input
           type="text"
           value={values.display_name}
@@ -188,7 +188,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
       </label>
 
       <label className="penalis-field">
-        <span>Username</span>
+        <span>Nama pengguna</span>
         <input
           type="text"
           value={values.user_login}
@@ -202,7 +202,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
       </label>
 
       <label className="penalis-field">
-        <span>Email address</span>
+        <span>Alamat email</span>
         <input
           type="email"
           value={values.user_email}
@@ -216,7 +216,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
       </label>
 
       <label className="penalis-field">
-        <span>Password</span>
+        <span>Kata sandi</span>
         <input
           type="password"
           value={values.password}
@@ -225,12 +225,12 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           aria-invalid={Boolean(errors.password)}
           aria-describedby={errors.password ? 'password-error' : undefined}
         />
-        <small>At least 12 characters.</small>
+        <small>Minimal 12 karakter.</small>
         <FieldError errors={errors} name="password" />
       </label>
 
       <label className="penalis-field">
-        <span>Confirm password</span>
+        <span>Konfirmasi kata sandi</span>
         <input
           type="password"
           value={values.confirm_password}
@@ -263,12 +263,12 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => update('penalis_consent', event.target.checked)}
           aria-invalid={Boolean(errors.penalis_consent)}
         />
-        <span>I agree to the site terms and understand my application requires administrator approval.</span>
+        <span>Saya menyetujui ketentuan situs dan memahami bahwa pendaftaran saya memerlukan persetujuan administrator.</span>
       </label>
       <FieldError errors={errors} name="penalis_consent" />
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? 'Creating account…' : 'Create account'}
+        {submitting ? 'Membuat akun…' : 'Buat akun'}
       </button>
     </form>
   );
@@ -290,7 +290,7 @@ function ResendForm() {
       const result = await registrationApi.resend(email);
       setMessage(result.message);
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'The request could not be completed.');
+      setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
     } finally {
       setSubmitting(false);
     }
@@ -299,15 +299,15 @@ function ResendForm() {
   return (
     <form className="penalis-form" onSubmit={submit} noValidate>
       <p className="penalis-muted">
-        Enter the email address you registered with. If the account is awaiting verification, we will send a new
-        link.
+        Masukkan alamat email yang Anda gunakan saat mendaftar. Jika akun sedang menunggu verifikasi, kami akan
+        mengirim tautan baru.
       </p>
 
       {error ? <ErrorBanner message={error} /> : null}
       {message ? <Notice tone="success">{message}</Notice> : null}
 
       <label className="penalis-field">
-        <span>Email address</span>
+        <span>Alamat email</span>
         <input
           type="email"
           value={email}
@@ -318,7 +318,7 @@ function ResendForm() {
       </label>
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Sending…" /> : 'Send verification email'}
+        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim email verifikasi'}
       </button>
     </form>
   );
