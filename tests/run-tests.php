@@ -121,6 +121,15 @@ penalis_assert( ! Penalis_Policy::can_write( 'pending_approval', true ), 'Pendin
 penalis_assert( ! Penalis_Policy::can_write( 'suspended', true ), 'Suspended writers may not write.' );
 penalis_assert( ! Penalis_Policy::can_write( 'active', false ), 'Writers without access may not write.' );
 
+penalis_assert( Penalis_Policy::can_reset_password( 'pending_verification', false ), 'Unverified accounts may reset their password.' );
+penalis_assert( Penalis_Policy::can_reset_password( 'pending_approval', false ), 'Pending accounts may reset their password.' );
+penalis_assert( Penalis_Policy::can_reset_password( 'active', true ), 'Active accounts with access may reset their password.' );
+penalis_assert( ! Penalis_Policy::can_reset_password( 'active', false ), 'Active accounts without access may not reset their password.' );
+penalis_assert( ! Penalis_Policy::can_reset_password( 'suspended', true ), 'Suspended accounts may not reset their password.' );
+penalis_assert( ! Penalis_Policy::can_reset_password( 'rejected', true ), 'Rejected accounts may not reset their password.' );
+penalis_assert( Penalis_Policy::can_reset_password( '', true ), 'Legacy account with explicit access may reset its password.' );
+penalis_assert( ! Penalis_Policy::can_reset_password( '', false ), 'Legacy account without access may not reset its password.' );
+
 penalis_assert(
 	Penalis_Policy::can_edit_article( 7, 7, 'active', true ),
 	'Owners may edit their own article.'

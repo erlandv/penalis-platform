@@ -179,6 +179,8 @@ Server-side guards additionally:
 | `/registration` | POST | public, rate-limited | Create pending account |
 | `/verification/resend` | POST | public, rate-limited | Reissue verification email |
 | `/verification/confirm` | POST | public, token | Consume verification token |
+| `/password/forgot` | POST | public, rate-limited | Request a password reset link |
+| `/password/reset` | POST | public, key | Consume reset key and set a new password |
 | `/account` | GET | logged in | Current account state |
 | `/account/profile` | POST | logged in | Update safe profile fields |
 | `/account/password` | POST | logged in, enabled | Change own password |
@@ -194,6 +196,31 @@ Server-side guards additionally:
 Article create/update uses native `/wp/v2/posts` so WordPress handles revisions,
 taxonomies, sanitization, and response shaping. A `rest_pre_insert_post` filter
 enforces ownership, author, status, and featured-media rules for writers.
+
+### Password reset
+
+Password reset is handled inside the dashboard instead of
+`wp-login.php?action=lostpassword`, which remains available as a fallback.
+
+- `/password/forgot` accepts a username or email and always returns the same
+  generic message, so it cannot be used to enumerate accounts. It is rate
+  limited per IP and per account, and uses the same honeypot as registration.
+- The reset key comes from `get_password_reset_key()`, so only a hash is stored
+  in `user_activation_key`. The email links to
+  `/dashboard/?penalis_reset=KEY&penalis_login=USER`.
+- The key is consumed only when the visitor submits a new password, so email
+  link scanners cannot burn it by opening the URL.
+- `/password/reset` validates the key with `check_password_reset_key()`, applies
+  `Penalis_Policy::validate_password()` (12-character minimum, which core does
+  not enforce), then calls `reset_password()` and destroys every existing
+  session.
+- `Penalis_Policy::can_reset_password()` allows `pending_verification` and
+  `pending_approval` accounts: the key proves control of the address and the
+  account still cannot write. `rejected` and `suspended` accounts are denied, so
+  a reset cannot restore access an administrator revoked. Dormant legacy
+  contributors are denied; editors, authors, and administrators are unaffected.
+- The `allow_password_reset` filter is still applied, so third-party
+  restrictions keep working.
 
 ### Native endpoint hardening
 

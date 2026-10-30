@@ -166,6 +166,25 @@ export const registrationApi = {
     }),
 };
 
+/* --------------------------- Password reset --------------------------- */
+
+export const passwordApi = {
+  /**
+   * Request a reset link.
+   *
+   * The server always answers generically, so the UI must not imply that the
+   * address exists.
+   */
+  forgot: (userLogin: string, honeypot = '') =>
+    request<{ message: string }>('/password/forgot', {
+      method: 'POST',
+      body: { user_login: userLogin, penalis_website: honeypot },
+    }),
+
+  reset: (payload: { key: string; login: string; password: string }) =>
+    request<{ message: string }>('/password/reset', { method: 'POST', body: payload }),
+};
+
 /* ------------------------------ Articles ----------------------------- */
 
 export const articlesApi = {

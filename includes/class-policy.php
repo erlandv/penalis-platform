@@ -196,6 +196,34 @@ final class Penalis_Policy {
 	}
 
 	/**
+	 * Whether an account may reset its own password.
+	 *
+	 * Pending accounts may reset: the reset link proves control of the email
+	 * address, and the account still cannot write until it is approved.
+	 * Rejected and suspended accounts may not, so a reset cannot be used to
+	 * regain access that an administrator revoked.
+	 *
+	 * @param string $status         Account status.
+	 * @param bool   $access_enabled Explicit access flag.
+	 * @return bool
+	 */
+	public static function can_reset_password( $status, $access_enabled ) {
+		if ( self::STATUS_PENDING_VERIFICATION === $status || self::STATUS_PENDING_APPROVAL === $status ) {
+			return true;
+		}
+
+		if ( self::STATUS_ACTIVE === $status ) {
+			return (bool) $access_enabled;
+		}
+
+		if ( '' === $status || null === $status ) {
+			return (bool) $access_enabled;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Whether an account may create, edit, upload, or publish content.
 	 *
 	 * @param string $status         Account status.

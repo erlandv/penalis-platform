@@ -357,6 +357,7 @@ final class Penalis_Access_Control {
 		if ( in_array( $method, array( 'POST', 'PUT', 'PATCH', 'DELETE' ), true ) ) {
 			$always_allowed_prefixes = array(
 				'/penalis/v1/verification/',
+				'/penalis/v1/password/',
 				'/penalis/v1/account/password',
 				'/penalis/v1/account/profile',
 			);

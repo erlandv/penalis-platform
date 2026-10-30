@@ -102,6 +102,50 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/password/forgot',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'handle_password_forgot' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'user_login'      => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'penalis_website' => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/password/reset',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'handle_password_reset' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'key'      => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'login'    => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'password' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/account',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -331,6 +375,52 @@ final class Penalis_Rest_Api {
 	 */
 	public static function handle_resend( $request ) {
 		$result = Penalis_Registration::resend_verification( (string) $request->get_param( 'user_email' ) );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Request a password reset link.
+	 *
+	 * Always answers generically so the endpoint cannot be used to discover
+	 * which addresses are registered.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_password_forgot( $request ) {
+		$result = Penalis_Password_Reset::request(
+			array(
+				'user_login'      => $request->get_param( 'user_login' ),
+				'penalis_website' => $request->get_param( 'penalis_website' ),
+			)
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Consume a reset key and set a new password.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_password_reset( $request ) {
+		$result = Penalis_Password_Reset::reset(
+			array(
+				'key'      => $request->get_param( 'key' ),
+				'login'    => $request->get_param( 'login' ),
+				'password' => $request->get_param( 'password' ),
+			)
+		);
 
 		if ( is_wp_error( $result ) ) {
 			return $result;

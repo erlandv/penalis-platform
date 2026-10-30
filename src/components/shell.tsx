@@ -80,7 +80,7 @@ function ResendBanner({ email }: { email: string }) {
     <Notice tone="warning">
       <p>
         <strong>Konfirmasi alamat email kamu.</strong> Kami mengirim tautan verifikasi ke <strong>{email}</strong>. Kamu
-        belum dapat menerbitkan karya tuis sampai email kamu dikonfirmasi dan admin menyetujui akun kamu.
+        belum dapat menerbitkan karya tulis sampai email kamu dikonfirmasi dan admin menyetujui akun kamu.
       </p>
       {message ? <p>{message}</p> : null}
       <button

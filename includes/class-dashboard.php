@@ -276,7 +276,7 @@ final class Penalis_Dashboard {
 				'loginUrl'     => esc_url_raw( wp_login_url( self::dashboard_url() ) ),
 				'loginPostUrl' => esc_url_raw( site_url( 'wp-login.php', 'login_post' ) ),
 				'logoutUrl'    => esc_url_raw( wp_logout_url( self::dashboard_url() ) ),
-				'lostPassword' => esc_url_raw( wp_lostpassword_url() ),
+				'lostPassword' => esc_url_raw( self::dashboard_url( array( 'penalis_forgot' => '1' ) ) ),
 				'homeUrl'      => esc_url_raw( home_url( '/' ) ),
 				'adminUrl'     => current_user_can( 'list_users' ) ? esc_url_raw( admin_url( 'users.php?page=penalis-writers' ) ) : '',
 				'siteName'     => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),

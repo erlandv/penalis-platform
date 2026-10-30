@@ -25,7 +25,7 @@ const fallback: DashboardBootstrap = {
   dashboardUrl: '/',
   loginUrl: '/wp-login.php',
   logoutUrl: '/wp-login.php?action=logout',
-  lostPassword: '/wp-login.php?action=lostpassword',
+  lostPassword: '/?penalis_forgot=1',
   homeUrl: '/',
   adminUrl: '',
   siteName: 'Penalis',

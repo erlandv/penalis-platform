@@ -57,6 +57,49 @@ final class Penalis_Emails {
 	}
 
 	/**
+	 * Send the password reset email.
+	 *
+	 * The link points at the dashboard rather than wp-login.php so the writer
+	 * stays inside the same interface. The key is never logged.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $key     Password reset key from get_password_reset_key().
+	 * @return bool Whether wp_mail accepted the message.
+	 */
+	public static function send_password_reset( $user_id, $key ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user || ! is_email( $user->user_email ) ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'invalid_recipient' );
+			return false;
+		}
+
+		$reset_url = add_query_arg(
+			array(
+				'penalis_reset' => rawurlencode( (string) $key ),
+				'penalis_login' => rawurlencode( $user->user_login ),
+			),
+			Penalis_Dashboard::registration_url()
+		);
+
+		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$subject = sprintf( '[%s] Atur ulang kata sandi kamu', $site );
+
+		$message  = self::greeting( $user ) . "\n\n";
+		$message .= sprintf( 'Kami menerima permintaan untuk mengatur ulang kata sandi akun %s kamu.', $site ) . "\n\n";
+		$message .= "Buka tautan berikut lalu masukkan kata sandi baru:\n\n";
+		$message .= $reset_url . "\n\n";
+		$message .= "Tautan ini hanya dapat digunakan sekali. Jika kamu tidak meminta pengaturan ulang, abaikan email ini; kata sandi kamu tidak akan berubah.\n";
+
+		$sent = wp_mail( $user->user_email, $subject, $message );
+
+		if ( ! $sent ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'password_reset' );
+		}
+
+		return (bool) $sent;
+	}
+
+	/**
 	 * Notify an administrator that an account is awaiting approval.
 	 *
 	 * Failures are recorded but do not affect the applicant's state.

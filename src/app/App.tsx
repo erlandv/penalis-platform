@@ -2,12 +2,13 @@
  * Dashboard application root.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
-import { accountApi, ApiError, registrationApi } from '../lib/api';
+import { accountApi, ApiError, passwordApi, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
-import type { Account, ViewName } from '../lib/types';
-import { ErrorBanner, Notice, Spinner } from '../components/ui';
+import type { Account, FieldErrors, ViewName } from '../lib/types';
+import { PASSWORD_MIN_LENGTH } from '../lib/validation';
+import { ErrorBanner, FieldError, Notice, Spinner } from '../components/ui';
 import { Shell } from '../components/shell';
 import { AuthGate } from '../features/auth/AuthGate';
 import { Overview } from '../features/overview/Overview';
@@ -51,7 +52,7 @@ function VerificationPage({ token }: { token: string }) {
   return (
     <div className="penalis-auth">
       <div className="penalis-auth__panel">
-        <p className="penalis-eyebrow">{bootstrap.siteName}</p>
+        
         <h1>Konfirmasi email kamu</h1>
         <p className="penalis-muted">
           Konfirmasikan bahwa alamat email ini milik kamu. Tautan ini cuma bisa dipakai sekali, ya.
@@ -81,8 +82,127 @@ function VerificationPage({ token }: { token: string }) {
         )}
 
         <p className="penalis-fineprint">
-          <a href={bootstrap.lostPassword}>Butuh email verifikasi baru?</a>
+          <a href={bootstrap.dashboardUrl}>Butuh email verifikasi baru?</a>
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Password reset form reached from the reset email.
+ *
+ * The key is consumed only when the visitor submits a new password, so email
+ * link scanners cannot burn a single-use key by opening the URL.
+ */
+function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: string }) {
+  const bootstrap = getBootstrap();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setFormError('');
+    setErrors({});
+
+    const clientErrors: FieldErrors = {};
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      clientErrors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
+    }
+    if (password !== confirm) {
+      clientErrors.confirm_password = 'Kata sandi tidak cocok.';
+    }
+    if (Object.keys(clientErrors).length > 0) {
+      setErrors(clientErrors);
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const result = await passwordApi.reset({ key: resetKey, login, password });
+      setMessage(result.message);
+
+      // The key is single-use; drop it from the address bar and history.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('penalis_reset');
+      url.searchParams.delete('login');
+      window.history.replaceState({}, '', url.toString());
+    } catch (caught) {
+      if (caught instanceof ApiError) {
+        setErrors(caught.fields);
+        setFormError(caught.message);
+      } else {
+        setFormError('Kata sandi tidak dapat diperbarui. Silakan coba lagi.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="penalis-auth">
+      <div className="penalis-auth__panel">
+        <p className="penalis-eyebrow">{bootstrap.siteName}</p>
+        <h1>Atur ulang kata sandi</h1>
+
+        {message ? (
+          <>
+            <Notice tone="success">{message}</Notice>
+            <a className="penalis-button penalis-button--primary" href={bootstrap.loginUrl}>
+              Lanjut ke halaman masuk
+            </a>
+          </>
+        ) : (
+          <>
+            <p className="penalis-muted">
+              Masukkan kata sandi baru untuk akun <strong>{login}</strong>.
+            </p>
+
+            {formError ? <ErrorBanner message={formError} /> : null}
+
+            <form className="penalis-form" onSubmit={submit} noValidate>
+              <label className="penalis-field">
+                <span>Kata sandi baru</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(errors.password)}
+                  aria-describedby={errors.password ? 'password-error' : undefined}
+                />
+                <small>Minimal {PASSWORD_MIN_LENGTH} karakter.</small>
+                <FieldError errors={errors} name="password" />
+              </label>
+
+              <label className="penalis-field">
+                <span>Konfirmasi kata sandi baru</span>
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(errors.confirm_password)}
+                  aria-describedby={errors.confirm_password ? 'confirm_password-error' : undefined}
+                />
+                <FieldError errors={errors} name="confirm_password" />
+              </label>
+
+              <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
+                {submitting ? 'Menyimpan…' : 'Simpan kata sandi baru'}
+              </button>
+            </form>
+
+            <p className="penalis-fineprint">
+              <a href={bootstrap.lostPassword}>Minta tautan baru</a>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
@@ -100,7 +220,19 @@ export function App() {
 
   // A verification link may be opened while already signed in. Handle it
   // before the normal dashboard so the token is never silently ignored.
-  const verificationToken = new URLSearchParams(window.location.search).get('penalis_verify');
+  //
+  // The values are captured once: the pages below strip the token from the
+  // address bar after use, and re-reading the URL would unmount them mid-flow.
+  const [verificationToken] = useState(() =>
+    new URLSearchParams(window.location.search).get('penalis_verify'),
+  );
+
+  // A password reset link carries a single-use key. It is handled before the
+  // dashboard so a signed-in visitor can still complete the reset.
+  const [resetKey] = useState(() => new URLSearchParams(window.location.search).get('penalis_reset'));
+  const [resetLogin] = useState(
+    () => new URLSearchParams(window.location.search).get('penalis_login') ?? '',
+  );
 
   const loadAccount = useCallback(async () => {
     setLoading(true);
@@ -147,6 +279,10 @@ export function App() {
 
   if (verificationToken) {
     return <VerificationPage token={verificationToken} />;
+  }
+
+  if (resetKey) {
+    return <ResetPasswordPage resetKey={resetKey} login={resetLogin} />;
   }
 
   if (signedOut) {

@@ -60,6 +60,20 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 
 The dashboard is only loaded on its own page. It is not enqueued site-wide.
 
+### Password reset
+
+Writers who forget their password stay inside the dashboard:
+
+1. **Lupa kata sandi?** on the login screen opens a reset request form.
+2. The request always answers generically, so it cannot be used to discover
+   which addresses are registered.
+3. The email links back to `/dashboard/` with a single-use key.
+4. The key is consumed only after the new password is submitted, so email link
+   scanners cannot burn it.
+5. Every existing session is destroyed after a successful reset.
+
+`wp-login.php?action=lostpassword` still works as a fallback.
+
 ### Legacy contributor protection
 
 Existing contributor accounts are treated as author profiles, not interactive
@@ -86,6 +100,7 @@ penalis-platform/
 │   ├── class-roles.php         Writer role and capabilities
 │   ├── class-access-control.php Login, capability, and REST hardening
 │   ├── class-registration.php  Registration, verification, resend
+│   ├── class-password-reset.php Dashboard password reset (forgot/reset)
 │   ├── class-rest-api.php      penalis/v1 endpoints
 │   ├── class-dashboard.php     Page, shortcode, asset enqueue
 │   ├── class-emails.php        wp_mail() templates and failure recording

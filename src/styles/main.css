@@ -496,11 +496,35 @@
 .penalis-checkbox {
   display: flex;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.6rem;
   font-size: 0.9rem;
+  line-height: 1.5;
 }
 
-.penalis-checkbox input { margin-top: 0.25rem; }
+/*
+ * The theme resets the appearance of form controls (it does the same for
+ * selects) and some browsers give checkboxes inconsistent default sizing and
+ * margins. Declare explicit dimensions and restore the native control so the
+ * box lines up with the first line of the label text.
+ *
+ * The selector is scoped to .penalis-dashboard-root so it outranks a theme
+ * rule such as `.penalis-dashboard-root input[type='checkbox']` regardless of
+ * stylesheet load order.
+ *
+ * The vertical offset is derived from the row height: with line-height 1.5 on
+ * a 0.9rem font, one line is 1.35rem; centering a 1rem box in that row leaves
+ * roughly 0.175rem above it.
+ */
+.penalis-dashboard-root .penalis-checkbox input[type='checkbox'] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  margin: 0.175rem 0 0;
+  padding: 0;
+  accent-color: var(--penalis-accent);
+}
 
 .penalis-checklist {
   display: flex;
