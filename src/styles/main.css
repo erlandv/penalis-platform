@@ -113,6 +113,7 @@
   background: none;
   border: 0;
   padding: 0;
+  margin: 0;
   color: var(--penalis-accent-strong);
   font: inherit;
   cursor: pointer;
@@ -562,13 +563,52 @@
 
 .penalis-auth__panel h1 { font-size: 1.8rem; }
 
-.penalis-auth__switch {
+/*
+ * Alt actions under the auth form. Account entry points (sign up, legacy
+ * activation) are full-width buttons so they read as actions, while recovery
+ * tasks stay quiet text links below.
+ */
+.penalis-auth__alt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--penalis-border);
+}
+
+.penalis-auth__alt-action {
+  width: 100%;
+  background: var(--penalis-accent-soft);
+  border-color: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-auth__alt-action:hover:not(:disabled) {
+  background: var(--penalis-accent-soft);
+  border-color: var(--penalis-accent);
+}
+
+.penalis-auth__back {
+  align-self: center;
+  background: none;
+  border: 0;
+  padding: 0.25rem 0;
+  color: var(--penalis-muted);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.penalis-auth__back:hover { color: var(--penalis-accent-strong); }
+
+.penalis-auth__utility {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--penalis-border);
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 1.5rem;
+  margin-top: 1.1rem;
   font-size: 0.88rem;
 }
 

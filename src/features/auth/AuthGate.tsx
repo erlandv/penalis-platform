@@ -53,6 +53,22 @@ export function AuthGate() {
   const bootstrap = getBootstrap();
   const [mode, setMode] = useState<Mode>(initialMode);
 
+  // A failed dashboard login redirects back here with a flag instead of
+  // rendering the WordPress login screen. The flag is read once and removed
+  // from the address bar so it does not linger after the user switches modes.
+  const [loginFailed] = useState(() => {
+    const url = new URL(window.location.href);
+
+    if (!url.searchParams.has('penalis_login_error')) {
+      return false;
+    }
+
+    url.searchParams.delete('penalis_login_error');
+    window.history.replaceState({}, '', url.toString());
+
+    return true;
+  });
+
   return (
     <div className="penalis-auth">
       <div className="penalis-auth__panel">
@@ -60,28 +76,48 @@ export function AuthGate() {
         <h1>{HEADINGS[mode]}</h1>
         <p className="penalis-muted">{DESCRIPTIONS[mode]}</p>
 
-        {mode === 'login' ? <LoginForm onForgot={() => setMode('forgot')} /> : null}
+        {mode === 'login' && loginFailed ? (
+          <ErrorBanner message="Nama pengguna atau kata sandi salah, atau akun ini belum dapat masuk." />
+        ) : null}
+
+        {mode === 'login' ? <LoginForm /> : null}
         {mode === 'register' ? <RegistrationForm onDone={() => setMode('login')} /> : null}
         {mode === 'resend' ? <ResendForm /> : null}
         {mode === 'forgot' ? <ForgotForm onDone={() => setMode('login')} /> : null}
         {mode === 'activate' ? <ActivateForm onDone={() => setMode('login')} /> : null}
 
-        <div className="penalis-auth__switch">
-          {mode !== 'login' ? (
-            <button type="button" className="penalis-link-button" onClick={() => setMode('login')}>
-              Kembali ke halaman login
-            </button>
-          ) : null}
-
+        <div className="penalis-auth__alt">
           {mode === 'login' && bootstrap.registration ? (
-            <button type="button" className="penalis-link-button" onClick={() => setMode('register')}>
+            <button
+              type="button"
+              className="penalis-button penalis-auth__alt-action"
+              onClick={() => setMode('register')}
+            >
               Buat Akun Penalis
             </button>
           ) : null}
 
           {mode === 'login' ? (
-            <button type="button" className="penalis-link-button" onClick={() => setMode('activate')}>
+            <button
+              type="button"
+              className="penalis-button penalis-auth__alt-action"
+              onClick={() => setMode('activate')}
+            >
               Aktifkan akun penulis lama
+            </button>
+          ) : null}
+
+          {mode !== 'login' ? (
+            <button type="button" className="penalis-auth__back" onClick={() => setMode('login')}>
+              Kembali ke halaman login
+            </button>
+          ) : null}
+        </div>
+
+        <div className="penalis-auth__utility">
+          {mode === 'login' ? (
+            <button type="button" className="penalis-link-button" onClick={() => setMode('forgot')}>
+              Lupa kata sandi?
             </button>
           ) : null}
 
@@ -96,46 +132,38 @@ export function AuthGate() {
   );
 }
 
-function LoginForm({ onForgot }: { onForgot: () => void }) {
+function LoginForm() {
   const bootstrap = getBootstrap();
 
   return (
-    <>
-      <form
-        className="penalis-form"
-        method="post"
-        action={bootstrap.loginPostUrl ?? '/wp-login.php'}
-        noValidate
-      >
-        <input type="hidden" name="redirect_to" value={bootstrap.dashboardUrl} />
-        <input type="hidden" name="testcookie" value="1" />
+    <form
+      className="penalis-form"
+      method="post"
+      action={bootstrap.dashboardUrl}
+      noValidate
+    >
+      {/* Marks the submission as coming from the dashboard form. */}
+      <input type="hidden" name="penalis_login" value="1" />
 
-        <label className="penalis-field">
-          <span>Nama pengguna atau email</span>
-          <input type="text" name="log" autoComplete="username" required />
-        </label>
+      <label className="penalis-field">
+        <span>Nama pengguna atau email</span>
+        <input type="text" name="log" autoComplete="username" required />
+      </label>
 
-        <label className="penalis-field">
-          <span>Kata sandi</span>
-          <input type="password" name="pwd" autoComplete="current-password" required />
-        </label>
+      <label className="penalis-field">
+        <span>Kata sandi</span>
+        <input type="password" name="pwd" autoComplete="current-password" required />
+      </label>
 
-        <label className="penalis-checkbox">
-          <input type="checkbox" name="rememberme" value="forever" />
-          <span>Tetap masuk</span>
-        </label>
+      <label className="penalis-checkbox">
+        <input type="checkbox" name="rememberme" value="forever" />
+        <span>Tetap masuk</span>
+      </label>
 
-        <button type="submit" className="penalis-button penalis-button--primary">
-          Masuk
-        </button>
-      </form>
-
-      <p className="penalis-fineprint">
-        <button type="button" className="penalis-link-button" onClick={onForgot}>
-          Lupa kata sandi?
-        </button>
-      </p>
-    </>
+      <button type="submit" className="penalis-button penalis-button--primary">
+        Masuk
+      </button>
+    </form>
   );
 }
 

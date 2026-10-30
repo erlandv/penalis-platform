@@ -25,8 +25,9 @@ final class Penalis_Dashboard {
 		add_shortcode( self::SHORTCODE, array( __CLASS__, 'render_shortcode' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_assets' ) );
 		add_filter( 'template_include', array( __CLASS__, 'maybe_use_dashboard_template' ) );
+		add_action( 'template_redirect', array( __CLASS__, 'handle_login_post' ), 0 );
+		add_action( 'template_redirect', array( __CLASS__, 'handle_logout' ), 0 );
 		add_action( 'template_redirect', array( __CLASS__, 'send_private_headers' ), 1 );
-		add_action( 'template_redirect', array( __CLASS__, 'set_login_test_cookie' ), 2 );
 		add_filter( 'wp_robots', array( __CLASS__, 'noindex' ) );
 		add_filter( 'body_class', array( __CLASS__, 'body_class' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'redirect_legacy_slug' ), 5 );
@@ -153,21 +154,108 @@ final class Penalis_Dashboard {
 	}
 
 	/**
-	 * Set the WordPress test cookie so the inline login form works when the
-	 * visitor has not previously visited wp-login.php.
+	 * Dashboard logout URL.
+	 *
+	 * `wp_logout_url()` routes through wp-login.php. Writers should never see
+	 * that screen, so the dashboard handles logout itself with a nonce.
+	 *
+	 * @return string
+	 */
+	public static function logout_url() {
+		return add_query_arg(
+			array(
+				'penalis_logout' => '1',
+				'_wpnonce'       => wp_create_nonce( 'penalis_logout' ),
+			),
+			self::dashboard_url()
+		);
+	}
+
+	/**
+	 * Handle dashboard logout.
 	 *
 	 * @return void
 	 */
-	public static function set_login_test_cookie() {
-		if ( ! self::is_dashboard_request() || is_user_logged_in() || headers_sent() ) {
+	public static function handle_logout() {
+		if ( ! self::is_dashboard_request() ) {
 			return;
 		}
 
-		if ( isset( $_COOKIE[ TEST_COOKIE ] ) ) {
+		if ( empty( $_GET['penalis_logout'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Verified below.
 			return;
 		}
 
-		setcookie( TEST_COOKIE, 'WP Cookie check', 0, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true );
+		$nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Verified on the next line.
+
+		if ( ! wp_verify_nonce( $nonce, 'penalis_logout' ) ) {
+			wp_safe_redirect( self::dashboard_url() );
+			exit;
+		}
+
+		wp_logout();
+		wp_safe_redirect( self::dashboard_url() );
+		exit;
+	}
+
+	/**
+	 * Handle the dashboard login form submission.
+	 *
+	 * The form posts to the dashboard itself rather than wp-login.php, so a
+	 * writer never sees the WordPress login screen. That includes failures:
+	 * wp-login.php renders its own page on a bad password, which would leak the
+	 * writer out of the dashboard.
+	 *
+	 * Runs at `template_redirect` priority 0, before any output, so
+	 * `wp_signon()` can still set the authentication cookies.
+	 *
+	 * @return void
+	 */
+	public static function handle_login_post() {
+		if ( ! self::is_dashboard_request() ) {
+			return;
+		}
+
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
+
+		if ( 'POST' !== $method ) {
+			return;
+		}
+
+		// Only handle submissions from the dashboard form. Anything else is
+		// left to WordPress.
+		//
+		// A nonce is deliberately not used: the visitor is anonymous, so there
+		// is no session to bind a nonce to. WordPress core's own login form has
+		// the same constraint. The credentials themselves are the proof, and
+		// the login gate plus rate limiting handle abuse.
+		if ( empty( $_POST['penalis_login'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Anonymous login cannot carry a session nonce.
+			return;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Anonymous login; the password must not be sanitized before wp_signon().
+		$login    = isset( $_POST['log'] ) ? sanitize_user( wp_unslash( $_POST['log'] ) ) : '';
+		$password = isset( $_POST['pwd'] ) ? (string) wp_unslash( $_POST['pwd'] ) : '';
+		$remember = ! empty( $_POST['rememberme'] );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		$user = wp_signon(
+			array(
+				'user_login'    => $login,
+				'user_password' => $password,
+				'remember'      => $remember,
+			),
+			is_ssl()
+		);
+
+		if ( is_wp_error( $user ) ) {
+			// The message stays generic so the form cannot be used to discover
+			// which accounts exist or why they were blocked.
+			wp_safe_redirect( add_query_arg( 'penalis_login_error', '1', self::dashboard_url() ) );
+			exit;
+		}
+
+		wp_safe_redirect( self::dashboard_url() );
+		exit;
 	}
 
 	/**
@@ -273,9 +361,8 @@ final class Penalis_Dashboard {
 				'wpRestUrl'    => esc_url_raw( rest_url( 'wp/v2' ) ),
 				'nonce'        => wp_create_nonce( 'wp_rest' ),
 				'dashboardUrl' => esc_url_raw( self::dashboard_url() ),
-				'loginUrl'     => esc_url_raw( wp_login_url( self::dashboard_url() ) ),
-				'loginPostUrl' => esc_url_raw( site_url( 'wp-login.php', 'login_post' ) ),
-				'logoutUrl'    => esc_url_raw( wp_logout_url( self::dashboard_url() ) ),
+				'loginUrl'     => esc_url_raw( self::dashboard_url() ),
+				'logoutUrl'    => esc_url_raw( self::logout_url() ),
 				'lostPassword' => esc_url_raw( self::dashboard_url( array( 'penalis_forgot' => '1' ) ) ),
 				'homeUrl'      => esc_url_raw( home_url( '/' ) ),
 				'adminUrl'     => current_user_can( 'list_users' ) ? esc_url_raw( admin_url( 'users.php?page=penalis-writers' ) ) : '',

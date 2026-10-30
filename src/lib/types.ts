@@ -37,7 +37,6 @@ export interface DashboardBootstrap {
   registration: boolean;
   dashboardUrl: string;
   loginUrl: string;
-  loginPostUrl?: string;
   logoutUrl: string;
   lostPassword: string;
   homeUrl: string;
