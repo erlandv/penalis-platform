@@ -174,10 +174,10 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
+                  placeholder={`Minimal ${PASSWORD_MIN_LENGTH} karakter`}
                   aria-invalid={Boolean(errors.password)}
                   aria-describedby={errors.password ? 'password-error' : undefined}
                 />
-                <small>Minimal {PASSWORD_MIN_LENGTH} karakter.</small>
                 <FieldError errors={errors} name="password" />
               </label>
 
@@ -188,6 +188,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
+                  placeholder="Ulangi kata sandi baru"
                   aria-invalid={Boolean(errors.confirm_password)}
                   aria-describedby={errors.confirm_password ? 'confirm_password-error' : undefined}
                 />
@@ -297,6 +298,7 @@ function ActivationPage({ token }: { token: string }) {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
+                  placeholder={`Minimal ${PASSWORD_MIN_LENGTH} karakter`}
                   aria-invalid={Boolean(errors.password)}
                   aria-describedby={errors.password ? 'password-error' : undefined}
                 />
@@ -310,6 +312,7 @@ function ActivationPage({ token }: { token: string }) {
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
+                  placeholder="Ulangi kata sandi"
                   aria-invalid={Boolean(errors.confirm_password)}
                   aria-describedby={errors.confirm_password ? 'confirm_password-error' : undefined}
                 />

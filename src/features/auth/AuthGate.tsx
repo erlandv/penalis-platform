@@ -164,12 +164,24 @@ function LoginForm() {
 
       <label className="penalis-field">
         <span>Nama pengguna atau email</span>
-        <input type="text" name="log" autoComplete="username" required />
+        <input
+          type="text"
+          name="log"
+          autoComplete="username"
+          placeholder="nama.pengguna atau nama@email.com"
+          required
+        />
       </label>
 
       <label className="penalis-field">
         <span>Kata sandi</span>
-        <input type="password" name="pwd" autoComplete="current-password" required />
+        <input
+          type="password"
+          name="pwd"
+          autoComplete="current-password"
+          placeholder="Kata sandi kamu"
+          required
+        />
       </label>
 
       <label className="penalis-checkbox">
@@ -271,6 +283,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => update('display_name', event.target.value)}
           maxLength={80}
           autoComplete="name"
+          placeholder="Nama lengkap atau nama pena"
           aria-invalid={Boolean(errors.display_name)}
           aria-describedby={errors.display_name ? 'display_name-error' : undefined}
         />
@@ -285,6 +298,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => update('user_login', event.target.value)}
           maxLength={60}
           autoComplete="username"
+          placeholder="contoh: ada.lovelace"
           aria-invalid={Boolean(errors.user_login)}
           aria-describedby={errors.user_login ? 'user_login-error' : undefined}
         />
@@ -299,6 +313,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => update('user_email', event.target.value)}
           maxLength={254}
           autoComplete="email"
+          placeholder="nama@email.com"
           aria-invalid={Boolean(errors.user_email)}
           aria-describedby={errors.user_email ? 'user_email-error' : undefined}
         />
@@ -312,10 +327,10 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           value={values.password}
           onChange={(event) => update('password', event.target.value)}
           autoComplete="new-password"
+          placeholder="Minimal 12 karakter"
           aria-invalid={Boolean(errors.password)}
           aria-describedby={errors.password ? 'password-error' : undefined}
         />
-        <small>Minimal 12 karakter.</small>
         <FieldError errors={errors} name="password" />
       </label>
 
@@ -326,6 +341,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           value={values.confirm_password}
           onChange={(event) => update('confirm_password', event.target.value)}
           autoComplete="new-password"
+          placeholder="Ulangi kata sandi"
           aria-invalid={Boolean(errors.confirm_password)}
           aria-describedby={errors.confirm_password ? 'confirm_password-error' : undefined}
         />
@@ -417,6 +433,7 @@ function ResendForm() {
           }}
           autoComplete="email"
           maxLength={254}
+          placeholder="nama@email.com"
           aria-invalid={Boolean(fieldError)}
           aria-describedby={fieldError ? 'resend_email-error' : undefined}
           required
@@ -500,6 +517,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
           }}
           autoComplete="username"
           maxLength={254}
+          placeholder="nama@email.com atau nama pengguna"
           aria-invalid={Boolean(fieldError)}
           aria-describedby={fieldError ? 'forgot_login-error' : undefined}
           required
@@ -602,6 +620,7 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
           }}
           autoComplete="email"
           maxLength={254}
+          placeholder="nama@email.com"
           aria-invalid={Boolean(fieldError)}
           aria-describedby={fieldError ? 'activate_email-error' : undefined}
           required
