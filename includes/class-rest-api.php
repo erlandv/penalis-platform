@@ -102,6 +102,46 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/legacy/activate',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'handle_legacy_activate_request' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'user_email'      => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'penalis_website' => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/legacy/activate/confirm',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'handle_legacy_activate_confirm' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'token'    => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'password' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/password/forgot',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -384,6 +424,51 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
+	 * Request a legacy account activation link.
+	 *
+	 * Always answers generically so the endpoint cannot be used to discover
+	 * which addresses belong to legacy accounts.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_legacy_activate_request( $request ) {
+		$result = Penalis_Legacy_Activation::request(
+			array(
+				'user_email'      => $request->get_param( 'user_email' ),
+				'penalis_website' => $request->get_param( 'penalis_website' ),
+			)
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Consume an activation token and set the first password.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_legacy_activate_confirm( $request ) {
+		$result = Penalis_Legacy_Activation::activate(
+			array(
+				'token'    => $request->get_param( 'token' ),
+				'password' => $request->get_param( 'password' ),
+			)
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
 	 * Request a password reset link.
 	 *
 	 * Always answers generically so the endpoint cannot be used to discover
@@ -475,6 +560,7 @@ final class Penalis_Rest_Api {
 				'canWrite'        => $can_write,
 				'canView'         => Penalis_Account_Status::can_view_dashboard( $user_id ),
 				'emailVerified'   => '1' === (string) get_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, true ),
+				'needsPassword'   => Penalis_Account_Status::needs_password( $user_id ),
 				'registeredAt'    => (int) get_user_meta( $user_id, Penalis_Account_Status::META_REGISTERED_AT, true ),
 				'approvedAt'      => (int) get_user_meta( $user_id, Penalis_Account_Status::META_APPROVED_AT, true ),
 				'counts'          => $counts,

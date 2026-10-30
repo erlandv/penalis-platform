@@ -312,6 +312,64 @@ penalis_assert( ! Penalis_Account_Status::is_access_enabled( 5 ), 'Legacy accoun
 penalis_assert( ! Penalis_Account_Status::can_login( 5 ), 'Legacy account cannot sign in by default.' );
 penalis_assert( ! Penalis_Account_Status::can_write( 5 ), 'Legacy account cannot write through the dashboard.' );
 penalis_assert( ! Penalis_Account_Status::is_managed_account( 5 ), 'Legacy account is not plugin-managed.' );
+penalis_assert( Penalis_Account_Status::is_legacy_account( 5 ), 'Contributor without metadata is a legacy account.' );
+
+// Legacy conversion rules.
+penalis_assert( Penalis_Policy::can_convert_legacy( 'pending_verification' ), 'Legacy accounts may start at email verification.' );
+penalis_assert( Penalis_Policy::can_convert_legacy( 'pending_approval' ), 'Legacy accounts may skip to pending approval when an admin vouches.' );
+penalis_assert( ! Penalis_Policy::can_convert_legacy( 'active' ), 'Legacy accounts can never be converted straight to active.' );
+penalis_assert( ! Penalis_Policy::can_convert_legacy( 'suspended' ), 'Legacy accounts cannot be converted to suspended.' );
+
+// Role promotion rules.
+penalis_assert( Penalis_Policy::can_promote_roles( array( 'subscriber' ) ), 'Subscribers may be promoted.' );
+penalis_assert( Penalis_Policy::can_promote_roles( array( 'contributor' ) ), 'Legacy contributors may be promoted.' );
+penalis_assert( Penalis_Policy::can_promote_roles( array( 'penalis_writer' ) ), 'Existing writers may be re-approved.' );
+penalis_assert( Penalis_Policy::can_promote_roles( array() ), 'Accounts without a role may be promoted.' );
+penalis_assert( ! Penalis_Policy::can_promote_roles( array( 'editor' ) ), 'Editors are never promoted by the workflow.' );
+penalis_assert( ! Penalis_Policy::can_promote_roles( array( 'administrator' ) ), 'Administrators are never promoted by the workflow.' );
+penalis_assert( ! Penalis_Policy::can_promote_roles( array( 'author' ) ), 'Authors are never promoted by the workflow.' );
+
+// Conversion keeps the user ID and never touches posts.
+$result = Penalis_Account_Status::convert_legacy( 5, 'pending_approval', 'admin_vouched', 2 );
+penalis_assert( true === $result, 'A legacy account can be converted to pending approval.' );
+penalis_same( 'pending_approval', Penalis_Account_Status::get_status( 5 ), 'Converted account is pending approval.' );
+penalis_assert( ! Penalis_Account_Status::is_access_enabled( 5 ), 'Converted account has no access before approval.' );
+penalis_assert( ! Penalis_Account_Status::can_write( 5 ), 'Converted account cannot write before approval.' );
+penalis_assert( Penalis_Account_Status::is_managed_account( 5 ), 'Converted account is now plugin-managed.' );
+penalis_assert( ! Penalis_Account_Status::is_legacy_account( 5 ), 'Converted account is no longer legacy.' );
+penalis_same( '1', (string) get_user_meta( 5, Penalis_Account_Status::META_VERIFIED, true ), 'Vouched conversion marks the email verified.' );
+penalis_assert( Penalis_Account_Status::needs_password( 5 ), 'A vouched legacy account still needs a password.' );
+
+Penalis_Account_Status::clear_needs_password( 5 );
+penalis_assert( ! Penalis_Account_Status::needs_password( 5 ), 'Setting a password clears the flag.' );
+
+$result = Penalis_Account_Status::convert_legacy( 5, 'pending_approval', 'again', 2 );
+penalis_assert( is_wp_error( $result ), 'A converted account cannot be converted twice.' );
+
+$result = Penalis_Account_Status::transition( 5, 'active', 'admin_approved', 2 );
+penalis_assert( true === $result, 'A converted legacy account can be approved.' );
+penalis_assert( Penalis_Account_Status::can_write( 5 ), 'Approved legacy account can write.' );
+penalis_assert( in_array( 'penalis_writer', $GLOBALS['penalis_test_users'][5]->roles, true ), 'Approved legacy account receives the writer role.' );
+
+// A legacy account converted through email verification starts unverified.
+penalis_reset();
+$GLOBALS['penalis_test_users'][7] = new WP_User( 7, array( 'contributor' ) );
+$result = Penalis_Account_Status::convert_legacy( 7, 'pending_verification', 'legacy_self_activated', 0 );
+penalis_assert( true === $result, 'A legacy account can start at email verification.' );
+penalis_same( '0', (string) get_user_meta( 7, Penalis_Account_Status::META_VERIFIED, true ), 'Self-service conversion leaves the email unverified.' );
+penalis_assert( ! Penalis_Account_Status::can_write( 7 ), 'Unverified converted account cannot write.' );
+
+// Non-legacy accounts cannot be converted.
+penalis_reset();
+$GLOBALS['penalis_test_users'][8] = new WP_User( 8, array( 'subscriber' ) );
+penalis_assert( ! Penalis_Account_Status::is_legacy_account( 8 ), 'A subscriber is not a legacy account.' );
+$result = Penalis_Account_Status::convert_legacy( 8, 'pending_approval', 'nope', 2 );
+penalis_assert( is_wp_error( $result ), 'A non-legacy account cannot be converted.' );
+
+// Editors and administrators are never treated as legacy accounts.
+penalis_reset();
+$GLOBALS['penalis_test_users'][9] = new WP_User( 9, array( 'editor' ) );
+penalis_assert( ! Penalis_Account_Status::is_legacy_account( 9 ), 'An editor is not a legacy account.' );
 
 // Rejected accounts cannot log in.
 penalis_reset();

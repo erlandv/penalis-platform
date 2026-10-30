@@ -72,6 +72,7 @@ export interface Account {
   canWrite: boolean;
   canView: boolean;
   emailVerified: boolean;
+  needsPassword: boolean;
   registeredAt: number;
   approvedAt: number;
   counts: AccountCounts;

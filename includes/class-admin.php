@@ -200,6 +200,10 @@ JS;
 		$paged  = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
+		// The legacy tab lists contributor profiles that predate this plugin.
+		// They have no Penalis metadata, so they are queried by role instead.
+		$is_legacy_view = 'legacy' === $status;
+
 		$per_page = 25;
 		$args     = array(
 			'number'  => $per_page,
@@ -209,7 +213,20 @@ JS;
 			'order'   => 'DESC',
 		);
 
-		if ( '' !== $status && Penalis_Policy::is_valid_status( $status ) ) {
+		if ( $is_legacy_view ) {
+			$args['role']       = 'contributor';
+			$args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+				'relation' => 'AND',
+				array(
+					'key'     => Penalis_Account_Status::META_STATUS,
+					'compare' => 'NOT EXISTS',
+				),
+				array(
+					'key'     => Penalis_Account_Status::META_ACCESS,
+					'compare' => 'NOT EXISTS',
+				),
+			);
+		} elseif ( '' !== $status && Penalis_Policy::is_valid_status( $status ) ) {
 			$args['meta_key']   = Penalis_Account_Status::META_STATUS; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 			$args['meta_value'] = $status; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 		} else {
@@ -242,6 +259,7 @@ JS;
 			Penalis_Policy::STATUS_ACTIVE               => 'Aktif',
 			Penalis_Policy::STATUS_REJECTED             => 'Ditolak',
 			Penalis_Policy::STATUS_SUSPENDED            => 'Ditangguhkan',
+			'legacy'                                    => 'Akun lama (belum diaktifkan)',
 		);
 
 		?>
@@ -299,8 +317,8 @@ JS;
 			</form>
 
 			<p class="description">
-				Akun lama tanpa metadata Penalis sengaja tidak ditampilkan di daftar ini. Akun tersebut tidak pernah
-				dinaikkan statusnya atau diaktifkan secara otomatis.
+				Akun lama tanpa metadata Penalis tidak ditampilkan di daftar ini. Pilih filter
+				<strong>Akun lama (belum diaktifkan)</strong> untuk melihat dan mengaktifkannya.
 			</p>
 
 			<table class="wp-list-table widefat fixed striped">
@@ -341,9 +359,18 @@ JS;
 									<?php if ( Penalis_Account_Status::has_recent_email_failure( $user_id ) ) : ?>
 										<br><small>Pengiriman email terakhir gagal</small>
 									<?php endif; ?>
+									<?php if ( Penalis_Account_Status::needs_password( $user_id ) ) : ?>
+										<br><small>Belum membuat kata sandi</small>
+									<?php endif; ?>
 								</td>
 								<td><?php echo esc_html( $user->user_registered ); ?></td>
 								<td class="penalis-actions">
+									<?php if ( $is_legacy_view ) : ?>
+										<?php self::action_button( $user_id, 'legacy_send_activation', 'Kirim tautan aktivasi' ); ?>
+										<?php self::action_button( $user_id, 'legacy_vouch', 'Aktifkan langsung', true ); ?>
+										<br><small>Akun lama tidak memiliki kata sandi. "Aktifkan langsung" melewati verifikasi email dan tetap memerlukan persetujuan.</small>
+									<?php endif; ?>
+
 									<?php if ( Penalis_Policy::STATUS_PENDING_VERIFICATION === $user_status ) : ?>
 										<?php self::action_button( $user_id, 'resend_verification', 'Kirim ulang verifikasi' ); ?>
 									<?php endif; ?>
@@ -466,7 +493,16 @@ JS;
 			self::redirect( 'invalid_user' );
 		}
 
-		$allowed_actions = array( 'approve', 'reject', 'suspend', 'reactivate', 'reopen', 'resend_verification' );
+		$allowed_actions = array(
+			'approve',
+			'reject',
+			'suspend',
+			'reactivate',
+			'reopen',
+			'resend_verification',
+			'legacy_send_activation',
+			'legacy_vouch',
+		);
 		if ( ! in_array( $action, $allowed_actions, true ) ) {
 			self::redirect( 'invalid_action' );
 		}
@@ -508,6 +544,28 @@ JS;
 				$result = self::resend_verification( $user_id );
 				break;
 
+			case 'legacy_send_activation':
+				$result = self::legacy_send_activation( $user_id );
+				break;
+
+			case 'legacy_vouch':
+				$result = Penalis_Account_Status::convert_legacy(
+					$user_id,
+					Penalis_Policy::STATUS_PENDING_APPROVAL,
+					'admin_vouched',
+					$actor
+				);
+
+				// The account still has no password. Send a reset link so the
+				// owner can set one; without it they could not sign in at all.
+				if ( ! is_wp_error( $result ) ) {
+					$key = get_password_reset_key( $user );
+					if ( ! is_wp_error( $key ) ) {
+						Penalis_Emails::send_password_reset( $user_id, $key );
+					}
+				}
+				break;
+
 			default:
 				$result = new WP_Error( 'penalis_invalid_action', 'Tindakan tidak valid.', array( 'status' => 400 ) );
 		}
@@ -523,6 +581,31 @@ JS;
 		}
 
 		self::redirect( 'success', 'done' );
+	}
+
+	/**
+	 * Send an activation link for a legacy account.
+	 *
+	 * @param int $user_id User ID.
+	 * @return true|WP_Error
+	 */
+	private static function legacy_send_activation( $user_id ) {
+		if ( ! Penalis_Account_Status::is_legacy_account( $user_id ) ) {
+			return new WP_Error( 'penalis_not_legacy', 'Akun ini bukan akun kontributor lama.', array( 'status' => 409 ) );
+		}
+
+		$token = Penalis_Account_Status::issue_verification_token( $user_id );
+		if ( is_wp_error( $token ) ) {
+			return $token;
+		}
+
+		$sent = Penalis_Emails::send_legacy_activation( $user_id, $token );
+
+		if ( ! $sent ) {
+			return new WP_Error( 'penalis_email_failed', 'Email aktivasi tidak dapat dikirim.', array( 'status' => 500 ) );
+		}
+
+		return true;
 	}
 
 	/**
@@ -589,6 +672,8 @@ JS;
 			'protected_account'          => 'Akun administrator tidak dapat diubah di sini.',
 			'penalis_invalid_transition' => 'Perubahan status tersebut tidak diizinkan untuk akun ini.',
 			'penalis_email_failed'       => 'Email verifikasi tidak dapat dikirim. Status akun tidak diubah.',
+			'penalis_not_legacy'         => 'Akun ini bukan akun kontributor lama yang dapat diaktifkan.',
+			'penalis_role_conflict'      => 'Akun ini memiliki peran yang tidak dapat disetujui melalui alur kerja penulis.',
 			'avatar_saved'               => 'Foto profil bawaan telah diperbarui.',
 			'avatar_invalid'             => 'Pilih gambar yang valid untuk foto profil bawaan.',
 		);

@@ -86,7 +86,7 @@ final class Penalis_Registration {
 		$existing_login = username_exists( $login );
 
 		if ( $existing_email || $existing_login ) {
-			self::send_duplicate_notice_if_appropriate( $existing_email, $existing_login );
+			self::handle_duplicate_attempt( $existing_email, $existing_login );
 
 			// Return the same response as a successful registration. This
 			// prevents the endpoint from confirming whether an email address or
@@ -138,14 +138,21 @@ final class Penalis_Registration {
 		);  }
 
 	/**
-	 * Send a neutral notice to an existing account when a duplicate attempt is
-	 * made. This never confirms to the requester whether the account exists.
+	 * Handle a registration attempt that matches an existing account.
+	 *
+	 * The response to the requester is always the same generic success, so this
+	 * method only decides what to send to the account owner:
+	 *
+	 * - Legacy contributor: send an activation link. These accounts have no
+	 *   password and cannot sign in, so telling them to "sign in or reset the
+	 *   password" would be a dead end.
+	 * - Any other account: send a neutral notice.
 	 *
 	 * @param int $existing_email_id User ID by email.
 	 * @param int $existing_login_id User ID by login.
 	 * @return void
 	 */
-	private static function send_duplicate_notice_if_appropriate( $existing_email_id, $existing_login_id ) {
+	private static function handle_duplicate_attempt( $existing_email_id, $existing_login_id ) {
 		$user_id = (int) $existing_email_id;
 		if ( $user_id <= 0 ) {
 			$user_id = (int) $existing_login_id;
@@ -155,22 +162,47 @@ final class Penalis_Registration {
 			return;
 		}
 
-		// Throttle duplicate notices to avoid becoming a spam vector.
+		// Throttle to avoid becoming a spam vector.
 		$throttle_key = 'penalis_dup_notice_' . $user_id;
 		if ( get_transient( $throttle_key ) ) {
 			return;
 		}
 		set_transient( $throttle_key, '1', HOUR_IN_SECONDS );
 
-		$user = get_userdata( $user_id );
+		if ( Penalis_Account_Status::is_legacy_account( $user_id ) ) {
+			$token = Penalis_Account_Status::issue_verification_token( $user_id );
+
+			if ( ! is_wp_error( $token ) ) {
+				Penalis_Emails::send_legacy_activation( $user_id, $token );
+			}
+
+			return;
+		}
+
+		self::send_duplicate_notice( $user_id );
+	}
+
+	/**
+	 * Send a neutral notice to an existing managed account.
+	 *
+	 * This never confirms to the requester whether the account exists.
+	 *
+	 * @param int $user_id User ID.
+	 * @return void
+	 */
+	private static function send_duplicate_notice( $user_id ) {
+		$user = get_userdata( (int) $user_id );
 		if ( ! $user || ! is_email( $user->user_email ) ) {
 			return;
 		}
 
-		$site     = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject  = sprintf( '[%s] Registration attempt', $site );
+		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$subject = sprintf( '[%s] Percobaan pendaftaran', $site );
+
 		$message  = "Seseorang mencoba mendaftar menggunakan alamat email atau nama pengguna kamu.\n\n";
-		$message .= "Jika ini adalah kamu, cobalah untuk masuk atau mengatur ulang kata sandi kamu. Jika bukan kamu, tidak ada tindakan yang perlu dilakukan.\n";
+		$message .= "Jika ini adalah kamu, silakan masuk ke dasbor penulis atau atur ulang kata sandi kamu.\n";
+		$message .= Penalis_Dashboard::dashboard_url() . "\n\n";
+		$message .= "Jika bukan kamu, tidak ada tindakan yang perlu dilakukan.\n";
 
 		wp_mail( $user->user_email, $subject, $message );
 	}

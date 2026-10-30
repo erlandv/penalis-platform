@@ -154,6 +154,10 @@ final class Penalis_Password_Reset {
 
 		reset_password( $user, $password );
 
+		// A legacy account converted by an administrator has no password yet.
+		// Setting one clears the flag that asks for it.
+		Penalis_Account_Status::clear_needs_password( $user->ID );
+
 		// reset_password() does not end sessions. A reset is often the response
 		// to a compromised account, so every existing session is destroyed.
 		if ( class_exists( 'WP_Session_Tokens' ) ) {

@@ -179,6 +179,8 @@ Server-side guards additionally:
 | `/registration` | POST | public, rate-limited | Create pending account |
 | `/verification/resend` | POST | public, rate-limited | Reissue verification email |
 | `/verification/confirm` | POST | public, token | Consume verification token |
+| `/legacy/activate` | POST | public, rate-limited | Request a legacy account activation link |
+| `/legacy/activate/confirm` | POST | public, token | Consume activation token and set the first password |
 | `/password/forgot` | POST | public, rate-limited | Request a password reset link |
 | `/password/reset` | POST | public, key | Consume reset key and set a new password |
 | `/account` | GET | logged in | Current account state |
@@ -221,6 +223,54 @@ Password reset is handled inside the dashboard instead of
   contributors are denied; editors, authors, and administrators are unaffected.
 - The `allow_password_reset` filter is still applied, so third-party
   restrictions keep working.
+
+### Legacy account activation
+
+Legacy contributor accounts were created by an administrator before this
+plugin existed. They hold the `contributor` role, have no Penalis metadata, and
+were **never given a password**, so their owners cannot sign in at all. They are
+identity shells used for post attribution, not disabled accounts.
+
+Activation is the only supported way in. It is modelled on password reset
+because it proves the same thing: control of the stored email address. It grants
+no access by itself.
+
+Two entry points exist, and both require administrator approval:
+
+| Path | Start | Email step |
+| --- | --- | --- |
+| Self-service | `/legacy/activate` → email link | Required |
+| Administrator | **Users → Penalis Writers → Akun lama** | Skipped (vouched) |
+
+Self-service flow:
+
+1. The visitor enters the email used when submitting work.
+2. The response is always generic, so the endpoint cannot enumerate accounts.
+3. A single-use token is emailed and links to
+   `/dashboard/?penalis_activate=TOKEN`.
+4. The visitor sets a password; the token is consumed only on submit, so email
+   link scanners cannot burn it.
+5. The account moves to `pending_approval` with `verified=1` and `access=0`.
+6. An administrator approves it, which grants the writer role.
+
+Administrator flow:
+
+- **Kirim tautan aktivasi** issues the same token by email.
+- **Aktifkan langsung** converts the account to `pending_approval` without the
+  email step, records `admin_vouched` in the audit log, and sends a password
+  reset link. The account is flagged `_penalis_needs_password` until the owner
+  sets one, because it still has no password.
+
+Guarantees:
+
+- The user ID never changes, so existing posts, author archives, and metadata
+  stay attached. Posts are never modified or unpublished.
+- `Penalis_Policy::can_convert_legacy()` allows only `pending_verification` and
+  `pending_approval`. Direct conversion to `active` is impossible.
+- `Penalis_Policy::can_promote_roles()` allows `subscriber`, `contributor`, and
+  `penalis_writer`. Editors, authors, and administrators are never promoted.
+- A registration attempt that matches a legacy account sends an activation link
+  instead of the dead-end "sign in or reset your password" notice.
 
 ### Native endpoint hardening
 

@@ -27,6 +27,7 @@ final class Penalis_Account_Status {
 	public const META_MAIL_FAILED       = '_penalis_last_email_failed_at';
 	public const META_MAIL_CONTEXT      = '_penalis_last_email_failed_context';
 	public const META_DISPLAY_NAME_MODE = '_penalis_display_name_mode';
+	public const META_NEEDS_PASSWORD    = '_penalis_needs_password';
 
 	public const LOG_LIMIT = 20;
 
@@ -80,6 +81,32 @@ final class Penalis_Account_Status {
 	}
 
 	/**
+	 * Whether a user is a legacy contributor profile.
+	 *
+	 * These accounts were created by an administrator before this plugin
+	 * existed. They hold the `contributor` role, have no Penalis metadata, and
+	 * were never given a password, so they cannot sign in.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function is_legacy_account( $user_id ) {
+		$user_id = (int) $user_id;
+
+		if ( $user_id <= 0 || self::is_managed_account( $user_id ) ) {
+			return false;
+		}
+
+		$user = get_userdata( $user_id );
+
+		if ( ! $user ) {
+			return false;
+		}
+
+		return in_array( 'contributor', (array) $user->roles, true );
+	}
+
+	/**
 	 * Whether the user may sign in through the plugin gate.
 	 *
 	 * @param int $user_id User ID.
@@ -107,6 +134,30 @@ final class Penalis_Account_Status {
 	 */
 	public static function can_view_dashboard( $user_id ) {
 		return Penalis_Policy::can_view_dashboard( self::get_status( $user_id ) );
+	}
+
+	/**
+	 * Whether the account still needs its owner to set a password.
+	 *
+	 * Legacy accounts converted by an administrator ("vouched") skip the email
+	 * step, so they still have no password. The dashboard uses this flag to ask
+	 * the owner to set one.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function needs_password( $user_id ) {
+		return '1' === (string) get_user_meta( (int) $user_id, self::META_NEEDS_PASSWORD, true );
+	}
+
+	/**
+	 * Clear the "needs password" flag after a password is set.
+	 *
+	 * @param int $user_id User ID.
+	 * @return void
+	 */
+	public static function clear_needs_password( $user_id ) {
+		delete_user_meta( (int) $user_id, self::META_NEEDS_PASSWORD );
 	}
 
 	/**
@@ -161,10 +212,10 @@ final class Penalis_Account_Status {
 
 		// Approval must never silently promote an account that already holds a
 		// higher role (editor, author, administrator). Those accounts require a
-		// deliberate manual decision by a site administrator.
+		// deliberate manual decision by a site administrator. Legacy
+		// contributors are allowed: they are promoted to the writer role.
 		if ( Penalis_Policy::STATUS_ACTIVE === $to ) {
-			$roles = array_values( (array) $user->roles );
-			if ( ! empty( $roles ) && array( 'subscriber' ) !== $roles && array( Penalis_Roles::ROLE ) !== $roles ) {
+			if ( ! Penalis_Policy::can_promote_roles( (array) $user->roles ) ) {
 				return new WP_Error(
 					'penalis_role_conflict',
 					'Akun ini sudah memiliki peran yang tidak dapat disetujui melalui alur kerja penulis.',
@@ -222,6 +273,81 @@ final class Penalis_Account_Status {
 		 * @param bool   $previous Whether access was enabled previously.
 		 */
 		do_action( 'penalis_account_status_changed', $user_id, $from, $to, (int) $actor, $previous_access );
+
+		return true;
+	}
+
+	/**
+	 * Convert a legacy contributor profile into a managed account.
+	 *
+	 * Legacy accounts have no status metadata, so `transition()` cannot be used
+	 * (an empty status is not a valid source state). This method performs the
+	 * same bookkeeping for the two supported entry points.
+	 *
+	 * The user ID never changes, so existing posts, author archives, and
+	 * metadata stay attached to the same account. Posts are never modified.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $to      Target status: pending_verification or pending_approval.
+	 * @param string $reason  Reason for the audit log.
+	 * @param int    $actor   Acting user ID.
+	 * @return true|WP_Error
+	 */
+	public static function convert_legacy( $user_id, $to, $reason = 'legacy_converted', $actor = 0 ) {
+		$user_id = (int) $user_id;
+
+		if ( ! self::is_legacy_account( $user_id ) ) {
+			return new WP_Error(
+				'penalis_not_legacy',
+				'Akun ini bukan akun kontributor lama yang dapat diaktifkan.',
+				array( 'status' => 409 )
+			);
+		}
+
+		if ( ! Penalis_Policy::can_convert_legacy( $to ) ) {
+			return new WP_Error(
+				'penalis_invalid_transition',
+				'Perubahan status akun tersebut tidak diizinkan.',
+				array( 'status' => 409 )
+			);
+		}
+
+		update_user_meta( $user_id, self::META_STATUS, $to );
+		update_user_meta( $user_id, self::META_ACCESS, '0' );
+
+		if ( Penalis_Policy::STATUS_PENDING_APPROVAL === $to ) {
+			// The administrator vouched for the identity out of band, so the
+			// email step is skipped. Approval is still required.
+			update_user_meta( $user_id, self::META_VERIFIED, '1' );
+
+			// The account still has no password. Flag it so the dashboard can
+			// ask the owner to set one before they can sign in.
+			update_user_meta( $user_id, self::META_NEEDS_PASSWORD, '1' );
+		} else {
+			update_user_meta( $user_id, self::META_VERIFIED, '0' );
+			delete_user_meta( $user_id, self::META_NEEDS_PASSWORD );
+		}
+
+		if ( '' === (string) get_user_meta( $user_id, self::META_REGISTERED_AT, true ) ) {
+			$user       = get_userdata( $user_id );
+			$registered = $user && ! empty( $user->user_registered )
+				? (int) strtotime( $user->user_registered . ' UTC' )
+				: time();
+			update_user_meta( $user_id, self::META_REGISTERED_AT, $registered );
+		}
+
+		self::append_log( $user_id, '', $to, $reason, (int) $actor );
+
+		delete_transient( 'penalis_pending_approval_count' );
+
+		/**
+		 * Fires after a legacy account is converted.
+		 *
+		 * @param int    $user_id User ID.
+		 * @param string $to      New status.
+		 * @param int    $actor   Acting user ID.
+		 */
+		do_action( 'penalis_legacy_converted', $user_id, $to, (int) $actor );
 
 		return true;
 	}

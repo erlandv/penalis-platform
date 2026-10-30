@@ -101,9 +101,9 @@ final class Penalis_Roles {
 	/**
 	 * Give an approved account the writer role.
 	 *
-	 * Only promotes subscribers and existing writer-role accounts. Users with
-	 * a higher role (administrator, editor, author) are never demoted or
-	 * modified by this method.
+	 * Promotes subscribers, legacy contributors, and existing writer-role
+	 * accounts. Users with a higher role (administrator, editor, author) are
+	 * never demoted or modified by this method.
 	 *
 	 * @param int $user_id User ID.
 	 * @return void
@@ -120,7 +120,7 @@ final class Penalis_Roles {
 			return;
 		}
 
-		if ( array( 'subscriber' ) === array_values( $roles ) || empty( $roles ) ) {
+		if ( Penalis_Policy::can_promote_roles( $roles ) ) {
 			$user->set_role( self::ROLE );
 		}
 	}

@@ -18,7 +18,24 @@ const NAV_ITEMS: Array<{ view: ViewName; label: string }> = [
   { view: 'settings', label: 'Pengaturan' },
 ];
 
-export function StatusBanner({ status, email }: { status: AccountStatus; email: string }) {
+export function StatusBanner({
+  status,
+  email,
+  needsPassword = false,
+}: {
+  status: AccountStatus;
+  email: string;
+  needsPassword?: boolean;
+}) {
+  if (needsPassword) {
+    return (
+      <Notice tone="warning">
+        <strong>Akun kamu belum memiliki kata sandi.</strong> Kami mengirim tautan untuk membuat kata sandi
+        ke <strong>{email}</strong>. Buka tautan tersebut agar kamu dapat masuk kembali.
+      </Notice>
+    );
+  }
+
   if (status === 'pending_verification') {
     return <ResendBanner email={email} />;
   }
@@ -143,7 +160,11 @@ export function Shell({
           WordPress Admin untuk mengelola konten para penulis.
         </Notice>
       ) : (
-        <StatusBanner status={account.status} email={account.email} />
+        <StatusBanner
+          status={account.status}
+          email={account.email}
+          needsPassword={account.needsPassword}
+        />
       )}
 
       <div className="penalis-layout">

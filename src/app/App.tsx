@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
-import { accountApi, ApiError, passwordApi, registrationApi } from '../lib/api';
+import { accountApi, ApiError, legacyApi, passwordApi, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
 import type { Account, FieldErrors, ViewName } from '../lib/types';
 import { PASSWORD_MIN_LENGTH } from '../lib/validation';
@@ -208,6 +208,128 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
   );
 }
 
+/**
+ * Legacy account activation page reached from the activation email.
+ *
+ * Legacy contributors never had a password, so this page sets the first one.
+ * The token is consumed only when the visitor submits, so email link scanners
+ * cannot burn a single-use token.
+ */
+function ActivationPage({ token }: { token: string }) {
+  const bootstrap = getBootstrap();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [formError, setFormError] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setFormError('');
+    setErrors({});
+
+    const clientErrors: FieldErrors = {};
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      clientErrors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
+    }
+    if (password !== confirm) {
+      clientErrors.confirm_password = 'Kata sandi tidak cocok.';
+    }
+    if (Object.keys(clientErrors).length > 0) {
+      setErrors(clientErrors);
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const result = await legacyApi.confirm({ token, password });
+      setMessage(result.message);
+
+      // The token is single-use; drop it from the address bar and history.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('penalis_activate');
+      window.history.replaceState({}, '', url.toString());
+    } catch (caught) {
+      if (caught instanceof ApiError) {
+        setErrors(caught.fields);
+        setFormError(caught.message);
+      } else {
+        setFormError('Akun tidak dapat diaktifkan. Silakan coba lagi.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="penalis-auth">
+      <div className="penalis-auth__panel">
+        <h1>Aktifkan akun penulis kamu</h1>
+
+        {message ? (
+          <>
+            <Notice tone="success">{message}</Notice>
+            <p className="penalis-muted">
+              Karya tulis yang sudah terbit tetap terhubung ke akun ini. Kamu dapat masuk setelah admin
+              menyetujui akun.
+            </p>
+            <a className="penalis-button penalis-button--primary" href={bootstrap.loginUrl}>
+              Lanjut ke halaman masuk
+            </a>
+          </>
+        ) : (
+          <>
+            <p className="penalis-muted">
+              Buat kata sandi untuk akun yang sudah kami siapkan. Gunakan minimal {PASSWORD_MIN_LENGTH}{' '}
+              karakter.
+            </p>
+
+            {formError ? <ErrorBanner message={formError} /> : null}
+
+            <form className="penalis-form" onSubmit={submit} noValidate>
+              <label className="penalis-field">
+                <span>Kata sandi baru</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(errors.password)}
+                  aria-describedby={errors.password ? 'password-error' : undefined}
+                />
+                <FieldError errors={errors} name="password" />
+              </label>
+
+              <label className="penalis-field">
+                <span>Konfirmasi kata sandi</span>
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={(event) => setConfirm(event.target.value)}
+                  autoComplete="new-password"
+                  aria-invalid={Boolean(errors.confirm_password)}
+                  aria-describedby={errors.confirm_password ? 'confirm_password-error' : undefined}
+                />
+                <FieldError errors={errors} name="confirm_password" />
+              </label>
+
+              <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
+                {submitting ? 'Mengaktifkan…' : 'Aktifkan akun'}
+              </button>
+            </form>
+
+            <p className="penalis-fineprint">
+              <a href={bootstrap.dashboardUrl}>Minta tautan aktivasi baru</a>
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const bootstrap = getBootstrap();
   const [account, setAccount] = useState<Account | null>(null);
@@ -232,6 +354,12 @@ export function App() {
   const [resetKey] = useState(() => new URLSearchParams(window.location.search).get('penalis_reset'));
   const [resetLogin] = useState(
     () => new URLSearchParams(window.location.search).get('penalis_login') ?? '',
+  );
+
+  // A legacy activation link carries a single-use token. It is handled before
+  // the dashboard so a signed-in visitor can still complete the activation.
+  const [activationToken] = useState(() =>
+    new URLSearchParams(window.location.search).get('penalis_activate'),
   );
 
   const loadAccount = useCallback(async () => {
@@ -283,6 +411,10 @@ export function App() {
 
   if (resetKey) {
     return <ResetPasswordPage resetKey={resetKey} login={resetLogin} />;
+  }
+
+  if (activationToken) {
+    return <ActivationPage token={activationToken} />;
   }
 
   if (signedOut) {

@@ -74,6 +74,26 @@ Writers who forget their password stay inside the dashboard:
 
 `wp-login.php?action=lostpassword` still works as a fallback.
 
+### Legacy contributor activation
+
+Contributor accounts created before this plugin existed have no password, so
+their owners cannot sign in. They can activate the account they already have:
+
+1. **Aktifkan akun penulis lama** on the login screen, or
+   `/dashboard/?penalis_activate=1`.
+2. Enter the email used when submitting work. The response is always generic.
+3. The emailed link opens a form to set the first password.
+4. The account moves to `pending_approval`; an administrator still approves it.
+
+Administrators can also act from **Users → Penalis Writers → Akun lama**:
+
+- **Kirim tautan aktivasi** emails the same link.
+- **Aktifkan langsung** skips the email step, records the decision in the audit
+  log, and sends a password reset link.
+
+The user ID never changes, so existing articles and author archives stay
+attached. Posts are never modified.
+
 ### Legacy contributor protection
 
 Existing contributor accounts are treated as author profiles, not interactive
@@ -101,6 +121,7 @@ penalis-platform/
 │   ├── class-access-control.php Login, capability, and REST hardening
 │   ├── class-registration.php  Registration, verification, resend
 │   ├── class-password-reset.php Dashboard password reset (forgot/reset)
+│   ├── class-legacy-activation.php Legacy contributor activation
 │   ├── class-rest-api.php      penalis/v1 endpoints
 │   ├── class-dashboard.php     Page, shortcode, asset enqueue
 │   ├── class-emails.php        wp_mail() templates and failure recording

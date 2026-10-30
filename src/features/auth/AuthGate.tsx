@@ -4,19 +4,20 @@
 
 import { useState, type FormEvent } from 'react';
 
-import { ApiError, passwordApi, registrationApi } from '../../lib/api';
+import { ApiError, legacyApi, passwordApi, registrationApi } from '../../lib/api';
 import { getBootstrap } from '../../lib/bootstrap';
 import type { FieldErrors } from '../../lib/types';
 import { hasErrors, validateRegistration } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner } from '../../components/ui';
 
-type Mode = 'login' | 'register' | 'resend' | 'forgot';
+type Mode = 'login' | 'register' | 'resend' | 'forgot' | 'activate';
 
 const HEADINGS: Record<Mode, string> = {
   login: 'Login',
   register: 'Buat akun Penalis',
   resend: 'Kirim ulang email verifikasi',
   forgot: 'Lupa kata sandi',
+  activate: 'Aktifkan akun penulis lama',
 };
 
 const DESCRIPTIONS: Record<Mode, string> = {
@@ -24,14 +25,33 @@ const DESCRIPTIONS: Record<Mode, string> = {
   register: 'Buat akun Penalis untuk mulai menulis di Penalis.',
   resend: 'Minta tautan verifikasi baru untuk akun yang belum dikonfirmasi.',
   forgot: 'Masukkan email atau nama pengguna kamu. Kami akan mengirim tautan untuk mengatur ulang kata sandi.',
+  activate:
+    'Pernah mengirim karya tulis sebelum dasbor ini ada? Kami sudah membuatkan akun untukmu. Masukkan email yang kamu pakai saat mengirim, lalu buat kata sandi.',
 };
+
+/**
+ * Which mode a deep link opens.
+ *
+ * `?penalis_forgot=1` opens the reset request and `?penalis_activate=1` opens
+ * the legacy activation request, so the public page can link straight to them.
+ */
+function initialMode(): Mode {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.has('penalis_activate')) {
+    return 'activate';
+  }
+
+  if (params.has('penalis_forgot')) {
+    return 'forgot';
+  }
+
+  return 'login';
+}
 
 export function AuthGate() {
   const bootstrap = getBootstrap();
-  // Deep links such as ?penalis_forgot=1 open the reset request directly.
-  const [mode, setMode] = useState<Mode>(() =>
-    new URLSearchParams(window.location.search).has('penalis_forgot') ? 'forgot' : 'login',
-  );
+  const [mode, setMode] = useState<Mode>(initialMode);
 
   return (
     <div className="penalis-auth">
@@ -44,6 +64,7 @@ export function AuthGate() {
         {mode === 'register' ? <RegistrationForm onDone={() => setMode('login')} /> : null}
         {mode === 'resend' ? <ResendForm /> : null}
         {mode === 'forgot' ? <ForgotForm onDone={() => setMode('login')} /> : null}
+        {mode === 'activate' ? <ActivateForm onDone={() => setMode('login')} /> : null}
 
         <div className="penalis-auth__switch">
           {mode !== 'login' ? (
@@ -55,6 +76,12 @@ export function AuthGate() {
           {mode === 'login' && bootstrap.registration ? (
             <button type="button" className="penalis-link-button" onClick={() => setMode('register')}>
               Buat Akun Penalis
+            </button>
+          ) : null}
+
+          {mode === 'login' ? (
+            <button type="button" className="penalis-link-button" onClick={() => setMode('activate')}>
+              Aktifkan akun penulis lama
             </button>
           ) : null}
 
@@ -418,6 +445,93 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
         {submitting ? <Spinner label="Mengirim…" /> : 'Kirim tautan pengaturan ulang'}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * Legacy account activation request.
+ *
+ * Legacy contributors were created by an administrator and never received a
+ * password, so they cannot sign in or reset a password. This form sends an
+ * activation link that lets them set a password for the account they already
+ * have, keeping their existing articles attached.
+ *
+ * The server response is deliberately generic, so the success notice repeats
+ * the same conditional wording.
+ */
+function ActivateForm({ onDone }: { onDone: () => void }) {
+  const [email, setEmail] = useState('');
+  const [honeypot, setHoneypot] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setMessage('');
+    setSubmitting(true);
+
+    try {
+      const result = await legacyApi.request(email.trim(), honeypot);
+      setMessage(result.message);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (message) {
+    return (
+      <div className="penalis-form">
+        <Notice tone="success">{message}</Notice>
+        <p className="penalis-muted">
+          Tautan berlaku 24 jam dan hanya dapat digunakan sekali. Setelah kamu membuat kata sandi, admin
+          akan meninjau akun sebelum kamu dapat menerbitkan karya tulis.
+        </p>
+        <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
+          Kembali ke halaman login
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form className="penalis-form" onSubmit={submit} noValidate>
+      {error ? <ErrorBanner message={error} /> : null}
+
+      <label className="penalis-field">
+        <span>Email yang kamu pakai saat mengirim karya tulis</span>
+        <input
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          autoComplete="email"
+          maxLength={254}
+          required
+        />
+        <small>Tidak ingat email mana yang dipakai? Hubungi admin Penalis.</small>
+      </label>
+
+      {/* Honeypot: hidden from users, must remain empty. */}
+      <div className="penalis-honeypot" aria-hidden="true">
+        <label>
+          Website
+          <input
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(event) => setHoneypot(event.target.value)}
+          />
+        </label>
+      </div>
+
+      <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
+        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim tautan aktivasi'}
       </button>
     </form>
   );

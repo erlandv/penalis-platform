@@ -100,6 +100,50 @@ final class Penalis_Emails {
 	}
 
 	/**
+	 * Send the legacy account activation email.
+	 *
+	 * Legacy contributors never received a password, so this email is the only
+	 * way for them to reach their existing profile. The link points at the
+	 * dashboard and the token is never logged.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $token   Raw activation token.
+	 * @return bool Whether wp_mail accepted the message.
+	 */
+	public static function send_legacy_activation( $user_id, $token ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user || ! is_email( $user->user_email ) ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'invalid_recipient' );
+			return false;
+		}
+
+		$activate_url = add_query_arg(
+			array(
+				'penalis_activate' => rawurlencode( (string) $token ),
+			),
+			Penalis_Dashboard::registration_url()
+		);
+
+		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$subject = sprintf( '[%s] Aktifkan akun penulis lama kamu', $site );
+
+		$message  = self::greeting( $user ) . "\n\n";
+		$message .= sprintf( 'Kamu pernah mengirim karya tulis ke %s, dan kami sudah membuatkan akun penulis untukmu.', $site ) . "\n\n";
+		$message .= "Aktifkan akun tersebut dengan membuka tautan ini lalu membuat kata sandi:\n\n";
+		$message .= $activate_url . "\n\n";
+		$message .= "Karya tulis yang sudah terbit tetap terhubung ke akun ini.\n\n";
+		$message .= "Tautan berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta aktivasi, abaikan email ini.\n";
+
+		$sent = wp_mail( $user->user_email, $subject, $message );
+
+		if ( ! $sent ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'legacy_activation' );
+		}
+
+		return (bool) $sent;
+	}
+
+	/**
 	 * Notify an administrator that an account is awaiting approval.
 	 *
 	 * Failures are recorded but do not affect the applicant's state.

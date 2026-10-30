@@ -292,6 +292,59 @@ final class Penalis_Policy {
 	}
 
 	/**
+	 * Whether a legacy account may be converted into a managed account.
+	 *
+	 * Legacy accounts are contributor profiles created by an administrator
+	 * before this plugin existed. They have no status metadata and no password,
+	 * so they cannot sign in at all. Conversion is the only supported way to
+	 * bring one into the writer workflow.
+	 *
+	 * Only the two entry points are allowed:
+	 *
+	 * - `pending_verification`: the account owner must prove control of the
+	 *   stored email address before an administrator reviews the application.
+	 * - `pending_approval`: an administrator vouched for the identity out of
+	 *   band, so the email step is skipped but approval is still required.
+	 *
+	 * Direct conversion to `active` is deliberately impossible: every legacy
+	 * account must pass through an administrator decision.
+	 *
+	 * @param string $to Target status.
+	 * @return bool
+	 */
+	public static function can_convert_legacy( $to ) {
+		return in_array(
+			$to,
+			array(
+				self::STATUS_PENDING_VERIFICATION,
+				self::STATUS_PENDING_APPROVAL,
+			),
+			true
+		);
+	}
+
+	/**
+	 * Whether a role may be promoted to the writer role.
+	 *
+	 * `contributor` is included because legacy accounts hold it. Approval must
+	 * never silently promote a higher role (editor, author, administrator).
+	 *
+	 * @param string[] $roles Current roles.
+	 * @return bool
+	 */
+	public static function can_promote_roles( $roles ) {
+		$roles = array_values( array_filter( (array) $roles, 'is_string' ) );
+
+		if ( empty( $roles ) ) {
+			return true;
+		}
+
+		return array( 'subscriber' ) === $roles
+			|| array( 'contributor' ) === $roles
+			|| array( Penalis_Roles::ROLE ) === $roles;
+	}
+
+	/**
 	 * Post statuses a writer may set through the editor.
 	 *
 	 * @return string[]

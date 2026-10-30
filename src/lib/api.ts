@@ -166,6 +166,29 @@ export const registrationApi = {
     }),
 };
 
+/* --------------------------- Legacy activation ------------------------ */
+
+export const legacyApi = {
+  /**
+   * Request an activation link for a legacy contributor account.
+   *
+   * The server always answers generically, so the UI must not imply that the
+   * address belongs to a legacy account.
+   */
+  request: (email: string, honeypot = '') =>
+    request<{ message: string }>('/legacy/activate', {
+      method: 'POST',
+      body: { user_email: email, penalis_website: honeypot },
+    }),
+
+  /** Consume the activation token and set the first password. */
+  confirm: (payload: { token: string; password: string }) =>
+    request<{ message: string; status: string }>('/legacy/activate/confirm', {
+      method: 'POST',
+      body: payload,
+    }),
+};
+
 /* --------------------------- Password reset --------------------------- */
 
 export const passwordApi = {
