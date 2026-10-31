@@ -324,6 +324,8 @@ checklist in [PROJECT-SPECIFICATION.md](PROJECT-SPECIFICATION.md#13-manual-test-
 
 ## Documentation
 
+- [AGENTS.md](AGENTS.md) — orientation for AI agents: product context, domain
+  model, architecture map, conventions, and quality gates.
 - [PROJECT-SPECIFICATION.md](PROJECT-SPECIFICATION.md) — features, lifecycle,
   permission rules, status, assumptions, manual test checklist.
 - [SECURITY.md](SECURITY.md) — security boundaries and authorization model.
