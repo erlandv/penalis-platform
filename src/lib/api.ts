@@ -234,12 +234,15 @@ export const articlesApi = {
    * Create or update through the native WordPress posts endpoint.
    *
    * The author is always derived server-side; it is never sent by the client.
+   *
+   * `excerpt` is deliberately not sent: WordPress generates it from the
+   * content, and SEO plugins usually override it anyway. Sending an empty
+   * value would store an empty excerpt and suppress that automatic behaviour.
    */
   save: (payload: {
     id?: number;
     title: string;
     content: string;
-    excerpt: string;
     status: 'draft' | 'pending' | 'publish';
     categories: number[];
     tags: number[];
@@ -248,7 +251,6 @@ export const articlesApi = {
     const body = {
       title: payload.title,
       content: payload.content,
-      excerpt: payload.excerpt,
       status: payload.status,
       categories: payload.categories,
       tags: payload.tags,

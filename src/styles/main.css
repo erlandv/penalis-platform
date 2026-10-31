@@ -965,11 +965,19 @@
   overflow-y: auto;
 }
 
+/**
+ * Tag suggestions.
+ *
+ * The theme styles bare `button` elements with a light label colour, which is
+ * invisible on this white popup. Set the text colour explicitly instead of
+ * relying on inheritance.
+ */
 .penalis-suggestions button {
   width: 100%;
   text-align: left;
   border: 0;
   background: none;
+  color: var(--penalis-text);
   padding: 0.4rem 0.5rem;
   border-radius: 6px;
   font: inherit;
@@ -977,7 +985,11 @@
   cursor: pointer;
 }
 
-.penalis-suggestions button:hover { background: var(--penalis-accent-soft); }
+.penalis-suggestions button:hover,
+.penalis-suggestions button:focus-visible {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+}
 
 .penalis-media-grid {
   display: grid;

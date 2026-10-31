@@ -45,7 +45,6 @@ export function Editor({
   const [id, setId] = useState<number | undefined>(articleId);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [excerpt, setExcerpt] = useState('');
   const [status, setStatus] = useState('draft');
   const [categories, setCategories] = useState<Term[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
@@ -76,7 +75,6 @@ export function Editor({
       setId(article.id);
       setTitle(article.title);
       setContent(article.content);
-      setExcerpt(article.excerpt);
       setStatus(article.status);
       setSelectedCategories(article.categories.map((term) => term.id));
       setSelectedTags(article.tags);
@@ -218,7 +216,6 @@ export function Editor({
         id,
         title: title.trim(),
         content: payloadContent,
-        excerpt,
         status: nextStatus,
         categories: selectedCategories,
         tags: selectedTags.map((term) => term.id),
@@ -372,17 +369,6 @@ export function Editor({
             </ChunkErrorBoundary>
             <FieldError errors={errors} name="content" />
           </div>
-
-          <label className="penalis-field">
-            <span>Ringkasan (opsional)</span>
-            <textarea
-              value={excerpt}
-              onChange={(event) => setExcerpt(event.target.value)}
-              rows={3}
-              maxLength={300}
-              placeholder="Ringkasan singkat yang tampil di halaman arsip."
-            />
-          </label>
         </div>
 
         <aside className="penalis-editor__side">
