@@ -13,9 +13,16 @@
  */
 
 export const DEEPLINK = {
-  /** Token: confirm an email address. */
+  /** Token: confirm an email address. Plugin token, 43 characters. */
   verify: 'penalis_verify',
-  /** Token: set a new password from a reset email. */
+  /**
+   * Key: set a new password from a reset email.
+   *
+   * This is a WordPress core key from `get_password_reset_key()`, which uses
+   * `wp_generate_password( 20, false )` — 20 alphanumeric characters. It is
+   * deliberately NOT validated with `isTokenShaped()`, which only describes
+   * plugin-issued tokens.
+   */
   reset: 'penalis_reset',
   /** Companion to `reset`: the username the key belongs to. */
   resetLogin: 'penalis_login',
@@ -34,7 +41,7 @@ export const DEEPLINK = {
 } as const;
 
 /**
- * Whether a value looks like a raw verification or activation token.
+ * Whether a value looks like a plugin-issued token.
  *
  * Mirrors `Penalis_Policy::is_token_format_valid()` on the server: 32 random
  * bytes encoded as URL-safe base64 without padding, which is 43 characters.
@@ -44,8 +51,11 @@ export const DEEPLINK = {
  * This is what separates `?penalis_activate=1` (open the form) from
  * `?penalis_activate=<token>` (consume the token).
  *
+ * Do NOT use this for the password reset key: that comes from WordPress core
+ * and is only 20 characters.
+ *
  * @param value Query parameter value.
- * @return Whether the value has the shape of a token.
+ * @return Whether the value has the shape of a plugin token.
  */
 export function isTokenShaped(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^[A-Za-z0-9_-]{40,64}$/.test(value);

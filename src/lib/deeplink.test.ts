@@ -49,4 +49,13 @@ describe('isTokenShaped', () => {
     expect(isTokenShaped(null)).toBe(false);
     expect(isTokenShaped(undefined)).toBe(false);
   });
+
+  it('rejects a WordPress password reset key', () => {
+    // Regression: the reset key comes from get_password_reset_key(), which
+    // uses wp_generate_password( 20, false ). Applying this check to it made
+    // every reset link fall through to the login form.
+    const coreKey = 'Ab3dE6gH9jK2mN5pQ8sT';
+    expect(coreKey).toHaveLength(20);
+    expect(isTokenShaped(coreKey)).toBe(false);
+  });
 });

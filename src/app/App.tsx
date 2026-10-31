@@ -366,9 +366,14 @@ export function App() {
 
   // A password reset link carries a single-use key. It is handled before the
   // dashboard so a signed-in visitor can still complete the reset.
+  //
+  // This key comes from WordPress core's get_password_reset_key(), which uses
+  // wp_generate_password( 20, false ) — 20 alphanumeric characters. It is NOT
+  // a plugin token, so isTokenShaped() must not be applied here: that check
+  // requires 40-64 characters and would reject every real reset link.
   const [resetKey] = useState(() => {
     const value = readParam(DEEPLINK.reset);
-    return isTokenShaped(value) ? value : null;
+    return value && value.trim() !== '' ? value : null;
   });
   const [resetLogin] = useState(() => readParam(DEEPLINK.resetLogin) ?? '');
 
