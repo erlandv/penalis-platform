@@ -9,7 +9,8 @@ import { getBootstrap } from '../lib/bootstrap';
 import { DEEPLINK, isTokenShaped, readParam } from '../lib/deeplink';
 import type { Account, FieldErrors, ViewName } from '../lib/types';
 import { PASSWORD_MIN_LENGTH } from '../lib/validation';
-import { ErrorBanner, FieldError, Notice, Spinner } from '../components/ui';
+import { describedBy } from '../lib/a11y';
+import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../components/ui';
 import { Shell } from '../components/shell';
 import { AuthGate } from '../features/auth/AuthGate';
 import { Overview } from '../features/overview/Overview';
@@ -167,33 +168,36 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
             {formError ? <ErrorBanner message={formError} /> : null}
 
             <form className="penalis-form" onSubmit={submit} noValidate>
-              <label className="penalis-field">
-                <span>Kata sandi baru</span>
+              <div className="penalis-field">
+                <label htmlFor="reset_password">Kata sandi baru</label>
                 <input
+                  id="reset_password"
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
                   placeholder={`Minimal ${PASSWORD_MIN_LENGTH} karakter`}
                   aria-invalid={Boolean(errors.password)}
-                  aria-describedby={errors.password ? 'password-error' : undefined}
+                  aria-describedby={describedBy('reset_password-hint', errors.password && 'password-error')}
                 />
+                <FieldHint id="reset_password-hint">Minimal {PASSWORD_MIN_LENGTH} karakter.</FieldHint>
                 <FieldError errors={errors} name="password" />
-              </label>
+              </div>
 
-              <label className="penalis-field">
-                <span>Konfirmasi kata sandi baru</span>
+              <div className="penalis-field">
+                <label htmlFor="reset_confirm_password">Konfirmasi kata sandi baru</label>
                 <input
+                  id="reset_confirm_password"
                   type="password"
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
                   placeholder="Ulangi kata sandi baru"
                   aria-invalid={Boolean(errors.confirm_password)}
-                  aria-describedby={errors.confirm_password ? 'confirm_password-error' : undefined}
+                  aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
                 />
                 <FieldError errors={errors} name="confirm_password" />
-              </label>
+              </div>
 
               <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
                 {submitting ? 'Menyimpan…' : 'Simpan kata sandi baru'}
@@ -291,33 +295,39 @@ function ActivationPage({ token }: { token: string }) {
             {formError ? <ErrorBanner message={formError} /> : null}
 
             <form className="penalis-form" onSubmit={submit} noValidate>
-              <label className="penalis-field">
-                <span>Kata sandi baru</span>
+              <div className="penalis-field">
+                <label htmlFor="activate_password">Kata sandi baru</label>
                 <input
+                  id="activate_password"
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
                   placeholder={`Minimal ${PASSWORD_MIN_LENGTH} karakter`}
                   aria-invalid={Boolean(errors.password)}
-                  aria-describedby={errors.password ? 'password-error' : undefined}
+                  aria-describedby={describedBy(
+                    'activate_password-hint',
+                    errors.password && 'password-error',
+                  )}
                 />
+                <FieldHint id="activate_password-hint">Minimal {PASSWORD_MIN_LENGTH} karakter.</FieldHint>
                 <FieldError errors={errors} name="password" />
-              </label>
+              </div>
 
-              <label className="penalis-field">
-                <span>Konfirmasi kata sandi</span>
+              <div className="penalis-field">
+                <label htmlFor="activate_confirm_password">Konfirmasi kata sandi</label>
                 <input
+                  id="activate_confirm_password"
                   type="password"
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
                   placeholder="Ulangi kata sandi"
                   aria-invalid={Boolean(errors.confirm_password)}
-                  aria-describedby={errors.confirm_password ? 'confirm_password-error' : undefined}
+                  aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
                 />
                 <FieldError errors={errors} name="confirm_password" />
-              </label>
+              </div>
 
               <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
                 {submitting ? 'Mengaktifkan…' : 'Aktifkan akun'}

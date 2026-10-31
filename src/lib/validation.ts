@@ -103,7 +103,8 @@ export function validateLoginOrEmail(value: string): string {
   return '';
 }
 
-export function validateArticle(input: { title: string; content: string }): FieldErrors {  const errors: FieldErrors = {};
+export function validateArticle(input: { title: string; content: string }): FieldErrors {
+  const errors: FieldErrors = {};
 
   if (input.title.trim().length < 3) {
     errors.title = 'Judul minimal 3 karakter.';

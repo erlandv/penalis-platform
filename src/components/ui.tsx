@@ -57,6 +57,21 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   );
 }
 
+/**
+ * Persistent hint text for a field.
+ *
+ * Unlike a placeholder, a hint stays visible after the user starts typing and
+ * is announced by screen readers when the field receives focus, because the
+ * input points at this element through `aria-describedby`.
+ */
+export function FieldHint({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <small className="penalis-field-hint" id={id}>
+      {children}
+    </small>
+  );
+}
+
 export function FieldError({ errors, name }: { errors: FieldErrors; name: string }) {
   const message = errors[name];
   if (!message) {

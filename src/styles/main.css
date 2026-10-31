@@ -395,7 +395,13 @@
   gap: 0.35rem;
 }
 
-.penalis-field > span {
+/*
+ * The visible label may be a `<span>` (when the whole field is wrapped in a
+ * `<label>`) or a real `<label>` (when hints and errors sit beside the input
+ * instead of inside the label, so they are not read as part of its name).
+ */
+.penalis-field > span,
+.penalis-field > label {
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -403,6 +409,19 @@
 .penalis-field small {
   color: var(--penalis-muted);
   font-size: 0.78rem;
+}
+
+/**
+ * Persistent hint text for a field.
+ *
+ * Referenced by `aria-describedby`, so it must stay in the DOM while the field
+ * is focused or invalid. Unlike a placeholder it does not disappear on input.
+ */
+.penalis-field-hint {
+  display: block;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .penalis-field-row {

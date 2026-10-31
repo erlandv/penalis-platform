@@ -9,7 +9,8 @@ import { getBootstrap } from '../../lib/bootstrap';
 import { DEEPLINK, hasParam, isTokenShaped, readParam } from '../../lib/deeplink';
 import type { FieldErrors } from '../../lib/types';
 import { hasErrors, validateEmail, validateLoginOrEmail, validateRegistration } from '../../lib/validation';
-import { ErrorBanner, FieldError, Notice, Spinner } from '../../components/ui';
+import { describedBy } from '../../lib/a11y';
+import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../components/ui';
 
 type Mode = 'login' | 'register' | 'resend' | 'forgot' | 'activate';
 
@@ -162,27 +163,29 @@ function LoginForm() {
       {/* Marks the submission as coming from the dashboard form. */}
       <input type="hidden" name="penalis_login" value="1" />
 
-      <label className="penalis-field">
-        <span>Nama pengguna atau email</span>
+      <div className="penalis-field">
+        <label htmlFor="login">Nama pengguna atau email</label>
         <input
+          id="login"
           type="text"
           name="log"
           autoComplete="username"
           placeholder="nama.pengguna atau nama@email.com"
           required
         />
-      </label>
+      </div>
 
-      <label className="penalis-field">
-        <span>Kata sandi</span>
+      <div className="penalis-field">
+        <label htmlFor="login_password">Kata sandi</label>
         <input
+          id="login_password"
           type="password"
           name="pwd"
           autoComplete="current-password"
           placeholder="Kata sandi kamu"
           required
         />
-      </label>
+      </div>
 
       <label className="penalis-checkbox">
         <input type="checkbox" name="rememberme" value="forever" />
@@ -275,9 +278,10 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
     <form className="penalis-form" onSubmit={submit} noValidate>
       {formError ? <ErrorBanner message={formError} /> : null}
 
-      <label className="penalis-field">
-        <span>Nama tampilan</span>
+      <div className="penalis-field">
+        <label htmlFor="display_name">Nama tampilan</label>
         <input
+          id="display_name"
           type="text"
           value={values.display_name}
           onChange={(event) => update('display_name', event.target.value)}
@@ -285,14 +289,16 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           autoComplete="name"
           placeholder="Nama lengkap atau nama pena"
           aria-invalid={Boolean(errors.display_name)}
-          aria-describedby={errors.display_name ? 'display_name-error' : undefined}
+          aria-describedby={describedBy('display_name-hint', errors.display_name && 'display_name-error')}
         />
+        <FieldHint id="display_name-hint">2–80 karakter. Nama ini tampil di profil publik.</FieldHint>
         <FieldError errors={errors} name="display_name" />
-      </label>
+      </div>
 
-      <label className="penalis-field">
-        <span>Nama pengguna</span>
+      <div className="penalis-field">
+        <label htmlFor="user_login">Nama pengguna</label>
         <input
+          id="user_login"
           type="text"
           value={values.user_login}
           onChange={(event) => update('user_login', event.target.value)}
@@ -300,14 +306,18 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           autoComplete="username"
           placeholder="contoh: ada.lovelace"
           aria-invalid={Boolean(errors.user_login)}
-          aria-describedby={errors.user_login ? 'user_login-error' : undefined}
+          aria-describedby={describedBy('user_login-hint', errors.user_login && 'user_login-error')}
         />
+        <FieldHint id="user_login-hint">
+          3–60 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.
+        </FieldHint>
         <FieldError errors={errors} name="user_login" />
-      </label>
+      </div>
 
-      <label className="penalis-field">
-        <span>Alamat email</span>
+      <div className="penalis-field">
+        <label htmlFor="user_email">Alamat email</label>
         <input
+          id="user_email"
           type="email"
           value={values.user_email}
           onChange={(event) => update('user_email', event.target.value)}
@@ -315,38 +325,42 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           autoComplete="email"
           placeholder="nama@email.com"
           aria-invalid={Boolean(errors.user_email)}
-          aria-describedby={errors.user_email ? 'user_email-error' : undefined}
+          aria-describedby={describedBy('user_email-hint', errors.user_email && 'user_email-error')}
         />
+        <FieldHint id="user_email-hint">Kami mengirim tautan verifikasi ke alamat ini.</FieldHint>
         <FieldError errors={errors} name="user_email" />
-      </label>
+      </div>
 
-      <label className="penalis-field">
-        <span>Kata sandi</span>
+      <div className="penalis-field">
+        <label htmlFor="password">Kata sandi</label>
         <input
+          id="password"
           type="password"
           value={values.password}
           onChange={(event) => update('password', event.target.value)}
           autoComplete="new-password"
           placeholder="Minimal 12 karakter"
           aria-invalid={Boolean(errors.password)}
-          aria-describedby={errors.password ? 'password-error' : undefined}
+          aria-describedby={describedBy('password-hint', errors.password && 'password-error')}
         />
+        <FieldHint id="password-hint">Minimal 12 karakter.</FieldHint>
         <FieldError errors={errors} name="password" />
-      </label>
+      </div>
 
-      <label className="penalis-field">
-        <span>Konfirmasi kata sandi</span>
+      <div className="penalis-field">
+        <label htmlFor="confirm_password">Konfirmasi kata sandi</label>
         <input
+          id="confirm_password"
           type="password"
           value={values.confirm_password}
           onChange={(event) => update('confirm_password', event.target.value)}
           autoComplete="new-password"
           placeholder="Ulangi kata sandi"
           aria-invalid={Boolean(errors.confirm_password)}
-          aria-describedby={errors.confirm_password ? 'confirm_password-error' : undefined}
+          aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
         />
         <FieldError errors={errors} name="confirm_password" />
-      </label>
+      </div>
 
       {/* Honeypot: hidden from users, must remain empty. */}
       <div className="penalis-honeypot" aria-hidden="true">
@@ -368,6 +382,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           checked={values.penalis_consent}
           onChange={(event) => update('penalis_consent', event.target.checked)}
           aria-invalid={Boolean(errors.penalis_consent)}
+          aria-describedby={describedBy(errors.penalis_consent && 'penalis_consent-error')}
         />
         <span>Saya menyetujui ketentuan situs dan memahami bahwa pendaftaran saya memerlukan persetujuan administrator.</span>
       </label>
@@ -422,9 +437,10 @@ function ResendForm() {
       {error ? <ErrorBanner message={error} /> : null}
       {message ? <Notice tone="success">{message}</Notice> : null}
 
-      <label className="penalis-field">
-        <span>Alamat email</span>
+      <div className="penalis-field">
+        <label htmlFor="resend_email">Alamat email</label>
         <input
+          id="resend_email"
           type="email"
           value={email}
           onChange={(event) => {
@@ -435,11 +451,12 @@ function ResendForm() {
           maxLength={254}
           placeholder="nama@email.com"
           aria-invalid={Boolean(fieldError)}
-          aria-describedby={fieldError ? 'resend_email-error' : undefined}
+          aria-describedby={describedBy('resend_email-hint', fieldError && 'resend_email-error')}
           required
         />
+        <FieldHint id="resend_email-hint">Gunakan alamat yang kamu pakai saat mendaftar.</FieldHint>
         <FieldError errors={{ resend_email: fieldError }} name="resend_email" />
-      </label>
+      </div>
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
         {submitting ? <Spinner label="Mengirim…" /> : 'Kirim email verifikasi'}
@@ -506,9 +523,10 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
     <form className="penalis-form" onSubmit={submit} noValidate>
       {error ? <ErrorBanner message={error} /> : null}
 
-      <label className="penalis-field">
-        <span>Email atau nama pengguna</span>
+      <div className="penalis-field">
+        <label htmlFor="forgot_login">Email atau nama pengguna</label>
         <input
+          id="forgot_login"
           type="text"
           value={login}
           onChange={(event) => {
@@ -519,11 +537,12 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
           maxLength={254}
           placeholder="nama@email.com atau nama pengguna"
           aria-invalid={Boolean(fieldError)}
-          aria-describedby={fieldError ? 'forgot_login-error' : undefined}
+          aria-describedby={describedBy('forgot_login-hint', fieldError && 'forgot_login-error')}
           required
         />
+        <FieldHint id="forgot_login-hint">Bisa berupa email atau nama pengguna.</FieldHint>
         <FieldError errors={{ forgot_login: fieldError }} name="forgot_login" />
-      </label>
+      </div>
 
       {/* Honeypot: hidden from users, must remain empty. */}
       <div className="penalis-honeypot" aria-hidden="true">
@@ -609,9 +628,10 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
     <form className="penalis-form" onSubmit={submit} noValidate>
       {error ? <ErrorBanner message={error} /> : null}
 
-      <label className="penalis-field">
-        <span>Email yang kamu pakai saat mengirim karya tulis</span>
+      <div className="penalis-field">
+        <label htmlFor="activate_email">Email yang kamu pakai saat mengirim karya tulis</label>
         <input
+          id="activate_email"
           type="email"
           value={email}
           onChange={(event) => {
@@ -622,12 +642,14 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
           maxLength={254}
           placeholder="nama@email.com"
           aria-invalid={Boolean(fieldError)}
-          aria-describedby={fieldError ? 'activate_email-error' : undefined}
+          aria-describedby={describedBy('activate_email-hint', fieldError && 'activate_email-error')}
           required
         />
-        <small>Tidak ingat email mana yang dipakai? Hubungi admin Penalis.</small>
+        <FieldHint id="activate_email-hint">
+          Tidak ingat email mana yang dipakai? Hubungi admin Penalis.
+        </FieldHint>
         <FieldError errors={{ activate_email: fieldError }} name="activate_email" />
-      </label>
+      </div>
 
       {/* Honeypot: hidden from users, must remain empty. */}
       <div className="penalis-honeypot" aria-hidden="true">
