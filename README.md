@@ -44,8 +44,8 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 
 - Overview with account status and article counts.
 - Paginated list of the writer's own articles.
-- Article editor with title, content, excerpt, categories, tags, featured
-  image, and image upload/insertion.
+- Article editor with a WYSIWYG surface (TipTap), title, excerpt, categories,
+  tags, featured image, and image upload/insertion.
 - Preview and publish/unpublish actions.
 - Writer profile with first name, last name, and a public name choice: first +
   last, first only, last only, username, or a custom pen name.
@@ -277,13 +277,25 @@ Activation:
 
 ### Editor scope
 
-The editor is intentionally not a full Gutenberg block editor. It stores
-standard WordPress post content, so the public theme renders articles like any
-other post. Basic HTML is supported, and the media panel inserts images at the
-cursor.
+Articles are written in a **TipTap** editor: a headless ProseMirror wrapper that
+renders a WYSIWYG surface and returns plain HTML. That HTML is exactly what
+`post_content` already stores, so existing articles load unchanged and the
+public theme renders them like any other post.
 
-This avoids a large block-editor dependency and keeps the dashboard fast. The
-trade-off is that writers do not get block-level editing.
+The toolbar covers bold, italic, underline, strike, H2/H3, bullet and ordered
+lists, blockquotes, links, images, undo/redo, and a raw HTML toggle. Images are
+inserted at the caret from the media panel. The HTML toggle is an escape hatch
+for markup the toolbar cannot express.
+
+TipTap is loaded lazily, so it only downloads when a writer opens the editor.
+The main bundle stays small for everyone else.
+
+This is not a block editor: there are no layout blocks, embeds, or reusable
+patterns. Gutenberg was rejected because running it outside wp-admin requires
+the `@wordpress/*` toolchain and an editor settings endpoint, and writers lack
+`unfiltered_html`, which would make several blocks inert.
+
+Server-side `wp_kses` remains the only authority on allowed markup.
 
 ### Why Vite
 
@@ -320,7 +332,7 @@ checklist in [PROJECT-SPECIFICATION.md](PROJECT-SPECIFICATION.md#13-manual-test-
 - Profile photos have no crop UI; the uploaded image is used as-is. One User
   Avatar remains the avatar provider while it is active, so this plugin's own
   provider only takes over after that plugin is deactivated.
-- The dashboard editor is not a block editor.
+- The dashboard editor is a WYSIWYG surface, not a block editor.
 - Email delivery depends on host configuration; no SMTP library is bundled.
 - Rate limiting uses transients, not a distributed store.
 - Multisite behavior is not specifically implemented or tested.

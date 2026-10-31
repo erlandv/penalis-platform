@@ -43,11 +43,39 @@ implemented explicitly:
 - Vite is configured with a fixed `base` and a stable entry name.
 
 The trade-off is that Gutenberg packages are not automatically bundled by
-`@wordpress/scripts`. The dashboard deliberately uses a pragmatic editor:
-title, content textarea/HTML, categories, tags, excerpt, featured image, and
-media insertion. It does **not** claim to be a block editor replacement. The
-content is submitted to the native WordPress posts endpoint and rendered by the
-existing theme exactly like any other post.
+`@wordpress/scripts`. The dashboard uses **TipTap** instead of Gutenberg:
+a headless ProseMirror wrapper that renders a WYSIWYG surface and returns HTML.
+
+### Why TipTap instead of Gutenberg or Classic Editor
+
+| Option | Verdict | Reason |
+| --- | --- | --- |
+| Gutenberg | Rejected | Running the block editor outside wp-admin needs the `@wordpress/*` toolchain, an editor settings endpoint, and the block registry. It is fragile across WordPress versions, and writers lack `unfiltered_html` so several blocks would be inert. |
+| Classic Editor / TinyMCE | Rejected | Available in core, but the toolbar is dated, state synchronisation with React is awkward, and extension options are limited. |
+| Markdown | Rejected | Syntax is still technical, which is exactly what the audience should not need. |
+| **TipTap** | **Chosen** | React-first, Vite-compatible, headless, MIT licensed. Emits plain HTML, which is already what `post_content` stores, so no data migration is required. |
+
+Implementation notes:
+
+- `src/features/editor/RichTextEditor.tsx` owns the TipTap instance.
+- The editor is **lazy-loaded** (`React.lazy`), so TipTap and ProseMirror
+  (~135 kB gzip) only download when the editor view opens. The main bundle stays
+  around 62 kB gzip.
+- StarterKit v3 already bundles Link and Underline; they are configured through
+  `StarterKit.configure()` rather than registered twice, which TipTap rejects
+  as duplicate extensions.
+- Toolbar: bold, italic, underline, strike, H2, H3, bullet and ordered lists,
+  blockquote, link, image, undo, redo, and a raw HTML toggle.
+- The raw HTML toggle is an escape hatch for markup the toolbar cannot express,
+  and keeps existing HTML articles from being silently rewritten.
+- Images are inserted at the caret through an imperative handle, so the writer
+  does not have to splice markup by hand.
+- Trailing empty paragraphs that TipTap adds after block nodes are trimmed
+  before saving (`src/lib/html.ts`).
+- Content is still submitted to the native WordPress posts endpoint. The server
+  remains the only authority on allowed markup through `wp_kses`.
+
+The content is rendered by the existing theme exactly like any other post.
 
 ### Avatar provider
 
@@ -417,7 +445,9 @@ These are **not** verified against the live site:
 
 ## 12. Known limitations
 
-- The editor is not a full Gutenberg block editor; it submits HTML/text content.
+- The editor is a WYSIWYG surface, not a block editor. It covers text
+  formatting, headings, lists, quotes, links, and images; it has no layout
+  blocks, embeds, or reusable patterns.
 - Email templates are plain text; no HTML templating system.
 - No CAPTCHA integration; honeypot + rate limiting are used.
 - Rate limiting uses transients and is per-IP/per-account, not distributed.

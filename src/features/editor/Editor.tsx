@@ -5,12 +5,24 @@
  * always derived server-side. Content is stored as WordPress post content.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { ApiError, articlesApi, mediaApi, taxonomyApi } from '../../lib/api';
+import { trimTrailingEmptyParagraphs } from '../../lib/html';
 import type { Article, FieldErrors, MediaItem, Term } from '../../lib/types';
 import { hasErrors, validateArticle } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../components/ui';
+import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
+import type { RichTextEditorHandle } from './RichTextEditor';
+
+/**
+ * The editor pulls in TipTap and ProseMirror (~135 kB gzip). Loading it on
+ * demand keeps the rest of the dashboard light, because only writers who open
+ * the editor ever download it.
+ */
+const RichTextEditor = lazy(() =>
+  import('./RichTextEditor').then((module) => ({ default: module.RichTextEditor })),
+);
 
 type SaveStatus = 'draft' | 'pending' | 'publish';
 
@@ -49,7 +61,7 @@ export function Editor({
   const [uploadError, setUploadError] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const editorRef = useRef<RichTextEditorHandle | null>(null);
 
   const load = useCallback(async () => {
     if (!articleId) {
@@ -154,24 +166,10 @@ export function Editor({
   };
 
   const insertMedia = (item: MediaItem) => {
-    const textarea = textareaRef.current;
-    const markup = `<img src="${item.url}" alt="${escapeAttribute(item.title)}" />`;
-
-    if (!textarea) {
-      setContent((current) => `${current}\n${markup}\n`);
-      return;
-    }
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const next = `${content.slice(0, start)}${markup}${content.slice(end)}`;
-    setContent(next);
-
-    window.setTimeout(() => {
-      textarea.focus();
-      const caret = start + markup.length;
-      textarea.setSelectionRange(caret, caret);
-    }, 0);
+    // The rich text editor owns the caret, so insertion happens through its
+    // imperative handle rather than by string-splicing the stored HTML.
+    editorRef.current?.insertImage(item.url, item.title);
+    setMediaOpen(false);
   };
 
   const addTag = (term: Term) => {
@@ -203,7 +201,11 @@ export function Editor({
     setError('');
     setNotice('');
 
-    const clientErrors = validateArticle({ title, content });
+    // TipTap keeps an empty trailing paragraph after block nodes so the writer
+    // can keep typing. Drop it from what is sent to WordPress.
+    const payloadContent = trimTrailingEmptyParagraphs(content);
+
+    const clientErrors = validateArticle({ title, content: payloadContent });
     if (hasErrors(clientErrors)) {
       setErrors(clientErrors);
       return;
@@ -215,7 +217,7 @@ export function Editor({
       const result = await articlesApi.save({
         id,
         title: title.trim(),
-        content,
+        content: payloadContent,
         excerpt,
         status: nextStatus,
         categories: selectedCategories,
@@ -330,21 +332,46 @@ export function Editor({
             <FieldError errors={errors} name="title" />
           </label>
 
-          <label className="penalis-field">
-            <span>Isi artikel</span>
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              rows={18}
-              placeholder="Tulis artikel Anda. HTML dasar didukung."
-              aria-invalid={Boolean(errors.content)}
-            />
+          <div className="penalis-field">
+            {/* A contenteditable div cannot be labelled with htmlFor, so the
+                visible label is referenced through aria-labelledby instead. */}
+            <span className="penalis-field-label" id="penalis-content-label">
+              Isi artikel
+            </span>
+            <ChunkErrorBoundary
+              fallback={
+                <div className="penalis-editor-fallback">
+                  <p className="penalis-muted">
+                    Editor visual tidak dapat dimuat. Kamu tetap bisa menulis di kolom HTML di bawah ini,
+                    atau muat ulang halaman untuk mencoba lagi.
+                  </p>
+                  <textarea
+                    className="penalis-editor-html"
+                    value={content}
+                    onChange={(event) => setContent(event.target.value)}
+                    rows={18}
+                    spellCheck={false}
+                    aria-label="Isi artikel dalam HTML"
+                    aria-invalid={Boolean(errors.content)}
+                    aria-describedby={errors.content ? 'content-error' : undefined}
+                  />
+                </div>
+              }
+            >
+              <Suspense fallback={<Spinner label="Memuat editor…" />}>
+                <RichTextEditor
+                  ref={editorRef}
+                  value={content}
+                  onChange={setContent}
+                  onRequestImage={() => void openMediaPicker()}
+                  invalid={Boolean(errors.content)}
+                  errorId={errors.content ? 'content-error' : undefined}
+                  labelledBy="penalis-content-label"
+                />
+              </Suspense>
+            </ChunkErrorBoundary>
             <FieldError errors={errors} name="content" />
-            <small>
-              HTML dasar didukung. Gunakan panel media untuk menyisipkan gambar di posisi kursor.
-            </small>
-          </label>
+          </div>
 
           <label className="penalis-field">
             <span>Ringkasan (opsional)</span>
@@ -585,8 +612,4 @@ function escapeHtml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-}
-
-function escapeAttribute(value: string): string {
-  return escapeHtml(value);
 }

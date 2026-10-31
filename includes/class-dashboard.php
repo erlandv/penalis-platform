@@ -28,6 +28,7 @@ final class Penalis_Dashboard {
 		add_action( 'template_redirect', array( __CLASS__, 'handle_login_post' ), 0 );
 		add_action( 'template_redirect', array( __CLASS__, 'handle_logout' ), 0 );
 		add_action( 'template_redirect', array( __CLASS__, 'send_private_headers' ), 1 );
+		add_filter( 'script_loader_tag', array( __CLASS__, 'module_script_tag' ), 10, 3 );
 		add_filter( 'wp_robots', array( __CLASS__, 'noindex' ) );
 		add_filter( 'body_class', array( __CLASS__, 'body_class' ) );
 		add_action( 'template_redirect', array( __CLASS__, 'redirect_legacy_slug' ), 5 );
@@ -342,6 +343,10 @@ final class Penalis_Dashboard {
 			}
 		}
 
+		// Vite emits an ES module. WordPress's `wp_enqueue_script()` prints a
+		// classic <script> tag, which cannot parse `import.meta` or `export` and
+		// fails with "Cannot use 'import.meta' outside a module", leaving the
+		// dashboard root empty. `module_script_tag()` adds type="module".
 		wp_enqueue_script(
 			'penalis-dashboard',
 			$base . ltrim( (string) $entry['file'], '/' ),
@@ -386,6 +391,30 @@ final class Penalis_Dashboard {
 					'authorUrl'       => get_author_posts_url( $user_id ),
 				) : null,
 			)
+		);
+	}
+
+	/**
+	 * Load the dashboard bundle as an ES module.
+	 *
+	 * `wp_enqueue_script()` always prints a classic script tag. Vite's output is
+	 * an ES module, so it must be loaded with `type="module"`; otherwise the
+	 * browser throws "Cannot use 'import.meta' outside a module" and nothing
+	 * renders.
+	 *
+	 * @param string $tag    Script tag.
+	 * @param string $handle Script handle.
+	 * @param string $src    Script source URL.
+	 * @return string
+	 */
+	public static function module_script_tag( $tag, $handle, $src ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- Hook signature.
+		if ( 'penalis-dashboard' !== $handle ) {
+			return $tag;
+		}
+
+		return sprintf(
+			'<script type="module" src="%s" id="penalis-dashboard-js"></script>' . "\n", // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag for an already-enqueued handle; wp_enqueue_script() cannot emit type="module".
+			esc_url( $src )
 		);
 	}
 

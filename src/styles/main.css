@@ -756,6 +756,168 @@
 
 .penalis-editor__main textarea { min-height: 360px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.9rem; }
 
+/**
+ * Rich text editor shell.
+ *
+ * TipTap is headless: it renders a contenteditable div, so all visuals come
+ * from these rules. The shell mirrors the input styling used elsewhere
+ * (border, radius, focus ring) so the editor reads as a form control.
+ */
+.penalis-editor-shell {
+  border: 1px solid var(--penalis-border);
+  border-radius: 10px;
+  background: var(--penalis-surface);
+  overflow: hidden;
+}
+
+.penalis-editor-shell:focus-within {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 1px;
+  border-color: var(--penalis-accent);
+}
+
+.penalis-editor-shell.is-invalid {
+  border-color: #dc2626;
+}
+
+.penalis-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--penalis-border);
+  background: var(--penalis-surface-alt);
+}
+
+.penalis-editor-toolbar__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--penalis-text);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.penalis-editor-toolbar__button:hover:not(:disabled) {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-editor-toolbar__button.is-active {
+  background: var(--penalis-accent-soft);
+  border-color: var(--penalis-accent);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-editor-toolbar__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.penalis-editor-toolbar__divider {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: var(--penalis-border);
+}
+
+.penalis-editor-toolbar__spacer { flex: 1 1 auto; }
+
+.penalis-editor-toolbar__hint {
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+  padding-left: 0.35rem;
+}
+
+/* The editable area. TipTap renders a bare contenteditable div. */
+.penalis-editor-content {
+  min-height: 360px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 1rem 1.15rem;
+  font-size: 0.98rem;
+  line-height: 1.75;
+  color: var(--penalis-text);
+  outline: none;
+}
+
+.penalis-editor-content > *:first-child { margin-top: 0; }
+.penalis-editor-content > *:last-child { margin-bottom: 0; }
+
+.penalis-editor-content h2 { font-size: 1.35rem; margin: 1.4em 0 0.5em; }
+.penalis-editor-content h3 { font-size: 1.12rem; margin: 1.3em 0 0.45em; }
+
+.penalis-editor-content p { margin: 0 0 0.9em; }
+
+.penalis-editor-content ul,
+.penalis-editor-content ol {
+  margin: 0 0 0.9em;
+  padding-left: 1.5rem;
+}
+
+.penalis-editor-content li { margin-bottom: 0.3em; }
+
+.penalis-editor-content blockquote {
+  margin: 0 0 0.9em;
+  padding: 0.1rem 0 0.1rem 1rem;
+  border-left: 3px solid var(--penalis-border);
+  color: var(--penalis-muted);
+}
+
+.penalis-editor-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+  margin: 0.5rem 0;
+}
+
+.penalis-editor-content a {
+  color: var(--penalis-accent-strong);
+  text-decoration: underline;
+}
+
+.penalis-editor-content hr {
+  border: 0;
+  border-top: 1px solid var(--penalis-border);
+  margin: 1.4rem 0;
+}
+
+/* Placeholder shown while the document is empty. */
+.penalis-editor-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--penalis-muted);
+  pointer-events: none;
+}
+
+/* Raw HTML mode reuses the same shell so switching feels continuous. */
+.penalis-editor-html {
+  display: block;
+  width: 100%;
+  min-height: 360px;
+  padding: 1rem 1.15rem;
+  border: 0;
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.penalis-editor-html:focus { outline: none; }
+
 .penalis-featured img {
   width: 100%;
   height: auto;
