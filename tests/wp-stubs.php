@@ -387,6 +387,21 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	}
 }
 
+if ( ! function_exists( 'esc_url' ) ) {
+	/**
+	 * URL escaping stub.
+	 *
+	 * The real function normalises and escapes the URL. Tests only care that
+	 * the module script tag keeps the enqueued source, so it is passed through.
+	 *
+	 * @param string $url URL.
+	 * @return string
+	 */
+	function esc_url( $url ) {
+		return $url;
+	}
+}
+
 if ( ! function_exists( 'get_option' ) ) {
 	/**
 	 * Option stub.

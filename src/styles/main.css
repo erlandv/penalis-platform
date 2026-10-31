@@ -823,6 +823,12 @@
   cursor: not-allowed;
 }
 
+/* Toolbar buttons render inline SVG icons, so a glyph never falls back to a
+   different emoji font per operating system. */
+.penalis-editor-toolbar__button svg {
+  display: block;
+}
+
 .penalis-editor-toolbar__divider {
   width: 1px;
   height: 1.25rem;
@@ -836,6 +842,39 @@
   color: var(--penalis-muted);
   font-size: 0.78rem;
   padding-left: 0.35rem;
+}
+
+/* Link popover: an inline row under the toolbar, not a floating bubble, so it
+   never escapes the editor shell or overlaps the content on narrow screens. */
+.penalis-editor-linkpop {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--penalis-border);
+  background: var(--penalis-surface-alt);
+}
+
+.penalis-editor-linkpop__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+}
+
+.penalis-editor-linkpop__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.penalis-editor-linkpop__row input {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+.penalis-editor-linkpop__hint {
+  margin: 0.4rem 0 0;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
 }
 
 /* The editable area. TipTap renders a bare contenteditable div. */

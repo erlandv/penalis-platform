@@ -16,7 +16,9 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 
+import { Icon } from '../../components/icons';
 import { trimTrailingEmptyParagraphs } from '../../lib/html';
+import { normalizeLinkHref } from '../../lib/validation';
 
 export type RichTextEditorHandle = {
   /** Insert an image at the current caret position. */
@@ -41,19 +43,31 @@ export type RichTextEditorProps = {
 type ToolbarButtonProps = {
   label: string;
   title: string;
+  /** Marks the button as a formatting toggle, which needs `aria-pressed`. */
+  toggle?: boolean;
   active?: boolean;
   disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 };
 
-function ToolbarButton({ label, title, active = false, disabled = false, onClick, children }: ToolbarButtonProps) {
+function ToolbarButton({
+  label,
+  title,
+  toggle = false,
+  active = false,
+  disabled = false,
+  onClick,
+  children,
+}: ToolbarButtonProps) {
   return (
     <button
       type="button"
       className={`penalis-editor-toolbar__button${active ? ' is-active' : ''}`}
       aria-label={label}
-      aria-pressed={active}
+      // Only real toggles carry `aria-pressed`; an action button with a
+      // permanent "pressed = false" would be announced as an unset toggle.
+      {...(toggle ? { 'aria-pressed': active } : {})}
       title={title}
       disabled={disabled}
       onClick={onClick}
@@ -68,7 +82,11 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
   ref,
 ) {
   const [htmlMode, setHtmlMode] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkHref, setLinkHref] = useState('');
+  const [linkError, setLinkError] = useState('');
   const lastEmitted = useRef(value);
+  const linkInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -155,6 +173,13 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     editor.view.dom.setAttribute('aria-labelledby', labelledBy);
   }, [editor, labelledBy]);
 
+  // Move focus into the link field as soon as the popover opens.
+  useEffect(() => {
+    if (linkOpen) {
+      linkInputRef.current?.focus();
+    }
+  }, [linkOpen]);
+
   const state = useEditorState({
     editor,
     selector: ({ editor: instance }) => {
@@ -179,43 +204,6 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     },
   });
 
-  const setLink = useCallback(() => {
-    if (!editor) {
-      return;
-    }
-
-    const previous = editor.getAttributes('link').href as string | undefined;
-    const url = window.prompt('Masukkan URL tautan', previous ?? 'https://');
-
-    if (url === null) {
-      return;
-    }
-
-    if (url.trim() === '') {
-      editor.chain().focus().extendMarkRange('link').unsetLink().run();
-      return;
-    }
-
-    editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run();
-  }, [editor]);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      insertImage: (src: string, alt: string) => {
-        if (!editor) {
-          return;
-        }
-
-        // Switching out of HTML mode first means the image lands in the rich
-        // text document instead of being lost behind the raw textarea.
-        setHtmlMode(false);
-        editor.chain().focus().setImage({ src, alt }).run();
-      },
-    }),
-    [editor],
-  );
-
   /**
    * Leave raw HTML mode and push the latest value into the visual editor.
    *
@@ -233,6 +221,72 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     editor.commands.setContent(value, { emitUpdate: false });
   }, [editor, value]);
 
+  const openLinkDialog = useCallback(() => {
+    if (!editor) {
+      return;
+    }
+
+    setLinkHref((editor.getAttributes('link').href as string | undefined) ?? '');
+    setLinkError('');
+    setLinkOpen(true);
+  }, [editor]);
+
+  const closeLinkDialog = useCallback(() => {
+    setLinkOpen(false);
+    editor?.commands.focus();
+  }, [editor]);
+
+  const applyLink = useCallback(() => {
+    if (!editor) {
+      return;
+    }
+
+    const typed = linkHref.trim();
+
+    // An empty value is an explicit request to drop the link.
+    if (typed === '') {
+      editor.chain().focus().extendMarkRange('link').unsetLink().run();
+      setLinkOpen(false);
+      return;
+    }
+
+    const href = normalizeLinkHref(typed);
+    if (href === null) {
+      setLinkError('Gunakan tautan lengkap https://…, alamat email mailto:, atau jalur yang diawali /.');
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
+    setLinkOpen(false);
+  }, [editor, linkHref]);
+
+  const removeLink = useCallback(() => {
+    editor?.chain().focus().extendMarkRange('link').unsetLink().run();
+    setLinkOpen(false);
+  }, [editor]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      insertImage: (src: string, alt: string) => {
+        if (!editor) {
+          return;
+        }
+
+        // Leaving raw HTML mode must go through `exitHtmlMode()`: the sync
+        // effect skips values this component already emitted, so otherwise the
+        // image lands in the stale visual document and the edits made in the
+        // textarea are silently discarded.
+        if (htmlMode) {
+          exitHtmlMode();
+        }
+
+        editor.chain().focus().setImage({ src, alt }).run();
+      },
+    }),
+    [editor, htmlMode, exitHtmlMode],
+  );
+
   if (htmlMode) {
     return (
       <div className={`penalis-editor-shell${invalid ? ' is-invalid' : ''}`}>
@@ -242,7 +296,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             title="Kembali ke editor visual"
             onClick={exitHtmlMode}
           >
-            Editor visual
+            <Icon name="code" />
           </ToolbarButton>
           <span className="penalis-editor-toolbar__hint">
             Mode HTML. Perubahan di sini langsung tersimpan saat kamu menyimpan artikel.
@@ -272,37 +326,41 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         <ToolbarButton
           label="Tebal"
           title="Tebal (Ctrl+B)"
+          toggle
           active={state?.bold}
           onClick={() => editor?.chain().focus().toggleBold().run()}
         >
-          <strong>B</strong>
+          <Icon name="bold" />
         </ToolbarButton>
 
         <ToolbarButton
           label="Miring"
           title="Miring (Ctrl+I)"
+          toggle
           active={state?.italic}
           onClick={() => editor?.chain().focus().toggleItalic().run()}
         >
-          <em>I</em>
+          <Icon name="italic" />
         </ToolbarButton>
 
         <ToolbarButton
           label="Garis bawah"
           title="Garis bawah (Ctrl+U)"
+          toggle
           active={state?.underline}
           onClick={() => editor?.chain().focus().toggleUnderline().run()}
         >
-          <span style={{ textDecoration: 'underline' }}>U</span>
+          <Icon name="underline" />
         </ToolbarButton>
 
         <ToolbarButton
           label="Coret"
           title="Coret"
+          toggle
           active={state?.strike}
           onClick={() => editor?.chain().focus().toggleStrike().run()}
         >
-          <span style={{ textDecoration: 'line-through' }}>S</span>
+          <Icon name="strike" />
         </ToolbarButton>
 
         <span className="penalis-editor-toolbar__divider" aria-hidden="true" />
@@ -310,19 +368,21 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         <ToolbarButton
           label="Judul bagian"
           title="Judul bagian"
+          toggle
           active={state?.heading2}
           onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
         >
-          H2
+          <Icon name="heading2" />
         </ToolbarButton>
 
         <ToolbarButton
           label="Subjudul"
           title="Subjudul"
+          toggle
           active={state?.heading3}
           onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
         >
-          H3
+          <Icon name="heading3" />
         </ToolbarButton>
 
         <span className="penalis-editor-toolbar__divider" aria-hidden="true" />
@@ -330,36 +390,45 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         <ToolbarButton
           label="Daftar berpoin"
           title="Daftar berpoin"
+          toggle
           active={state?.bulletList}
           onClick={() => editor?.chain().focus().toggleBulletList().run()}
         >
-          ••
+          <Icon name="bulletList" />
         </ToolbarButton>
 
         <ToolbarButton
           label="Daftar bernomor"
           title="Daftar bernomor"
+          toggle
           active={state?.orderedList}
           onClick={() => editor?.chain().focus().toggleOrderedList().run()}
         >
-          1.
+          <Icon name="orderedList" />
         </ToolbarButton>
 
         <ToolbarButton
           label="Kutipan"
           title="Kutipan"
+          toggle
           active={state?.blockquote}
           onClick={() => editor?.chain().focus().toggleBlockquote().run()}
         >
-          &ldquo;
+          <Icon name="quote" />
         </ToolbarButton>
 
-        <ToolbarButton label="Tautan" title="Tambah atau ubah tautan" active={state?.link} onClick={setLink}>
-          🔗
+        <ToolbarButton
+          label="Tautan"
+          title="Tambah atau ubah tautan"
+          toggle
+          active={state?.link}
+          onClick={openLinkDialog}
+        >
+          <Icon name="link" />
         </ToolbarButton>
 
         <ToolbarButton label="Sisipkan gambar" title="Sisipkan gambar" onClick={onRequestImage}>
-          🖼
+          <Icon name="image" />
         </ToolbarButton>
 
         <span className="penalis-editor-toolbar__divider" aria-hidden="true" />
@@ -370,7 +439,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           disabled={!state?.canUndo}
           onClick={() => editor?.chain().focus().undo().run()}
         >
-          ↶
+          <Icon name="undo" />
         </ToolbarButton>
 
         <ToolbarButton
@@ -379,15 +448,76 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           disabled={!state?.canRedo}
           onClick={() => editor?.chain().focus().redo().run()}
         >
-          ↷
+          <Icon name="redo" />
         </ToolbarButton>
 
         <span className="penalis-editor-toolbar__spacer" />
 
-        <ToolbarButton label="Lihat kode HTML" title="Lihat kode HTML" onClick={() => setHtmlMode(true)}>
-          &lt;/&gt;
+        <ToolbarButton
+          label="Lihat kode HTML"
+          title="Lihat kode HTML"
+          onClick={() => {
+            setLinkOpen(false);
+            setHtmlMode(true);
+          }}
+        >
+          <Icon name="code" />
         </ToolbarButton>
       </div>
+
+      {linkOpen ? (
+        <div className="penalis-editor-linkpop">
+          <label className="penalis-editor-linkpop__label" htmlFor="penalis-link-href">
+            URL tautan
+          </label>
+          <div className="penalis-editor-linkpop__row">
+            <input
+              ref={linkInputRef}
+              id="penalis-link-href"
+              type="url"
+              value={linkHref}
+              placeholder="https://contoh.com/tulisan"
+              onChange={(event) => {
+                setLinkHref(event.target.value);
+                setLinkError('');
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  applyLink();
+                }
+
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  closeLinkDialog();
+                }
+              }}
+              aria-invalid={Boolean(linkError)}
+              aria-describedby={linkError ? 'penalis-link-error' : undefined}
+            />
+            <button type="button" className="penalis-button" onClick={applyLink}>
+              Pasang
+            </button>
+            {state?.link ? (
+              <button type="button" className="penalis-button penalis-button--ghost" onClick={removeLink}>
+                Hapus tautan
+              </button>
+            ) : null}
+            <button type="button" className="penalis-button penalis-button--ghost" onClick={closeLinkDialog}>
+              Batal
+            </button>
+          </div>
+          {linkError ? (
+            <p className="penalis-field-error" id="penalis-link-error">
+              {linkError}
+            </p>
+          ) : (
+            <p className="penalis-editor-linkpop__hint">
+              Kosongkan kolom untuk menghapus tautan. Enter memasang, Esc membatalkan.
+            </p>
+          )}
+        </div>
+      ) : null}
 
       <EditorContent editor={editor} />
     </div>

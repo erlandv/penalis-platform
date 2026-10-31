@@ -65,11 +65,22 @@ Implementation notes:
   `StarterKit.configure()` rather than registered twice, which TipTap rejects
   as duplicate extensions.
 - Toolbar: bold, italic, underline, strike, H2, H3, bullet and ordered lists,
-  blockquote, link, image, undo, redo, and a raw HTML toggle.
+  blockquote, link, image, undo, redo, and a raw HTML toggle. Buttons render
+  inline SVG icons from `src/components/icons.tsx` instead of emoji, so a glyph
+  cannot fall back to a different font per operating system.
+- Links are added through a small inline dialog that validates the target
+  (`src/lib/validation.ts`): absolute http(s), `mailto:`, root-relative paths,
+  and fragments are accepted; `javascript:`, `data:`, and protocol-relative
+  URLs are refused before they reach the document.
 - The raw HTML toggle is an escape hatch for markup the toolbar cannot express,
   and keeps existing HTML articles from being silently rewritten.
 - Images are inserted at the caret through an imperative handle, so the writer
-  does not have to splice markup by hand.
+  does not have to splice markup by hand. Inserting while raw HTML mode is
+  open first pushes the textarea value into the document, so those edits are
+  never discarded.
+- Modals (media picker, preview) use `src/components/Dialog.tsx`: focus moves
+  into the dialog, Tab stays inside it, Escape closes it, and focus returns to
+  the control that opened it.
 - Trailing empty paragraphs that TipTap adds after block nodes are trimmed
   before saving (`src/lib/html.ts`).
 - Content is still submitted to the native WordPress posts endpoint. The server

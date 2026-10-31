@@ -13,6 +13,7 @@ import type { Article, FieldErrors, MediaItem, Term } from '../../lib/types';
 import { hasErrors, validateArticle } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../components/ui';
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
+import { Dialog } from '../../components/Dialog';
 import type { RichTextEditorHandle } from './RichTextEditor';
 
 /**
@@ -135,6 +136,13 @@ export function Editor({
 
     return () => window.clearTimeout(handle);
   }, [tagSearch]);
+
+  /**
+   * Stable close handler: `Dialog` re-runs its focus setup whenever `onClose`
+   * changes identity, so an inline arrow would move focus on every render.
+   */
+  const closeMedia = useCallback(() => setMediaOpen(false), []);
+  const closePreview = useCallback(() => setPreviewOpen(false), []);
 
   const openMediaPicker = async () => {
     setMediaOpen(true);
@@ -481,11 +489,11 @@ export function Editor({
       </div>
 
       {mediaOpen ? (
-        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Pustaka media">
+        <Dialog label="Pustaka media" onClose={closeMedia}>
           <div className="penalis-modal__content">
             <div className="penalis-modal__header">
               <h3>Pustaka media</h3>
-              <button type="button" className="penalis-button penalis-button--ghost" onClick={() => setMediaOpen(false)}>
+              <button type="button" className="penalis-button penalis-button--ghost" onClick={closeMedia}>
                 Tutup
               </button>
             </div>
@@ -546,11 +554,11 @@ export function Editor({
               </div>
             )}
           </div>
-        </div>
+        </Dialog>
       ) : null}
 
       {previewOpen ? (
-        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Pratinjau artikel">
+        <Dialog label="Pratinjau artikel" onClose={closePreview}>
           <div className="penalis-modal__content penalis-modal__content--wide">
             <div className="penalis-modal__header">
               <h3>Pratinjau</h3>
@@ -568,7 +576,7 @@ export function Editor({
                 <button
                   type="button"
                   className="penalis-button penalis-button--ghost"
-                  onClick={() => setPreviewOpen(false)}
+                  onClick={closePreview}
                 >
                   Tutup
                 </button>
@@ -581,7 +589,7 @@ export function Editor({
               srcDoc={previewDocument}
             />
           </div>
-        </div>
+        </Dialog>
       ) : null}
 
       {id ? (

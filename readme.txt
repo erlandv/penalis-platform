@@ -171,6 +171,10 @@ Screenshots are not provided yet.
   default photo setting under Users -> Penalis Writers.
 * Taxonomy names containing HTML entities are decoded before display.
 * Action rows keep their alignment when the active theme styles buttons.
+* Editor toolbar uses inline SVG icons, and links are added through a dialog
+  with URL validation instead of the browser prompt.
+* Media and preview dialogs keep keyboard focus inside, close with Escape, and
+  return focus to the control that opened them.
 
 = 0.1.0 =
 * Initial release.

@@ -103,6 +103,54 @@ export function validateLoginOrEmail(value: string): string {
   return '';
 }
 
+/**
+ * Normalise a link target for the article editor.
+ *
+ * Writers may enter absolute http(s) links, mailto addresses, root-relative
+ * paths, or in-page fragments. Everything else (javascript:, data:,
+ * protocol-relative URLs, bare host names) is rejected. The server stays the
+ * authority through the WordPress content filter; this only keeps an unsafe
+ * or broken value from ever reaching the document.
+ *
+ * @param raw Raw input from the link dialog.
+ * @return The normalised href, or null when the value is not usable.
+ */
+export function normalizeLinkHref(raw: string): string | null {
+  const value = raw.trim();
+
+  if (value === '') {
+    return null;
+  }
+
+  // In-page fragment.
+  if (value.startsWith('#')) {
+    return value;
+  }
+
+  // Root-relative path. A double slash would be protocol-relative, which is
+  // rejected below because it can silently become any scheme.
+  if (/^\/(?!\/)/.test(value)) {
+    return value;
+  }
+
+  const match = /^([a-z][a-z0-9+.-]*):/i.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const scheme = (match[1] ?? '').toLowerCase();
+
+  if ((scheme === 'http' || scheme === 'https') && /^https?:\/\/\S+$/i.test(value)) {
+    return value;
+  }
+
+  if (scheme === 'mailto' && /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(value)) {
+    return value;
+  }
+
+  return null;
+}
+
 export function validateArticle(input: { title: string; content: string }): FieldErrors {
   const errors: FieldErrors = {};
 

@@ -16,6 +16,7 @@ require_once __DIR__ . '/../includes/class-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
+require_once __DIR__ . '/../includes/class-dashboard.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -554,6 +555,42 @@ $penalis_comment->user_id  = 12;
 penalis_same( 12, Penalis_Avatar::resolve_user_id( $penalis_comment ), 'Comment authors resolve.' );
 
 penalis_same( true, Penalis_Avatar::is_provider(), 'The built-in provider is active without One User Avatar.' );
+
+/* -------------------------------------------------------------------------
+ * Dashboard script loading
+ * ---------------------------------------------------------------------- */
+
+/*
+ * The dashboard bundle is an ES module. WordPress prints a classic <script>
+ * tag, which cannot parse `import.meta`, so the dashboard renders an empty
+ * page. These assertions guard the filter that adds `type="module"`.
+ */
+
+$penalis_other_tag = '<script src="https://example.com/theme.js"></script>';
+penalis_same(
+	$penalis_other_tag,
+	Penalis_Dashboard::module_script_tag( $penalis_other_tag, 'theme-script', 'https://example.com/theme.js' ),
+	'Scripts with another handle are returned untouched.'
+);
+
+$penalis_module_tag = Penalis_Dashboard::module_script_tag(
+	'<script src="https://example.com/dashboard.js"></script>',
+	'penalis-dashboard',
+	'https://example.com/dashboard.js'
+);
+
+penalis_assert(
+	false !== strpos( $penalis_module_tag, 'type="module"' ),
+	'The dashboard bundle is loaded as an ES module.'
+);
+penalis_assert(
+	false !== strpos( $penalis_module_tag, 'src="https://example.com/dashboard.js"' ),
+	'The module tag keeps the enqueued source.'
+);
+penalis_assert(
+	false !== strpos( $penalis_module_tag, 'id="penalis-dashboard-js"' ),
+	'The module tag keeps the handle id so dependent localisations still resolve.'
+);
 
 /* -------------------------------------------------------------------------
  * Report
