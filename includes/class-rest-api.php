@@ -201,7 +201,7 @@ final class Penalis_Rest_Api {
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( __CLASS__, 'update_profile' ),
 				// Pending accounts may maintain safe profile fields; the handler
-				// only accepts display name, bio, and website.
+				// only accepts display name, bio, and the public-name preference.
 				'permission_callback' => array( __CLASS__, 'require_logged_in' ),
 			)
 		);
@@ -552,7 +552,6 @@ final class Penalis_Rest_Api {
 				'avatarUrl'       => Penalis_Avatar::get_url( $user_id ),
 				'email'           => $user->user_email,
 				'description'     => (string) get_user_meta( $user_id, 'description', true ),
-				'website'         => $user->user_url,
 				'authorUrl'       => get_author_posts_url( $user_id ),
 				'status'          => $status,
 				'statusLabel'     => $status_label,
@@ -580,7 +579,7 @@ final class Penalis_Rest_Api {
 		$user_id = get_current_user_id();
 		$input   = array();
 
-		$fields = array( 'display_name', 'display_name_mode', 'first_name', 'last_name', 'description', 'user_url' );
+		$fields = array( 'display_name', 'display_name_mode', 'first_name', 'last_name', 'description' );
 
 		foreach ( $fields as $field ) {
 			$value = $request->get_param( $field );
@@ -635,10 +634,6 @@ final class Penalis_Rest_Api {
 
 		if ( isset( $input['description'] ) ) {
 			$update['description'] = sanitize_textarea_field( $input['description'] );
-		}
-
-		if ( isset( $input['user_url'] ) ) {
-			$update['user_url'] = esc_url_raw( trim( (string) $input['user_url'] ) );
 		}
 
 		if ( Penalis_Policy::is_valid_display_mode( $mode ) ) {

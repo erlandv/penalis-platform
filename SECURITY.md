@@ -151,8 +151,8 @@ Comment creation and moderation are denied.
 
 - Client-supplied `author` is rejected unless it matches the session user.
 - `sticky`, `password`, `meta`, and `template` fields are rejected for writers.
-- Approval refuses accounts that already hold a role other than `subscriber`
-  or `penalis_writer`.
+- Approval refuses accounts that already hold a role other than `subscriber`,
+  `contributor` (legacy accounts), or `penalis_writer`.
 - `set_user_role` reverts administrator promotion attempts by non-administrators.
 - Profile updates restore the email address if a writer attempts to change it
   outside a verified flow.

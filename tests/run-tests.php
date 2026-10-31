@@ -194,8 +194,6 @@ penalis_assert( '' !== Penalis_Policy::validate_password( str_repeat( 'a', 201 )
 penalis_same( array(), Penalis_Policy::validate_profile( array( 'display_name' => 'Ada', 'description' => 'Writer.' ) ), 'Valid profile passes.' );
 $errors = Penalis_Policy::validate_profile( array( 'description' => str_repeat( 'a', 501 ) ) );
 penalis_assert( isset( $errors['description'] ), 'Overlong bio is rejected.' );
-$errors = Penalis_Policy::validate_profile( array( 'user_url' => 'javascript:alert(1)' ) );
-penalis_assert( isset( $errors['user_url'] ), 'Non-http website URL is rejected.' );
 
 $tags = Penalis_Policy::validate_tag_names( array( 'Poetry', 'poetry', '  Essays  ' ) );
 penalis_same( array( 'Poetry', 'Essays' ), $tags['names'], 'Tags are trimmed and deduplicated.' );

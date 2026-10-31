@@ -127,7 +127,6 @@ export const accountApi = {
     display_name_mode?: DisplayNameMode;
     display_name?: string;
     description?: string;
-    user_url?: string;
   }) => request<Account>('/account/profile', { method: 'POST', body: payload }),
 
   changePassword: (payload: { current_password: string; new_password: string }) =>

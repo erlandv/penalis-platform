@@ -44,8 +44,9 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 
 - Overview with account status and article counts.
 - Paginated list of the writer's own articles.
-- Article editor with a WYSIWYG surface (TipTap), title, excerpt, categories,
-  tags, featured image, and image upload/insertion.
+- Article editor with a WYSIWYG surface (TipTap), title, categories, tags,
+  featured image, and image upload/insertion. The excerpt is left to WordPress
+  and SEO plugins, so it is not part of the form.
 - Preview and publish/unpublish actions.
 - Writer profile with first name, last name, and a public name choice: first +
   last, first only, last only, username, or a custom pen name.

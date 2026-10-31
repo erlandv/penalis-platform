@@ -30,8 +30,8 @@ Key features:
   remove it. Every transition is audited.
 * **React writing dashboard.** A responsive single-page application with an
   overview, a paginated article list, an article editor (title, content,
-  excerpt, categories, tags, featured image, image upload and insertion,
-  preview), a media library, a profile screen, and account settings.
+  categories, tags, featured image, image upload and insertion, preview), a
+  media library, a profile screen, and account settings.
 * **Native WordPress integration.** Authentication uses WordPress cookies and
   the REST API nonce. Articles are stored as standard posts, media uses the
   WordPress Media Library, and no custom database tables are created.
@@ -50,9 +50,11 @@ checks and unit tests; it has **not yet** been tested against a live WordPress
 installation, a specific theme, or Elementor. See the included
 PROJECT-SPECIFICATION.md for the manual integration test checklist.
 
-**Editor scope.** The dashboard editor is intentionally not a full Gutenberg
-block editor. It stores standard WordPress post content, so articles render
-with the existing theme like any other post, and basic HTML is supported.
+**Editor scope.** The dashboard editor is a WYSIWYG surface built on TipTap, not
+a Gutenberg block editor. It covers text formatting, headings, lists, quotes,
+links, and images, and stores standard WordPress post content, so articles
+render with the existing theme like any other post. A raw HTML toggle is
+available for markup the toolbar cannot express.
 
 **Email delivery.** Verification and notification emails are sent with
 `wp_mail()`. Delivery depends on the host's mail configuration; an SMTP plugin

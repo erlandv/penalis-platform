@@ -525,14 +525,6 @@ final class Penalis_Policy {
 			}
 		}
 
-		if ( array_key_exists( 'user_url', $data ) && '' !== trim( (string) $data['user_url'] ) ) {
-			$url    = trim( (string) $data['user_url'] );
-			$scheme = parse_url( $url, PHP_URL_SCHEME ); // phpcs:ignore WordPress.WP.AlternativeFunctions.parse_url_parse_url -- Intentionally WordPress-independent for testability.
-			if ( ! filter_var( $url, FILTER_VALIDATE_URL ) || ! in_array( $scheme, array( 'http', 'https' ), true ) ) {
-				$errors['user_url'] = 'Masukkan URL situs web http atau https yang valid.';
-			}
-		}
-
 		return $errors;
 	}
 

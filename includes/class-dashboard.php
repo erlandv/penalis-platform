@@ -387,7 +387,6 @@ final class Penalis_Dashboard {
 					'avatarUrl'       => Penalis_Avatar::get_url( $user_id ),
 					'email'           => $user->user_email,
 					'description'     => (string) get_user_meta( $user_id, 'description', true ),
-					'website'         => $user->user_url,
 					'authorUrl'       => get_author_posts_url( $user_id ),
 				) : null,
 			)

@@ -380,8 +380,10 @@ Views:
 
 - **Overview** — account status, article counts, recent articles.
 - **My Articles** — paginated list with status filters and actions.
-- **Editor** — create/edit title, content, excerpt, categories, tags, featured
-  image, inline media insertion.
+- **Editor** — create/edit title, content, categories, tags, featured image,
+  inline media insertion. The excerpt is not editable: WordPress generates it
+  from the content and SEO plugins usually override it, so the client never
+  sends the field.
 - **Profile** — profile photo, first name, last name, public name choice (first
   + last, first, last, username, or a custom name), bio. The name options show
   only the resulting public name.

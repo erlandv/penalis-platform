@@ -23,7 +23,6 @@ export interface BootstrapUser {
   authorUrl?: string;
   email: string;
   description?: string;
-  website?: string;
 }
 
 export interface DashboardBootstrap {
@@ -64,7 +63,6 @@ export interface Account {
   authorUrl: string;
   email: string;
   description: string;
-  website: string;
   status: AccountStatus;
   statusLabel: string;
   isAdministrator: boolean;
