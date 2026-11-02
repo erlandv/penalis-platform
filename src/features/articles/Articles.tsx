@@ -174,11 +174,11 @@ export function Articles({
                     <strong>{article.title || 'Tanpa judul'}</strong>
                     <p className="penalis-muted">{truncate(article.excerpt, 100)}</p>
                   </td>
-                  <td>
+                  <td data-label="Status">
                     <StatusBadge status={article.status} />
                   </td>
-                  <td>{formatDate(article.modified)}</td>
-                  <td>
+                  <td data-label="Diubah">{formatDate(article.modified)}</td>
+                  <td data-label="Tindakan">
                     <div className="penalis-row-actions">
                       <button
                         type="button"

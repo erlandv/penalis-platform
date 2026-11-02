@@ -57,6 +57,49 @@
   color: var(--penalis-accent-strong);
 }
 
+/**
+ * Neutralise theme element defaults inside the dashboard.
+ *
+ * The active theme applies `margin-bottom: 35px` to every `button`, `form`,
+ * `figure`, `table`, `dl` and list element, and pins `height: 45px` plus a
+ * computed `line-height` on every `button`. Those rules are element-level, so
+ * they leak into dashboard controls that are not `.penalis-button`: nav items,
+ * status tabs, editor toolbar buttons, tag chips and quiet text links all grew
+ * a 35px gap, and the tag chip's "×" button became 45px tall.
+ *
+ * `:where()` keeps this reset at class specificity (0,1,0) so every component
+ * rule below still wins, while still outranking the theme's element selectors.
+ * `display` and `line-height` are restored because the theme forces
+ * `inline-flex` on buttons, which turns inline text links into flex boxes.
+ */
+.penalis-dashboard-root :where(button, form, figure, table, dl, ul, ol, li, fieldset, input, select, textarea) {
+  margin: 0;
+}
+
+.penalis-dashboard-root :where(button) {
+  display: inline-block;
+  height: auto;
+  line-height: inherit;
+  /*
+   * The theme animates `all` on buttons, which makes the focus ring fade in
+   * over 200ms — a keyboard user sees nothing for the first frames. Limit the
+   * transition to the properties that should animate.
+   */
+  transition-property: background-color, border-color, color, transform, opacity;
+}
+
+/**
+ * Visible keyboard focus.
+ *
+ * The theme sets `outline: 0` on every button and link, so without this rule a
+ * keyboard user cannot tell which control is focused. `:focus-visible` keeps
+ * the ring off mouse clicks while still showing it for Tab navigation.
+ */
+.penalis-dashboard-root :where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
+}
+
 .penalis-app {
   max-width: 1180px;
   margin: 0 auto;
@@ -78,9 +121,22 @@
 
 .penalis-header__meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
+  gap: 0.25rem 1rem;
   font-size: 0.9rem;
+}
+
+/*
+ * Header links are real navigation targets, so they need a tappable height.
+ * As bare inline text they measured 23px tall, and at 320px "Keluar" broke
+ * across two lines ("Kelua" / "r") because the row could not wrap.
+ */
+.penalis-header__meta .penalis-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  white-space: nowrap;
 }
 
 .penalis-user {
@@ -192,6 +248,19 @@
   box-shadow: var(--penalis-shadow);
 }
 
+/*
+ * The status badge sits beside the greeting on wide screens and below it on
+ * phones. `flex: 0 0 auto` stops the badge from being squeezed by a long
+ * display name, which is what happened when the hero had no rule for it.
+ */
+.penalis-hero__status {
+  flex: 0 0 auto;
+}
+
+.penalis-hero > div:first-child {
+  min-width: 0;
+}
+
 .penalis-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -230,23 +299,65 @@
 
 .penalis-panel__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.4rem 1rem;
   margin-bottom: 0.9rem;
 }
 
-.penalis-panel__header h3 { margin: 0; }
+/*
+ * A long status badge ("Menunggu persetujuan admin") used to squeeze the panel
+ * title to 14px wide — one letter per line — because the header could not wrap.
+ * `min-width: 0` lets the title shrink gracefully instead of overflowing.
+ */
+.penalis-panel__header h3 {
+  margin: 0;
+  min-width: 0;
+}
 
 .penalis-banner {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.6rem 1rem;
   padding: 0.9rem 1rem;
   border-radius: 12px;
   border: 1px solid transparent;
   font-size: 0.93rem;
+}
+
+/*
+ * Banners that carry an action (the verification resend button, the retry
+ * button on an error) put the text and the button side by side. Without a
+ * minimum width the paragraph was squeezed to 104px next to a 221px button,
+ * producing a 433px-tall banner on a phone. Give the text a sensible floor and
+ * let the button drop to its own line when there is no room.
+ *
+ * The floor is a `min-width`, not a `flex-basis`: the banner switches to a
+ * column on phones, and a flex-basis there would be read as a *height* and
+ * stretch the paragraph to 256px. The basis stays at 0 so the text can shrink
+ * below its max-content width and sit beside the button on wide screens.
+ */
+.penalis-banner > :where(p, span, div) {
+  flex: 1 1 0;
+  min-width: min(16rem, 100%);
+}
+
+.penalis-banner > .penalis-button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 600px) {
+  .penalis-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .penalis-banner > .penalis-button {
+    width: 100%;
+  }
 }
 
 .penalis-banner--info {
@@ -399,9 +510,15 @@
  * The visible label may be a `<span>` (when the whole field is wrapped in a
  * `<label>`) or a real `<label>` (when hints and errors sit beside the input
  * instead of inside the label, so they are not read as part of its name).
+ *
+ * `.penalis-field-label` is the same label rendered outside a `<label>` — the
+ * rich text editor is a contenteditable div, which cannot be wrapped, so it is
+ * labelled through `aria-labelledby` instead. Without this rule that label
+ * rendered as unstyled body text and did not line up with the other fields.
  */
 .penalis-field > span,
-.penalis-field > label {
+.penalis-field > label,
+.penalis-field-label {
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -487,7 +604,13 @@
   background: var(--penalis-surface);
   color: var(--penalis-text);
   font: inherit;
-  font-size: 0.95rem;
+  /*
+   * 16px is the threshold below which iOS Safari zooms the page when a field
+   * receives focus. The dashboard is form-heavy, so a 15.2px (0.95rem) control
+   * made every tap on a phone jump the layout. `max()` keeps the intended
+   * 0.95rem on larger screens while never dropping under the threshold.
+   */
+  font-size: max(16px, 0.95rem);
 }
 
 .penalis-dashboard-root textarea {
@@ -578,8 +701,14 @@
   overflow: hidden;
 }
 
+/*
+ * The auth surface renders inside the theme's header and footer, so a
+ * `min-height: 100vh` here always overflowed by the height of the theme
+ * chrome — a phone got 844px of panel area plus a 105px header, leaving dead
+ * space and a needless scroll. Let the content decide the height and keep the
+ * generous padding for breathing room.
+ */
 .penalis-auth {
-  min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 2rem 1rem;
@@ -686,6 +815,83 @@
 
 .penalis-table td p { margin: 0.2rem 0 0; }
 
+/**
+ * Article table as stacked cards on narrow screens.
+ *
+ * A four-column table cannot fit a phone: at 390px the title column collapsed
+ * to 125px and a 100-character excerpt rendered one word per line, making a
+ * single row 327px tall, while the action buttons stacked vertically in a
+ * 137px column. Horizontal scrolling technically worked but the result was
+ * unreadable, so below 640px each row becomes a card and the header row is
+ * dropped. `data-label` on the cells supplies the column name that the header
+ * used to provide.
+ */
+@media (max-width: 640px) {
+  .penalis-table-wrap {
+    overflow-x: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .penalis-table,
+  .penalis-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .penalis-table thead {
+    /* Hidden visually; the labels below carry the same information. */
+    display: none;
+  }
+
+  .penalis-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .penalis-table tr {
+    display: block;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--penalis-border);
+    border-radius: var(--penalis-radius);
+    background: var(--penalis-surface);
+  }
+
+  .penalis-table td {
+    display: block;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .penalis-table td + td {
+    margin-top: 0.65rem;
+  }
+
+  .penalis-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--penalis-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  /* The title cell is the card heading, so it needs no label of its own. */
+  .penalis-table td:first-child strong {
+    display: block;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  .penalis-table .penalis-row-actions {
+    gap: 0.4rem;
+  }
+}
+
 .penalis-article-list {
   list-style: none;
   margin: 0;
@@ -754,7 +960,11 @@
   gap: 1rem;
 }
 
-.penalis-editor__main textarea { min-height: 360px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.9rem; }
+.penalis-editor__main textarea {
+  min-height: min(360px, 55vh);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.9rem;
+}
 
 /**
  * Rich text editor shell.
@@ -778,6 +988,26 @@
 
 .penalis-editor-shell.is-invalid {
   border-color: #dc2626;
+}
+
+/*
+ * Shown when the lazy TipTap chunk fails to load. It replaces the editor, so it
+ * has to look like a form control rather than bare text: without these rules
+ * the fallback message and its raw-HTML textarea rendered flush against the
+ * page with no border or spacing.
+ */
+.penalis-editor-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 10px;
+  background: var(--penalis-surface-alt);
+}
+
+.penalis-editor-fallback p {
+  margin: 0;
 }
 
 .penalis-editor-toolbar {
@@ -805,6 +1035,18 @@
   font-size: 0.82rem;
   line-height: 1;
   cursor: pointer;
+}
+
+/*
+ * Touch devices need a bigger hit area than a mouse does. 32px is comfortable
+ * with a pointer but error-prone with a thumb, and the toolbar is the most
+ * tapped surface in the editor.
+ */
+@media (pointer: coarse) {
+  .penalis-editor-toolbar__button {
+    min-width: 2.75rem;
+    height: 2.75rem;
+  }
 }
 
 .penalis-editor-toolbar__button:hover:not(:disabled) {
@@ -877,9 +1119,15 @@
   font-size: 0.78rem;
 }
 
-/* The editable area. TipTap renders a bare contenteditable div. */
+/*
+ * The editable area. TipTap renders a bare contenteditable div.
+ *
+ * `min-height` is capped against the viewport so a phone in landscape (360px
+ * tall) does not get an editor taller than the screen: a flat 360px minimum
+ * beat the 70vh maximum and pushed the toolbar and save buttons off-screen.
+ */
 .penalis-editor-content {
-  min-height: 360px;
+  min-height: min(360px, 55vh);
   max-height: 70vh;
   overflow-y: auto;
   padding: 1rem 1.15rem;
@@ -944,7 +1192,7 @@
 .penalis-editor-html {
   display: block;
   width: 100%;
-  min-height: 360px;
+  min-height: min(360px, 55vh);
   padding: 1rem 1.15rem;
   border: 0;
   background: var(--penalis-surface);
@@ -983,14 +1231,31 @@
   font-size: 0.8rem;
 }
 
+/*
+ * The chip's remove button is a real control, not decoration. With no padding
+ * it measured 11x45px — a target no thumb can hit — and the theme's forced
+ * 45px height made the whole chip 51px tall. Give it a square hit area and let
+ * the chip keep its compact pill shape.
+ */
 .penalis-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  margin: -0.2rem -0.35rem -0.2rem 0;
+  padding: 0;
   border: 0;
+  border-radius: 999px;
   background: none;
   color: inherit;
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
-  padding: 0;
+}
+
+.penalis-chip button:hover {
+  background: rgba(91, 33, 182, 0.12);
 }
 
 .penalis-suggestions {
@@ -1036,6 +1301,22 @@
   gap: 1rem;
 }
 
+/*
+ * Inside a phone-width dialog the content box is only ~233px wide, so a 160px
+ * minimum produced one full-width card per row. 130px still fits two columns
+ * there while leaving the standalone Media page unchanged.
+ */
+@media (max-width: 600px) {
+  .penalis-media-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .penalis-media-card img {
+    height: 100px;
+  }
+}
+
 .penalis-media-card {
   margin: 0;
   background: var(--penalis-surface);
@@ -1064,13 +1345,25 @@
 
 .penalis-media-card .penalis-row-actions { padding: 0 0.7rem 0.7rem; }
 
+/*
+ * `dvh` tracks the visible viewport, so the dialog shrinks when a mobile
+ * keyboard opens instead of staying centred behind it.
+ *
+ * The overlay is a flex box with `align-items: flex-start` and an auto margin
+ * on the content: the dialog is vertically centred while it fits, and once it
+ * is taller than the screen the auto margin collapses to zero so the top of the
+ * dialog — including its close button — stays reachable instead of being
+ * clipped above the viewport.
+ */
 .penalis-modal {
   position: fixed;
   inset: 0;
   background: rgba(24, 20, 16, 0.55);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   padding: 1rem;
+  overflow-y: auto;
   z-index: 100000;
 }
 
@@ -1080,7 +1373,10 @@
   padding: 1.25rem;
   width: 100%;
   max-width: 760px;
+  /* Fallback first: a browser without `dvh` keeps the vh value. */
   max-height: 85vh;
+  max-height: min(85vh, 85dvh);
+  margin: auto;
   overflow-y: auto;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
 }
@@ -1089,17 +1385,24 @@
 
 .penalis-modal__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
   margin-bottom: 1rem;
 }
 
 .penalis-modal__header h3 { margin: 0; }
 
+/*
+ * The preview iframe is sized against the visible viewport so it still fits
+ * inside the dialog on a phone in landscape, where 65vh of a 360px screen left
+ * almost no room for the dialog chrome.
+ */
 .penalis-preview-frame {
   width: 100%;
   height: 65vh;
+  height: min(65vh, 60dvh);
   border: 1px solid var(--penalis-border);
   border-radius: 10px;
   background: #ffffff;
@@ -1166,11 +1469,21 @@
 
 .penalis-pagination {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
   font-size: 0.85rem;
   color: var(--penalis-muted);
+}
+
+/*
+ * The page counter must never be squeezed. Without `nowrap` the flex algorithm
+ * shrank "Halaman 1 dari 2" to 13px wide at 320px, wrapping it one word per
+ * line and stretching the whole row to 232px tall.
+ */
+.penalis-pagination > span {
+  white-space: nowrap;
 }
 
 .penalis-noscript,
@@ -1205,12 +1518,57 @@
   }
 }
 
+/*
+ * Below 600px the six navigation items wrapped onto three rows (216px at
+ * 320px), eating a third of the first screen before any content. A single
+ * horizontally scrollable strip keeps the navigation one row tall and still
+ * reachable with a thumb; `scroll-snap` makes the items settle cleanly.
+ */
+@media (max-width: 600px) {
+  .penalis-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 0.35rem;
+    /* Room for the focus ring, which would otherwise be clipped by the scroll box. */
+    margin: -0.2rem -0.2rem 0;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+  }
+
+  .penalis-nav__item {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
+}
+
 @media (max-width: 600px) {
   .penalis-app { padding: 1.25rem 0.9rem 3rem; }
   .penalis-auth__panel { padding: 1.4rem; }
   .penalis-hero { flex-direction: column; }
   .penalis-article-row { flex-direction: column; }
   .penalis-article-row__meta { align-items: flex-start; }
+}
+
+/*
+ * Two stat cards per row on phones. `auto-fit` with a 140px minimum collapsed
+ * to a single column at 320px, stacking four cards into 469px of scroll.
+ */
+@media (max-width: 600px) {
+  .penalis-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .penalis-card {
+    padding: 0.9rem 1rem;
+  }
+
+  .penalis-card__value {
+    font-size: 1.5rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
