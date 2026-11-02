@@ -13,6 +13,7 @@ import type { Article, FieldErrors, MediaItem, Term } from '../../lib/types';
 import { hasErrors, validateArticle } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../components/ui';
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
 import { Icon } from '../../components/icons';
 import type { RichTextEditorHandle } from './RichTextEditor';
@@ -99,6 +100,13 @@ export function Editor({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  /**
+   * Publishing is irreversible from the reader's point of view — the article
+   * becomes public the moment it succeeds — so it asks for confirmation first,
+   * matching the publish action in the articles list.
+   */
+  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
 
   /**
    * Snapshot of the last persisted state, used to tell whether the writer has
@@ -217,6 +225,7 @@ export function Editor({
    */
   const closeMedia = useCallback(() => setMediaOpen(false), []);
   const closePreview = useCallback(() => setPreviewOpen(false), []);
+  const closePublishConfirm = useCallback(() => setPublishConfirmOpen(false), []);
 
   const openMediaPicker = async () => {
     setMediaOpen(true);
@@ -288,6 +297,9 @@ export function Editor({
     const clientErrors = validateArticle({ title, content: payloadContent });
     if (hasErrors(clientErrors)) {
       setErrors(clientErrors);
+      // Close the confirmation so the field errors are not hidden behind the
+      // modal overlay; the writer needs to see which field to fix.
+      setPublishConfirmOpen(false);
       return;
     }
     setErrors({});
@@ -321,6 +333,7 @@ export function Editor({
         }),
       );
       setSavedAt(new Date());
+      setPublishConfirmOpen(false);
       onSaved(result.id);
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -329,6 +342,8 @@ export function Editor({
       } else {
         setError('Artikel tidak dapat disimpan.');
       }
+      // Surface the failure instead of leaving it behind the modal overlay.
+      setPublishConfirmOpen(false);
     } finally {
       setSaving(false);
     }
@@ -460,7 +475,7 @@ export function Editor({
           <button
             type="button"
             className="penalis-button penalis-button--primary"
-            onClick={() => void save('publish')}
+            onClick={() => setPublishConfirmOpen(true)}
             disabled={saving || status === 'publish'}
             title={status === 'publish' ? 'Karya tulis ini sudah terbit' : undefined}
           >
@@ -740,6 +755,28 @@ export function Editor({
             />
           </div>
         </Dialog>
+      ) : null}
+
+      {publishConfirmOpen ? (
+        <ConfirmDialog
+          title="Terbitkan karya tulis?"
+          description={
+            <>
+              <p>
+                <strong>{title.trim() || 'Tanpa judul'}</strong> akan langsung tampil di situs dan dapat
+                dibaca siapa saja.
+              </p>
+              <p className="penalis-muted">
+                Kamu masih bisa membatalkan terbit kapan saja jika ada yang perlu diperbaiki.
+              </p>
+            </>
+          }
+          confirmLabel="Terbitkan"
+          tone="warning"
+          busy={saving}
+          onConfirm={() => void save('publish')}
+          onCancel={closePublishConfirm}
+        />
       ) : null}
 
       {id ? (

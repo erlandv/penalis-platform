@@ -26,7 +26,12 @@ export type IconName =
   | 'redo'
   | 'code'
   | 'close'
-  | 'arrowLeft';
+  | 'arrowLeft'
+  | 'edit'
+  | 'externalLink'
+  | 'trash'
+  | 'eyeOff'
+  | 'send';
 
 const paths: Record<IconName, ReactNode> = {
   bold: (
@@ -142,6 +147,42 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="M19 12H5" />
       <path d="m12 19-7-7 7-7" />
+    </>
+  ),
+  edit: (
+    <>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </>
+  ),
+  externalLink: (
+    <>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <path d="M15 3h6v6" />
+      <path d="M10 14 21 3" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </>
+  ),
+  eyeOff: (
+    <>
+      <path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 10 8 10 8a18.4 18.4 0 0 1-2.16 3.19" />
+      <path d="M6.61 6.61A18.3 18.3 0 0 0 2 12s3 8 10 8a9.1 9.1 0 0 0 5.39-1.61" />
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <path d="m2 2 20 20" />
+    </>
+  ),
+  send: (
+    <>
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4Z" />
     </>
   ),
 };

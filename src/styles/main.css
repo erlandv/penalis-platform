@@ -665,12 +665,93 @@
 
 .penalis-button--danger:hover:not(:disabled) { background: var(--penalis-danger-soft); }
 
+/**
+ * Filled danger button, for the confirm action of a destructive dialog.
+ *
+ * The outline `--danger` variant is right for a row action (it should not
+ * shout), but the button that actually deletes something must be unmistakable.
+ */
+.penalis-button--danger-solid {
+  background: var(--penalis-danger);
+  border-color: var(--penalis-danger);
+  color: #ffffff;
+}
+
+.penalis-button--danger-solid:hover:not(:disabled) {
+  background: #7f1d1d;
+  border-color: #7f1d1d;
+}
+
+.penalis-dashboard-root .penalis-button--danger-solid { color: #ffffff; }
+
 .penalis-actions-row,
 .penalis-row-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+
+/**
+ * Icon-only row action.
+ *
+ * The article table used to carry four labelled buttons per row, which wrapped
+ * onto two lines and made the action column wider than the title column. Icons
+ * keep the row on one line; the accessible name lives in `aria-label` (which
+ * includes the article title) and `title` gives mouse users the same text.
+ *
+ * 36px is the compromise between a compact table and a usable target: it is
+ * comfortably larger than the 24px WCAG 2.2 minimum, and it grows to 44px on
+ * touch devices where precision is lower.
+ */
+.penalis-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--penalis-border);
+  border-radius: 8px;
+  background: var(--penalis-surface);
+  color: var(--penalis-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.penalis-icon-button:hover:not(:disabled) {
+  border-color: #c9bfb3;
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-text);
+}
+
+.penalis-icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.penalis-icon-button--danger {
+  color: var(--penalis-danger);
+}
+
+.penalis-icon-button--danger:hover:not(:disabled) {
+  border-color: #f3c4c4;
+  background: var(--penalis-danger-soft);
+  color: var(--penalis-danger);
+}
+
+@media (pointer: coarse) {
+  .penalis-icon-button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+/* Tighter gaps so the icon group reads as one cluster. */
+.penalis-row-actions--compact {
+  gap: 0.35rem;
+  flex-wrap: nowrap;
 }
 
 .penalis-form {
@@ -1563,6 +1644,51 @@
 }
 
 .penalis-modal__content--wide { max-width: 900px; }
+
+/*
+ * Confirmation dialogs are deliberately narrow: a short question reads better
+ * in a compact box than in a 760px panel, and the actions stay close to the
+ * text they apply to.
+ */
+.penalis-modal__content--confirm {
+  max-width: 460px;
+}
+
+.penalis-confirm__body {
+  color: var(--penalis-text);
+  font-size: 0.93rem;
+}
+
+.penalis-confirm__body p {
+  margin: 0 0 0.6rem;
+}
+
+.penalis-confirm__body p:last-child {
+  margin-bottom: 0;
+}
+
+/*
+ * Cancel comes first in the DOM and on screen, so the safe choice is the one
+ * the eye and the Tab order reach first. `margin-left: auto` keeps the pair
+ * right-aligned without reversing the order.
+ */
+.penalis-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 480px) {
+  .penalis-confirm__actions {
+    flex-direction: column-reverse;
+  }
+
+  .penalis-confirm__actions .penalis-button {
+    width: 100%;
+  }
+}
 
 .penalis-modal__header {
   display: flex;
