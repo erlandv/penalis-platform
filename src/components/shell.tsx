@@ -30,8 +30,8 @@ export function StatusBanner({
   if (needsPassword) {
     return (
       <Notice tone="warning">
-        <strong>Akun kamu belum memiliki kata sandi.</strong> Kami mengirim tautan untuk membuat kata sandi
-        ke <strong>{email}</strong>. Buka tautan tersebut agar kamu dapat masuk kembali.
+        Akun kamu belum memiliki kata sandi. Kami mengirim link untuk membuat kata sandi
+        ke {email}. Buka link tersebut agar kamu dapat login kembali.
       </Notice>
     );
   }
@@ -43,7 +43,7 @@ export function StatusBanner({
   if (status === 'pending_approval') {
     return (
       <Notice tone="warning">
-        <strong>Pendaftaran kamu menunggu persetujuan.</strong> Admin akan meninjau akun kamu. Penerbitan
+        Pendaftaran kamu menunggu persetujuan. Admin akan meninjau akun kamu. Penerbitan
         dinonaktifkan sampai akun kamu disetujui.
       </Notice>
     );
@@ -52,7 +52,7 @@ export function StatusBanner({
   if (status === 'rejected') {
     return (
       <Notice tone="danger">
-        <strong>Pendaftaran kamu tidak disetujui.</strong> Hubungi Admin Penalis jika kamu merasa ini
+        Pendaftaran kamu tidak disetujui. Hubungi Admin Penalis jika kamu merasa ini
         keliru.
       </Notice>
     );
@@ -61,7 +61,7 @@ export function StatusBanner({
   if (status === 'suspended') {
     return (
       <Notice tone="danger">
-        <strong>Akun kamu ditangguhkan.</strong> Membuat, mengubah, dan menerbitkan tidak tersedia.
+        Akun kamu ditangguhkan. Membuat, mengubah, dan menerbitkan tidak tersedia.
       </Notice>
     );
   }
@@ -96,7 +96,7 @@ function ResendBanner({ email }: { email: string }) {
   return (
     <Notice tone="warning">
       <p>
-        <strong>Konfirmasi alamat email kamu.</strong> Kami mengirim tautan verifikasi ke <strong>{email}</strong>. Kamu
+        Konfirmasi alamat email kamu. Kami mengirim tautan verifikasi ke {email}. Kamu
         belum dapat menerbitkan karya tulis sampai email kamu dikonfirmasi dan admin menyetujui akun kamu.
       </p>
       {message ? <p>{message}</p> : null}
@@ -149,7 +149,7 @@ export function Shell({
             Lihat profil kamu
           </a>
           <a className="penalis-link" href={bootstrap.logoutUrl}>
-            Keluar
+            Logout
           </a>
         </div>
       </header>

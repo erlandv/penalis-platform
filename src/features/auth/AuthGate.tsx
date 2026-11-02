@@ -15,20 +15,19 @@ import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../compo
 type Mode = 'login' | 'register' | 'resend' | 'forgot' | 'activate';
 
 const HEADINGS: Record<Mode, string> = {
-  login: 'Login',
-  register: 'Buat akun Penalis',
-  resend: 'Kirim ulang email verifikasi',
-  forgot: 'Lupa kata sandi',
-  activate: 'Aktifkan akun penulis lama',
+  login: 'Login ke Dashboard',
+  register: 'Buat Akun Penalis',
+  resend: 'Kirim Ulang Email Verifikasi',
+  forgot: 'Lupa Password',
+  activate: 'Aktifkan Akun Kontributor',
 };
 
 const DESCRIPTIONS: Record<Mode, string> = {
-  login: 'Masuk dengan akun Penalis untuk mengelola karya tulis.',
-  register: 'Buat akun Penalis untuk mulai menulis di Penalis.',
-  resend: 'Minta tautan verifikasi baru untuk akun yang belum dikonfirmasi.',
-  forgot: 'Masukkan email atau nama pengguna kamu. Kami akan mengirim tautan untuk mengatur ulang kata sandi.',
-  activate:
-    'Pernah mengirim karya tulis sebelum dasbor ini ada? Kami sudah membuatkan akun untukmu. Masukkan email yang kamu pakai saat mengirim, lalu buat kata sandi.',
+  login: 'Login ke dashboard dengan akun Penalis untuk mengelola karya tulis.',
+  register: 'Buat akun Penalis untuk mengakses dashboard dan mulai menulis di Penalis.',
+  resend: 'Minta link verifikasi baru untuk akun yang belum dikonfirmasi.',
+  forgot: 'Masukkan email atau username kamu. Kami akan mengirim link untuk reset password.',
+  activate: 'Sudah pernah mengirim karya tulis dan menjadi kontributor Penalis sebelumnya?',
 };
 
 /**
@@ -95,7 +94,7 @@ export function AuthGate() {
         <p className="penalis-muted">{DESCRIPTIONS[mode]}</p>
 
         {mode === 'login' && loginFailed ? (
-          <ErrorBanner message="Nama pengguna atau kata sandi salah, atau akun ini belum dapat masuk." />
+          <ErrorBanner message="Username/email/password salah, atau akun ini belum bisa login." />
         ) : null}
 
         {mode === 'login' ? <LoginForm /> : null}
@@ -121,13 +120,13 @@ export function AuthGate() {
               className="penalis-button penalis-auth__alt-action"
               onClick={() => setMode('activate')}
             >
-              Aktifkan akun penulis lama
+              Aktifkan Akun Kontributor
             </button>
           ) : null}
 
           {mode !== 'login' ? (
             <button type="button" className="penalis-auth__back" onClick={() => setMode('login')}>
-              Kembali ke halaman login
+              Kembali ke Halaman Login
             </button>
           ) : null}
         </div>
@@ -135,13 +134,13 @@ export function AuthGate() {
         <div className="penalis-auth__utility">
           {mode === 'login' ? (
             <button type="button" className="penalis-link-button" onClick={() => setMode('forgot')}>
-              Lupa kata sandi?
+              Lupa Password?
             </button>
           ) : null}
 
           {mode !== 'resend' ? (
             <button type="button" className="penalis-link-button" onClick={() => setMode('resend')}>
-              Kirim ulang email verifikasi
+              Kirim Ulang Email Verifikasi
             </button>
           ) : null}
         </div>
@@ -164,36 +163,36 @@ function LoginForm() {
       <input type="hidden" name="penalis_login" value="1" />
 
       <div className="penalis-field">
-        <label htmlFor="login">Nama pengguna atau email</label>
+        <label htmlFor="login">Username atau Email</label>
         <input
           id="login"
           type="text"
           name="log"
           autoComplete="username"
-          placeholder="nama.pengguna atau nama@email.com"
+          placeholder="username atau email kamu"
           required
         />
       </div>
 
       <div className="penalis-field">
-        <label htmlFor="login_password">Kata sandi</label>
+        <label htmlFor="login_password">Password</label>
         <input
           id="login_password"
           type="password"
           name="pwd"
           autoComplete="current-password"
-          placeholder="Kata sandi kamu"
+          placeholder="Password kamu"
           required
         />
       </div>
 
       <label className="penalis-checkbox">
         <input type="checkbox" name="rememberme" value="forever" />
-        <span>Tetap masuk</span>
+        <span>Simpan sesi login</span>
       </label>
 
       <button type="submit" className="penalis-button penalis-button--primary">
-        Masuk
+        Login ke Dashboard
       </button>
     </form>
   );
@@ -268,7 +267,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
       <div className="penalis-form">
         <Notice tone="success">{success}</Notice>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Continue to sign in
+          Lanjutkan untuk Login
         </button>
       </div>
     );
@@ -279,7 +278,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
       {formError ? <ErrorBanner message={formError} /> : null}
 
       <div className="penalis-field">
-        <label htmlFor="display_name">Nama tampilan</label>
+        <label htmlFor="display_name">Nama</label>
         <input
           id="display_name"
           type="text"
@@ -287,16 +286,16 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => update('display_name', event.target.value)}
           maxLength={80}
           autoComplete="name"
-          placeholder="Nama lengkap atau nama pena"
+          placeholder="Nama kamu"
           aria-invalid={Boolean(errors.display_name)}
           aria-describedby={describedBy('display_name-hint', errors.display_name && 'display_name-error')}
         />
-        <FieldHint id="display_name-hint">2–80 karakter. Nama ini tampil di profil publik.</FieldHint>
+        <FieldHint id="display_name-hint">Nama ini akan tampil di profil publik.</FieldHint>
         <FieldError errors={errors} name="display_name" />
       </div>
 
       <div className="penalis-field">
-        <label htmlFor="user_login">Nama pengguna</label>
+        <label htmlFor="user_login">Username</label>
         <input
           id="user_login"
           type="text"
@@ -304,18 +303,18 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => update('user_login', event.target.value)}
           maxLength={60}
           autoComplete="username"
-          placeholder="contoh: ada.lovelace"
+          placeholder="Username kamu"
           aria-invalid={Boolean(errors.user_login)}
           aria-describedby={describedBy('user_login-hint', errors.user_login && 'user_login-error')}
         />
         <FieldHint id="user_login-hint">
-          3–60 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.
+          3-60 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.
         </FieldHint>
         <FieldError errors={errors} name="user_login" />
       </div>
 
       <div className="penalis-field">
-        <label htmlFor="user_email">Alamat email</label>
+        <label htmlFor="user_email">Email</label>
         <input
           id="user_email"
           type="email"
@@ -323,23 +322,23 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           onChange={(event) => update('user_email', event.target.value)}
           maxLength={254}
           autoComplete="email"
-          placeholder="nama@email.com"
+          placeholder="Email kamu"
           aria-invalid={Boolean(errors.user_email)}
           aria-describedby={describedBy('user_email-hint', errors.user_email && 'user_email-error')}
         />
-        <FieldHint id="user_email-hint">Kami mengirim tautan verifikasi ke alamat ini.</FieldHint>
+        <FieldHint id="user_email-hint">Kami mengirim link verifikasi ke email ini.</FieldHint>
         <FieldError errors={errors} name="user_email" />
       </div>
 
       <div className="penalis-field">
-        <label htmlFor="password">Kata sandi</label>
+        <label htmlFor="password">Password</label>
         <input
           id="password"
           type="password"
           value={values.password}
           onChange={(event) => update('password', event.target.value)}
           autoComplete="new-password"
-          placeholder="Minimal 12 karakter"
+          placeholder="Password kamu"
           aria-invalid={Boolean(errors.password)}
           aria-describedby={describedBy('password-hint', errors.password && 'password-error')}
         />
@@ -348,14 +347,14 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="penalis-field">
-        <label htmlFor="confirm_password">Konfirmasi kata sandi</label>
+        <label htmlFor="confirm_password">Konfirmasi Password</label>
         <input
           id="confirm_password"
           type="password"
           value={values.confirm_password}
           onChange={(event) => update('confirm_password', event.target.value)}
           autoComplete="new-password"
-          placeholder="Ulangi kata sandi"
+          placeholder="Ulangi password kamu"
           aria-invalid={Boolean(errors.confirm_password)}
           aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
         />
@@ -384,12 +383,12 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           aria-invalid={Boolean(errors.penalis_consent)}
           aria-describedby={describedBy(errors.penalis_consent && 'penalis_consent-error')}
         />
-        <span>Saya menyetujui ketentuan situs dan memahami bahwa pendaftaran saya memerlukan persetujuan administrator.</span>
+        <span>Telah membaca dan menyetujui Ketentuan Layanan dan Kebijakan Privasi.</span>
       </label>
       <FieldError errors={errors} name="penalis_consent" />
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? 'Membuat akun…' : 'Buat akun'}
+        {submitting ? 'Membuat akun…' : 'Buat Akun Penalis'}
       </button>
     </form>
   );
@@ -430,15 +429,15 @@ function ResendForm() {
   return (
     <form className="penalis-form" onSubmit={submit} noValidate>
       <p className="penalis-muted">
-        Masukkan alamat email yang Anda gunakan saat mendaftar. Jika akun sedang menunggu verifikasi, kami akan
-        mengirim tautan baru.
+        Masukkan email yang kamu gunakan saat membuat akun. Jika akun sedang menunggu verifikasi, kami akan
+        mengirim link verifikasi baru.
       </p>
 
       {error ? <ErrorBanner message={error} /> : null}
       {message ? <Notice tone="success">{message}</Notice> : null}
 
       <div className="penalis-field">
-        <label htmlFor="resend_email">Alamat email</label>
+        <label htmlFor="resend_email">Email</label>
         <input
           id="resend_email"
           type="email"
@@ -449,17 +448,17 @@ function ResendForm() {
           }}
           autoComplete="email"
           maxLength={254}
-          placeholder="nama@email.com"
+          placeholder="Email kamu"
           aria-invalid={Boolean(fieldError)}
           aria-describedby={describedBy('resend_email-hint', fieldError && 'resend_email-error')}
           required
         />
-        <FieldHint id="resend_email-hint">Gunakan alamat yang kamu pakai saat mendaftar.</FieldHint>
+        <FieldHint id="resend_email-hint">Gunakan email yang kamu pakai saat membuat akun.</FieldHint>
         <FieldError errors={{ resend_email: fieldError }} name="resend_email" />
       </div>
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim email verifikasi'}
+        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Link Verifikasi'}
       </button>
     </form>
   );
@@ -509,7 +508,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
       <div className="penalis-form">
         <Notice tone="success">{message}</Notice>
         <p className="penalis-muted">
-          Tautan hanya berlaku sekali. Jika email tidak masuk dalam beberapa menit, periksa folder spam
+          Link verifikasi hanya dapat digunakan sekali. Jika email tidak masuk dalam beberapa menit, periksa folder spam
           atau coba lagi nanti.
         </p>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
@@ -524,7 +523,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
       {error ? <ErrorBanner message={error} /> : null}
 
       <div className="penalis-field">
-        <label htmlFor="forgot_login">Email atau nama pengguna</label>
+        <label htmlFor="forgot_login">Email atau Username</label>
         <input
           id="forgot_login"
           type="text"
@@ -535,12 +534,12 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
           }}
           autoComplete="username"
           maxLength={254}
-          placeholder="nama@email.com atau nama pengguna"
+          placeholder="Email atau username kamu"
           aria-invalid={Boolean(fieldError)}
           aria-describedby={describedBy('forgot_login-hint', fieldError && 'forgot_login-error')}
           required
         />
-        <FieldHint id="forgot_login-hint">Bisa berupa email atau nama pengguna.</FieldHint>
+        <FieldHint id="forgot_login-hint">Bisa berupa email atau username.</FieldHint>
         <FieldError errors={{ forgot_login: fieldError }} name="forgot_login" />
       </div>
 
@@ -559,7 +558,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim tautan pengaturan ulang'}
+        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Link Reset Password'}
       </button>
     </form>
   );
@@ -614,11 +613,11 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
       <div className="penalis-form">
         <Notice tone="success">{message}</Notice>
         <p className="penalis-muted">
-          Tautan berlaku 24 jam dan hanya dapat digunakan sekali. Setelah kamu membuat kata sandi, admin
-          akan meninjau akun sebelum kamu dapat menerbitkan karya tulis.
+          Link berlaku 24 jam dan hanya dapat digunakan sekali. Setelah kamu membuat password, admin akan 
+          meninjau akun sebelum kamu dapat menerbitkan karya tulis.
         </p>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Kembali ke halaman login
+          Kembali ke Halaman Login
         </button>
       </div>
     );
@@ -626,10 +625,15 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
 
   return (
     <form className="penalis-form" onSubmit={submit} noValidate>
+      <p className="penalis-muted">Kami sudah membuatkan akun untukmu. 
+        Aktifkan dengan cara verifikasi email yang kamu pakai saat mengirim karya 
+        lalu buat password untuk akun tersebut.
+      </p>
+
       {error ? <ErrorBanner message={error} /> : null}
 
       <div className="penalis-field">
-        <label htmlFor="activate_email">Email yang kamu pakai saat mengirim karya tulis</label>
+        <label htmlFor="activate_email">Email</label>
         <input
           id="activate_email"
           type="email"
@@ -640,7 +644,7 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
           }}
           autoComplete="email"
           maxLength={254}
-          placeholder="nama@email.com"
+          placeholder="Email kamu"
           aria-invalid={Boolean(fieldError)}
           aria-describedby={describedBy('activate_email-hint', fieldError && 'activate_email-error')}
           required
@@ -666,7 +670,7 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim tautan aktivasi'}
+        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Link Aktivasi'}
       </button>
     </form>
   );

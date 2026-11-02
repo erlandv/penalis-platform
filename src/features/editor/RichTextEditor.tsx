@@ -107,7 +107,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       }),
       Image.configure({ inline: false, allowBase64: false }),
       Placeholder.configure({
-        placeholder: 'Mulai tulis artikel kamu di sini…',
+        placeholder: 'Mulai tulis karya kamu di sini…',
       }),
     ],
     content: value,

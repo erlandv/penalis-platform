@@ -280,14 +280,14 @@ export function Editor({
     <form className="penalis-stack" onSubmit={submit} noValidate>
       <div className="penalis-page-heading">
         <div>
-          <h2>{id ? 'Ubah artikel' : 'Artikel baru'}</h2>
+          <h2>{id ? 'Edit Karya Tulis' : 'Karya Tulis Baru'}</h2>
           <p className="penalis-muted">
             {id ? (
               <>
                 Status: <StatusBadge status={status} />
               </>
             ) : (
-              'Simpan draf kapan saja. Anda dapat menerbitkan saat artikel sudah siap.'
+              'Simpan draf kapan saja. Kamu dapat menerbitkan saat karya sudah siap.'
             )}
           </p>
         </div>
@@ -325,13 +325,13 @@ export function Editor({
       <div className="penalis-editor">
         <div className="penalis-editor__main">
           <label className="penalis-field">
-            <span>Judul</span>
+            <span>Judul Karya Tulis</span>
             <input
               type="text"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               maxLength={200}
-              placeholder="Judul artikel Anda"
+              placeholder="Judul karya kamu"
               aria-invalid={Boolean(errors.title)}
             />
             <FieldError errors={errors} name="title" />
@@ -341,7 +341,7 @@ export function Editor({
             {/* A contenteditable div cannot be labelled with htmlFor, so the
                 visible label is referenced through aria-labelledby instead. */}
             <span className="penalis-field-label" id="penalis-content-label">
-              Isi artikel
+              Isi Karya Tulis
             </span>
             <ChunkErrorBoundary
               fallback={
@@ -356,7 +356,7 @@ export function Editor({
                     onChange={(event) => setContent(event.target.value)}
                     rows={18}
                     spellCheck={false}
-                    aria-label="Isi artikel dalam HTML"
+                    aria-label="Isi karya tulis dalam HTML"
                     aria-invalid={Boolean(errors.content)}
                     aria-describedby={errors.content ? 'content-error' : undefined}
                   />
