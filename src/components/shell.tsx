@@ -130,7 +130,6 @@ export function Shell({
     <div className="penalis-app">
       <header className="penalis-header">
         <div>
-          <p className="penalis-eyebrow">{bootstrap.siteName}</p>
           <h1>Dasbor Penulis</h1>
         </div>
         <div className="penalis-header__meta">

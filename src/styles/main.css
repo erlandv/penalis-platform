@@ -236,6 +236,168 @@
   gap: 1rem;
 }
 
+/*
+ * The title block must be allowed to shrink, and the action group must not.
+ *
+ * Both children used to be `flex-basis: auto`, i.e. as wide as their longest
+ * line. A long subtitle therefore pushed the buttons onto a second row while a
+ * short one kept them beside the title, so the same screen showed two different
+ * layouts depending on the copy. Giving the text a zero basis lets it wrap
+ * instead of forcing the buttons down, and `margin-left: auto` keeps the
+ * actions right-aligned even when they do wrap on a narrow screen.
+ */
+.penalis-page-heading > :first-child {
+  flex: 1 1 20rem;
+  min-width: 0;
+}
+
+.penalis-page-heading > .penalis-row-actions,
+.penalis-page-heading > .penalis-button {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/**
+ * Editor heading: back link, title, and status.
+ *
+ * Deliberately separate from `.penalis-page-heading`: the editor's actions live
+ * in their own bar (`.penalis-action-bar`) so their position never depends on
+ * the length of the title or subtitle.
+ */
+.penalis-editor-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.penalis-editor-heading__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.penalis-editor-heading__title h2 {
+  margin: 0;
+}
+
+/**
+ * Quiet "back" affordance.
+ *
+ * Rendered as a button because it navigates within the SPA, but styled as a
+ * text link so it does not compete with the primary actions. The negative
+ * inline margin keeps the label optically aligned with the heading below it
+ * while the hit area stays comfortably tappable.
+ */
+.penalis-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  min-height: 44px;
+  margin-left: -0.5rem;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--penalis-muted);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.penalis-back-link:hover {
+  background: var(--penalis-surface);
+  color: var(--penalis-accent-strong);
+}
+
+/**
+ * Sticky action bar for the editor.
+ *
+ * Keeps "Simpan" and "Terbitkan" reachable while writing a long article, and
+ * gives the save state a permanent home. `top` is 0 because the dashboard
+ * template drops the theme's sticky header; the solid background and border
+ * stop article text from showing through as it scrolls underneath.
+ */
+.penalis-action-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-surface);
+  box-shadow: 0 2px 10px rgba(36, 31, 26, 0.06);
+}
+
+.penalis-action-bar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+/*
+ * Save state. `min-height` reserves the line so the bar does not jump when the
+ * text changes from "Belum disimpan" to "Menyimpan…" to "Tersimpan 14:32".
+ */
+.penalis-save-state {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.5rem;
+  margin: 0;
+  color: var(--penalis-muted);
+  font-size: 0.82rem;
+}
+
+.penalis-save-state .penalis-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+@media (max-width: 600px) {
+  /*
+   * On a phone the bar becomes a bottom bar: the actions are the most used
+   * controls in the editor and the top of the screen is already crowded by the
+   * theme header, the dashboard header, and the navigation strip.
+   */
+  .penalis-action-bar {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+    border-radius: 0;
+    border-width: 1px 0 0;
+    padding: 0.6rem 0.9rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -4px 16px rgba(36, 31, 26, 0.1);
+  }
+
+  .penalis-action-bar__actions {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .penalis-action-bar__actions .penalis-button {
+    flex: 1 1 auto;
+  }
+
+  /* Keep the last fields clear of the fixed bar. */
+  .penalis-editor {
+    padding-bottom: 5.5rem;
+  }
+}
+
 .penalis-hero {
   display: flex;
   align-items: flex-start;
@@ -460,6 +622,7 @@
 .penalis-dashboard-root .penalis-button--primary { color: #ffffff; }
 .penalis-dashboard-root .penalis-button--ghost { color: var(--penalis-text); }
 .penalis-dashboard-root .penalis-button--danger { color: var(--penalis-danger); }
+.penalis-dashboard-root .penalis-button--soft { color: var(--penalis-accent-strong); }
 
 .penalis-button--primary {
   background: var(--penalis-accent);
@@ -475,6 +638,24 @@
 }
 
 .penalis-button--ghost:hover:not(:disabled) { border-color: #c9bfb3; }
+
+/**
+ * Secondary-but-important action.
+ *
+ * "Simpan draf" is the action a writer uses most, yet it used to look exactly
+ * like "Pratinjau" and "Batal". This variant gives it weight without competing
+ * with the single primary action ("Terbitkan").
+ */
+.penalis-button--soft {
+  background: var(--penalis-accent-soft);
+  border-color: #ddc9ff;
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-button--soft:hover:not(:disabled) {
+  background: #e6d9ff;
+  border-color: var(--penalis-accent);
+}
 
 .penalis-button--danger {
   background: transparent;

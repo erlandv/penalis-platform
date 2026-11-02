@@ -14,6 +14,7 @@ import { hasErrors, validateArticle } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../components/ui';
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
 import { Dialog } from '../../components/Dialog';
+import { Icon } from '../../components/icons';
 import type { RichTextEditorHandle } from './RichTextEditor';
 
 /**
@@ -26,6 +27,44 @@ const RichTextEditor = lazy(() =>
 );
 
 type SaveStatus = 'draft' | 'pending' | 'publish';
+
+/** The parts of the editor state that end up in the saved post. */
+type SnapshotInput = {
+  title: string;
+  content: string;
+  status: string;
+  categories: number[];
+  tags: number[];
+  featuredMedia: number;
+};
+
+/**
+ * Serialise the editable state for the dirty check.
+ *
+ * Content is trimmed the same way `save()` trims it, so the empty trailing
+ * paragraph TipTap keeps for the caret does not count as a change. Category and
+ * tag order is normalised because the server does not preserve it.
+ */
+function snapshotOf(state: SnapshotInput): string {
+  return JSON.stringify({
+    title: state.title.trim(),
+    content: trimTrailingEmptyParagraphs(state.content),
+    status: state.status,
+    categories: [...state.categories].sort((a, b) => a - b),
+    tags: [...state.tags].sort((a, b) => a - b),
+    featuredMedia: state.featuredMedia,
+  });
+}
+
+/** Snapshot of a blank editor, so a new article does not start out "dirty". */
+const EMPTY_SNAPSHOT = snapshotOf({
+  title: '',
+  content: '',
+  status: 'draft',
+  categories: [],
+  tags: [],
+  featuredMedia: 0,
+});
 
 export function Editor({
   articleId,
@@ -61,7 +100,30 @@ export function Editor({
   const [uploadError, setUploadError] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  /**
+   * Snapshot of the last persisted state, used to tell whether the writer has
+   * unsaved changes. Without it the save button is always enabled and leaving
+   * the editor silently discards work.
+   */
+  const [savedSnapshot, setSavedSnapshot] = useState(EMPTY_SNAPSHOT);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+
   const editorRef = useRef<RichTextEditorHandle | null>(null);
+
+  const currentSnapshot = useMemo(
+    () =>
+      snapshotOf({
+        title,
+        content,
+        status,
+        categories: selectedCategories,
+        tags: selectedTags.map((term) => term.id),
+        featuredMedia,
+      }),
+    [title, content, status, selectedCategories, selectedTags, featuredMedia],
+  );
+
+  const isDirty = currentSnapshot !== savedSnapshot;
 
   const load = useCallback(async () => {
     if (!articleId) {
@@ -89,6 +151,18 @@ export function Editor({
           // A missing preview is not fatal; the ID is still preserved.
         }
       }
+
+      // Baseline for the dirty check: the article as it exists on the server.
+      setSavedSnapshot(
+        snapshotOf({
+          title: article.title,
+          content: article.content,
+          status: article.status,
+          categories: article.categories.map((term) => term.id),
+          tags: article.tags.map((term) => term.id),
+          featuredMedia: article.featuredMedia,
+        }),
+      );
     } catch (caught) {
       setLoadError(caught instanceof ApiError ? caught.message : 'Artikel ini tidak dapat dimuat.');
     } finally {
@@ -233,6 +307,20 @@ export function Editor({
       setId(result.id);
       setStatus(result.status);
       setNotice(nextStatus === 'publish' ? 'Artikel Anda telah diterbitkan.' : 'Perubahan Anda telah disimpan.');
+      // The server may normalise the payload (kses filtering, slug, status),
+      // so the baseline is rebuilt from what was actually sent plus the status
+      // the server reported back.
+      setSavedSnapshot(
+        snapshotOf({
+          title,
+          content: payloadContent,
+          status: result.status,
+          categories: selectedCategories,
+          tags: selectedTags.map((term) => term.id),
+          featuredMedia,
+        }),
+      );
+      setSavedAt(new Date());
       onSaved(result.id);
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -250,6 +338,42 @@ export function Editor({
     event.preventDefault();
     void save('draft');
   };
+
+  /**
+   * Leave the editor, asking first when there is unsaved work.
+   *
+   * "Batal" used to navigate away immediately, so a mis-click next to
+   * "Pratinjau" threw away everything typed since the last save with no way
+   * back. The confirmation is the browser's own dialog: it is the only prompt
+   * that also covers closing the tab, and it needs no extra UI.
+   */
+  const leave = useCallback(() => {
+    if (isDirty && !window.confirm('Ada perubahan yang belum disimpan. Tinggalkan halaman ini?')) {
+      return;
+    }
+    onCancel();
+  }, [isDirty, onCancel]);
+
+  /**
+   * Warn on tab close / reload while there are unsaved changes.
+   *
+   * `beforeunload` cannot show custom text, but the browser's generic prompt is
+   * enough to stop an accidental reload from discarding a draft.
+   */
+  useEffect(() => {
+    if (!isDirty) {
+      return;
+    }
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Older browsers require a truthy returnValue to show the prompt.
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
 
   const previewDocument = useMemo(() => {
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>
@@ -269,8 +393,9 @@ export function Editor({
     return (
       <div className="penalis-stack">
         <ErrorBanner message={loadError} onRetry={() => void load()} />
-        <button type="button" className="penalis-button penalis-button--ghost" onClick={onCancel}>
-          Kembali ke artikel
+        <button type="button" className="penalis-back-link" onClick={onCancel}>
+          <Icon name="arrowLeft" />
+          Kembali ke karya tulis
         </button>
       </div>
     );
@@ -278,44 +403,69 @@ export function Editor({
 
   return (
     <form className="penalis-stack" onSubmit={submit} noValidate>
-      <div className="penalis-page-heading">
-        <div>
+      {/*
+        The heading carries only the title and status. Actions live in their own
+        bar below it, so their position no longer depends on how long the
+        description happens to be — previously a long subtitle pushed the
+        buttons onto a second line while a short one kept them beside the title.
+      */}
+      <div className="penalis-editor-heading">
+        <button type="button" className="penalis-back-link" onClick={leave}>
+          <Icon name="arrowLeft" />
+          Kembali ke karya tulis
+        </button>
+        <div className="penalis-editor-heading__title">
           <h2>{id ? 'Edit Karya Tulis' : 'Karya Tulis Baru'}</h2>
-          <p className="penalis-muted">
-            {id ? (
-              <>
-                Status: <StatusBadge status={status} />
-              </>
-            ) : (
-              'Simpan draf kapan saja. Kamu dapat menerbitkan saat karya sudah siap.'
-            )}
-          </p>
+          <StatusBadge status={status} />
         </div>
-        <div className="penalis-row-actions">
-          <button type="button" className="penalis-button penalis-button--ghost" onClick={onCancel}>
-            Batal
-          </button>
+      </div>
+
+      {/*
+        Sticky so the primary actions stay reachable while writing a long
+        article; the save state sits on the left of the same bar.
+      */}
+      <div className="penalis-action-bar">
+        <p className="penalis-save-state" role="status" aria-live="polite">
+          {saving ? (
+            <>
+              <span className="penalis-spinner" aria-hidden="true" />
+              Menyimpan…
+            </>
+          ) : isDirty ? (
+            'Belum disimpan'
+          ) : savedAt ? (
+            `Tersimpan ${savedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+          ) : (
+            'Belum ada perubahan'
+          )}
+        </p>
+
+        <div className="penalis-action-bar__actions">
           <button type="button" className="penalis-button penalis-button--ghost" onClick={() => setPreviewOpen(true)}>
             Pratinjau
           </button>
           <button
             type="button"
-            className="penalis-button penalis-button--ghost"
+            className="penalis-button penalis-button--soft"
             onClick={() => void save(status === 'publish' ? 'publish' : 'draft')}
-            disabled={saving}
+            disabled={saving || !isDirty}
           >
             {saving ? 'Menyimpan…' : status === 'publish' ? 'Simpan perubahan' : 'Simpan draf'}
           </button>
-          {status !== 'publish' ? (
-            <button
-              type="button"
-              className="penalis-button penalis-button--primary"
-              onClick={() => void save('publish')}
-              disabled={saving}
-            >
-              Terbitkan
-            </button>
-          ) : null}
+          {/*
+            The publish slot is always rendered so the action group keeps the
+            same width in every state; it is disabled rather than removed once
+            the article is already published.
+          */}
+          <button
+            type="button"
+            className="penalis-button penalis-button--primary"
+            onClick={() => void save('publish')}
+            disabled={saving || status === 'publish'}
+            title={status === 'publish' ? 'Karya tulis ini sudah terbit' : undefined}
+          >
+            Terbitkan
+          </button>
         </div>
       </div>
 

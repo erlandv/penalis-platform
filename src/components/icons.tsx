@@ -25,7 +25,8 @@ export type IconName =
   | 'undo'
   | 'redo'
   | 'code'
-  | 'close';
+  | 'close'
+  | 'arrowLeft';
 
 const paths: Record<IconName, ReactNode> = {
   bold: (
@@ -135,6 +136,12 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
+    </>
+  ),
+  arrowLeft: (
+    <>
+      <path d="M19 12H5" />
+      <path d="m12 19-7-7 7-7" />
     </>
   ),
 };
