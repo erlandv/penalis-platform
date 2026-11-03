@@ -1,5 +1,6 @@
 /**
- * Account settings: status, email change, password change, and sign out.
+ * Account settings: status, username change, email change, password change,
+ * and sign out.
  */
 
 import { useState, type FormEvent } from 'react';
@@ -9,7 +10,7 @@ import { getBootstrap } from '../../lib/bootstrap';
 import type { Account, FieldErrors } from '../../lib/types';
 import { formatDate } from '../../lib/format';
 import { describedBy } from '../../lib/a11y';
-import { validateEmail } from '../../lib/validation';
+import { validateEmail, validateUsername } from '../../lib/validation';
 import { ErrorBanner, FieldError, FieldHint, Notice, StatusBadge } from '../../components/ui';
 
 export function Settings({ account, onUpdated }: { account: Account; onUpdated: (account: Account) => void }) {
@@ -20,6 +21,66 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const [username, setUsername] = useState('');
+  const [usernamePassword, setUsernamePassword] = useState('');
+  const [usernameErrors, setUsernameErrors] = useState<FieldErrors>({});
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameNotice, setUsernameNotice] = useState('');
+  const [usernameSaving, setUsernameSaving] = useState(false);
+
+  const submitUsername = async (event: FormEvent) => {
+    event.preventDefault();
+    setUsernameError('');
+    setUsernameNotice('');
+    setUsernameErrors({});
+
+    const clientErrors: FieldErrors = {};
+    const usernameMessage = validateUsername(username, account.username);
+    if (usernameMessage !== '') {
+      clientErrors.new_username = usernameMessage;
+    }
+    if (usernamePassword === '') {
+      // A distinct key from the email form's `current_password`: both forms
+      // render a FieldError, and duplicate DOM ids would break the
+      // aria-describedby wiring on whichever form came second.
+      clientErrors.username_password = 'Masukkan password kamu saat ini.';
+    }
+    if (Object.keys(clientErrors).length > 0) {
+      setUsernameErrors(clientErrors);
+      return;
+    }
+
+    setUsernameSaving(true);
+
+    try {
+      const result = await accountApi.changeUsername({
+        new_username: username,
+        current_password: usernamePassword,
+      });
+      setUsernamePassword('');
+      setUsername('');
+      // The server destroyed every session, including this one, so the only
+      // useful next step is signing in again with the new login.
+      setUsernameNotice(`${result.message} Mengalihkan ke halaman login…`);
+      window.setTimeout(() => {
+        window.location.href = bootstrap.loginUrl;
+      }, 2000);
+    } catch (caught) {
+      if (caught instanceof ApiError) {
+        const fields: FieldErrors = { ...caught.fields };
+        if (fields.current_password) {
+          fields.username_password = fields.current_password;
+          delete fields.current_password;
+        }
+        setUsernameErrors(fields);
+        setUsernameError(caught.message);
+      } else {
+        setUsernameError('Username kamu tidak dapat diubah.');
+      }
+      setUsernameSaving(false);
+    }
+  };
 
   const [newEmail, setNewEmail] = useState('');
   const [emailPassword, setEmailPassword] = useState('');
@@ -120,7 +181,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
       <div className="penalis-page-heading">
         <div>
           <h2>Pengaturan Akun</h2>
-          <p className="penalis-muted">Tinjau informasi akun kamu, ubah email, dan ubah password kamu di sini.</p>
+          <p className="penalis-muted">Tinjau informasi akun kamu, ubah username, email, dan password kamu di sini.</p>
         </div>
       </div>
 
@@ -131,8 +192,8 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         </div>
 
         <p className="penalis-muted">
-          Username belum dapat diubah melalui halaman ini; hubungi admin Penalis jika perlu diperbarui. Alamat email
-          dapat diubah sendiri, tetapi baru berlaku setelah kamu mengonfirmasi link yang dikirim ke alamat email baru.
+          Username dan alamat email dapat diubah sendiri dari halaman ini. Perubahan email baru berlaku
+          setelah kamu mengonfirmasi link yang dikirim ke alamat email baru.
         </p>
 
         <dl className="penalis-details">
@@ -167,6 +228,72 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
             <dd>{account.approvedAt ? formatDate(account.approvedAt) : '—'}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="penalis-panel">
+        <div className="penalis-panel__header">
+          <h3>Ganti Username</h3>
+        </div>
+
+        <p className="penalis-muted">
+          Username adalah nama yang kamu pakai untuk masuk. Gunakan 3–60 karakter: huruf, angka, titik,
+          garis bawah, atau tanda hubung. URL profil dan tautan karya kamu tidak berubah. Jika nama publik
+          kamu mengikuti username, nama publik juga ikut berubah. Semua sesi akan diakhiri dan kamu perlu
+          masuk kembali.
+        </p>
+
+        {usernameError ? <ErrorBanner message={usernameError} /> : null}
+        {usernameNotice ? <Notice tone="success">{usernameNotice}</Notice> : null}
+
+        {account.canChangeUsername ? (
+          <form className="penalis-form penalis-form--narrow" onSubmit={submitUsername} noValidate>
+            <label className="penalis-field">
+              <span>Username Baru</span>
+              <input
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
+                maxLength={60}
+                aria-invalid={Boolean(usernameErrors.new_username)}
+                aria-describedby={describedBy(
+                  'new_username-hint',
+                  usernameErrors.new_username && 'new_username-error',
+                )}
+                disabled={usernameSaving}
+              />
+              <FieldHint id="new_username-hint">
+                Username saat ini: {account.username}. Nama publik kamu saat ini: {account.displayName}.
+              </FieldHint>
+              <FieldError errors={usernameErrors} name="new_username" />
+            </label>
+
+            <label className="penalis-field">
+              <span>Password Saat Ini</span>
+              <input
+                type="password"
+                value={usernamePassword}
+                onChange={(event) => setUsernamePassword(event.target.value)}
+                autoComplete="current-password"
+                aria-invalid={Boolean(usernameErrors.username_password)}
+                aria-describedby={describedBy(
+                  'username_password-hint',
+                  usernameErrors.username_password && 'username_password-error',
+                )}
+                disabled={usernameSaving}
+              />
+              <FieldHint id="username_password-hint">
+                Kami meminta password untuk memastikan perubahan ini benar-benar dari kamu.
+              </FieldHint>
+              <FieldError errors={usernameErrors} name="username_password" />
+            </label>
+
+            <button type="submit" className="penalis-button penalis-button--primary" disabled={usernameSaving}>
+              {usernameSaving ? 'Memperbarui…' : 'Ganti Username dan Keluar'}
+            </button>
+          </form>
+        ) : (
+          <p className="penalis-muted">Username akun ini belum dapat diubah. Hubungi admin Penalis.</p>
+        )}
       </section>
 
       <section className="penalis-panel">

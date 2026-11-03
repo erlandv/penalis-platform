@@ -17,6 +17,10 @@ require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
 require_once __DIR__ . '/../includes/class-dashboard.php';
+require_once __DIR__ . '/../includes/class-rate-limiter.php';
+require_once __DIR__ . '/../includes/class-activator.php';
+require_once __DIR__ . '/../includes/class-emails.php';
+require_once __DIR__ . '/../includes/class-username-change.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -63,6 +67,19 @@ function penalis_reset() {
 	$GLOBALS['penalis_test_users']        = array();
 	$GLOBALS['penalis_test_role_changes'] = array();
 	$GLOBALS['penalis_test_options']      = array();
+	$GLOBALS['penalis_test_transients']   = array();
+	$GLOBALS['penalis_test_mail']         = array();
+	$GLOBALS['penalis_test_cache_deletes'] = array();
+	$GLOBALS['penalis_test_cleaned_users'] = array();
+	unset(
+		$GLOBALS['penalis_test_sessions_destroyed'],
+		$GLOBALS['penalis_test_auth_cookie_cleared'],
+		$GLOBALS['penalis_test_duplicate_login'],
+		$GLOBALS['penalis_test_lock_available'],
+		$GLOBALS['penalis_test_update_fails'],
+		$GLOBALS['penalis_test_verified_user'],
+		$GLOBALS['penalis_test_updated_login']
+	);
 }
 
 /* -------------------------------------------------------------------------
@@ -675,6 +692,162 @@ penalis_assert(
 	false !== strpos( $penalis_module_tag, 'id="penalis-dashboard-js"' ),
 	'The module tag keeps the handle id so dependent localisations still resolve.'
 );
+
+/* -------------------------------------------------------------------------
+ * Username changes
+ * ---------------------------------------------------------------------- */
+
+// Validation is pure and must reject rather than rewrite.
+penalis_same( '', Penalis_Policy::validate_username_change( 'penulis_baru-01' ), 'A plain login is valid.' );
+penalis_same( '', Penalis_Policy::validate_username_change( 'a.b_c-1' ), 'Dots, underscores and hyphens are allowed.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( '' ), 'An empty login is rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'bad name' ), 'Whitespace is rejected rather than stripped.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( ' nama' ), 'Leading whitespace is not trimmed away.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'nama@penalis' ), 'Characters removed by sanitization are rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'nama!' ), 'Punctuation outside the allowed set is rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'ab' ), 'Logins shorter than three characters are rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( str_repeat( 'a', 61 ) ), 'Logins longer than 60 characters are rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( '...' ), 'A login with no letter or digit is rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'user30', 'user30' ), 'The current login is rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'USER30', 'user30' ), 'A case-only change is rejected.' );
+penalis_same( '', Penalis_Policy::validate_username_change( 'user31', 'user30' ), 'A different login is accepted.' );
+
+// Eligibility mirrors email changes.
+penalis_assert( Penalis_Policy::can_change_username( Penalis_Policy::STATUS_PENDING_APPROVAL, false ), 'Pending approval accounts may rename.' );
+penalis_assert( Penalis_Policy::can_change_username( Penalis_Policy::STATUS_ACTIVE, true ), 'Active accounts with access may rename.' );
+penalis_assert( ! Penalis_Policy::can_change_username( Penalis_Policy::STATUS_ACTIVE, false ), 'Active accounts without access may not rename.' );
+penalis_assert( ! Penalis_Policy::can_change_username( Penalis_Policy::STATUS_PENDING_VERIFICATION, true ), 'Unverified accounts may not rename.' );
+penalis_assert( ! Penalis_Policy::can_change_username( Penalis_Policy::STATUS_SUSPENDED, true ), 'Suspended accounts may not rename.' );
+penalis_assert( ! Penalis_Policy::can_change_username( Penalis_Policy::STATUS_REJECTED, true ), 'Rejected accounts may not rename.' );
+
+/**
+ * Build an active writer for the username-change workflow tests.
+ *
+ * @param int    $user_id User ID.
+ * @param string $mode    Display-name mode.
+ * @return void
+ */
+function penalis_make_writer( $user_id, $mode = 'username' ) {
+	$GLOBALS['penalis_test_users'][ $user_id ]              = new WP_User( $user_id );
+	$GLOBALS['penalis_test_users'][ $user_id ]->user_pass   = 'hash:correct';
+	update_user_meta( $user_id, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+	update_user_meta( $user_id, Penalis_Account_Status::META_ACCESS, '1' );
+	update_user_meta( $user_id, Penalis_Account_Status::META_DISPLAY_NAME_MODE, $mode );
+}
+
+penalis_reset();
+penalis_make_writer( 30 );
+$GLOBALS['penalis_test_current_user'] = 30;
+$GLOBALS['wpdb']                      = new Penalis_Test_WPDB();
+
+$penalis_wrong_password = Penalis_Username_Change::change( 30, 'penulis_baru', 'wrong' );
+penalis_same( 'penalis_password_invalid', $penalis_wrong_password->get_error_code(), 'A wrong current password is rejected.' );
+penalis_same( 'user30', $GLOBALS['penalis_test_users'][30]->user_login, 'A rejected password leaves the login untouched.' );
+$GLOBALS['penalis_test_transients'] = array();
+
+$penalis_invalid = Penalis_Username_Change::change( 30, 'bad name', 'correct' );
+penalis_same( 'penalis_username_invalid', $penalis_invalid->get_error_code(), 'An invalid login is rejected with a field error.' );
+penalis_same( 'new_username', array_key_first( $penalis_invalid->get_error_data()['fields'] ), 'The validation error is attached to the field.' );
+$GLOBALS['penalis_test_transients'] = array();
+
+$penalis_same_login = Penalis_Username_Change::change( 30, 'user30', 'correct' );
+penalis_same( 'penalis_username_invalid', $penalis_same_login->get_error_code(), 'Renaming to the current login is rejected.' );
+$GLOBALS['penalis_test_transients'] = array();
+
+$GLOBALS['penalis_test_duplicate_login'] = 99;
+$penalis_duplicate                       = Penalis_Username_Change::change( 30, 'penulis_baru', 'correct' );
+penalis_same( 'penalis_username_unavailable', $penalis_duplicate->get_error_code(), 'A duplicate login gets the generic unavailable error.' );
+penalis_same( 'user30', $GLOBALS['penalis_test_users'][30]->user_login, 'A duplicate leaves the login untouched.' );
+$GLOBALS['penalis_test_duplicate_login'] = null;
+$GLOBALS['penalis_test_transients']   = array();
+
+$GLOBALS['penalis_test_lock_available'] = false;
+$penalis_no_lock                        = Penalis_Username_Change::change( 30, 'penulis_baru', 'correct' );
+penalis_same( 'penalis_username_unavailable', $penalis_no_lock->get_error_code(), 'A missing advisory lock fails closed.' );
+$GLOBALS['penalis_test_lock_available'] = true;
+$GLOBALS['penalis_test_transients']   = array();
+
+$GLOBALS['penalis_test_update_fails'] = true;
+$penalis_update_failed                = Penalis_Username_Change::change( 30, 'penulis_baru', 'correct' );
+penalis_same( 'penalis_username_unavailable', $penalis_update_failed->get_error_code(), 'A failed write reports the generic error.' );
+$GLOBALS['penalis_test_update_fails'] = false;
+$GLOBALS['penalis_test_transients']   = array();
+
+$penalis_changed = Penalis_Username_Change::change( 30, 'penulis_baru', 'correct' );
+penalis_assert( ! is_wp_error( $penalis_changed ), 'A valid change succeeds.' );
+penalis_same( 'penulis_baru', $GLOBALS['penalis_test_users'][30]->user_login, 'The login is updated.' );
+penalis_same( 'user30', $GLOBALS['penalis_test_users'][30]->user_nicename, 'The author nicename is preserved.' );
+penalis_same( 'penulis_baru', $GLOBALS['penalis_test_users'][30]->display_name, 'Username display-name mode follows the new login.' );
+penalis_assert( ! empty( $GLOBALS['penalis_test_sessions_destroyed'] ), 'All sessions are destroyed.' );
+penalis_assert( ! empty( $GLOBALS['penalis_test_auth_cookie_cleared'] ), 'The current auth cookie is cleared.' );
+penalis_assert( in_array( 'userlogins:user30', $GLOBALS['penalis_test_cache_deletes'], true ), 'The old login cache is invalidated.' );
+penalis_assert( in_array( 'userlogins:penulis_baru', $GLOBALS['penalis_test_cache_deletes'], true ), 'The new login cache is invalidated.' );
+penalis_assert( in_array( 30, $GLOBALS['penalis_test_cleaned_users'], true ), 'The user cache is cleaned.' );
+penalis_same( 'user30@example.com', $GLOBALS['penalis_test_mail'][0][0], 'The security notice goes to the current email.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'penulis_baru' ), 'The notice names the new login.' );
+
+// A custom pen name must survive a rename.
+penalis_reset();
+penalis_make_writer( 32, 'custom' );
+$GLOBALS['penalis_test_users'][32]->display_name = 'Nama Pena';
+$GLOBALS['penalis_test_current_user']            = 32;
+$GLOBALS['wpdb']                                 = new Penalis_Test_WPDB();
+$penalis_custom                                  = Penalis_Username_Change::change( 32, 'penulis_pena', 'correct' );
+penalis_assert( ! is_wp_error( $penalis_custom ), 'A custom-name account can rename.' );
+penalis_same( 'Nama Pena', $GLOBALS['penalis_test_users'][32]->display_name, 'A custom pen name is not overwritten.' );
+
+// A first/last-name composition must survive a rename too.
+penalis_reset();
+penalis_make_writer( 33, 'auto' );
+$GLOBALS['penalis_test_users'][33]->display_name = 'Depan Belakang';
+$GLOBALS['penalis_test_current_user']            = 33;
+$GLOBALS['wpdb']                                 = new Penalis_Test_WPDB();
+Penalis_Username_Change::change( 33, 'penulis_auto', 'correct' );
+penalis_same( 'Depan Belakang', $GLOBALS['penalis_test_users'][33]->display_name, 'A composed name is not overwritten.' );
+
+// A rename from another browser must not clear this browser's cookie.
+penalis_reset();
+penalis_make_writer( 34 );
+$GLOBALS['penalis_test_current_user'] = 0;
+$GLOBALS['wpdb']                      = new Penalis_Test_WPDB();
+$penalis_other_browser                = Penalis_Username_Change::change( 34, 'penulis_lain', 'correct' );
+penalis_assert( ! is_wp_error( $penalis_other_browser ), 'A rename outside the current session succeeds.' );
+penalis_assert( empty( $GLOBALS['penalis_test_auth_cookie_cleared'] ), 'Another browser does not clear this session cookie.' );
+penalis_assert( ! empty( $GLOBALS['penalis_test_sessions_destroyed'] ), 'Sessions are still destroyed for the renamed account.' );
+
+// Status gate.
+penalis_reset();
+$GLOBALS['penalis_test_users'][31]              = new WP_User( 31 );
+$GLOBALS['penalis_test_users'][31]->user_pass   = 'hash:correct';
+update_user_meta( 31, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_SUSPENDED );
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$penalis_forbidden = Penalis_Username_Change::change( 31, 'penulis_lain', 'correct' );
+penalis_same( 'penalis_username_forbidden', $penalis_forbidden->get_error_code(), 'Suspended accounts cannot change their login.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][35]            = new WP_User( 35 );
+$GLOBALS['penalis_test_users'][35]->user_pass = 'hash:correct';
+update_user_meta( 35, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_PENDING_APPROVAL );
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$penalis_pending = Penalis_Username_Change::change( 35, 'penulis_pending', 'correct' );
+penalis_assert( ! is_wp_error( $penalis_pending ), 'Pending approval accounts may change their login.' );
+
+// Throttling: the third attempt in the window is still allowed, the fourth is not.
+penalis_reset();
+penalis_make_writer( 36 );
+$GLOBALS['penalis_test_current_user'] = 36;
+$GLOBALS['wpdb']                      = new Penalis_Test_WPDB();
+Penalis_Username_Change::change( 36, 'penulis_satu', 'correct' );
+Penalis_Username_Change::change( 36, 'penulis_dua', 'correct' );
+Penalis_Username_Change::change( 36, 'penulis_tiga', 'correct' );
+$penalis_throttled = Penalis_Username_Change::change( 36, 'penulis_empat', 'correct' );
+penalis_same( 'penalis_rate_limited', $penalis_throttled->get_error_code(), 'The per-user limit stops further attempts.' );
+
+// An unknown account is not authenticated.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$penalis_missing = Penalis_Username_Change::change( 999, 'penulis_baru', 'correct' );
+penalis_same( 'penalis_not_authenticated', $penalis_missing->get_error_code(), 'An unknown account is rejected.' );
 
 /* -------------------------------------------------------------------------
  * Report

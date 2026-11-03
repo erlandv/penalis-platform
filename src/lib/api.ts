@@ -121,6 +121,9 @@ function decodeTermName<T extends { name: string }>(term: T): T {
 export const accountApi = {
   get: () => request<Account>('/account'),
 
+  changeUsername: (payload: { new_username: string; current_password: string }) =>
+    request<{ message: string }>('/account/username', { method: 'POST', body: payload }),
+
   updateProfile: (payload: {
     first_name?: string;
     last_name?: string;

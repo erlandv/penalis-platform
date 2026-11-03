@@ -189,13 +189,51 @@ final class Penalis_Emails {
 	}
 
 	/**
-	 * Notify the previous address that the account email changed.
+	 * Notify the current address that the account login changed.
 	 *
-	 * This is the only warning the real owner receives if the change was not
+	 * This is the only warning the real owner receives if the rename was not
 	 * theirs, so it is sent after the change is committed and never blocks it.
+	 * The message deliberately does not repeat the old login: the recipient
+	 * already knows it, and an attacker reading the mailbox gains nothing.
 	 *
 	 * @param int    $user_id   User ID.
-	 * @param string $old_email Previous address.
+	 * @param string $email     Current address.
+	 * @param string $old_login Previous login.
+	 * @param string $new_login New login.
+	 * @return bool Whether wp_mail accepted the message.
+	 */
+	public static function send_username_change_notice( $user_id, $email, $old_login = '', $new_login = '' ) {
+		$user = get_userdata( (int) $user_id );
+
+		if ( ! $user || ! is_email( $email ) ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'invalid_recipient' );
+			return false;
+		}
+
+		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$subject = sprintf( '[%s] Username Akun Kamu Telah Diubah', $site );
+
+		$message  = self::greeting( $user ) . "\n\n";
+		$message .= sprintf( 'Username akun %s kamu baru saja diubah menjadi %s.', $site, (string) $new_login ) . "\n\n";
+		$message .= "Semua sesi yang sedang aktif telah diakhiri. Masuk kembali dengan username baru kamu.\n\n";
+		$message .= "Jika kamu yang melakukan perubahan ini, tidak ada tindakan lain yang perlu dilakukan.\n\n";
+		$message .= "Jika bukan kamu, segera reset password akun kamu dan hubungi admin Penalis:\n\n";
+		$message .= Penalis_Dashboard::dashboard_url() . "\n";
+
+		$sent = wp_mail( $email, $subject, $message );
+
+		if ( ! $sent ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'username_change_notice' );
+		}
+
+		return (bool) $sent;
+	}
+
+	/**
+	 * Notify the previous email address.
+	 *
+	 * @param int    $user_id   User ID.
+	 * @param string $old_email Old address.
 	 * @param string $new_email New address.
 	 * @return bool
 	 */

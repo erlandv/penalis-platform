@@ -218,6 +218,26 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/account/username',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'change_username' ),
+				'permission_callback' => array( __CLASS__, 'require_logged_in' ),
+				'args'                => array(
+					'new_username'     => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'current_password' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/account/email',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -591,30 +611,31 @@ final class Penalis_Rest_Api {
 
 		return new WP_REST_Response(
 			array(
-				'id'              => (int) $user_id,
-				'username'        => $user->user_login,
-				'displayName'     => $user->display_name,
-				'firstName'       => (string) get_user_meta( $user_id, 'first_name', true ),
-				'lastName'        => (string) get_user_meta( $user_id, 'last_name', true ),
-				'displayNameMode' => Penalis_Account_Status::get_display_name_mode( $user_id ),
-				'avatarId'        => Penalis_Avatar::get_id( $user_id ),
-				'avatarUrl'       => Penalis_Avatar::get_url( $user_id ),
-				'email'           => $user->user_email,
-				'pendingEmail'    => $pending_email,
-				'canChangeEmail'  => $is_admin || Penalis_Policy::can_change_email( $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
-				'description'     => (string) get_user_meta( $user_id, 'description', true ),
-				'authorUrl'       => get_author_posts_url( $user_id ),
-				'status'          => $status,
-				'statusLabel'     => $status_label,
-				'isAdministrator' => $is_admin,
-				'canWrite'        => $can_write,
-				'canView'         => Penalis_Account_Status::can_view_dashboard( $user_id ),
-				'emailVerified'   => '1' === (string) get_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, true ),
-				'needsPassword'   => Penalis_Account_Status::needs_password( $user_id ),
-				'registeredAt'    => (int) get_user_meta( $user_id, Penalis_Account_Status::META_REGISTERED_AT, true ),
-				'approvedAt'      => (int) get_user_meta( $user_id, Penalis_Account_Status::META_APPROVED_AT, true ),
-				'counts'          => $counts,
-				'registrationOn'  => Penalis_Registration::is_registration_enabled(),
+				'id'                => (int) $user_id,
+				'username'          => $user->user_login,
+				'displayName'       => $user->display_name,
+				'firstName'         => (string) get_user_meta( $user_id, 'first_name', true ),
+				'lastName'          => (string) get_user_meta( $user_id, 'last_name', true ),
+				'displayNameMode'   => Penalis_Account_Status::get_display_name_mode( $user_id ),
+				'avatarId'          => Penalis_Avatar::get_id( $user_id ),
+				'avatarUrl'         => Penalis_Avatar::get_url( $user_id ),
+				'email'             => $user->user_email,
+				'pendingEmail'      => $pending_email,
+				'canChangeEmail'    => $is_admin || Penalis_Policy::can_change_email( $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
+				'canChangeUsername' => $is_admin || Penalis_Policy::can_change_username( $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
+				'description'       => (string) get_user_meta( $user_id, 'description', true ),
+				'authorUrl'         => get_author_posts_url( $user_id ),
+				'status'            => $status,
+				'statusLabel'       => $status_label,
+				'isAdministrator'   => $is_admin,
+				'canWrite'          => $can_write,
+				'canView'           => Penalis_Account_Status::can_view_dashboard( $user_id ),
+				'emailVerified'     => '1' === (string) get_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, true ),
+				'needsPassword'     => Penalis_Account_Status::needs_password( $user_id ),
+				'registeredAt'      => (int) get_user_meta( $user_id, Penalis_Account_Status::META_REGISTERED_AT, true ),
+				'approvedAt'        => (int) get_user_meta( $user_id, Penalis_Account_Status::META_APPROVED_AT, true ),
+				'counts'            => $counts,
+				'registrationOn'    => Penalis_Registration::is_registration_enabled(),
 			),
 			200
 		);
@@ -721,10 +742,31 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
-	 * Request a verified change of the account email address.
+	 * Change the authenticated account's login.
 	 *
-	 * The address is not changed here. A confirmation link is sent to the new
-	 * address and the change is applied only when that link is consumed.
+	 * Self-scoped: the user ID comes from the session, never from the request.
+	 * The handler enforces eligibility, re-authentication, throttling and
+	 * validation; the route only guarantees a signed-in caller.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function change_username( $request ) {
+		$result = Penalis_Username_Change::change(
+			get_current_user_id(),
+			(string) $request->get_param( 'new_username' ),
+			(string) $request->get_param( 'current_password' )
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Request an email change.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response|WP_Error

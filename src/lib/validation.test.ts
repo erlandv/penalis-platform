@@ -7,6 +7,7 @@ import {
   validateEmail,
   validateLoginOrEmail,
   validateRegistration,
+  validateUsername,
 } from './validation';
 
 const validRegistration = {
@@ -117,6 +118,43 @@ describe('validateLoginOrEmail', () => {
 
   it('rejects an overlong value', () => {
     expect(validateLoginOrEmail('a'.repeat(255))).not.toBe('');
+  });
+});
+
+describe('validateUsername', () => {
+  it('accepts a plain login', () => {
+    expect(validateUsername('penulis_baru-01')).toBe('');
+    expect(validateUsername('a.b_c-1')).toBe('');
+  });
+
+  it('rejects an empty value', () => {
+    expect(validateUsername('')).not.toBe('');
+  });
+
+  it('rejects values outside the length bounds', () => {
+    expect(validateUsername('ab')).not.toBe('');
+    expect(validateUsername('a'.repeat(61))).not.toBe('');
+  });
+
+  it('rejects characters the server would strip instead of rewriting them', () => {
+    // Regression: trimming or sanitizing here would let the form submit a
+    // login the writer never typed, and the server would reject it anyway.
+    expect(validateUsername('bad name')).not.toBe('');
+    expect(validateUsername(' nama')).not.toBe('');
+    expect(validateUsername('nama ')).not.toBe('');
+    expect(validateUsername('nama@penalis')).not.toBe('');
+    expect(validateUsername('nama!')).not.toBe('');
+  });
+
+  it('rejects a login with no letter or digit', () => {
+    expect(validateUsername('...')).not.toBe('');
+    expect(validateUsername('___')).not.toBe('');
+  });
+
+  it('rejects the current login, including a case-only change', () => {
+    expect(validateUsername('user30', 'user30')).not.toBe('');
+    expect(validateUsername('USER30', 'user30')).not.toBe('');
+    expect(validateUsername('user31', 'user30')).toBe('');
   });
 });
 

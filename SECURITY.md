@@ -204,6 +204,32 @@ world and never touches the account status machine.
 verification resend flow instead. `rejected` and `suspended` accounts are
 denied, so a credential change cannot restore revoked access.
 
+### Username changes
+
+Changing the login is a credential change, so it re-authenticates and never
+touches the account status machine.
+
+| Property | Implementation |
+| --- | --- |
+| Route | `POST /penalis/v1/account/username`, signed in, nonce-authenticated |
+| Scope | Self only: the user ID comes from the session, never the request |
+| Re-authentication | Current password required |
+| Eligibility | Same rule as email changes, plus the administrator exemption |
+| Validation | 3–60 ASCII letters, digits, `.`, `_`, `-`; at least one letter or digit |
+| Normalization | Rejected, never applied: a value that only becomes valid after `sanitize_user()` is refused |
+| Duplicates | Checked inside a users-table advisory lock; duplicate, reserved and lock-failure errors are identical |
+| Write | Direct `$wpdb->update()` on `user_login`, because `wp_update_user()` ignores the field |
+| Preserved | User ID and `user_nicename`, so author archives and post links keep working |
+| Display name | Updated only when the public name follows the username |
+| Caches | `clean_user_cache()` plus old and new `userlogins` keys |
+| Sessions | All session tokens destroyed; the current auth cookie cleared |
+| Notice | Security email to the current address; a delivery failure is recorded, not rolled back |
+
+WordPress has no unique index on `user_login`, so the advisory lock only
+serializes this endpoint. Native registration, other plugins and direct SQL do
+not take it and can still race; this is not a database-wide uniqueness
+guarantee. The endpoint fails closed when the database cannot provide the lock.
+
 ## Abuse controls
 
 Transient-based limits:
@@ -217,6 +243,8 @@ Transient-based limits:
 | Email change per IP | 5 per hour |
 | Email change per user | 3 per hour |
 | Email change confirmation per IP | 10 per hour |
+| Username change per IP | 5 per hour |
+| Username change per user | 3 per hour |
 | Tag creation per user | 30 per hour |
 
 Limitations: transients are not distributed, and object-cache eviction resets

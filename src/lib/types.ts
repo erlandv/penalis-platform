@@ -66,6 +66,8 @@ export interface Account {
   pendingEmail: string;
   /** Whether this account may request an email change at all. */
   canChangeEmail: boolean;
+  /** Whether this account may change its login (same eligibility as email). */
+  canChangeUsername: boolean;
   description: string;
   status: AccountStatus;
   statusLabel: string;

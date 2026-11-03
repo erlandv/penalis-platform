@@ -263,6 +263,22 @@ final class Penalis_Policy {
 	}
 
 	/**
+	 * Whether an account may change its login.
+	 *
+	 * A login change is a credential change, so it shares the email-change
+	 * rule: `pending_approval` accounts may do it, `active` accounts need the
+	 * explicit access flag, and `rejected` or `suspended` accounts are denied
+	 * so a credential change cannot restore revoked access.
+	 *
+	 * @param string $status         Account status.
+	 * @param bool   $access_enabled Explicit access flag.
+	 * @return bool
+	 */
+	public static function can_change_username( $status, $access_enabled ) {
+		return self::can_change_email( $status, $access_enabled );
+	}
+
+	/**
 	 * Whether an account may create, edit, upload, or publish content.
 	 *
 	 * @param string $status         Account status.
@@ -536,6 +552,44 @@ final class Penalis_Policy {
 
 		if ( '' !== (string) $current && 0 === strcasecmp( $email, (string) $current ) ) {
 			return 'Alamat email tersebut sudah digunakan akun kamu.';
+		}
+
+		return '';
+	}
+
+	/**
+	 * Validate a requested new login.
+	 *
+	 * The shape is checked here so the feature class can keep its WordPress
+	 * calls to the minimum. A login that only becomes valid after
+	 * `sanitize_user()` is rejected rather than rewritten: silently changing
+	 * what the writer typed would give them a login they cannot reproduce.
+	 *
+	 * @param string $username Requested login.
+	 * @param string $current  Login currently on file.
+	 * @return string Error message or empty string.
+	 */
+	public static function validate_username_change( $username, $current = '' ) {
+		$username = (string) $username;
+
+		if ( '' === $username ) {
+			return 'Masukkan username baru kamu.';
+		}
+
+		if ( self::length( $username ) < 3 || self::length( $username ) > 60 ) {
+			return 'Username harus 3-60 karakter.';
+		}
+
+		if ( ! preg_match( '/\A[a-zA-Z0-9._-]+\z/', $username ) ) {
+			return 'Gunakan hanya huruf, angka, titik, garis bawah, atau tanda hubung.';
+		}
+
+		if ( ! preg_match( '/[a-zA-Z0-9]/', $username ) ) {
+			return 'Username harus mengandung huruf atau angka.';
+		}
+
+		if ( '' !== (string) $current && 0 === strcasecmp( $username, (string) $current ) ) {
+			return 'Username baru sama dengan username kamu saat ini.';
 		}
 
 		return '';

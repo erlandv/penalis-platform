@@ -103,6 +103,8 @@ if ( ! class_exists( 'WP_User' ) ) {
 		/** @var string */
 		public $user_login;
 		/** @var string */
+		public $user_nicename;
+		/** @var string */
 		public $display_name;
 		/** @var string */
 		public $user_pass;
@@ -121,9 +123,10 @@ if ( ! class_exists( 'WP_User' ) ) {
 			$this->ID           = (int) $id;
 			$this->roles        = $roles;
 			$this->user_email   = 'user' . $id . '@example.com';
-			$this->user_login   = 'user' . $id;
-			$this->display_name = 'User ' . $id;
-			$this->user_pass    = 'hash';
+			$this->user_login    = 'user' . $id;
+			$this->user_nicename = 'user' . $id;
+			$this->display_name  = 'User ' . $id;
+			$this->user_pass     = 'hash';
 		}
 
 		/**
@@ -280,6 +283,265 @@ if ( ! function_exists( 'get_users' ) ) {
 	}
 }
 
+if ( ! function_exists( 'home_url' ) ) {
+	/**
+	 * Home URL double.
+	 *
+	 * @param string $path Path.
+	 * @return string
+	 */
+	function home_url( $path = '' ) {
+		return 'https://example.com' . $path;
+	}
+}
+
+if ( ! function_exists( 'get_bloginfo' ) ) {
+	/**
+	 * Site name double.
+	 *
+	 * @param string $show Field.
+	 * @return string
+	 */
+	function get_bloginfo( $show = '' ) {
+		return 'name' === $show ? 'Penalis' : '';
+	}
+}
+
+if ( ! function_exists( 'wp_specialchars_decode' ) ) {
+	/**
+	 * Entity decode double.
+	 *
+	 * @param string $value   Value.
+	 * @param int    $quote_style Quote style.
+	 * @return string
+	 */
+	function wp_specialchars_decode( $value, $quote_style = ENT_NOQUOTES ) {
+		return htmlspecialchars_decode( (string) $value, $quote_style );
+	}
+}
+
+if ( ! function_exists( 'wp_unslash' ) ) {
+	/**
+	 * Remove slashes.
+	 *
+	 * @param mixed $value Value.
+	 * @return mixed
+	 */
+	function wp_unslash( $value ) {
+		return is_string( $value ) ? stripslashes( $value ) : $value;
+	}
+}
+
+if ( ! function_exists( 'validate_username' ) ) {
+	/**
+	 * Validate a login.
+	 *
+	 * @param string $username Login.
+	 * @return bool
+	 */
+	function validate_username( $username ) {
+		return '' !== (string) $username && sanitize_user( $username, true ) === $username;
+	}
+}
+
+if ( ! function_exists( 'wp_check_password' ) ) {
+	/**
+	 * Check a password against the test hash convention.
+	 *
+	 * @param string $password Password.
+	 * @param string $hash     Hash.
+	 * @param int    $user_id  User ID.
+	 * @return bool
+	 */
+	function wp_check_password( $password, $hash, $user_id = 0 ) {
+		return 'hash:' . (string) $password === (string) $hash;
+	}
+}
+
+if ( ! function_exists( 'user_can' ) ) {
+	/**
+	 * Capability check double.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $cap     Capability.
+	 * @return bool
+	 */
+	function user_can( $user_id, $cap ) {
+		$user = get_userdata( $user_id );
+		return $user && in_array( 'administrator', $user->roles, true );
+	}
+}
+
+if ( ! function_exists( 'get_current_user_id' ) ) {
+	/**
+	 * Current user double.
+	 *
+	 * @return int
+	 */
+	function get_current_user_id() {
+		return isset( $GLOBALS['penalis_test_current_user'] ) ? (int) $GLOBALS['penalis_test_current_user'] : 0;
+	}
+}
+
+if ( ! function_exists( 'clean_user_cache' ) ) {
+	/**
+	 * Record cache invalidation.
+	 *
+	 * @param mixed $user User or ID.
+	 * @return void
+	 */
+	function clean_user_cache( $user ) {
+		$GLOBALS['penalis_test_cleaned_users'][] = $user instanceof WP_User ? $user->ID : (int) $user;
+	}
+}
+
+if ( ! function_exists( 'wp_cache_delete' ) ) {
+	/**
+	 * Record cache deletion.
+	 *
+	 * @param string $key   Key.
+	 * @param string $group Group.
+	 * @return bool
+	 */
+	function wp_cache_delete( $key, $group = '' ) {
+		$GLOBALS['penalis_test_cache_deletes'][] = $group . ':' . $key;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_clear_auth_cookie' ) ) {
+	/**
+	 * Record auth cookie clearing.
+	 *
+	 * @return void
+	 */
+	function wp_clear_auth_cookie() {
+		$GLOBALS['penalis_test_auth_cookie_cleared'] = true;
+	}
+}
+
+if ( ! function_exists( 'wp_mail' ) ) {
+	/**
+	 * Capture mail.
+	 *
+	 * @param string $to      Recipient.
+	 * @param string $subject Subject.
+	 * @param string $message Message.
+	 * @return bool
+	 */
+	function wp_mail( $to, $subject, $message ) {
+		$GLOBALS['penalis_test_mail'][] = array( $to, $subject, $message );
+		return true;
+	}
+}
+
+if ( ! class_exists( 'WP_Session_Tokens' ) ) {
+	/**
+	 * Session token double.
+	 */
+	class WP_Session_Tokens {
+		/**
+		 * Instance.
+		 *
+		 * @param int $user_id User ID.
+		 * @return self
+		 */
+		public static function get_instance( $user_id ) {
+			return new self();
+		}
+
+		/**
+		 * Record session destruction.
+		 *
+		 * @return void
+		 */
+		public function destroy_all() {
+			$GLOBALS['penalis_test_sessions_destroyed'] = true;
+		}
+	}
+}
+
+if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
+	/**
+	 * Minimal wpdb double for the username-change lock, lookup and update.
+	 *
+	 * It models the three queries the feature issues and nothing else, so a
+	 * change to those queries shows up as a failing assertion instead of
+	 * silently passing against an over-permissive fake.
+	 */
+	class Penalis_Test_WPDB {
+		/** @var string */
+		public $users = 'wp_users';
+
+		/**
+		 * Prepare a simple %s / %d query.
+		 *
+		 * @param string $query Query.
+		 * @param mixed  ...$args Arguments.
+		 * @return string
+		 */
+		public function prepare( $query, ...$args ) {
+			$query = str_replace( array( '%s', '%d' ), "'%s'", $query );
+			return vsprintf( $query, $args );
+		}
+
+		/**
+		 * Answer the lock, duplicate-lookup and verification queries.
+		 *
+		 * @param string $query Query.
+		 * @return string|null
+		 */
+		public function get_var( $query ) {
+			if ( false !== strpos( $query, 'GET_LOCK' ) || false !== strpos( $query, 'RELEASE_LOCK' ) ) {
+				return isset( $GLOBALS['penalis_test_lock_available'] ) && ! $GLOBALS['penalis_test_lock_available'] ? null : '1';
+			}
+
+			// Availability check: a configured duplicate ID simulates a login
+			// already owned by another account.
+			if ( false !== strpos( $query, 'SELECT ID FROM' ) ) {
+				return isset( $GLOBALS['penalis_test_duplicate_login'] ) ? $GLOBALS['penalis_test_duplicate_login'] : null;
+			}
+
+			// Post-write verification: report the login currently stored.
+			if ( false !== strpos( $query, 'SELECT user_login FROM' ) ) {
+				$user = get_userdata( (int) $GLOBALS['penalis_test_verified_user'] );
+				return $user ? $user->user_login : null;
+			}
+
+			return null;
+		}
+
+		/**
+		 * Apply a users-table update.
+		 *
+		 * @param string               $table Table.
+		 * @param array<string,string> $data  Data.
+		 * @param array<string,mixed>  $where Where.
+		 * @return int|false
+		 */
+		public function update( $table, $data, $where ) {
+			if ( isset( $GLOBALS['penalis_test_update_fails'] ) && $GLOBALS['penalis_test_update_fails'] ) {
+				return false;
+			}
+
+			$user = get_userdata( (int) $where['ID'] );
+
+			if ( ! $user || $user->user_login !== $where['user_login'] ) {
+				return 0;
+			}
+
+			foreach ( $data as $key => $value ) {
+				$user->$key = $value;
+			}
+
+			$GLOBALS['penalis_test_verified_user'] = $user->ID;
+			$GLOBALS['penalis_test_updated_login'] = $data['user_login'];
+
+			return 1;
+		}
+	}
+}
+
 if ( ! function_exists( 'sanitize_text_field' ) ) {
 	/**
 	 * Sanitize a text field.
@@ -320,11 +582,18 @@ if ( ! function_exists( 'sanitize_user' ) ) {
 	/**
 	 * Sanitize a username.
 	 *
-	 * @param string $value Value.
+	 * Mirrors core's strict mode: only ASCII letters, digits, `_`, `.`, `-`,
+	 * `@` and space survive, and the result is trimmed. The `$strict` flag is
+	 * accepted because the plugin passes it, but the character set is the same
+	 * either way for the values these tests use.
+	 *
+	 * @param string $value  Value.
+	 * @param bool   $strict Strict mode.
 	 * @return string
 	 */
-	function sanitize_user( $value ) {
-		return preg_replace( '/[^a-zA-Z0-9._-]/', '', (string) $value );
+	function sanitize_user( $value, $strict = false ) {
+		$value = preg_replace( '/[^a-zA-Z0-9._@ -]/', '', (string) $value );
+		return trim( (string) $value );
 	}
 }
 

@@ -75,6 +75,42 @@ export function validateEmail(value: string): string {
 }
 
 /**
+ * Validate a requested new login.
+ *
+ * Mirrors `Penalis_Policy::validate_username_change()`. The server rejects a
+ * value that would only become valid after sanitization, so this must not trim
+ * or rewrite the input either: a login the writer cannot reproduce is worse
+ * than an error message.
+ *
+ * @param value Raw input.
+ * @param current Login currently on file.
+ * @return Error message, or an empty string when valid.
+ */
+export function validateUsername(value: string, current = ''): string {
+  if (value === '') {
+    return 'Masukkan username baru kamu.';
+  }
+
+  if (value.length < 3 || value.length > 60) {
+    return 'Username harus 3–60 karakter.';
+  }
+
+  if (!/^[a-zA-Z0-9._-]+$/.test(value)) {
+    return 'Gunakan hanya huruf, angka, titik, garis bawah, atau tanda hubung.';
+  }
+
+  if (!/[a-zA-Z0-9]/.test(value)) {
+    return 'Username harus mengandung huruf atau angka.';
+  }
+
+  if (current !== '' && value.toLowerCase() === current.toLowerCase()) {
+    return 'Username baru sama dengan username kamu saat ini.';
+  }
+
+  return '';
+}
+
+/**
  * Validate the login-or-email field used by the password reset request.
  *
  * The server accepts either a username or an email address, so this only

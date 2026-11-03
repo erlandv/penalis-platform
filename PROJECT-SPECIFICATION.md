@@ -231,6 +231,7 @@ Server-side guards additionally:
 | `/account` | GET | logged in | Current account state |
 | `/account/profile` | POST | logged in | Update safe profile fields |
 | `/account/password` | POST | logged in, enabled | Change own password |
+| `/account/username` | POST | logged in, enabled | Change own login (re-authenticated) |
 | `/account/email` | POST | logged in, enabled | Request a verified email address change |
 | `/account/email/confirm` | POST | public, token | Consume the email-change token and apply the new address |
 | `/account/avatar` | POST | logged in | Assign the profile photo from own media (One User Avatar) |
@@ -267,7 +268,29 @@ registration and must not advance or reset approval state.
 `pending_verification` accounts cannot use this flow (they have not proven the
 address on file yet) and use the verification resend instead. `rejected` and
 `suspended` accounts are denied so a credential change cannot restore revoked
-access. Usernames remain non-editable from the dashboard.
+access.
+
+### Username change
+
+`POST /account/username` changes the login of the signed-in account. It uses the
+same eligibility rule as an email change (including the administrator
+exemption), requires the current password, and is limited to 5 attempts per IP
+and 3 per account per hour.
+
+Validation is strict and never normalizes: 3–60 ASCII letters, digits, `.`, `_`
+or `-`, with at least one letter or digit. A value that would only become valid
+after `sanitize_user()` is rejected, because silently rewriting it would give
+the writer a login they did not type. Duplicate, reserved and unavailable names
+share one generic error so the form cannot enumerate accounts.
+
+WordPress has no API for this: `wp_update_user()` ignores `user_login`, so the
+write is a direct `$wpdb->update()` guarded by a users-table advisory lock. The
+user ID and `user_nicename` are preserved, which keeps `/author/<nicename>/`
+and every published link intact. Only a public name that follows the username
+is updated; a custom pen name or a first/last-name composition is untouched.
+Old and new login caches are cleared, every session is destroyed, the current
+auth cookie is cleared, and the current email address receives a security
+notice. Settings redirects to login afterwards.
 
 - `/password/forgot` accepts a username or email and always returns the same
   generic message, so it cannot be used to enumerate accounts. It is rate
@@ -424,7 +447,8 @@ Views:
 - **Profile** — profile photo, first name, last name, public name choice (first
   + last, first, last, username, or a custom name), bio. The name options show
   only the resulting public name.
-- **Settings** — account status, password change, sign out.
+- **Settings** — account status, username change, email change, password
+  change, sign out.
 
 UX requirements implemented:
 

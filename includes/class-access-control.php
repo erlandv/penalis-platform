@@ -424,9 +424,10 @@ final class Penalis_Access_Control {
 				'/penalis/v1/account/password',
 				'/penalis/v1/account/profile',
 				// Pending accounts may maintain their own credentials. The
-				// handler still enforces the status rule through
-				// Penalis_Policy::can_change_email().
+				// handlers still enforce the status rule through
+				// Penalis_Policy::can_change_email() and can_change_username().
 				'/penalis/v1/account/email',
+				'/penalis/v1/account/username',
 			);
 
 			$is_always_allowed = false;

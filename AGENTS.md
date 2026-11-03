@@ -304,7 +304,27 @@ confirmation link to that **new** address. `POST /penalis/v1/account/email/confi
 Until confirmation the old address keeps receiving resets and notifications;
 afterwards it receives a security notice. The status machine is never touched.
 `pending_verification` accounts use the verification resend instead, and
-`rejected`/`suspended` accounts are denied. Usernames stay non-editable.
+`rejected`/`suspended` accounts are denied.
+
+### 5.3b Username change
+
+`POST /penalis/v1/account/username` (signed in, current password required)
+changes the login of the caller only. Eligibility is the same rule as an email
+change, including the administrator exemption; attempts are limited to 5 per IP
+and 3 per account per hour.
+
+- Validation is strict and never normalizes: 3–60 ASCII letters, digits, `.`,
+  `_` or `-`, at least one letter or digit. A value that only becomes valid
+  after `sanitize_user()` is rejected rather than rewritten.
+- `wp_update_user()` ignores `user_login`, so the write is a direct
+  `$wpdb->update()` inside a users-table advisory lock. The lock only serializes
+  this endpoint; native registration and other plugins can still race.
+- The user ID and `user_nicename` are preserved, so `/author/<nicename>/` and
+  published links keep working. Only a public name that follows the username is
+  updated; custom pen names and first/last-name compositions are untouched.
+- Old and new login caches are cleared, all sessions are destroyed, the current
+  auth cookie is cleared, and the current email receives a security notice.
+  Settings redirects to login afterwards.
 
 ### 5.4 Writing and publishing
 
@@ -390,6 +410,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-legacy-activation.php` | Legacy request/confirm conversion |
 | `includes/class-password-reset.php` | Forgot/reset flow |
 | `includes/class-email-change.php` | Verified email address change (request + confirmation) |
+| `includes/class-username-change.php` | Re-authenticated login change (direct users-table write) |
 | `includes/class-emails.php` | All outgoing mail (verification, reset, legacy, status, admin notice) |
 | `includes/class-dashboard.php` | Page/shortcode/template, asset enqueue, login POST, logout, cache headers, noindex, legacy slug redirect |
 | `includes/class-admin.php` | Users -> Penalis Writers screen: filters, status actions, legacy activation, default avatar |
@@ -450,6 +471,7 @@ profile fields); `require_active_writer` = `active` + access flag.
 | `/account` | GET | `get_account` | logged in |
 | `/account/profile` | POST | `update_profile` | logged in |
 | `/account/password` | POST | `update_password` | logged in |
+| `/account/username` | POST | `change_username` | logged in |
 | `/account/email` | POST | `request_email_change` | logged in |
 | `/account/email/confirm` | POST | `confirm_email_change` | public (token) |
 | `/account/avatar` | POST, DELETE | `set_avatar`, `remove_avatar` | logged in |
@@ -521,7 +543,7 @@ Read `SECURITY.md` before changing anything in this area. The short version:
   resend 5/h, legacy activate 5/h + 3/h per email, legacy confirm 10/h, password
   forgot 5/h + 3/h per account, password reset 10/h, password change 5/h per
   user, email change 5/h per IP + 3/h per user, email change confirmation 10/h,
-  tag creation 30/h per user.
+  username change 5/h per IP + 3/h per user, tag creation 30/h per user.
 - Private data never goes to page caches: `private, no-store` cache headers,
   `X-Robots-Tag: noindex`, and `Referrer-Policy: no-referrer` on dashboard
   requests. Every write goes through REST with a nonce; there is no admin-ajax

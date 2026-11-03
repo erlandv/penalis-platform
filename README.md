@@ -57,8 +57,8 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 - A default profile photo for accounts without one, managed under
   **Users → Penalis Writers**.
 - A **View public profile** link to the writer's author archive.
-- Account settings including password change and a verified email address
-  change.
+- Account settings including password change, a re-authenticated username
+  change, and a verified email address change.
 - Media library view with direct upload; new images appear in the grid
   immediately.
 
@@ -98,7 +98,28 @@ Until the link is confirmed, the old address keeps receiving password resets
 and notifications. The account status is never touched: an email change is not
 an approval event. Accounts still waiting for email verification use the
 verification resend instead, and rejected or suspended accounts cannot change
-their address. Usernames are not editable from the dashboard.
+their address.
+
+### Username change
+
+Writers change their own login from **Pengaturan** in the dashboard:
+
+1. Enter the new username and the current password. The password is required so
+   a hijacked session cannot rename the account and lock the owner out.
+2. The username must be 3–60 characters of ASCII letters, digits, `.`, `_` or
+   `-`, and must contain at least one letter or digit. A value that would only
+   become valid after sanitization is rejected, never silently rewritten.
+3. The user ID and `user_nicename` are preserved, so `/author/<nicename>/` and
+   every published link keep working. Only a public name that follows the
+   username changes with it; a custom pen name or a first/last-name
+   composition is left alone.
+4. Every session is destroyed, including the browser that made the change, and
+   the current email address receives a security notice. Settings then
+   redirects to the login screen.
+
+Duplicate, reserved and unavailable names share one generic error, so the form
+cannot be used to discover which logins exist. Attempts are limited to 5 per IP
+and 3 per account per hour.
 
 ### Legacy contributor activation
 
