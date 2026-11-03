@@ -1605,7 +1605,136 @@
   gap: 0.2rem;
 }
 
+/*
+ * Card actions sit in a single row under the caption.
+ *
+ * They used to be two full-width labelled buttons stacked vertically, which
+ * added ~100px to every card and made the picker read as a list of buttons
+ * rather than a grid of images. `margin-top: auto` pins the row to the bottom
+ * so cards of unequal caption height still line up.
+ */
+.penalis-media-card__actions {
+  margin-top: auto;
+  padding: 0 0.7rem 0.7rem;
+}
+
 .penalis-media-card .penalis-row-actions { padding: 0 0.7rem 0.7rem; }
+
+/**
+ * Selectable media card (the editor's media picker).
+ *
+ * The whole card is the click target and the radio input is visually hidden but
+ * still focusable, so keyboard users get native radio-group behaviour (arrow
+ * keys move the selection) while the card shows the state. `:focus-within`
+ * mirrors the focus ring onto the card, because the input itself is invisible.
+ */
+.penalis-media-card--selectable {
+  position: relative;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.penalis-media-card--selectable:hover {
+  border-color: #c9bfb3;
+}
+
+.penalis-media-card--selectable.is-selected {
+  border-color: var(--penalis-accent);
+  box-shadow: 0 0 0 2px var(--penalis-accent-soft);
+}
+
+.penalis-media-card--selectable:focus-within {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
+}
+
+/*
+ * Hidden from sight but not from assistive technology: `opacity: 0` with a
+ * zero-size box would remove it from the accessibility tree in some browsers,
+ * so it is positioned over the card instead.
+ */
+.penalis-media-card__radio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* A check mark on the selected card, so the state is not colour-only. */
+.penalis-media-card--selectable.is-selected::after {
+  content: '';
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--penalis-accent) url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23ffffff'%20stroke-width='3'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m5%2013%204%204%2010-10'/%3E%3C/svg%3E") center / 0.9rem no-repeat;
+  pointer-events: none;
+}
+
+/**
+ * Picker footer: selection summary on the left, actions on the right.
+ *
+ * Sticky at the bottom of the dialog so "Pilih" stays reachable while the grid
+ * scrolls — the dialog content is the scroll container.
+ */
+.penalis-media-picker__hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+}
+
+.penalis-media-picker__footer {
+  position: sticky;
+  bottom: -1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 1rem -1.25rem -1.25rem;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--penalis-border);
+  background: var(--penalis-surface);
+}
+
+.penalis-media-picker__selection {
+  margin: 0;
+  font-size: 0.82rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.penalis-media-picker__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+@media (max-width: 480px) {
+  .penalis-media-picker__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .penalis-media-picker__selection {
+    white-space: normal;
+  }
+
+  .penalis-media-picker__actions {
+    margin-left: 0;
+  }
+
+  .penalis-media-picker__actions .penalis-button {
+    flex: 1 1 auto;
+  }
+}
 
 /*
  * `dvh` tracks the visible viewport, so the dialog shrinks when a mobile

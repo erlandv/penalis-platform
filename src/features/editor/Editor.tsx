@@ -29,6 +29,15 @@ const RichTextEditor = lazy(() =>
 
 type SaveStatus = 'draft' | 'pending' | 'publish';
 
+/**
+ * What the media picker should do with the chosen image.
+ *
+ * `featured` sets the post thumbnail; `insert` drops the image into the article
+ * at the caret. The dialog itself is identical for both — only the confirm
+ * action differs.
+ */
+type MediaIntent = 'featured' | 'insert';
+
 /** The parts of the editor state that end up in the saved post. */
 type SnapshotInput = {
   title: string;
@@ -95,7 +104,17 @@ export function Editor({
   const [featuredMedia, setFeaturedMedia] = useState(0);
   const [featuredPreview, setFeaturedPreview] = useState('');
   const [media, setMedia] = useState<MediaItem[]>([]);
-  const [mediaOpen, setMediaOpen] = useState(false);
+  /**
+   * Why the media picker is open, or `null` when it is closed.
+   *
+   * The same dialog serves two purposes — choosing the featured image and
+   * inserting an image into the article — so the caller states its intent when
+   * opening it. The dialog then shows one "Pilih" button whose effect depends
+   * on this value, instead of two buttons per card that forced the writer to
+   * decide which one to press on every thumbnail.
+   */
+  const [mediaIntent, setMediaIntent] = useState<MediaIntent | null>(null);
+  const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -223,12 +242,23 @@ export function Editor({
    * Stable close handler: `Dialog` re-runs its focus setup whenever `onClose`
    * changes identity, so an inline arrow would move focus on every render.
    */
-  const closeMedia = useCallback(() => setMediaOpen(false), []);
+  const closeMedia = useCallback(() => {
+    setMediaIntent(null);
+    setSelectedMediaId(null);
+  }, []);
   const closePreview = useCallback(() => setPreviewOpen(false), []);
   const closePublishConfirm = useCallback(() => setPublishConfirmOpen(false), []);
 
-  const openMediaPicker = async () => {
-    setMediaOpen(true);
+  /**
+   * Open the media picker for a specific purpose.
+   *
+   * The intent is captured here rather than inferred later, so the confirm
+   * button always knows what to do even if the writer uploads a new image or
+   * switches selection while the dialog is open.
+   */
+  const openMediaPicker = async (intent: MediaIntent) => {
+    setMediaIntent(intent);
+    setSelectedMediaId(null);
     setMediaLoading(true);
     try {
       const list = await mediaApi.list(1);
@@ -254,11 +284,28 @@ export function Editor({
     }
   };
 
-  const insertMedia = (item: MediaItem) => {
-    // The rich text editor owns the caret, so insertion happens through its
-    // imperative handle rather than by string-splicing the stored HTML.
-    editorRef.current?.insertImage(item.url, item.title);
-    setMediaOpen(false);
+  /**
+   * Apply the selected image according to why the picker was opened.
+   *
+   * One handler for both flows keeps the dialog's confirm button identical; the
+   * only difference is what happens to the chosen item.
+   */
+  const confirmMediaSelection = () => {
+    const item = media.find((entry) => entry.id === selectedMediaId);
+    if (!item) {
+      return;
+    }
+
+    if (mediaIntent === 'featured') {
+      setFeaturedMedia(item.id);
+      setFeaturedPreview(item.thumbnail || item.url);
+    } else if (mediaIntent === 'insert') {
+      // The rich text editor owns the caret, so insertion happens through its
+      // imperative handle rather than by string-splicing the stored HTML.
+      editorRef.current?.insertImage(item.url, item.title);
+    }
+
+    closeMedia();
   };
 
   const addTag = (term: Term) => {
@@ -533,7 +580,7 @@ export function Editor({
                   ref={editorRef}
                   value={content}
                   onChange={setContent}
-                  onRequestImage={() => void openMediaPicker()}
+                  onRequestImage={() => void openMediaPicker('insert')}
                   invalid={Boolean(errors.content)}
                   errorId={errors.content ? 'content-error' : undefined}
                   labelledBy="penalis-content-label"
@@ -568,7 +615,11 @@ export function Editor({
               <p className="penalis-muted">Belum ada gambar unggulan yang dipilih.</p>
             )}
 
-            <button type="button" className="penalis-button penalis-button--ghost" onClick={() => void openMediaPicker()}>
+            <button
+              type="button"
+              className="penalis-button penalis-button--ghost"
+              onClick={() => void openMediaPicker('featured')}
+            >
               Pilih dari pustaka media
             </button>
           </section>
@@ -653,14 +704,24 @@ export function Editor({
         </aside>
       </div>
 
-      {mediaOpen ? (
+      {mediaIntent ? (
         <Dialog label="Pustaka media" onClose={closeMedia}>
           <div className="penalis-modal__content">
+            {/*
+              No "Tutup" button here: the footer already carries "Batal", and
+              two controls doing the same thing made the dialog feel noisy. The
+              footer is sticky, so its cancel is always visible, and Escape plus
+              a backdrop click remain as quick exits.
+            */}
             <div className="penalis-modal__header">
-              <h3>Pustaka media</h3>
-              <button type="button" className="penalis-button penalis-button--ghost" onClick={closeMedia}>
-                Tutup
-              </button>
+              <div>
+                <h3>Pustaka media</h3>
+                <p className="penalis-muted penalis-media-picker__hint">
+                  {mediaIntent === 'featured'
+                    ? 'Pilih gambar untuk dijadikan gambar unggulan karya tulis ini.'
+                    : 'Pilih gambar untuk disisipkan ke dalam karya tulis.'}
+                </p>
+              </div>
             </div>
 
             <label className="penalis-upload">
@@ -689,35 +750,57 @@ export function Editor({
                 Anda belum mengunggah media apa pun. Gunakan kontrol unggah di atas untuk menambahkan gambar pertama.
               </p>
             ) : (
-              <div className="penalis-media-grid">
-                {media.map((item) => (
-                  <figure key={item.id} className="penalis-media-card">
-                    {item.thumbnail ? <img src={item.thumbnail} alt={item.title} /> : null}
-                    <figcaption>{item.title}</figcaption>
-                    <div className="penalis-row-actions">
-                      <button
-                        type="button"
-                        className="penalis-button penalis-button--ghost"
-                        onClick={() => {
-                          setFeaturedMedia(item.id);
-                          setFeaturedPreview(item.thumbnail);
-                          setMediaOpen(false);
-                        }}
-                      >
-                        Jadikan unggulan
-                      </button>
-                      <button
-                        type="button"
-                        className="penalis-button penalis-button--ghost"
-                        onClick={() => insertMedia(item)}
-                      >
-                        Sisipkan
-                      </button>
-                    </div>
-                  </figure>
-                ))}
+              /*
+                Cards are radio buttons: the whole card is the target, the
+                selected one is outlined, and the single "Pilih" button in the
+                footer applies it. This replaces the two per-card action buttons
+                that made the grid read as a wall of buttons.
+              */
+              <div className="penalis-media-grid" role="radiogroup" aria-label="Pilih gambar">
+                {media.map((item) => {
+                  const selected = selectedMediaId === item.id;
+
+                  return (
+                    <label
+                      key={item.id}
+                      className={`penalis-media-card penalis-media-card--selectable ${selected ? 'is-selected' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="penalis-media-choice"
+                        className="penalis-media-card__radio"
+                        value={item.id}
+                        checked={selected}
+                        onChange={() => setSelectedMediaId(item.id)}
+                      />
+                      {item.thumbnail ? <img src={item.thumbnail} alt="" /> : null}
+                      <figcaption>{item.title}</figcaption>
+                    </label>
+                  );
+                })}
               </div>
             )}
+
+            <div className="penalis-media-picker__footer">
+              <p className="penalis-muted penalis-media-picker__selection" role="status" aria-live="polite">
+                {selectedMediaId === null
+                  ? 'Belum ada gambar yang dipilih.'
+                  : `Dipilih: ${media.find((entry) => entry.id === selectedMediaId)?.title ?? ''}`}
+              </p>
+              <div className="penalis-media-picker__actions">
+                <button type="button" className="penalis-button penalis-button--ghost" onClick={closeMedia}>
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  className="penalis-button penalis-button--primary"
+                  onClick={confirmMediaSelection}
+                  disabled={selectedMediaId === null}
+                >
+                  Pilih
+                </button>
+              </div>
+            </div>
           </div>
         </Dialog>
       ) : null}
