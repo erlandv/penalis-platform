@@ -47,7 +47,7 @@ export function Media() {
     <div className="penalis-stack">
       <div className="penalis-page-heading">
         <div>
-          <h2>Media</h2>
+          <h2>Pustaka Media</h2>
           <p className="penalis-muted">
             Gambar yang Anda unggah. Tambahkan gambar baru dari panel media editor artikel; hanya file JPEG, PNG, GIF,
             dan WebP yang diterima.

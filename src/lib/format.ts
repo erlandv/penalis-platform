@@ -23,13 +23,13 @@ export function formatDate(value: string | number): string {
 
 export function statusLabel(status: string): string {
   const labels: Record<string, string> = {
-    publish: 'Terbit',
-    draft: 'Draf',
-    pending: 'Menunggu tinjauan',
+    publish: 'Publish',
+    draft: 'Draft',
+    pending: 'Pending',
     future: 'Terjadwal',
-    private: 'Privat',
-    pending_verification: 'Menunggu verifikasi email',
-    pending_approval: 'Menunggu persetujuan',
+    private: 'Private',
+    pending_verification: 'Menunggu Verifikasi Email',
+    pending_approval: 'Menunggu Persetujuan',
     active: 'Aktif',
     rejected: 'Ditolak',
     suspended: 'Ditangguhkan',

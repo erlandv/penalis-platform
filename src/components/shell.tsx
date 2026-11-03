@@ -11,8 +11,8 @@ import { Notice } from './ui';
 
 const NAV_ITEMS: Array<{ view: ViewName; label: string }> = [
   { view: 'overview', label: 'Ringkasan' },
-  { view: 'articles', label: 'Karya Tulis' },
-  { view: 'editor', label: 'Karya Tulis Baru' },
+  { view: 'articles', label: 'Daftar Karya' },
+  { view: 'editor', label: 'Buat Karya' },
   { view: 'media', label: 'Media' },
   { view: 'profile', label: 'Profil' },
   { view: 'settings', label: 'Pengaturan' },
@@ -43,7 +43,7 @@ export function StatusBanner({
   if (status === 'pending_approval') {
     return (
       <Notice tone="warning">
-        Pendaftaran kamu menunggu persetujuan. Admin akan meninjau akun kamu. Penerbitan
+        Pendaftaran kamu menunggu persetujuan. Admin akan meninjau akun kamu. Pengelolaan karya tulis
         dinonaktifkan sampai akun kamu disetujui.
       </Notice>
     );
@@ -61,7 +61,7 @@ export function StatusBanner({
   if (status === 'suspended') {
     return (
       <Notice tone="danger">
-        Akun kamu ditangguhkan. Membuat, mengubah, dan menerbitkan tidak tersedia.
+        Akun Penalis kamu ditangguhkan. Pengelolaan karya tulis tidak tersedia.
       </Notice>
     );
   }

@@ -138,7 +138,7 @@ export function Profile({
     <div className="penalis-stack">
       <div className="penalis-page-heading">
         <div>
-          <h2>Profil penulis</h2>
+          <h2>Profil Penulis</h2>
           <p className="penalis-muted">
             Informasi ini dapat tampil di samping artikel terbit Anda. Alamat email dan peran Anda tidak dapat
             diubah di sini.

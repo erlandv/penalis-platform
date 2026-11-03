@@ -474,10 +474,10 @@ export function Editor({
       <div className="penalis-editor-heading">
         <button type="button" className="penalis-back-link" onClick={leave}>
           <Icon name="arrowLeft" />
-          Kembali ke karya tulis
+          Kembali ke daftar karya
         </button>
         <div className="penalis-editor-heading__title">
-          <h2>{id ? 'Edit Karya Tulis' : 'Karya Tulis Baru'}</h2>
+          <h2>{id ? 'Edit Karya Tulis' : 'Buat Karya Tulis'}</h2>
           <StatusBadge status={status} />
         </div>
       </div>
@@ -504,7 +504,7 @@ export function Editor({
 
         <div className="penalis-action-bar__actions">
           <button type="button" className="penalis-button penalis-button--ghost" onClick={() => setPreviewOpen(true)}>
-            Pratinjau
+            Preview
           </button>
           <button
             type="button"
@@ -512,7 +512,7 @@ export function Editor({
             onClick={() => void save(status === 'publish' ? 'publish' : 'draft')}
             disabled={saving || !isDirty}
           >
-            {saving ? 'Menyimpan…' : status === 'publish' ? 'Simpan perubahan' : 'Simpan draf'}
+            {saving ? 'Menyimpan…' : status === 'publish' ? 'Simpan Perubahan' : 'Simpan Draft'}
           </button>
           {/*
             The publish slot is always rendered so the action group keeps the
@@ -524,9 +524,9 @@ export function Editor({
             className="penalis-button penalis-button--primary"
             onClick={() => setPublishConfirmOpen(true)}
             disabled={saving || status === 'publish'}
-            title={status === 'publish' ? 'Karya tulis ini sudah terbit' : undefined}
+            title={status === 'publish' ? 'Karya tulis ini sudah publish' : undefined}
           >
-            Terbitkan
+            Publish
           </button>
         </div>
       </div>
@@ -594,7 +594,7 @@ export function Editor({
         <aside className="penalis-editor__side">
           <section className="penalis-panel">
             <div className="penalis-panel__header">
-              <h3>Gambar unggulan</h3>
+              <h3>Thumbnail</h3>
             </div>
 
             {featuredMedia > 0 ? (
@@ -612,7 +612,7 @@ export function Editor({
                 </button>
               </div>
             ) : (
-              <p className="penalis-muted">Belum ada gambar unggulan yang dipilih.</p>
+              <p className="penalis-muted">Belum ada thumbnail yang dipilih.</p>
             )}
 
             <button
@@ -626,7 +626,7 @@ export function Editor({
 
           <section className="penalis-panel">
             <div className="penalis-panel__header">
-              <h3>Kategori</h3>
+              <h3>Kategori Karya Tulis</h3>
             </div>
 
             {categories.length === 0 ? (
@@ -655,7 +655,7 @@ export function Editor({
 
           <section className="penalis-panel">
             <div className="penalis-panel__header">
-              <h3>Tag</h3>
+              <h3>Tag Karya Tulis</h3>
             </div>
 
             <div className="penalis-tag-list">
@@ -667,7 +667,7 @@ export function Editor({
                     aria-label={`Hapus ${term.name}`}
                     onClick={() => setSelectedTags((current) => current.filter((item) => item.id !== term.id))}
                   >
-                    ×
+                    x
                   </button>
                 </span>
               ))}
@@ -707,18 +707,12 @@ export function Editor({
       {mediaIntent ? (
         <Dialog label="Pustaka media" onClose={closeMedia}>
           <div className="penalis-modal__content">
-            {/*
-              No "Tutup" button here: the footer already carries "Batal", and
-              two controls doing the same thing made the dialog feel noisy. The
-              footer is sticky, so its cancel is always visible, and Escape plus
-              a backdrop click remain as quick exits.
-            */}
             <div className="penalis-modal__header">
               <div>
                 <h3>Pustaka media</h3>
                 <p className="penalis-muted penalis-media-picker__hint">
                   {mediaIntent === 'featured'
-                    ? 'Pilih gambar untuk dijadikan gambar unggulan karya tulis ini.'
+                    ? 'Pilih gambar untuk dijadikan thumbnail karya tulis ini.'
                     : 'Pilih gambar untuk disisipkan ke dalam karya tulis.'}
                 </p>
               </div>
@@ -738,7 +732,7 @@ export function Editor({
                   event.target.value = '';
                 }}
               />
-              <small>JPEG, PNG, GIF, atau WebP. Jenis file lain ditolak oleh server.</small>
+              <small>Hanya dapat mengunggah file JPEG, PNG, GIF, atau WebP.</small>
             </label>
 
             {uploadError ? <ErrorBanner message={uploadError} /> : null}
@@ -747,15 +741,10 @@ export function Editor({
               <Spinner label="Memuat media…" />
             ) : media.length === 0 ? (
               <p className="penalis-muted">
-                Anda belum mengunggah media apa pun. Gunakan kontrol unggah di atas untuk menambahkan gambar pertama.
+                Kamu belum mengunggah media apa pun. Gunakan kontrol unggah di atas untuk menambahkan gambar pertama.
               </p>
             ) : (
-              /*
-                Cards are radio buttons: the whole card is the target, the
-                selected one is outlined, and the single "Pilih" button in the
-                footer applies it. This replaces the two per-card action buttons
-                that made the grid read as a wall of buttons.
-              */
+              
               <div className="penalis-media-grid" role="radiogroup" aria-label="Pilih gambar">
                 {media.map((item) => {
                   const selected = selectedMediaId === item.id;
@@ -809,7 +798,7 @@ export function Editor({
         <Dialog label="Pratinjau artikel" onClose={closePreview}>
           <div className="penalis-modal__content penalis-modal__content--wide">
             <div className="penalis-modal__header">
-              <h3>Pratinjau</h3>
+              <h3>Preview</h3>
               <div className="penalis-row-actions">
                 {status === 'publish' ? (
                   <a
@@ -818,7 +807,7 @@ export function Editor({
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    Buka artikel terbit
+                    Lihat Karya Publish
                   </a>
                 ) : null}
                 <button
@@ -831,7 +820,7 @@ export function Editor({
               </div>
             </div>
             <iframe
-              title="Pratinjau artikel"
+              title="Preview karya tulis"
               className="penalis-preview-frame"
               sandbox=""
               srcDoc={previewDocument}
@@ -842,19 +831,19 @@ export function Editor({
 
       {publishConfirmOpen ? (
         <ConfirmDialog
-          title="Terbitkan karya tulis?"
+          title="Publish Karya Tulis?"
           description={
             <>
               <p>
-                <strong>{title.trim() || 'Tanpa judul'}</strong> akan langsung tampil di situs dan dapat
-                dibaca siapa saja.
+                Karya tulis berjudul <strong>{title.trim() || 'Tanpa judul'}</strong> ini akan langsung tampil di beranda Penalis 
+                dan dapat dibaca siapa saja.
               </p>
               <p className="penalis-muted">
-                Kamu masih bisa membatalkan terbit kapan saja jika ada yang perlu diperbaiki.
+                Kamu masih bisa membatalkan publish kapan saja jika ada yang perlu diperbaiki.
               </p>
             </>
           }
-          confirmLabel="Terbitkan"
+          confirmLabel="Publish"
           tone="warning"
           busy={saving}
           onConfirm={() => void save('publish')}
@@ -863,7 +852,7 @@ export function Editor({
       ) : null}
 
       {id ? (
-        <p className="penalis-fineprint">ID artikel {id}</p>
+        <p className="penalis-fineprint">ID Karya Tulis: {id}</p>
       ) : null}
     </form>
   );

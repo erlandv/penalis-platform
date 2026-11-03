@@ -64,8 +64,8 @@ export function Overview({
           <h2>{account.displayName}</h2>
           <p className="penalis-muted">
             {account.canWrite
-              ? 'Ruang menulis kamu sudah siap. Buat draf tulisan, tambahkan gambar unggulan, lalu terbitkan saat kamu merasa sudah siap.'
-              : 'Akun kamu belum dapat menerbitkan karya tulis. Kamu dapat meninjau detail akun di bawah ini.'}
+              ? 'Di dashboard ini kamu dapat mengelola karya tulismu secara mandiri. Buat draft tulisan, publish saat kamu merasa sudah siap. Jadi, mau menulis apa hari ini?'
+              : 'Akun Penalis kamu saat ini belum dapat mengelola karya tulis. Kamu dapat meninjau detail akun di bawah ini. Jika ada pertanyaan, hubungi admin Penalis.'}
           </p>
         </div>
         <div className="penalis-hero__status">

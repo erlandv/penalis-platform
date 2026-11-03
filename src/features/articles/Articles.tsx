@@ -127,8 +127,8 @@ export function Articles({
     <div className="penalis-stack">
       <div className="penalis-page-heading">
         <div>
-          <h2>Karya tulismu</h2>
-          <p className="penalis-muted">Kelola karya tulismu di sini.</p>
+          <h2>Daftar Karya Tulis</h2>
+          <p className="penalis-muted">Tinjau dan kelola daftar karya tulismu di sini.</p>
         </div>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onCreate}>
           Buat Karya Baru
