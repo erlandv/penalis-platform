@@ -146,8 +146,8 @@ export function Profile({
         <div>
           <h2>Profil Penulis</h2>
           <p className="penalis-muted">
-            Informasi ini dapat tampil di samping artikel terbit Anda. Alamat email dan peran Anda tidak dapat
-            diubah di sini.
+            Profil kamu akan tampil di bagian bawah karya tulis kamu 
+            yang telah terbit dan juga akan tampil di halaman penulismu.
           </p>
         </div>
       </div>
@@ -243,7 +243,7 @@ export function Profile({
               maxLength={80}
               aria-invalid={Boolean(errors.display_name)}
             />
-            <small>2–80 karakter.</small>
+            <small>2-80 karakter.</small>
             <FieldError errors={errors} name="display_name" />
           </label>
         ) : null}
@@ -260,21 +260,6 @@ export function Profile({
           <small>{description.length}/500 karakter</small>
           <FieldError errors={errors} name="description" />
         </label>
-
-        <dl className="penalis-details">
-          <div>
-            <dt>Nama pengguna</dt>
-            <dd>{account.username}</dd>
-          </div>
-          <div>
-            <dt>Email</dt>
-            <dd>{account.email}</dd>
-          </div>
-          <div>
-            <dt>Status akun</dt>
-            <dd>{account.statusLabel}</dd>
-          </div>
-        </dl>
 
         <button type="submit" className="penalis-button penalis-button--primary" disabled={saving}>
           {saving ? 'Menyimpan…' : 'Simpan profil'}

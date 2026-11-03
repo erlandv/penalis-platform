@@ -61,7 +61,7 @@ export function Settings({ account }: { account: Account }) {
       <div className="penalis-page-heading">
         <div>
           <h2>Pengaturan akun</h2>
-          <p className="penalis-muted">Kelola kredensial masuk Anda dan tinjau status akun Anda.</p>
+          <p className="penalis-muted">Tinjau informasi akun Anda dan ubah kata sandi Anda.</p>
         </div>
       </div>
 
@@ -71,7 +71,20 @@ export function Settings({ account }: { account: Account }) {
           <StatusBadge status={account.status} label={account.statusLabel} />
         </div>
 
+        <p className="penalis-muted">
+          Nama pengguna dan email belum dapat diubah melalui halaman ini. Hubungi admin jika keduanya perlu
+          diperbarui. Dari halaman ini Anda hanya dapat mengubah kata sandi akun.
+        </p>
+
         <dl className="penalis-details">
+          <div>
+            <dt>Nama pengguna</dt>
+            <dd>{account.username}</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd>{account.email}</dd>
+          </div>
           <div>
             <dt>Status</dt>
             <dd>{account.statusLabel}</dd>
