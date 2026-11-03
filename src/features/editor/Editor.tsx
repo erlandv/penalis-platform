@@ -15,6 +15,7 @@ import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../com
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
+import { MediaSelection } from '../../components/MediaSelection';
 import { Icon } from '../../components/icons';
 import type { RichTextEditorHandle } from './RichTextEditor';
 
@@ -703,7 +704,7 @@ export function Editor({
           </section>
         </aside>
       </div>
-
+            
       {mediaIntent ? (
         <Dialog label="Pustaka media" onClose={closeMedia}>
           <div className="penalis-modal__content">
@@ -745,51 +746,9 @@ export function Editor({
               </p>
             ) : (
               
-              <div className="penalis-media-grid" role="radiogroup" aria-label="Pilih gambar">
-                {media.map((item) => {
-                  const selected = selectedMediaId === item.id;
-
-                  return (
-                    <label
-                      key={item.id}
-                      className={`penalis-media-card penalis-media-card--selectable ${selected ? 'is-selected' : ''}`}
-                    >
-                      <input
-                        type="radio"
-                        name="penalis-media-choice"
-                        className="penalis-media-card__radio"
-                        value={item.id}
-                        checked={selected}
-                        onChange={() => setSelectedMediaId(item.id)}
-                      />
-                      {item.thumbnail ? <img src={item.thumbnail} alt="" /> : null}
-                      <figcaption>{item.title}</figcaption>
-                    </label>
-                  );
-                })}
-              </div>
+              <MediaSelection items={media} selectedId={selectedMediaId} onSelect={setSelectedMediaId}
+                onConfirm={confirmMediaSelection} onCancel={closeMedia} busy={uploading} />
             )}
-
-            <div className="penalis-media-picker__footer">
-              <p className="penalis-muted penalis-media-picker__selection" role="status" aria-live="polite">
-                {selectedMediaId === null
-                  ? 'Belum ada gambar yang dipilih.'
-                  : `Dipilih: ${media.find((entry) => entry.id === selectedMediaId)?.title ?? ''}`}
-              </p>
-              <div className="penalis-media-picker__actions">
-                <button type="button" className="penalis-button penalis-button--ghost" onClick={closeMedia}>
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  className="penalis-button penalis-button--primary"
-                  onClick={confirmMediaSelection}
-                  disabled={selectedMediaId === null}
-                >
-                  Pilih
-                </button>
-              </div>
-            </div>
           </div>
         </Dialog>
       ) : null}

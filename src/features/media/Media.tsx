@@ -14,6 +14,25 @@ export function Media() {
   const [data, setData] = useState<MediaList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  const upload = async (file: File) => {
+    setUploading(true);
+    setUploadError('');
+    try {
+      const item = await mediaApi.upload(file);
+      setData((current) => current ? {
+        ...current,
+        items: [item, ...current.items.filter((entry) => entry.id !== item.id)],
+        total: current.total + 1,
+      } : { items: [item], total: 1, page: 1, perPage: 10, totalPages: 1 });
+    } catch (caught) {
+      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat diunggah.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -49,12 +68,22 @@ export function Media() {
         <div>
           <h2>Pustaka Media</h2>
           <p className="penalis-muted">
-            Gambar yang Anda unggah. Tambahkan gambar baru dari panel media editor artikel; hanya file JPEG, PNG, GIF,
-            dan WebP yang diterima.
+            Lihat gambar yang pernah kamu unggah atau tambahkan gambar baru di sini.
           </p>
         </div>
       </div>
 
+      <label className="penalis-upload">
+        <span>{uploading ? 'Mengunggah…' : 'Unggah gambar'}</span>
+        <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" disabled={uploading || loading}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void upload(file);
+            event.target.value = '';
+          }} />
+        <small>JPEG, PNG, GIF, atau WebP.</small>
+      </label>
+      {uploadError ? <ErrorBanner message={uploadError} /> : null}
       {error ? <ErrorBanner message={error} /> : null}
 
       {loading ? (

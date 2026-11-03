@@ -2,7 +2,9 @@
  * Writer profile: identity fields, public name preference, and profile photo.
  */
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { Dialog } from '../../components/Dialog';
+import { MediaSelection } from '../../components/MediaSelection';
 
 import { accountApi, ApiError, mediaApi } from '../../lib/api';
 import { displayNameOptions } from '../../lib/profile';
@@ -33,6 +35,8 @@ export function Profile({
   const [mediaLoading, setMediaLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
+  const closePicker = useCallback(() => setPickerOpen(false), []);
 
   const options = useMemo(
     () => displayNameOptions(firstName, lastName, account.username),
@@ -75,6 +79,8 @@ export function Profile({
 
   const openPicker = async () => {
     setPickerOpen(true);
+    setSelectedMediaId(null);
+    setAvatarError('');
     setMediaLoading(true);
     setUploadError('');
 
@@ -126,7 +132,7 @@ export function Profile({
     try {
       const uploaded = await mediaApi.upload(file);
       setMedia((current) => [uploaded, ...current]);
-      await chooseAvatar(uploaded.id);
+      setSelectedMediaId(uploaded.id);
     } catch (caught) {
       setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat diunggah.');
     } finally {
@@ -276,17 +282,10 @@ export function Profile({
       </form>
 
       {pickerOpen ? (
-        <div className="penalis-modal" role="dialog" aria-modal="true" aria-label="Pilih foto profil">
+        <Dialog label="Pilih foto profil" onClose={closePicker}>
           <div className="penalis-modal__content">
             <div className="penalis-modal__header">
               <h3>Pilih foto profil</h3>
-              <button
-                type="button"
-                className="penalis-button penalis-button--ghost"
-                onClick={() => setPickerOpen(false)}
-              >
-                Tutup
-              </button>
             </div>
 
             <label className="penalis-upload">
@@ -307,33 +306,19 @@ export function Profile({
             </label>
 
             {uploadError ? <ErrorBanner message={uploadError} /> : null}
+            {avatarError ? <ErrorBanner message={avatarError} /> : null}
 
             {mediaLoading ? (
               <Spinner label="Memuat media…" />
             ) : media.length === 0 ? (
               <p className="penalis-muted">Anda belum mengunggah gambar apa pun. Gunakan kontrol unggah di atas.</p>
             ) : (
-              <div className="penalis-media-grid">
-                {media.map((item) => (
-                  <figure key={item.id} className="penalis-media-card">
-                    {item.thumbnail ? <img src={item.thumbnail} alt={item.title} /> : null}
-                    <figcaption>{item.title}</figcaption>
-                    <div className="penalis-row-actions">
-                      <button
-                        type="button"
-                        className="penalis-button penalis-button--primary"
-                        onClick={() => void chooseAvatar(item.id)}
-                        disabled={avatarBusy}
-                      >
-                        Gunakan sebagai foto
-                      </button>
-                    </div>
-                  </figure>
-                ))}
-              </div>
+              <MediaSelection items={media} selectedId={selectedMediaId} onSelect={setSelectedMediaId}
+                onConfirm={() => { if (selectedMediaId !== null) void chooseAvatar(selectedMediaId); }}
+                onCancel={closePicker} busy={avatarBusy || uploading} />
             )}
           </div>
-        </div>
+        </Dialog>
       ) : null}
     </div>
   );

@@ -81,6 +81,12 @@ Implementation notes:
 - Modals (media picker, preview) use `src/components/Dialog.tsx`: focus moves
   into the dialog, Tab stays inside it, Escape closes it, and focus returns to
   the control that opened it.
+- The media picker is one shared component (`src/components/MediaSelection.tsx`)
+  used by the editor and the profile photo picker. Cards are native radio
+  buttons, so the whole card is the target and arrow keys move the selection;
+  a single "Pilih" button in a sticky footer applies the choice. The caller
+  decides what "Pilih" means — set the featured image, insert into the article,
+  or set the profile photo — so the dialog itself stays identical.
 - Trailing empty paragraphs that TipTap adds after block nodes are trimmed
   before saving (`src/lib/html.ts`).
 - Content is still submitted to the native WordPress posts endpoint. The server

@@ -1664,6 +1664,15 @@
   cursor: pointer;
 }
 
+/* Caption inside a selectable card. A `<span>` rather than `<figcaption>`
+   because the card is a `<label>`, which cannot contain figure content. */
+.penalis-media-card__caption {
+  display: block;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
 /* A check mark on the selected card, so the state is not colour-only. */
 .penalis-media-card--selectable.is-selected::after {
   content: '';

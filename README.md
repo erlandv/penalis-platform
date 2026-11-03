@@ -50,14 +50,16 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 - Preview and publish/unpublish actions.
 - Writer profile with first name, last name, and a public name choice: first +
   last, first only, last only, username, or a custom pen name.
-- Profile photo selection from the writer's own media library. Avatars are
+- Profile photo selection from the writer's own media library, using the same
+  select-then-confirm picker as the editor. Avatars are
   served by the [One User Avatar](https://wordpress.org/plugins/one-user-avatar/)
   plugin while it is active, and by this plugin once that plugin is deactivated.
 - A default profile photo for accounts without one, managed under
   **Users → Penalis Writers**.
 - A **View public profile** link to the writer's author archive.
 - Account settings including password change.
-- Media library view.
+- Media library view with direct upload; new images appear in the grid
+  immediately.
 
 The dashboard is only loaded on its own page. It is not enqueued site-wide.
 

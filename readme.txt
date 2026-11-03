@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,15 @@ recommended.
 Screenshots are not provided yet.
 
 == Changelog ==
+
+= 0.2.2 =
+* The media library page can now upload images directly; new uploads appear in
+  the grid immediately instead of only being reachable from the editor.
+* The profile photo picker now matches the editor's media picker: select a card,
+  then confirm with "Pilih". Uploading no longer applies the photo before the
+  writer confirms.
+* The media picker is one shared component, so the editor and the profile use
+  the same selection, footer, and keyboard behaviour.
 
 = 0.2.1 =
 * Removed the "Menunggu tinjauan" (pending review) stat card and filter from
