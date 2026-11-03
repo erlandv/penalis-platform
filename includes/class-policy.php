@@ -347,10 +347,16 @@ final class Penalis_Policy {
 	/**
 	 * Post statuses a writer may set through the editor.
 	 *
+	 * `pending` is deliberately absent: the dashboard has no submit-for-review
+	 * step, so accepting it would let a writer park a post in a state the UI
+	 * cannot explain or act on. Legacy pending posts still exist in the
+	 * database and remain readable and publishable; they just cannot be
+	 * created through this workflow.
+	 *
 	 * @return string[]
 	 */
 	public static function allowed_post_statuses() {
-		return array( 'draft', 'publish', 'pending' );
+		return array( 'draft', 'publish' );
 	}
 
 	/**

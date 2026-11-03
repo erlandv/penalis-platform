@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,14 @@ recommended.
 Screenshots are not provided yet.
 
 == Changelog ==
+
+= 0.2.1 =
+* Removed the "Menunggu tinjauan" (pending review) stat card and filter from
+  the dashboard. The dashboard has no submit-for-review step, so the card
+  always read zero and promised a workflow that does not exist.
+* Writers can no longer set the `pending` post status through the editor or the
+  REST API; only `draft` and `publish` are accepted. Existing pending posts
+  remain readable and can still be published.
 
 = 0.2.0 =
 * Dashboard page moved from `/penalis-dashboard/` to `/dashboard/`; existing

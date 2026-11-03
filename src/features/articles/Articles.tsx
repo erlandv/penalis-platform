@@ -22,7 +22,6 @@ const FILTERS = [
   { value: 'all', label: 'Semua' },
   { value: 'publish', label: 'Terbit' },
   { value: 'draft', label: 'Draf' },
-  { value: 'pending', label: 'Menunggu tinjauan' },
 ];
 
 /**

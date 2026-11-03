@@ -16,7 +16,7 @@ repository. Do not open a public issue for an unpatched vulnerability.
 | WordPress capability system | Yes, with added checks | Explicit status checks layer on top |
 | Browser client | **No** | All authorization is enforced server-side |
 | Client-supplied author ID | **No** | Always overwritten with the session user |
-| Client-supplied post status | **No** | Restricted to draft/pending/publish |
+| Client-supplied post status | **No** | Restricted to draft/publish |
 | Client-supplied file type | **No** | Validated by MIME and image inspection |
 | Email link query parameters | **No** | Token format, hash, expiry, and state checked |
 | Proxy headers | **No** by default | Opt-in only via filter |

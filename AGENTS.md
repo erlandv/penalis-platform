@@ -298,12 +298,13 @@ a reset key.
   `/wp/v2/posts/{id}?force=true` (delete). The plugin does not re-implement
   content CRUD.
 - Author is always derived server-side; the client never sends one.
-- Writers may set `draft`, `pending`, or `publish`, and only for their own
-  posts. Ownership is enforced by capability filtering, `map_meta_cap`, and
-  query forcing in `Penalis_Access_Control`.
+- Writers may set `draft` or `publish`, and only for their own posts.
+  Ownership is enforced by capability filtering, `map_meta_cap`, and query
+  forcing in `Penalis_Access_Control`. `pending` is not offered: there is no
+  submit-for-review step in the dashboard.
 - The articles list publishes/unpublishes through `penalis/v1`
   (`/articles/{id}/publish`, `/unpublish`) so the state machine stays explicit;
-  the editor saves the chosen status (`draft`, `pending`, `publish`) through core
+  the editor saves the chosen status (`draft`, `publish`) through core
   `wp/v2/posts`.
 - Markup is filtered by WordPress `wp_kses` (writers lack `unfiltered_html`).
   That is the only authority on allowed HTML.

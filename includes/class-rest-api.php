@@ -1126,6 +1126,12 @@ final class Penalis_Rest_Api {
 	/**
 	 * Article counts for the current user.
 	 *
+	 * `pending` is still counted even though the dashboard no longer offers a
+	 * submit-for-review step: posts left in that status by the pre-plugin
+	 * workflow (or by wp-admin) still belong to the writer, and leaving them
+	 * out would make "Total karya tulis" disagree with the article list, which
+	 * includes them.
+	 *
 	 * @param int $user_id User ID.
 	 * @return array<string,int>
 	 */

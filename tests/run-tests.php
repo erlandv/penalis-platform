@@ -209,6 +209,7 @@ penalis_assert( isset( Penalis_Policy::validate_tag_names( array( str_repeat( 'a
 
 penalis_assert( Penalis_Policy::is_allowed_post_status( 'draft' ), 'Draft is allowed.' );
 penalis_assert( Penalis_Policy::is_allowed_post_status( 'publish' ), 'Publish is allowed.' );
+penalis_assert( ! Penalis_Policy::is_allowed_post_status( 'pending' ), 'Pending review is not offered by the dashboard.' );
 penalis_assert( ! Penalis_Policy::is_allowed_post_status( 'private' ), 'Private is not allowed for writers.' );
 penalis_assert( ! Penalis_Policy::is_allowed_post_status( 'future' ), 'Future is not allowed for writers.' );
 

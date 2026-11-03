@@ -27,7 +27,7 @@ const RichTextEditor = lazy(() =>
   import('./RichTextEditor').then((module) => ({ default: module.RichTextEditor })),
 );
 
-type SaveStatus = 'draft' | 'pending' | 'publish';
+type SaveStatus = 'draft' | 'publish';
 
 /**
  * What the media picker should do with the chosen image.

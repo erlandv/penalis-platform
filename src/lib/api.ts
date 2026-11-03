@@ -242,7 +242,7 @@ export const articlesApi = {
     id?: number;
     title: string;
     content: string;
-    status: 'draft' | 'pending' | 'publish';
+    status: 'draft' | 'publish';
     categories: number[];
     tags: number[];
     featured_media: number;

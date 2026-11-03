@@ -77,7 +77,6 @@ export function Overview({
         <StatCard label="Total karya tulis" value={counts.all} />
         <StatCard label="Diterbitkan" value={counts.publish} />
         <StatCard label="Draf" value={counts.draft} />
-        <StatCard label="Menunggu tinjauan" value={counts.pending} />
       </section>
 
       {account.canWrite ? (
