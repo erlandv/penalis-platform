@@ -155,7 +155,9 @@ Comment creation and moderation are denied.
   `contributor` (legacy accounts), or `penalis_writer`.
 - `set_user_role` reverts administrator promotion attempts by non-administrators.
 - Profile updates restore the email address if a writer attempts to change it
-  outside a verified flow.
+  outside a verified flow. The only sanctioned path is
+  `Penalis_Access_Control::apply_verified_email_change()`, which is called after
+  the new address has been confirmed by its owner.
 
 ## CSRF
 
@@ -181,6 +183,27 @@ Comment creation and moderation are denied.
 Expired tokens are cleared and reported as expired. Invalid tokens return a
 generic message.
 
+### Email address change
+
+Changing the address on file is a credential change, so it uses its own token
+world and never touches the account status machine.
+
+| Property | Implementation |
+| --- | --- |
+| Request | `POST /penalis/v1/account/email`, signed in, current password required |
+| Candidate address | Stored in `_penalis_email_change_new_email`, never taken from the confirmation request |
+| Token | 32 random bytes, URL-safe base64, stored only as a SHA-256 hash |
+| Expiry | 24 hours, single use |
+| Delivery | Confirmation link goes to the **new** address only |
+| Apply | `POST /penalis/v1/account/email/confirm`, public, token is the proof |
+| Re-check | Address availability is re-checked at confirmation time |
+| Notice | The previous address receives a security notice after the change |
+| Status machine | Untouched: an email change never advances or resets account status |
+
+`pending_verification` accounts cannot change their address; they use the
+verification resend flow instead. `rejected` and `suspended` accounts are
+denied, so a credential change cannot restore revoked access.
+
 ## Abuse controls
 
 Transient-based limits:
@@ -191,6 +214,9 @@ Transient-based limits:
 | Verification attempts per IP | 20 per hour |
 | Resend per IP | 5 per hour |
 | Password change per user | 5 per hour |
+| Email change per IP | 5 per hour |
+| Email change per user | 3 per hour |
+| Email change confirmation per IP | 10 per hour |
 | Tag creation per user | 30 per hour |
 
 Limitations: transients are not distributed, and object-cache eviction resets

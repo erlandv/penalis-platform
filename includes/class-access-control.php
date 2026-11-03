@@ -28,6 +28,17 @@ final class Penalis_Access_Control {
 	private static $restoring_email = false;
 
 	/**
+	 * Whether a verified email change is being applied.
+	 *
+	 * The profile-update guard below restores the previous address for
+	 * plugin-managed accounts. A verified change has already proven control of
+	 * the new address, so it must be allowed through that guard.
+	 *
+	 * @var bool
+	 */
+	private static $applying_verified_email_change = false;
+
+	/**
 	 * Register hooks.
 	 *
 	 * @return void
@@ -45,7 +56,59 @@ final class Penalis_Access_Control {
 		add_filter( 'wp_handle_upload_prefilter', array( __CLASS__, 'validate_upload' ) );
 		add_action( 'set_user_role', array( __CLASS__, 'prevent_role_escalation' ), 10, 3 );
 		add_action( 'profile_update', array( __CLASS__, 'prevent_profile_escalation' ), 10, 2 );
+		add_filter( 'send_email_change_email', array( __CLASS__, 'suppress_core_email_change_notice' ), 10, 1 );
 		add_filter( 'map_meta_cap', array( __CLASS__, 'map_meta_cap' ), 10, 4 );
+	}
+
+	/**
+	 * Apply an email address that was already verified by its owner.
+	 *
+	 * This is the only sanctioned way for a plugin-managed account to change
+	 * its address. It bypasses the profile-update restoration guard for the
+	 * duration of the update and suppresses WordPress core's own change notice,
+	 * because the plugin sends a notice with its own copy.
+	 *
+	 * @param int    $user_id   User ID.
+	 * @param string $new_email Verified address.
+	 * @return true|WP_Error
+	 */
+	public static function apply_verified_email_change( $user_id, $new_email ) {
+		$user_id = (int) $user_id;
+		$email   = sanitize_email( (string) $new_email );
+
+		if ( $user_id <= 0 || ! is_email( $email ) ) {
+			return new WP_Error( 'penalis_email_invalid', 'Alamat email tidak valid.', array( 'status' => 400 ) );
+		}
+
+		self::$applying_verified_email_change = true;
+
+		$result = wp_update_user(
+			array(
+				'ID'         => $user_id,
+				'user_email' => $email,
+			)
+		);
+
+		self::$applying_verified_email_change = false;
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Suppress core's email change notice during a verified change.
+	 *
+	 * Core would otherwise send an English notice to the old address in
+	 * addition to the plugin's own Indonesian notice.
+	 *
+	 * @param bool $send Whether core should send the notice.
+	 * @return bool
+	 */
+	public static function suppress_core_email_change_notice( $send ) {
+		return self::$applying_verified_email_change ? false : $send;
 	}
 
 	/**
@@ -360,6 +423,10 @@ final class Penalis_Access_Control {
 				'/penalis/v1/password/',
 				'/penalis/v1/account/password',
 				'/penalis/v1/account/profile',
+				// Pending accounts may maintain their own credentials. The
+				// handler still enforces the status rule through
+				// Penalis_Policy::can_change_email().
+				'/penalis/v1/account/email',
 			);
 
 			$is_always_allowed = false;
@@ -690,7 +757,7 @@ final class Penalis_Access_Control {
 	 * @return void
 	 */
 	public static function prevent_profile_escalation( $user_id, $old_user_data ) {
-		if ( self::$restoring_email ) {
+		if ( self::$restoring_email || self::$applying_verified_email_change ) {
 			return;
 		}
 
@@ -715,8 +782,8 @@ final class Penalis_Access_Control {
 			return;
 		}
 
-		// Restore the email address; writers change it only through a future,
-		// explicitly verified flow.
+		// Restore the email address; writers change it only through the verified
+		// email-change flow in Penalis_Email_Change.
 		if ( $old_user_data instanceof WP_User && $user->user_email !== $old_user_data->user_email ) {
 			self::$restoring_email = true;
 			wp_update_user(

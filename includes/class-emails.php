@@ -38,7 +38,7 @@ final class Penalis_Emails {
 			Penalis_Dashboard::registration_url()
 		);
 
-		$subject = sprintf( '[%s] Konfirmasi alamat email kamu', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
+		$subject = sprintf( '[%s] Konfirmasi Alamat Email Kamu', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
 
 		$message  = self::greeting( $user ) . "\n\n";
 		$message .= sprintf( 'Terima kasih telah mendaftar untuk menulis di %s.', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) ) . "\n\n";
@@ -82,13 +82,13 @@ final class Penalis_Emails {
 		);
 
 		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Atur ulang kata sandi kamu', $site );
+		$subject = sprintf( '[%s] Reset Password Kamu', $site );
 
 		$message  = self::greeting( $user ) . "\n\n";
-		$message .= sprintf( 'Kami menerima permintaan untuk mengatur ulang kata sandi akun %s kamu.', $site ) . "\n\n";
-		$message .= "Buka tautan berikut lalu masukkan kata sandi baru:\n\n";
+		$message .= sprintf( 'Kami menerima permintaan untuk reset password akun %s kamu.', $site ) . "\n\n";
+		$message .= "Buka link berikut lalu masukkan password baru:\n\n";
 		$message .= $reset_url . "\n\n";
-		$message .= "Tautan ini hanya dapat digunakan sekali. Jika kamu tidak meminta pengaturan ulang, abaikan email ini; kata sandi kamu tidak akan berubah.\n";
+		$message .= "Link ini hanya dapat digunakan sekali. Jika kamu tidak meminta reset, abaikan email ini; password kamu tidak akan berubah.\n";
 
 		$sent = wp_mail( $user->user_email, $subject, $message );
 
@@ -125,19 +125,99 @@ final class Penalis_Emails {
 		);
 
 		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Aktifkan akun penulis lama kamu', $site );
+		$subject = sprintf( '[%s] Aktifkan Akun Kontributor Kamu', $site );
 
 		$message  = self::greeting( $user ) . "\n\n";
-		$message .= sprintf( 'Kamu pernah mengirim karya tulis ke %s, dan kami sudah membuatkan akun penulis untukmu.', $site ) . "\n\n";
-		$message .= "Aktifkan akun tersebut dengan membuka tautan ini lalu membuat kata sandi:\n\n";
+		$message .= sprintf( 'Kamu pernah menjadi kontributor dan mengirim karya tulis ke %s, dan kami sudah membuatkan akun untukmu.', $site ) . "\n\n";
+		$message .= "Aktifkan akun tersebut dengan membuka link ini lalu membuat password:\n\n";
 		$message .= $activate_url . "\n\n";
-		$message .= "Karya tulis yang sudah terbit tetap terhubung ke akun ini.\n\n";
-		$message .= "Tautan berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta aktivasi, abaikan email ini.\n";
+		$message .= "Karya tulis yang sudah publish dari akun kontributor akan tetap terhubung ke akun ini.\n\n";
+		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta aktivasi, abaikan email ini.\n";
 
 		$sent = wp_mail( $user->user_email, $subject, $message );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'legacy_activation' );
+		}
+
+		return (bool) $sent;
+	}
+
+	/**
+	 * Send the confirmation link for a requested email address change.
+	 *
+	 * The message goes to the *new* address, because that is the address whose
+	 * ownership is being proven. The old address is untouched until the link is
+	 * consumed.
+	 *
+	 * @param int    $user_id   User ID.
+	 * @param string $token     Raw confirmation token.
+	 * @param string $new_email Requested address.
+	 * @return bool Whether wp_mail accepted the message.
+	 */
+	public static function send_email_change_confirmation( $user_id, $token, $new_email ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user || ! is_email( $new_email ) ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'invalid_recipient' );
+			return false;
+		}
+
+		$confirm_url = add_query_arg(
+			array(
+				'penalis_email_change' => rawurlencode( (string) $token ),
+			),
+			Penalis_Dashboard::registration_url()
+		);
+
+		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$subject = sprintf( '[%s] Konfirmasi Alamat Email Baru Kamu', $site );
+
+		$message  = self::greeting( $user ) . "\n\n";
+		$message .= sprintf( 'Kami menerima permintaan untuk mengganti alamat email akun %s kamu menjadi alamat ini.', $site ) . "\n\n";
+		$message .= "Konfirmasi alamat email baru dengan membuka link ini lalu menekan tombol konfirmasi:\n\n";
+		$message .= $confirm_url . "\n\n";
+		$message .= "Alamat email kamu yang sekarang belum berubah. Alamat baru hanya dipakai setelah kamu mengonfirmasi.\n\n";
+		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta perubahan ini, abaikan email ini.\n";
+
+		$sent = wp_mail( $new_email, $subject, $message );
+
+		if ( ! $sent ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_confirmation' );
+		}
+
+		return (bool) $sent;
+	}
+
+	/**
+	 * Notify the previous address that the account email changed.
+	 *
+	 * This is the only warning the real owner receives if the change was not
+	 * theirs, so it is sent after the change is committed and never blocks it.
+	 *
+	 * @param int    $user_id   User ID.
+	 * @param string $old_email Previous address.
+	 * @param string $new_email New address.
+	 * @return bool
+	 */
+	public static function send_email_change_notice( $user_id, $old_email, $new_email ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user || ! is_email( $old_email ) ) {
+			return false;
+		}
+
+		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$subject = sprintf( '[%s] Alamat Email Akun Kamu Telah Diubah', $site );
+
+		$message  = self::greeting( $user ) . "\n\n";
+		$message .= sprintf( 'Alamat email akun %s kamu baru saja diubah menjadi %s.', $site, $new_email ) . "\n\n";
+		$message .= "Jika kamu yang melakukan perubahan ini, tidak ada tindakan yang perlu dilakukan.\n\n";
+		$message .= "Jika bukan kamu, segera ubah password akun kamu dan hubungi admin Penalis:\n\n";
+		$message .= Penalis_Dashboard::dashboard_url() . "\n";
+
+		$sent = wp_mail( $old_email, $subject, $message );
+
+		if ( ! $sent ) {
+			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_notice' );
 		}
 
 		return (bool) $sent;
@@ -162,12 +242,12 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$subject  = sprintf( '[%s] Pendaftaran penulis menunggu persetujuan', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
-		$message  = "Ada pendaftaran penulis yang menunggu tinjauan.\n\n";
-		$message .= 'Nama tampilan: ' . $user->display_name . "\n";
-		$message .= 'Nama pengguna: ' . $user->user_login . "\n";
-		$message .= 'Terdaftar: ' . $user->user_registered . "\n\n";
-		$message .= 'Tinjau pendaftaran: ' . admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) . "\n";
+		$subject  = sprintf( '[%s] Pendaftaran Akun Menunggu Persetujuan', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
+		$message  = "Ada pendaftaran akun %s yang menunggu tinjauan.\n\n";
+		$message .= 'Nama Penulis: ' . $user->display_name . "\n";
+		$message .= 'Username Penulis: ' . $user->user_login . "\n";
+		$message .= 'Waktu Terdaftar: ' . $user->user_registered . "\n\n";
+		$message .= 'Tinjau pendaftaran melalui WordPress Admin: ' . admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) . "\n";
 
 		$sent = wp_mail( $admin_email, $subject, $message );
 
@@ -198,18 +278,18 @@ final class Penalis_Emails {
 
 		switch ( $status ) {
 			case Penalis_Policy::STATUS_ACTIVE:
-				$subject = sprintf( '[%s] Akun penulis kamu telah aktif', $site );
-				$body    = self::greeting( $user ) . "\n\nAkun penulis kamu telah disetujui. Kamu kini dapat membuat dan menerbitkan karya tulis.\n\nBuka dasbor kamu: " . $login . "\n";
+				$subject = sprintf( '[%s] Akun Kamu Sudah Aktif', $site );
+				$body    = self::greeting( $user ) . "\n\nAkun %s kamu sudah disetujui. Kamu kini dapat mengelola karya tulis.\n\nBuka dashboard Penulis: " . $login . "\n";
 				break;
 
 			case Penalis_Policy::STATUS_REJECTED:
-				$subject = sprintf( '[%s] Pembaruan pendaftaran penulis kamu', $site );
-				$body    = self::greeting( $user ) . "\n\nPendaftaran penulis kamu belum disetujui saat ini. Jika kamu merasa ini keliru, silakan hubungi admin Penalis.\n";
+				$subject = sprintf( '[%s] Pembaruan Pendaftaran Akun Kamu', $site );
+				$body    = self::greeting( $user ) . "\n\nPendaftaran akun %s kamu belum disetujui untuk saat ini. Jika kamu merasa ini keliru, silakan hubungi admin %s.\n";
 				break;
 
 			case Penalis_Policy::STATUS_SUSPENDED:
-				$subject = sprintf( '[%s] Akun penulis kamu ditangguhkan', $site );
-				$body    = self::greeting( $user ) . "\n\nAkun penulis kamu ditangguhkan, sehingga menerbitkan dan mengubah karya tulis untuk sementara tidak tersedia. Hubungi admin Penalis jika ada pertanyaan.\n";
+				$subject = sprintf( '[%s] Akun Kamu Ditangguhkan', $site );
+				$body    = self::greeting( $user ) . "\n\nAkun %s kamu ditangguhkan, sehingga pengelolaan karya tulis untuk sementara tidak tersedia. Hubungi admin %s jika ada pertanyaan.\n";
 				break;
 		}
 

@@ -218,6 +218,45 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/account/email',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'request_email_change' ),
+				'permission_callback' => array( __CLASS__, 'require_logged_in' ),
+				'args'                => array(
+					'new_email'        => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'current_password' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/account/email/confirm',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'confirm_email_change' ),
+				// Public: the confirmation link is opened from an email and may
+				// be used on a browser that is not signed in. The token itself is
+				// the proof, and it is single-use and rate limited.
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'token' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/account/avatar',
 			array(
 				array(
@@ -532,6 +571,16 @@ final class Penalis_Rest_Api {
 		$counts    = self::article_counts( $user_id );
 		$is_admin  = current_user_can( 'manage_options' );
 
+		// A pending change is only meaningful while its token is still valid.
+		$pending_change = Penalis_Account_Status::get_email_change( $user_id );
+		$pending_email  = '';
+		if (
+			'' !== $pending_change['email']
+			&& ! Penalis_Policy::is_token_expired( $pending_change['expires'], time() )
+		) {
+			$pending_email = $pending_change['email'];
+		}
+
 		if ( '' !== $status ) {
 			$status_label = Penalis_Policy::status_label( $status );
 		} elseif ( $is_admin ) {
@@ -551,6 +600,8 @@ final class Penalis_Rest_Api {
 				'avatarId'        => Penalis_Avatar::get_id( $user_id ),
 				'avatarUrl'       => Penalis_Avatar::get_url( $user_id ),
 				'email'           => $user->user_email,
+				'pendingEmail'    => $pending_email,
+				'canChangeEmail'  => $is_admin || Penalis_Policy::can_change_email( $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
 				'description'     => (string) get_user_meta( $user_id, 'description', true ),
 				'authorUrl'       => get_author_posts_url( $user_id ),
 				'status'          => $status,
@@ -667,6 +718,45 @@ final class Penalis_Rest_Api {
 		}
 
 		return self::get_account();
+	}
+
+	/**
+	 * Request a verified change of the account email address.
+	 *
+	 * The address is not changed here. A confirmation link is sent to the new
+	 * address and the change is applied only when that link is consumed.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function request_email_change( $request ) {
+		$result = Penalis_Email_Change::request(
+			get_current_user_id(),
+			(string) $request->get_param( 'new_email' ),
+			(string) $request->get_param( 'current_password' )
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 202 );
+	}
+
+	/**
+	 * Consume an email-change confirmation token.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function confirm_email_change( $request ) {
+		$result = Penalis_Email_Change::confirm( (string) $request->get_param( 'token' ) );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 200 );
 	}
 
 	/**

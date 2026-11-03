@@ -132,6 +132,25 @@ export const accountApi = {
   changePassword: (payload: { current_password: string; new_password: string }) =>
     request<{ message: string }>('/account/password', { method: 'POST', body: payload }),
 
+  /**
+   * Request a change of the account email address.
+   *
+   * The address is not changed by this call: the server emails a confirmation
+   * link to the new address and applies the change only when it is consumed.
+   */
+  requestEmailChange: (payload: { new_email: string; current_password: string }) =>
+    request<{ message: string; pendingEmail: string }>('/account/email', {
+      method: 'POST',
+      body: payload,
+    }),
+
+  /** Consume the confirmation token from the email sent to the new address. */
+  confirmEmailChange: (token: string) =>
+    request<{ message: string; email: string }>('/account/email/confirm', {
+      method: 'POST',
+      body: { token },
+    }),
+
   /** Assign an existing media attachment as the profile photo. */
   setAvatar: (attachmentId: number) =>
     request<Account>('/account/avatar', { method: 'POST', body: { attachment_id: attachmentId } }),

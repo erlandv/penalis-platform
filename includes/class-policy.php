@@ -224,6 +224,45 @@ final class Penalis_Policy {
 	}
 
 	/**
+	 * Whether an account may request an email address change.
+	 *
+	 * This mirrors `can_reset_password()`: both are credential changes on an
+	 * account the visitor already controls, so they share one authorization
+	 * rule. `pending_approval` accounts may change their address (they can
+	 * already sign in and maintain their profile), `active` accounts need the
+	 * explicit access flag, and legacy accounts follow the same flag.
+	 *
+	 * `pending_verification` is deliberately excluded. That account has not
+	 * proven control of the address on file yet, and the status machine has no
+	 * state for "address changed while unverified": confirming the new address
+	 * would have to advance the status, which an email change must never do.
+	 * Those accounts use the verification resend flow instead.
+	 *
+	 * `rejected` and `suspended` are denied for the same reason password reset
+	 * is denied: a credential change must not restore access an administrator
+	 * revoked.
+	 *
+	 * @param string $status         Account status.
+	 * @param bool   $access_enabled Explicit access flag.
+	 * @return bool
+	 */
+	public static function can_change_email( $status, $access_enabled ) {
+		if ( self::STATUS_PENDING_APPROVAL === $status ) {
+			return true;
+		}
+
+		if ( self::STATUS_ACTIVE === $status ) {
+			return (bool) $access_enabled;
+		}
+
+		if ( '' === $status || null === $status ) {
+			return (bool) $access_enabled;
+		}
+
+		return false;
+	}
+
+	/**
 	 * Whether an account may create, edit, upload, or publish content.
 	 *
 	 * @param string $status         Account status.
@@ -464,6 +503,39 @@ final class Penalis_Policy {
 
 		if ( trim( $password ) === '' ) {
 			return 'Pilih kata sandi yang lebih kuat.';
+		}
+
+		return '';
+	}
+
+	/**
+	 * Validate a requested new email address.
+	 *
+	 * Only the shape is checked here; whether the address is already taken is a
+	 * database question and belongs to the feature class. The current address is
+	 * passed in so "same as today" is rejected before any token is issued.
+	 *
+	 * @param string $email    Requested address.
+	 * @param string $current  Address currently on file.
+	 * @return string Error message or empty string.
+	 */
+	public static function validate_email_change( $email, $current = '' ) {
+		$email = trim( (string) $email );
+
+		if ( '' === $email ) {
+			return 'Masukkan alamat email baru kamu.';
+		}
+
+		if ( self::length( $email ) > 254 ) {
+			return 'Alamat email terlalu panjang.';
+		}
+
+		if ( false === filter_var( $email, FILTER_VALIDATE_EMAIL ) ) {
+			return 'Masukkan alamat email yang valid.';
+		}
+
+		if ( '' !== (string) $current && 0 === strcasecmp( $email, (string) $current ) ) {
+			return 'Alamat email tersebut sudah digunakan akun kamu.';
 		}
 
 		return '';

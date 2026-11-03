@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isTokenShaped } from './deeplink';
+import { DEEPLINK, isTokenShaped } from './deeplink';
 
 /**
  * A real token is 32 random bytes encoded as URL-safe base64 without padding,
@@ -57,5 +57,14 @@ describe('isTokenShaped', () => {
     const coreKey = 'Ab3dE6gH9jK2mN5pQ8sT';
     expect(coreKey).toHaveLength(20);
     expect(isTokenShaped(coreKey)).toBe(false);
+  });
+});
+
+describe('DEEPLINK', () => {
+  it('keeps the email-change token separate from the verification token', () => {
+    // A registration token advances the account status machine; an email
+    // change must never do that, so the two parameters cannot be shared.
+    expect(DEEPLINK.emailChange).not.toBe(DEEPLINK.verify);
+    expect(DEEPLINK.emailChange).toBe('penalis_email_change');
   });
 });

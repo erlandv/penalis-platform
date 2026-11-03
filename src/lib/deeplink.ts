@@ -16,6 +16,13 @@ export const DEEPLINK = {
   /** Token: confirm an email address. Plugin token, 43 characters. */
   verify: 'penalis_verify',
   /**
+   * Token: confirm a requested email address change.
+   *
+   * Separate from `verify` on purpose: a registration token advances the
+   * account status machine, while an email change must never do that.
+   */
+  emailChange: 'penalis_email_change',
+  /**
    * Key: set a new password from a reset email.
    *
    * This is a WordPress core key from `get_password_reset_key()`, which uses

@@ -64,6 +64,10 @@ $penalis_meta_keys = array(
 	'_penalis_verification_token_hash',
 	'_penalis_verification_token_expires',
 	'_penalis_verification_token_created',
+	'_penalis_email_change_token_hash',
+	'_penalis_email_change_token_expires',
+	'_penalis_email_change_token_created',
+	'_penalis_email_change_new_email',
 	'_penalis_last_email_failed_at',
 	'_penalis_last_email_failed_context',
 );

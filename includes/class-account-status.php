@@ -29,6 +29,11 @@ final class Penalis_Account_Status {
 	public const META_DISPLAY_NAME_MODE = '_penalis_display_name_mode';
 	public const META_NEEDS_PASSWORD    = '_penalis_needs_password';
 
+	public const META_EMAIL_CHANGE_HASH    = '_penalis_email_change_token_hash';
+	public const META_EMAIL_CHANGE_EXPIRES = '_penalis_email_change_token_expires';
+	public const META_EMAIL_CHANGE_CREATED = '_penalis_email_change_token_created';
+	public const META_EMAIL_CHANGE_NEW     = '_penalis_email_change_new_email';
+
 	public const LOG_LIMIT = 20;
 
 	/**
@@ -483,6 +488,92 @@ final class Penalis_Account_Status {
 			'expires' => (int) get_user_meta( (int) $user_id, self::META_TOKEN_EXPIRES, true ),
 			'created' => (int) get_user_meta( (int) $user_id, self::META_TOKEN_CREATED, true ),
 		);
+	}
+
+	/**
+	 * Issue a token for a pending email address change.
+	 *
+	 * The new address is stored next to the token hash so the confirmation step
+	 * never has to trust an address supplied by the browser. Only the hash is
+	 * stored; the raw token exists solely in the confirmation email.
+	 *
+	 * @param int    $user_id   User ID.
+	 * @param string $new_email Requested address.
+	 * @return string|WP_Error Raw token.
+	 */
+	public static function issue_email_change_token( $user_id, $new_email ) {
+		$user_id = (int) $user_id;
+		$user    = get_userdata( $user_id );
+		if ( ! $user ) {
+			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
+		}
+
+		$token   = Penalis_Policy::generate_token();
+		$now     = time();
+		$expires = $now + Penalis_Policy::TOKEN_TTL;
+
+		update_user_meta( $user_id, self::META_EMAIL_CHANGE_HASH, Penalis_Policy::hash_token( $token ) );
+		update_user_meta( $user_id, self::META_EMAIL_CHANGE_EXPIRES, $expires );
+		update_user_meta( $user_id, self::META_EMAIL_CHANGE_CREATED, $now );
+		update_user_meta( $user_id, self::META_EMAIL_CHANGE_NEW, sanitize_email( (string) $new_email ) );
+
+		return $token;
+	}
+
+	/**
+	 * Find a user by a raw email-change token.
+	 *
+	 * @param string $token Raw token.
+	 * @return int User ID or 0.
+	 */
+	public static function find_user_by_email_change_token( $token ) {
+		if ( ! Penalis_Policy::is_token_format_valid( $token ) ) {
+			return 0;
+		}
+
+		$hash = Penalis_Policy::hash_token( $token );
+
+		$users = get_users(
+			array(
+				'fields'     => 'ID',
+				'number'     => 1,
+				'meta_key'   => self::META_EMAIL_CHANGE_HASH, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value' => $hash, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			)
+		);
+
+		if ( empty( $users ) ) {
+			return 0;
+		}
+
+		return (int) $users[0];
+	}
+
+	/**
+	 * Read the pending email change for a user.
+	 *
+	 * @param int $user_id User ID.
+	 * @return array{email:string,expires:int,created:int}
+	 */
+	public static function get_email_change( $user_id ) {
+		return array(
+			'email'   => (string) get_user_meta( (int) $user_id, self::META_EMAIL_CHANGE_NEW, true ),
+			'expires' => (int) get_user_meta( (int) $user_id, self::META_EMAIL_CHANGE_EXPIRES, true ),
+			'created' => (int) get_user_meta( (int) $user_id, self::META_EMAIL_CHANGE_CREATED, true ),
+		);
+	}
+
+	/**
+	 * Discard a pending email change.
+	 *
+	 * @param int $user_id User ID.
+	 * @return void
+	 */
+	public static function clear_email_change( $user_id ) {
+		delete_user_meta( (int) $user_id, self::META_EMAIL_CHANGE_HASH );
+		delete_user_meta( (int) $user_id, self::META_EMAIL_CHANGE_EXPIRES );
+		delete_user_meta( (int) $user_id, self::META_EMAIL_CHANGE_CREATED );
+		delete_user_meta( (int) $user_id, self::META_EMAIL_CHANGE_NEW );
 	}
 
 	/**

@@ -92,6 +92,79 @@ function VerificationPage({ token }: { token: string }) {
 }
 
 /**
+ * Email change confirmation page reached from the confirmation email.
+ *
+ * The token is consumed only when the visitor presses the button, so email
+ * link scanners cannot burn a single-use token. The page deliberately works
+ * without a signed-in session: the token itself proves control of the new
+ * address, and the account owner may open the mail on another device.
+ */
+function EmailChangePage({ token }: { token: string }) {
+  const bootstrap = getBootstrap();
+  const [state, setState] = useState<'idle' | 'working' | 'done'>('idle');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const confirm = async () => {
+    setState('working');
+    setError('');
+
+    try {
+      const result = await accountApi.confirmEmailChange(token);
+      setMessage(result.message);
+      setState('done');
+
+      // Remove the single-use token from the address bar and history.
+      const url = new URL(window.location.href);
+      url.searchParams.delete(DEEPLINK.emailChange);
+      window.history.replaceState({}, '', url.toString());
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Tautan konfirmasi tidak dapat diproses.');
+      setState('idle');
+    }
+  };
+
+  return (
+    <div className="penalis-auth">
+      <div className="penalis-auth__panel">
+        <h1>Konfirmasi email baru kamu</h1>
+        <p className="penalis-muted">
+          Konfirmasikan bahwa alamat email baru ini milik kamu. Setelah dikonfirmasi, alamat inilah yang dipakai
+          untuk masuk dan menerima email dari Penalis.
+        </p>
+
+        {error ? <ErrorBanner message={error} /> : null}
+
+        {state === 'done' ? (
+          <>
+            <Notice tone="success">{message}</Notice>
+            <a
+              className="penalis-button penalis-button--primary"
+              href={bootstrap.isLoggedIn ? bootstrap.dashboardUrl : bootstrap.loginUrl}
+            >
+              {bootstrap.isLoggedIn ? 'Buka dasbor penulis' : 'Lanjut ke halaman masuk'}
+            </a>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="penalis-button penalis-button--primary"
+            onClick={() => void confirm()}
+            disabled={state === 'working'}
+          >
+            {state === 'working' ? 'Mengonfirmasi…' : 'Konfirmasi email baru'}
+          </button>
+        )}
+
+        <p className="penalis-fineprint">
+          <a href={bootstrap.dashboardUrl}>Kembali ke dasbor</a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Password reset form reached from the reset email.
  *
  * The key is consumed only when the visitor submits a new password, so email
@@ -364,6 +437,14 @@ export function App() {
     return isTokenShaped(value) ? value : null;
   });
 
+  // An email-change confirmation link carries its own single-use token. It is
+  // handled before the dashboard so a signed-in visitor can still complete the
+  // change, and it works while signed out because the token is the proof.
+  const [emailChangeToken] = useState(() => {
+    const value = readParam(DEEPLINK.emailChange);
+    return isTokenShaped(value) ? value : null;
+  });
+
   // A password reset link carries a single-use key. It is handled before the
   // dashboard so a signed-in visitor can still complete the reset.
   //
@@ -431,6 +512,10 @@ export function App() {
 
   if (verificationToken) {
     return <VerificationPage token={verificationToken} />;
+  }
+
+  if (emailChangeToken) {
+    return <EmailChangePage token={emailChangeToken} />;
   }
 
   if (resetKey) {
@@ -554,7 +639,7 @@ export function App() {
 
       {effectiveView === 'profile' ? <Profile account={account} onUpdated={setAccount} /> : null}
 
-      {effectiveView === 'settings' ? <Settings account={account} /> : null}
+      {effectiveView === 'settings' ? <Settings account={account} onUpdated={setAccount} /> : null}
     </Shell>
   );
 }

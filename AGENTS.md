@@ -187,6 +187,7 @@ including `edit_others_posts`, `manage_categories`, `moderate_comments`,
 | `_penalis_registered_at`, `_penalis_approved_at`, `_penalis_approved_by` | Lifecycle timestamps |
 | `_penalis_status_log` | Audit log (bounded to 20) |
 | `_penalis_verification_token_hash`, `..._expires`, `..._created` | Email verification token (hashed) |
+| `_penalis_email_change_token_hash`, `..._expires`, `..._created`, `_penalis_email_change_new_email` | Pending verified email change (hashed token + candidate address) |
 | `_penalis_display_name_mode` | `auto`, `first`, `last`, `username`, `custom` |
 | `_penalis_needs_password` | Legacy "vouch" path: owner still has no password |
 | `_penalis_last_email_failed_at`, `..._context` | Mail delivery failure, surfaced to admins |
@@ -286,11 +287,24 @@ limits) -> email with a **WordPress core** reset key ->
 Two different token worlds, do not mix them:
 
 - plugin tokens: 43-char base64url, hashed, plugin-managed (verification,
-  legacy activation);
+  legacy activation, email change);
 - core reset keys: 20-character alphanumeric from `get_password_reset_key()`.
 
 `src/lib/deeplink.ts` documents this; `isTokenShaped()` must never be applied to
 a reset key.
+
+### 5.3a Email address change
+
+`POST /penalis/v1/account/email` (signed in, current password required) stores
+the candidate address next to a hashed single-use token and emails the
+confirmation link to that **new** address. `POST /penalis/v1/account/email/confirm`
+(public, token is the proof) re-checks availability and only then updates
+`user_email`.
+
+Until confirmation the old address keeps receiving resets and notifications;
+afterwards it receives a security notice. The status machine is never touched.
+`pending_verification` accounts use the verification resend instead, and
+`rejected`/`suspended` accounts are denied. Usernames stay non-editable.
 
 ### 5.4 Writing and publishing
 
@@ -375,6 +389,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-registration.php` | Registration, verification, resend |
 | `includes/class-legacy-activation.php` | Legacy request/confirm conversion |
 | `includes/class-password-reset.php` | Forgot/reset flow |
+| `includes/class-email-change.php` | Verified email address change (request + confirmation) |
 | `includes/class-emails.php` | All outgoing mail (verification, reset, legacy, status, admin notice) |
 | `includes/class-dashboard.php` | Page/shortcode/template, asset enqueue, login POST, logout, cache headers, noindex, legacy slug redirect |
 | `includes/class-admin.php` | Users -> Penalis Writers screen: filters, status actions, legacy activation, default avatar |
@@ -435,6 +450,8 @@ profile fields); `require_active_writer` = `active` + access flag.
 | `/account` | GET | `get_account` | logged in |
 | `/account/profile` | POST | `update_profile` | logged in |
 | `/account/password` | POST | `update_password` | logged in |
+| `/account/email` | POST | `request_email_change` | logged in |
+| `/account/email/confirm` | POST | `confirm_email_change` | public (token) |
 | `/account/avatar` | POST, DELETE | `set_avatar`, `remove_avatar` | logged in |
 | `/articles` | GET | `list_articles` | active writer |
 | `/articles/{id}` | GET | `get_article` | active writer |
@@ -469,6 +486,7 @@ email, description, authorUrl). If you add a field, update
 | `penalis_verify` | token | Verification confirmation |
 | `penalis_reset` + `penalis_login` | core key + login | Set a new password |
 | `penalis_activate` | flag or token | Legacy request form or confirmation |
+| `penalis_email_change` | token | Confirm a requested email address change |
 | `penalis_login_error` | flag | Failed dashboard login |
 
 These exist so the public site (including the retired `/submit-karya-tulis`
@@ -502,7 +520,8 @@ Read `SECURITY.md` before changing anything in this area. The short version:
 - Rate limits (per IP unless noted): registration 5/h, verification 20/h,
   resend 5/h, legacy activate 5/h + 3/h per email, legacy confirm 10/h, password
   forgot 5/h + 3/h per account, password reset 10/h, password change 5/h per
-  user, tag creation 30/h per user.
+  user, email change 5/h per IP + 3/h per user, email change confirmation 10/h,
+  tag creation 30/h per user.
 - Private data never goes to page caches: `private, no-store` cache headers,
   `X-Robots-Tag: noindex`, and `Referrer-Policy: no-referrer` on dashboard
   requests. Every write goes through REST with a nonce; there is no admin-ajax

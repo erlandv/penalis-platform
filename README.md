@@ -57,7 +57,8 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 - A default profile photo for accounts without one, managed under
   **Users → Penalis Writers**.
 - A **View public profile** link to the writer's author archive.
-- Account settings including password change.
+- Account settings including password change and a verified email address
+  change.
 - Media library view with direct upload; new images appear in the grid
   immediately.
 
@@ -76,6 +77,28 @@ Writers who forget their password stay inside the dashboard:
 5. Every existing session is destroyed after a successful reset.
 
 `wp-login.php?action=lostpassword` still works as a fallback.
+
+### Email address change
+
+Writers change their own email address from **Pengaturan** in the dashboard:
+
+1. Enter the new address and the current password. The password is required so
+   a hijacked session cannot move the account to an address the attacker
+   controls.
+2. The address on file does **not** change yet. A confirmation link is sent to
+   the new address, and the candidate address is stored next to a hashed,
+   single-use token.
+3. The link opens `/dashboard/?penalis_email_change=<token>`. The token is
+   consumed only after the button is pressed, so email link scanners cannot
+   burn it.
+4. Availability is re-checked at confirmation time, then `user_email` is
+   updated and the previous address receives a security notice.
+
+Until the link is confirmed, the old address keeps receiving password resets
+and notifications. The account status is never touched: an email change is not
+an approval event. Accounts still waiting for email verification use the
+verification resend instead, and rejected or suspended accounts cannot change
+their address. Usernames are not editable from the dashboard.
 
 ### Legacy contributor activation
 
@@ -124,6 +147,7 @@ penalis-platform/
 │   ├── class-access-control.php Login, capability, and REST hardening
 │   ├── class-registration.php  Registration, verification, resend
 │   ├── class-password-reset.php Dashboard password reset (forgot/reset)
+│   ├── class-email-change.php  Verified email address change
 │   ├── class-legacy-activation.php Legacy contributor activation
 │   ├── class-rest-api.php      penalis/v1 endpoints
 │   ├── class-dashboard.php     Page, shortcode, asset enqueue

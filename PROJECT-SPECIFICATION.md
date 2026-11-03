@@ -231,6 +231,8 @@ Server-side guards additionally:
 | `/account` | GET | logged in | Current account state |
 | `/account/profile` | POST | logged in | Update safe profile fields |
 | `/account/password` | POST | logged in, enabled | Change own password |
+| `/account/email` | POST | logged in, enabled | Request a verified email address change |
+| `/account/email/confirm` | POST | public, token | Consume the email-change token and apply the new address |
 | `/account/avatar` | POST | logged in | Assign the profile photo from own media (One User Avatar) |
 | `/account/avatar` | DELETE | logged in | Detach the profile photo |
 | `/articles` | GET | active writer | Paginated own articles |
@@ -248,6 +250,24 @@ enforces ownership, author, status, and featured-media rules for writers.
 
 Password reset is handled inside the dashboard instead of
 `wp-login.php?action=lostpassword`, which remains available as a fallback.
+
+### Email address change
+
+The address on file is never replaced on request. `POST /account/email`
+re-authenticates with the current password, stores the candidate address next
+to a hashed single-use token, and emails the confirmation link to that new
+address. `POST /account/email/confirm` consumes the token, re-checks that the
+address is still available, and only then updates `user_email`.
+
+Until confirmation, the old address keeps receiving password resets and
+notifications. After the change, the old address receives a security notice.
+The account status machine is never touched: an email change is not a
+registration and must not advance or reset approval state.
+
+`pending_verification` accounts cannot use this flow (they have not proven the
+address on file yet) and use the verification resend instead. `rejected` and
+`suspended` accounts are denied so a credential change cannot restore revoked
+access. Usernames remain non-editable from the dashboard.
 
 - `/password/forgot` accepts a username or email and always returns the same
   generic message, so it cannot be used to enumerate accounts. It is rate

@@ -521,6 +521,89 @@ update_user_meta( 7, Penalis_Account_Status::META_DISPLAY_NAME_MODE, 'bogus' );
 penalis_same( 'custom', Penalis_Account_Status::get_display_name_mode( 7 ), 'Unknown stored preferences fall back to custom.' );
 
 /* -------------------------------------------------------------------------
+ * Policy: email change authorization and validation
+ * ---------------------------------------------------------------------- */
+
+penalis_assert(
+	Penalis_Policy::can_change_email( 'pending_approval', false ),
+	'Pending-approval accounts may change their email address.'
+);
+penalis_assert(
+	Penalis_Policy::can_change_email( 'active', true ),
+	'Active accounts with access may change their email address.'
+);
+penalis_assert(
+	! Penalis_Policy::can_change_email( 'active', false ),
+	'Active accounts without access may not change their email address.'
+);
+penalis_assert(
+	! Penalis_Policy::can_change_email( 'pending_verification', true ),
+	'Unverified accounts may not change their email address.'
+);
+penalis_assert(
+	! Penalis_Policy::can_change_email( 'rejected', true ),
+	'Rejected accounts may not change their email address.'
+);
+penalis_assert(
+	! Penalis_Policy::can_change_email( 'suspended', true ),
+	'Suspended accounts may not change their email address.'
+);
+penalis_assert(
+	Penalis_Policy::can_change_email( '', true ),
+	'Legacy accounts with explicit access may change their email address.'
+);
+
+penalis_same( '', Penalis_Policy::validate_email_change( 'baru@example.com', 'lama@example.com' ), 'A new valid address passes.' );
+penalis_same( '', Penalis_Policy::validate_email_change( 'baru@example.com' ), 'A valid address passes without a current address.' );
+penalis_assert( '' !== Penalis_Policy::validate_email_change( '', 'lama@example.com' ), 'An empty address is rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_email_change( 'bukan-email', 'lama@example.com' ), 'A malformed address is rejected.' );
+penalis_assert(
+	'' !== Penalis_Policy::validate_email_change( 'Lama@Example.com', 'lama@example.com' ),
+	'Reusing the current address is rejected regardless of case.'
+);
+penalis_assert(
+	'' !== Penalis_Policy::validate_email_change( str_repeat( 'a', 250 ) . '@example.com', 'lama@example.com' ),
+	'Overlong addresses are rejected.'
+);
+
+/* -------------------------------------------------------------------------
+ * Email change token storage
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'penalis_writer' ) );
+
+$penalis_email_token = Penalis_Account_Status::issue_email_change_token( 21, 'baru@example.com' );
+penalis_assert( is_string( $penalis_email_token ), 'An email change token is issued.' );
+penalis_assert( Penalis_Policy::is_token_format_valid( $penalis_email_token ), 'The issued token has the plugin token shape.' );
+penalis_same( 21, Penalis_Account_Status::find_user_by_email_change_token( $penalis_email_token ), 'The token resolves to its owner.' );
+penalis_same( 0, Penalis_Account_Status::find_user_by_email_change_token( 'x' ), 'Malformed tokens resolve to nobody.' );
+
+$penalis_pending = Penalis_Account_Status::get_email_change( 21 );
+penalis_same( 'baru@example.com', $penalis_pending['email'], 'The pending address is stored.' );
+penalis_assert( $penalis_pending['expires'] > time(), 'The pending change has a future expiry.' );
+
+// The raw token must never be stored; only its hash is.
+penalis_assert(
+	Penalis_Policy::hash_token( $penalis_email_token ) !== $penalis_email_token,
+	'The stored value is a hash, not the raw token.'
+);
+penalis_same(
+	Penalis_Policy::hash_token( $penalis_email_token ),
+	(string) get_user_meta( 21, Penalis_Account_Status::META_EMAIL_CHANGE_HASH, true ),
+	'Only the token hash is persisted.'
+);
+
+Penalis_Account_Status::clear_email_change( 21 );
+penalis_same( '', Penalis_Account_Status::get_email_change( 21 )['email'], 'Clearing removes the pending address.' );
+penalis_same( 0, Penalis_Account_Status::find_user_by_email_change_token( $penalis_email_token ), 'A cleared token no longer resolves.' );
+
+// An email change token must not be usable as a registration token.
+$penalis_registration_token = Penalis_Account_Status::issue_verification_token( 21 );
+penalis_same( 0, Penalis_Account_Status::find_user_by_email_change_token( $penalis_registration_token ), 'Registration tokens cannot confirm an email change.' );
+penalis_same( 21, Penalis_Account_Status::find_user_by_token( $penalis_registration_token ), 'Registration tokens still resolve through their own lookup.' );
+
+/* -------------------------------------------------------------------------
  * Avatar validation
  * ---------------------------------------------------------------------- */
 

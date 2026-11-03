@@ -62,6 +62,10 @@ export interface Account {
   avatarUrl: string;
   authorUrl: string;
   email: string;
+  /** Address awaiting confirmation, or an empty string when none is pending. */
+  pendingEmail: string;
+  /** Whether this account may request an email change at all. */
+  canChangeEmail: boolean;
   description: string;
   status: AccountStatus;
   statusLabel: string;
