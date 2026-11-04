@@ -8,7 +8,7 @@ import { ApiError, legacyApi, passwordApi, registrationApi } from '../../lib/api
 import { getBootstrap } from '../../lib/bootstrap';
 import { DEEPLINK, hasParam, isTokenShaped, readParam } from '../../lib/deeplink';
 import type { FieldErrors } from '../../lib/types';
-import { hasErrors, validateEmail, validateLoginOrEmail, validateRegistration } from '../../lib/validation';
+import { hasErrors, validateEmail, validateRegistration, validateResetEmail } from '../../lib/validation';
 import { describedBy } from '../../lib/a11y';
 import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../components/ui';
 import { PasswordInput } from '../../components/PasswordInput';
@@ -27,7 +27,7 @@ const DESCRIPTIONS: Record<Mode, string> = {
   login: 'Login ke dashboard dengan akun Penalis untuk mengelola karya tulis.',
   register: 'Buat akun Penalis untuk mengakses dashboard dan mulai menulis di Penalis.',
   resend: 'Minta link verifikasi baru untuk akun yang belum dikonfirmasi.',
-  forgot: 'Masukkan email atau username kamu. Kami akan mengirim link untuk reset password.',
+  forgot: 'Masukkan email kamu. Kami akan mengirim link untuk reset password.',
   activate: 'Sudah pernah mengirim karya tulis dan menjadi kontributor Penalis sebelumnya?',
 };
 
@@ -465,11 +465,13 @@ function ResendForm() {
 /**
  * Password reset request.
  *
- * The server response is deliberately generic, so the success notice repeats
- * the same conditional wording instead of confirming that the account exists.
+ * Only an email address is accepted. Usernames are public on author archives,
+ * so they must not work as a reset handle. The server response is deliberately
+ * generic, so the success notice repeats the same conditional wording instead
+ * of confirming that the account exists.
  */
 function ForgotForm({ onDone }: { onDone: () => void }) {
-  const [login, setLogin] = useState('');
+  const [email, setEmail] = useState('');
   const [honeypot, setHoneypot] = useState('');
   const [fieldError, setFieldError] = useState('');
   const [message, setMessage] = useState('');
@@ -483,7 +485,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
 
     // The server answers generically for every outcome, so an empty field
     // would otherwise look like a successful request.
-    const invalid = validateLoginOrEmail(login);
+    const invalid = validateResetEmail(email);
     if (invalid) {
       setFieldError(invalid);
       return;
@@ -492,7 +494,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
     setSubmitting(true);
 
     try {
-      const result = await passwordApi.forgot(login.trim(), honeypot);
+      const result = await passwordApi.forgot(email.trim(), honeypot);
       setMessage(result.message);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
@@ -506,8 +508,8 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
       <div className="penalis-form">
         <Notice tone="success">{message}</Notice>
         <p className="penalis-muted">
-          Link verifikasi hanya dapat digunakan sekali. Jika email tidak masuk dalam beberapa menit, periksa folder spam
-          atau coba lagi nanti.
+          Link reset password hanya dapat digunakan sekali. Jika email tidak masuk dalam beberapa menit, periksa folder
+          spam atau coba lagi nanti.
         </p>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
           Kembali ke halaman login
@@ -521,24 +523,26 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
       {error ? <ErrorBanner message={error} /> : null}
 
       <div className="penalis-field">
-        <label htmlFor="forgot_login">Email atau Username</label>
+        <label htmlFor="forgot_email">Email</label>
         <input
-          id="forgot_login"
-          type="text"
-          value={login}
+          id="forgot_email"
+          type="email"
+          value={email}
           onChange={(event) => {
-            setLogin(event.target.value);
+            setEmail(event.target.value);
             setFieldError('');
           }}
-          autoComplete="username"
+          autoComplete="email"
           maxLength={254}
-          placeholder="Email atau username kamu"
+          placeholder="Email kamu"
           aria-invalid={Boolean(fieldError)}
-          aria-describedby={describedBy('forgot_login-hint', fieldError && 'forgot_login-error')}
+          aria-describedby={describedBy('forgot_email-hint', fieldError && 'forgot_email-error')}
           required
         />
-        <FieldHint id="forgot_login-hint">Bisa berupa email atau username.</FieldHint>
-        <FieldError errors={{ forgot_login: fieldError }} name="forgot_login" />
+        <FieldHint id="forgot_email-hint">
+          Gunakan email yang terdaftar di akun kamu. Username tidak dapat dipakai untuk reset password.
+        </FieldHint>
+        <FieldError errors={{ forgot_email: fieldError }} name="forgot_email" />
       </div>
 
       {/* Honeypot: hidden from users, must remain empty. */}

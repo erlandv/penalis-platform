@@ -62,6 +62,11 @@ disclosed.
 This closes the "reset the password to gain access" path for dormant legacy
 profiles.
 
+The reset request accepts an email address only. Usernames are public on author
+archives, so accepting one would let anyone turn a public profile into a reset
+attempt against that account. A username sent in the email field is answered
+with the same generic message and is never resolved to a user.
+
 ## Authorization
 
 ### Roles and capabilities

@@ -148,7 +148,7 @@ final class Penalis_Rest_Api {
 				'callback'            => array( __CLASS__, 'handle_password_forgot' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'user_login'      => array(
+					'user_email'      => array(
 						'type'     => 'string',
 						'required' => true,
 					),
@@ -530,8 +530,10 @@ final class Penalis_Rest_Api {
 	/**
 	 * Request a password reset link.
 	 *
-	 * Always answers generically so the endpoint cannot be used to discover
-	 * which addresses are registered.
+	 * Accepts an email address only: usernames are public on author archives, so
+	 * allowing them would turn a public profile into a reset handle. Always
+	 * answers generically so the endpoint cannot be used to discover which
+	 * addresses are registered.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response|WP_Error
@@ -539,7 +541,7 @@ final class Penalis_Rest_Api {
 	public static function handle_password_forgot( $request ) {
 		$result = Penalis_Password_Reset::request(
 			array(
-				'user_login'      => $request->get_param( 'user_login' ),
+				'user_email'      => $request->get_param( 'user_email' ),
 				'penalis_website' => $request->get_param( 'penalis_website' ),
 			)
 		);

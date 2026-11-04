@@ -5,7 +5,7 @@ import {
   normalizeLinkHref,
   validateArticle,
   validateEmail,
-  validateLoginOrEmail,
+  validateResetEmail,
   validateRegistration,
   validateUsername,
 } from './validation';
@@ -97,27 +97,30 @@ describe('validateEmail', () => {
   });
 });
 
-describe('validateLoginOrEmail', () => {
-  it('accepts a bare username', () => {
-    expect(validateLoginOrEmail('ada_lovelace')).toBe('');
+describe('validateResetEmail', () => {
+  it('accepts a valid email address', () => {
+    expect(validateResetEmail('ada@example.com')).toBe('');
   });
 
-  it('accepts a valid email address', () => {
-    expect(validateLoginOrEmail('ada@example.com')).toBe('');
+  it('rejects a bare username', () => {
+    // Usernames are public on author archives, so they must not work as a
+    // reset handle.
+    expect(validateResetEmail('ada_lovelace')).not.toBe('');
   });
 
   it('rejects an empty value', () => {
-    expect(validateLoginOrEmail('')).not.toBe('');
-    expect(validateLoginOrEmail('   ')).not.toBe('');
+    expect(validateResetEmail('')).not.toBe('');
+    expect(validateResetEmail('   ')).not.toBe('');
   });
 
   it('rejects a malformed email attempt', () => {
-    expect(validateLoginOrEmail('ada@')).not.toBe('');
-    expect(validateLoginOrEmail('@example.com')).not.toBe('');
+    expect(validateResetEmail('ada@')).not.toBe('');
+    expect(validateResetEmail('@example.com')).not.toBe('');
+    expect(validateResetEmail('ada@example')).not.toBe('');
   });
 
   it('rejects an overlong value', () => {
-    expect(validateLoginOrEmail('a'.repeat(255))).not.toBe('');
+    expect(validateResetEmail('a'.repeat(255))).not.toBe('');
   });
 });
 

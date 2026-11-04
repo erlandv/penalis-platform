@@ -286,6 +286,13 @@ link.
 limits) -> email with a **WordPress core** reset key ->
 `?penalis_reset=<key>&penalis_login=<login>` -> `POST /penalis/v1/password/reset`.
 
+The request accepts an **email address only** (`user_email`). Usernames are
+public on author archives, so accepting one would let anyone turn a public
+profile into a reset attempt against that account. A username sent in the email
+field is answered with the same generic message and never looked up. The reset
+link still carries `penalis_login` because `check_password_reset_key()` needs
+the login; that value comes from the server, not from the visitor.
+
 Two different token worlds, do not mix them:
 
 - plugin tokens: 43-char base64url, hashed, plugin-managed (verification,
@@ -542,6 +549,8 @@ Read `SECURITY.md` before changing anything in this area. The short version:
   checks MIME, dimensions (min edge 100px), and ownership.
 - Public endpoints answer generically to prevent account enumeration
   (registration, verification, legacy activation, password reset).
+- The password reset request accepts an email address only. Usernames are
+  public on author archives, so they must never work as a reset handle.
 - Honeypot field `penalis_website` must stay in the registration, legacy and
   password forms; a filled value is a silent no-op.
 - Tokens are random, stored only as a hash (`Penalis_Policy::hash_token`) and

@@ -216,13 +216,14 @@ export const passwordApi = {
   /**
    * Request a reset link.
    *
-   * The server always answers generically, so the UI must not imply that the
-   * address exists.
+   * Only an email address is accepted: usernames are public on author
+   * archives, so they must not work as a reset handle. The server always
+   * answers generically, so the UI must not imply that the address exists.
    */
-  forgot: (userLogin: string, honeypot = '') =>
+  forgot: (email: string, honeypot = '') =>
     request<{ message: string }>('/password/forgot', {
       method: 'POST',
-      body: { user_login: userLogin, penalis_website: honeypot },
+      body: { user_email: email, penalis_website: honeypot },
     }),
 
   reset: (payload: { key: string; login: string; password: string }) =>

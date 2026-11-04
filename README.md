@@ -78,12 +78,14 @@ The dashboard is only loaded on its own page. It is not enqueued site-wide.
 Writers who forget their password stay inside the dashboard:
 
 1. **Lupa kata sandi?** on the login screen opens a reset request form.
-2. The request always answers generically, so it cannot be used to discover
+2. The form asks for the **email address** on the account. Usernames are public
+   on author archives, so they are not accepted as a reset handle.
+3. The request always answers generically, so it cannot be used to discover
    which addresses are registered.
-3. The email links back to `/dashboard/` with a single-use key.
-4. The key is consumed only after the new password is submitted, so email link
+4. The email links back to `/dashboard/` with a single-use key.
+5. The key is consumed only after the new password is submitted, so email link
    scanners cannot burn it.
-5. Every existing session is destroyed after a successful reset.
+6. Every existing session is destroyed after a successful reset.
 
 `wp-login.php?action=lostpassword` still works as a fallback.
 

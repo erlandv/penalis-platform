@@ -108,32 +108,28 @@ export function validateUsername(value: string, current = ''): string {
 }
 
 /**
- * Validate the login-or-email field used by the password reset request.
+ * Validate the email field used by the password reset request.
  *
- * The server accepts either a username or an email address, so this only
- * rejects an empty value and an obviously malformed address. A bare username
- * is valid.
+ * The reset request accepts an email address only. Usernames are public on
+ * author archives, so accepting one would let anyone turn a public profile
+ * into a reset attempt against that account. The server enforces the same
+ * rule; this check exists so the visitor gets feedback instead of the generic
+ * "we sent a link" notice for a value that was never looked up.
  *
  * @param value Raw input.
  * @return Error message, or an empty string when valid.
  */
-export function validateLoginOrEmail(value: string): string {
-  const login = value.trim();
+export function validateResetEmail(value: string): string {
+  const email = value.trim();
 
-  if (login === '') {
-    return 'Masukkan email atau nama pengguna kamu.';
+  // A value without "@" is almost certainly a username. Say so explicitly:
+  // the generic "invalid email" message would leave the visitor guessing why
+  // the login they use elsewhere is rejected here.
+  if (email !== '' && !email.includes('@')) {
+    return 'Masukkan alamat email kamu. Username tidak dapat dipakai untuk reset password.';
   }
 
-  if (login.length > 254) {
-    return 'Nilai yang dimasukkan terlalu panjang.';
-  }
-
-  // Only validate the shape when it looks like an email attempt.
-  if (login.includes('@') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(login)) {
-    return 'Masukkan alamat email yang valid.';
-  }
-
-  return '';
+  return validateEmail(email);
 }
 
 /**

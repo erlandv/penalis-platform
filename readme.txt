@@ -166,6 +166,10 @@ Screenshots are not provided yet.
 * Every password field now has an eye button that reveals the typed password,
   so a typo is caught before the form is submitted. The toggle is a real
   button with an accessible name, not a clickable icon decoration.
+* The password reset request now accepts an email address only. Usernames are
+  public on author archives, so they are no longer usable as a reset handle.
+  A username in the email field still gets the generic answer and is never
+  looked up.
 
 = 0.2.2 =
 * The media library page can now upload images directly; new uploads appear in

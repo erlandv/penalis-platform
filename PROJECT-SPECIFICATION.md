@@ -306,8 +306,11 @@ every session is destroyed, the current auth cookie is cleared, and the current
 email address receives a security notice. Settings redirects to login
 afterwards.
 
-- `/password/forgot` accepts a username or email and always returns the same
-  generic message, so it cannot be used to enumerate accounts. It is rate
+- `/password/forgot` accepts an **email address only** and always returns the
+  same generic message, so it cannot be used to enumerate accounts. Usernames
+  are public on author archives, so accepting one would let anyone turn a
+  public profile into a reset attempt against that account; a username sent in
+  the email field is answered generically and never looked up. It is rate
   limited per IP and per account, and uses the same honeypot as registration.
 - The reset key comes from `get_password_reset_key()`, so only a hash is stored
   in `user_activation_key`. The email links to

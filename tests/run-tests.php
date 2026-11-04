@@ -23,6 +23,7 @@ require_once __DIR__ . '/../includes/class-email-template.php';
 require_once __DIR__ . '/../includes/class-emails.php';
 require_once __DIR__ . '/../includes/class-author-history.php';
 require_once __DIR__ . '/../includes/class-username-change.php';
+require_once __DIR__ . '/../includes/class-password-reset.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -73,6 +74,8 @@ function penalis_reset() {
 	$GLOBALS['penalis_test_mail']         = array();
 	$GLOBALS['penalis_test_cache_deletes'] = array();
 	$GLOBALS['penalis_test_cleaned_users'] = array();
+	$GLOBALS['penalis_test_reset_key_users'] = array();
+	$GLOBALS['penalis_test_password_resets'] = array();
 	unset(
 		$GLOBALS['penalis_test_sessions_destroyed'],
 		$GLOBALS['penalis_test_auth_cookie_cleared'],
@@ -916,6 +919,53 @@ $profile_user   = clone $GLOBALS['penalis_test_users'][41];
 $profile_user->user_email = 'baru@example.com';
 Penalis_Author_History::validate_profile( $profile_errors, true, $profile_user );
 penalis_same( '', $profile_errors->get_error_code(), 'An unrelated profile edit is not blocked.' );
+
+/* -------------------------------------------------------------------------
+ * Password reset request: email only
+ * ---------------------------------------------------------------------- */
+
+// Usernames are public on author archives, so the reset request must not
+// resolve one. These tests pin that rule: a username is answered generically
+// and never issues a key or sends mail.
+penalis_reset();
+$GLOBALS['penalis_test_users'][50] = new WP_User( 50, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_users'][50]->user_email = 'penulis@example.com';
+$GLOBALS['penalis_test_users'][50]->user_login = 'penulis_publik';
+
+$result = Penalis_Password_Reset::request( array( 'user_login' => 'penulis_publik' ) );
+penalis_same( Penalis_Password_Reset::GENERIC_MESSAGE, $result['message'], 'A username-only request answers generically.' );
+penalis_same( array(), $GLOBALS['penalis_test_reset_key_users'], 'A username-only request issues no reset key.' );
+penalis_same( array(), $GLOBALS['penalis_test_mail'], 'A username-only request sends no email.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][50] = new WP_User( 50, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_users'][50]->user_email = 'penulis@example.com';
+$GLOBALS['penalis_test_users'][50]->user_login = 'penulis_publik';
+
+$result = Penalis_Password_Reset::request( array( 'user_email' => 'penulis_publik' ) );
+penalis_same( Penalis_Password_Reset::GENERIC_MESSAGE, $result['message'], 'A username in the email field answers generically.' );
+penalis_same( array(), $GLOBALS['penalis_test_reset_key_users'], 'A username in the email field issues no reset key.' );
+penalis_same( array(), $GLOBALS['penalis_test_mail'], 'A username in the email field sends no email.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][50] = new WP_User( 50, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_users'][50]->user_email = 'penulis@example.com';
+$GLOBALS['penalis_test_users'][50]->user_login = 'penulis_publik';
+
+$result = Penalis_Password_Reset::request( array( 'user_email' => 'penulis@example.com' ) );
+penalis_same( Penalis_Password_Reset::GENERIC_MESSAGE, $result['message'], 'A registered email answers generically.' );
+penalis_same( array( 50 ), $GLOBALS['penalis_test_reset_key_users'], 'A registered email issues a reset key for that account.' );
+penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'A registered email sends one reset email.' );
+penalis_same( 'penulis@example.com', $GLOBALS['penalis_test_mail'][0][0], 'The reset email goes to the address on file.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][50] = new WP_User( 50, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_users'][50]->user_email = 'penulis@example.com';
+
+$result = Penalis_Password_Reset::request( array( 'user_email' => 'tidak-terdaftar@example.com' ) );
+penalis_same( Penalis_Password_Reset::GENERIC_MESSAGE, $result['message'], 'An unknown email answers generically.' );
+penalis_same( array(), $GLOBALS['penalis_test_reset_key_users'], 'An unknown email issues no reset key.' );
+penalis_same( array(), $GLOBALS['penalis_test_mail'], 'An unknown email sends no email.' );
 
 /* -------------------------------------------------------------------------
  * Branded transactional emails

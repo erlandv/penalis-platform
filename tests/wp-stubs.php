@@ -811,6 +811,56 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	}
 }
 
+if ( ! function_exists( 'get_password_reset_key' ) ) {
+	/**
+	 * Password reset key double.
+	 *
+	 * Records the user it was issued for so a test can prove the reset request
+	 * resolved the right account, and returns a fixed key.
+	 *
+	 * @param WP_User $user User.
+	 * @return string|WP_Error
+	 */
+	function get_password_reset_key( $user ) {
+		$GLOBALS['penalis_test_reset_key_users'][] = (int) $user->ID;
+
+		return 'test-reset-key';
+	}
+}
+
+if ( ! function_exists( 'check_password_reset_key' ) ) {
+	/**
+	 * Password reset key check double.
+	 *
+	 * @param string $key   Key.
+	 * @param string $login Login.
+	 * @return WP_User|WP_Error
+	 */
+	function check_password_reset_key( $key, $login ) {
+		$user = get_user_by( 'login', $login );
+
+		if ( ! $user || 'test-reset-key' !== $key ) {
+			return new WP_Error( 'invalid_key', 'Invalid key.' );
+		}
+
+		return $user;
+	}
+}
+
+if ( ! function_exists( 'reset_password' ) ) {
+	/**
+	 * Password reset double.
+	 *
+	 * @param WP_User $user     User.
+	 * @param string  $password New password.
+	 * @return void
+	 */
+	function reset_password( $user, $password ) {
+		$user->user_pass = 'hash:' . $password;
+		$GLOBALS['penalis_test_password_resets'][] = (int) $user->ID;
+	}
+}
+
 if ( ! function_exists( 'esc_url' ) ) {
 	/**
 	 * URL escaping stub.

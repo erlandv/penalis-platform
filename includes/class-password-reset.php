@@ -18,6 +18,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * - The request endpoint always answers generically, so it cannot be used to
  *   enumerate accounts.
+ * - The request endpoint accepts an email address only. Usernames are public
+ *   (they appear in author archives), so accepting them would let anyone turn
+ *   a public profile into a reset attempt against that account.
  * - Reset keys come from `get_password_reset_key()`, which stores only a hash
  *   in `user_activation_key`.
  * - The key is consumed only after the visitor submits a new password, so
@@ -59,13 +62,16 @@ final class Penalis_Password_Reset {
 			return array( 'message' => self::GENERIC_MESSAGE );
 		}
 
-		$login = isset( $data['user_login'] ) ? trim( (string) $data['user_login'] ) : '';
+		$email = isset( $data['user_email'] ) ? trim( (string) $data['user_email'] ) : '';
 
-		if ( '' === $login || strlen( $login ) > 254 ) {
+		// Only a well-formed address is looked up. A username is rejected here
+		// rather than resolved, because usernames are public on author archives
+		// and must not be usable as a reset handle.
+		if ( '' === $email || strlen( $email ) > 254 || ! is_email( $email ) ) {
 			return array( 'message' => self::GENERIC_MESSAGE );
 		}
 
-		$user = self::find_user( $login );
+		$user = get_user_by( 'email', $email );
 
 		if ( ! $user ) {
 			return array( 'message' => self::GENERIC_MESSAGE );
@@ -169,26 +175,6 @@ final class Penalis_Password_Reset {
 		return array(
 			'message' => 'Kata sandi kamu telah diperbarui. Silakan masuk dengan kata sandi baru.',
 		);
-	}
-
-	/**
-	 * Resolve a username or email address to a user.
-	 *
-	 * Mirrors core's `retrieve_password()` lookup order.
-	 *
-	 * @param string $login Username or email.
-	 * @return WP_User|false
-	 */
-	private static function find_user( $login ) {
-		if ( false !== strpos( $login, '@' ) ) {
-			$user = get_user_by( 'email', $login );
-
-			if ( $user ) {
-				return $user;
-			}
-		}
-
-		return get_user_by( 'login', $login );
 	}
 
 	/**
