@@ -87,6 +87,14 @@ Implementation notes:
   a single "Pilih" button in a sticky footer applies the choice. The caller
   decides what "Pilih" means — set the featured image, insert into the article,
   or set the profile photo — so the dialog itself stays identical.
+- Every password field is rendered by `src/components/PasswordInput.tsx`, which
+  owns the `type` switch between `password` and `text` and renders an eye
+  toggle button. The button is a real `<button>` with `aria-pressed` and a
+  stable accessible name, so it is operable by keyboard and announced by screen
+  readers; the icon is decorative. Callers pass the same props they would give
+  a bare `<input>`, so validation and `aria-describedby` wiring are unchanged.
+  Fields that used to wrap the input in a `<label>` now use an explicit
+  `htmlFor` label, because a button cannot live inside a label.
 - Trailing empty paragraphs that TipTap adds after block nodes are trimmed
   before saving (`src/lib/html.ts`).
 - Content is still submitted to the native WordPress posts endpoint. The server

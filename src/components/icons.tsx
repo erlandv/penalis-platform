@@ -30,6 +30,7 @@ export type IconName =
   | 'edit'
   | 'externalLink'
   | 'trash'
+  | 'eye'
   | 'eyeOff'
   | 'send';
 
@@ -169,6 +170,12 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
       <path d="M10 11v6" />
       <path d="M14 11v6" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8Z" />
+      <circle cx="12" cy="12" r="3" />
     </>
   ),
   eyeOff: (

@@ -61,6 +61,15 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
   change, and a verified email address change.
 - Media library view with direct upload; new images appear in the grid
   immediately.
+- Every password field (login, registration, legacy activation, reset, and the
+  settings forms) has an eye button that toggles between masked and visible
+  input, so a typo is caught before the form is submitted.
+
+All dashboard password fields are rendered by
+`src/components/PasswordInput.tsx`, which owns the `type` switch and the
+accessible toggle button. Add new password fields through that component rather
+than a bare `<input type="password">`, so the behaviour and markup stay
+consistent.
 
 The dashboard is only loaded on its own page. It is not enqueued site-wide.
 

@@ -889,6 +889,52 @@
 }
 
 /**
+ * Password field with a show/hide toggle.
+ *
+ * The wrapper is the positioning context for the eye button, and the input
+ * gets extra right padding so a long password never slides underneath the
+ * button. The padding is applied to both `password` and `text` inputs because
+ * the toggle switches the input's type in place.
+ */
+.penalis-password {
+  position: relative;
+  display: flex;
+}
+
+.penalis-dashboard-root .penalis-password input[type='password'],
+.penalis-dashboard-root .penalis-password input[type='text'] {
+  padding-right: 2.9rem;
+}
+
+.penalis-password__toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.35rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--penalis-muted);
+  cursor: pointer;
+}
+
+.penalis-password__toggle:hover:not(:disabled) {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-password__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/**
  * The theme sets `appearance: none` on selects without providing a replacement
  * arrow, which makes them indistinguishable from text inputs. Draw a chevron so
  * controls like "Display name publicly as" read as dropdowns.

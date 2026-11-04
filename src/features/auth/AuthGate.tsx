@@ -11,6 +11,7 @@ import type { FieldErrors } from '../../lib/types';
 import { hasErrors, validateEmail, validateLoginOrEmail, validateRegistration } from '../../lib/validation';
 import { describedBy } from '../../lib/a11y';
 import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../components/ui';
+import { PasswordInput } from '../../components/PasswordInput';
 
 type Mode = 'login' | 'register' | 'resend' | 'forgot' | 'activate';
 
@@ -176,9 +177,8 @@ function LoginForm() {
 
       <div className="penalis-field">
         <label htmlFor="login_password">Password</label>
-        <input
+        <PasswordInput
           id="login_password"
-          type="password"
           name="pwd"
           autoComplete="current-password"
           placeholder="Password kamu"
@@ -332,9 +332,8 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
 
       <div className="penalis-field">
         <label htmlFor="password">Password</label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
           value={values.password}
           onChange={(event) => update('password', event.target.value)}
           autoComplete="new-password"
@@ -348,9 +347,8 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
 
       <div className="penalis-field">
         <label htmlFor="confirm_password">Konfirmasi Password</label>
-        <input
+        <PasswordInput
           id="confirm_password"
-          type="password"
           value={values.confirm_password}
           onChange={(event) => update('confirm_password', event.target.value)}
           autoComplete="new-password"

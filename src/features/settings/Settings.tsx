@@ -13,6 +13,7 @@ import { describedBy } from '../../lib/a11y';
 import { previewAuthorUrl } from '../../lib/profile';
 import { validateEmail, validateUsername } from '../../lib/validation';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { PasswordInput } from '../../components/PasswordInput';
 import { ErrorBanner, FieldError, FieldHint, Notice, StatusBadge } from '../../components/ui';
 
 export function Settings({ account, onUpdated }: { account: Account; onUpdated: (account: Account) => void }) {
@@ -306,10 +307,10 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
               </div>
             ) : null}
 
-            <label className="penalis-field">
-              <span>Password Saat Ini</span>
-              <input
-                type="password"
+            <div className="penalis-field">
+              <label htmlFor="username_password">Password Saat Ini</label>
+              <PasswordInput
+                id="username_password"
                 value={usernamePassword}
                 onChange={(event) => setUsernamePassword(event.target.value)}
                 autoComplete="current-password"
@@ -324,7 +325,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
                 Kami meminta password untuk memastikan perubahan ini benar-benar dari kamu.
               </FieldHint>
               <FieldError errors={usernameErrors} name="username_password" />
-            </label>
+            </div>
 
             <div className="penalis-form__actions">
               <button type="submit" className="penalis-button penalis-button--primary" disabled={usernameSaving}>
@@ -405,10 +406,10 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
                 <FieldError errors={emailErrors} name="new_email" />
               </label>
 
-              <label className="penalis-field">
-                <span>Password Saat Ini</span>
-                <input
-                  type="password"
+              <div className="penalis-field">
+                <label htmlFor="email_password">Password Saat Ini</label>
+                <PasswordInput
+                  id="email_password"
                   value={emailPassword}
                   onChange={(event) => setEmailPassword(event.target.value)}
                   autoComplete="current-password"
@@ -422,7 +423,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
                   Kami meminta password untuk memastikan perubahan ini benar-benar dari kamu.
                 </FieldHint>
                 <FieldError errors={emailErrors} name="current_password" />
-              </label>
+              </div>
 
               <button type="submit" className="penalis-button penalis-button--primary" disabled={emailSaving}>
                 {emailSaving ? 'Mengirim Link Konfirmasi…' : 'Kirim Link Konfirmasi'}
@@ -451,38 +452,38 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         {notice ? <Notice tone="success">{notice}</Notice> : null}
 
         <form className="penalis-form penalis-form--narrow" onSubmit={submit} noValidate>
-          <label className="penalis-field">
-            <span>Password Saat Ini</span>
-            <input
-              type="password"
+          <div className="penalis-field">
+            <label htmlFor="current_password">Password Saat Ini</label>
+            <PasswordInput
+              id="current_password"
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
               autoComplete="current-password"
               required
             />
-          </label>
+          </div>
 
-          <label className="penalis-field">
-            <span>Password Baru</span>
-            <input
-              type="password"
+          <div className="penalis-field">
+            <label htmlFor="new_password">Password Baru</label>
+            <PasswordInput
+              id="new_password"
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               autoComplete="new-password"
               required
-            />            
-          </label>
+            />
+          </div>
 
-          <label className="penalis-field">
-            <span>Konfirmasi Password Baru</span>
-            <input
-              type="password"
+          <div className="penalis-field">
+            <label htmlFor="confirm_new_password">Konfirmasi Password Baru</label>
+            <PasswordInput
+              id="confirm_new_password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               autoComplete="new-password"
               required
             />
-          </label>
+          </div>
 
           <button type="submit" className="penalis-button penalis-button--primary" disabled={saving}>
             {saving ? 'Memperbarui…' : 'Ganti Password'}

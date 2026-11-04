@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.2
+Stable tag: 0.2.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,11 @@ recommended.
 Screenshots are not provided yet.
 
 == Changelog ==
+
+= 0.2.3 =
+* Every password field now has an eye button that reveals the typed password,
+  so a typo is caught before the form is submitted. The toggle is a real
+  button with an accessible name, not a clickable icon decoration.
 
 = 0.2.2 =
 * The media library page can now upload images directly; new uploads appear in

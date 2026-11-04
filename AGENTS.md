@@ -441,6 +441,7 @@ Init order (`Penalis_Plugin::run()`): `Access_Control`, `Rest_Api`, `Dashboard`,
 | `src/app/App.tsx` | Auth gate vs shell, deeplink handling, view routing, verification page |
 | `src/components/shell.tsx` | Navigation, status banner, layout |
 | `src/components/ui.tsx` | Buttons, banners, badges, field error/hint, spinner, empty state, pagination |
+| `src/components/PasswordInput.tsx` | Password field with the eye show/hide toggle; use it instead of a bare `<input type="password">` |
 | `src/components/Dialog.tsx` | Accessible modal: focus in/trap/restore, Escape, backdrop click |
 | `src/components/icons.tsx` | Inline SVG icon set (18px, stroke 2, `currentColor`) |
 | `src/components/AppErrorBoundary.tsx`, `ChunkErrorBoundary.tsx` | App-level and lazy-chunk failure handling |

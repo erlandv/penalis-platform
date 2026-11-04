@@ -11,6 +11,7 @@ import type { Account, FieldErrors, ViewName } from '../lib/types';
 import { PASSWORD_MIN_LENGTH } from '../lib/validation';
 import { describedBy } from '../lib/a11y';
 import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../components/ui';
+import { PasswordInput } from '../components/PasswordInput';
 import { Shell } from '../components/shell';
 import { AuthGate } from '../features/auth/AuthGate';
 import { Overview } from '../features/overview/Overview';
@@ -243,9 +244,8 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
             <form className="penalis-form" onSubmit={submit} noValidate>
               <div className="penalis-field">
                 <label htmlFor="reset_password">Kata sandi baru</label>
-                <input
+                <PasswordInput
                   id="reset_password"
-                  type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
@@ -259,9 +259,8 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
 
               <div className="penalis-field">
                 <label htmlFor="reset_confirm_password">Konfirmasi kata sandi baru</label>
-                <input
+                <PasswordInput
                   id="reset_confirm_password"
-                  type="password"
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
@@ -370,9 +369,8 @@ function ActivationPage({ token }: { token: string }) {
             <form className="penalis-form" onSubmit={submit} noValidate>
               <div className="penalis-field">
                 <label htmlFor="activate_password">Kata sandi baru</label>
-                <input
+                <PasswordInput
                   id="activate_password"
-                  type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
@@ -389,9 +387,8 @@ function ActivationPage({ token }: { token: string }) {
 
               <div className="penalis-field">
                 <label htmlFor="activate_confirm_password">Konfirmasi kata sandi</label>
-                <input
+                <PasswordInput
                   id="activate_confirm_password"
-                  type="password"
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
