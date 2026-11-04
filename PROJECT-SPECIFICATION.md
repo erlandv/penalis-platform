@@ -146,6 +146,8 @@ Additional metadata:
 | `_penalis_approved_by` | Administrator user ID |
 | `_penalis_status_log` | Bounded audit log of status transitions |
 | `_penalis_display_name_mode` | Preferred public name source: `auto`, `first`, `last`, `username`, `custom`; absent means `custom` |
+| `_penalis_author_history` | Previous author slugs, kept as audit history and used for 301 redirects |
+| `_penalis_author_history_reserved` | Searchable reservation rows that block reuse of a historical slug |
 | `{prefix}user_avatar` | Profile photo attachment ID, shared with One User Avatar |
 | `_penalis_verification_token_hash` | SHA-256 hash of the raw token |
 | `_penalis_verification_token_expires` | Expiry timestamp |
@@ -277,20 +279,24 @@ same eligibility rule as an email change (including the administrator
 exemption), requires the current password, and is limited to 5 attempts per IP
 and 3 per account per hour.
 
-Validation is strict and never normalizes: 3–60 ASCII letters, digits, `.`, `_`
-or `-`, with at least one letter or digit. A value that would only become valid
+Validation is strict and never normalizes: 3–50 lowercase ASCII letters,
+digits, `_` or `-`, starting and ending with a letter or digit, with at least
+one letter or digit. Dots are not allowed. A value that would only become valid
 after `sanitize_user()` is rejected, because silently rewriting it would give
 the writer a login they did not type. Duplicate, reserved and unavailable names
 share one generic error so the form cannot enumerate accounts.
 
 WordPress has no API for this: `wp_update_user()` ignores `user_login`, so the
 write is a direct `$wpdb->update()` guarded by a users-table advisory lock. The
-user ID and `user_nicename` are preserved, which keeps `/author/<nicename>/`
-and every published link intact. Only a public name that follows the username
-is updated; a custom pen name or a first/last-name composition is untouched.
-Old and new login caches are cleared, every session is destroyed, the current
-auth cookie is cleared, and the current email address receives a security
-notice. Settings redirects to login afterwards.
+user ID is preserved and `user_nicename` follows the new login, so the author
+archive moves to the new URL. The previous slug is stored in
+`_penalis_author_history` and served by a 301 redirect, which keeps every
+published link working, including sites with a custom author base. Only a
+public name that follows the username is updated; a custom pen name or a
+first/last-name composition is untouched. Old and new login caches are cleared,
+every session is destroyed, the current auth cookie is cleared, and the current
+email address receives a security notice. Settings redirects to login
+afterwards.
 
 - `/password/forgot` accepts a username or email and always returns the same
   generic message, so it cannot be used to enumerate accounts. It is rate
@@ -378,7 +384,8 @@ Administrators and editors are unaffected.
 Registration collects:
 
 - `display_name` (2–80 chars)
-- `user_login` (3–60 chars, sanitized)
+- `user_login` (3–50 chars, lowercase letters, digits, `_` or `-`, validated
+  rather than sanitized)
 - `user_email` (valid, normalized)
 - `password` (minimum 12 chars; server-side check)
 - `penalis_consent` (explicit acceptance)

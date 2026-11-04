@@ -105,13 +105,18 @@ their address.
 Writers change their own login from **Pengaturan** in the dashboard:
 
 1. Enter the new username and the current password. The password is required so
-   a hijacked session cannot rename the account and lock the owner out.
-2. The username must be 3–60 characters of ASCII letters, digits, `.`, `_` or
-   `-`, and must contain at least one letter or digit. A value that would only
-   become valid after sanitization is rejected, never silently rewritten.
-3. The user ID and `user_nicename` are preserved, so `/author/<nicename>/` and
-   every published link keep working. Only a public name that follows the
-   username changes with it; a custom pen name or a first/last-name
+   a hijacked session cannot rename the account and lock the owner out. The
+   form previews the resulting author URL and asks for confirmation before the
+   request is sent, because the change ends every session.
+2. The username must be 3–50 characters of lowercase ASCII letters, digits, `_`
+   or `-`, must start and end with a letter or digit, and must contain at least
+   one letter or digit. Dots are not allowed. A value that would only become
+   valid after sanitization is rejected, never silently rewritten.
+3. The user ID is preserved and `user_nicename` follows the new login, so the
+   author archive moves to the new URL. The old slug is recorded in
+   `_penalis_author_history` and a 301 redirect keeps every published link
+   working, including sites with a custom author base. Only a public name that
+   follows the username changes with it; a custom pen name or a first/last-name
    composition is left alone.
 4. Every session is destroyed, including the browser that made the change, and
    the current email address receives a security notice. Settings then

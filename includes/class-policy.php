@@ -473,9 +473,9 @@ final class Penalis_Policy {
 			$errors['display_name'] = 'Masukkan nama tampilan 2-80 karakter.';
 		}
 
-		$user_login = isset( $data['user_login'] ) ? trim( (string) $data['user_login'] ) : '';
-		if ( ! preg_match( '/^[a-zA-Z0-9._-]{3,60}$/', $user_login ) ) {
-			$errors['user_login'] = 'Nama pengguna harus 3-60 karakter berupa huruf, angka, titik, garis bawah, atau tanda hubung.';
+		$user_login = isset( $data['user_login'] ) ? (string) $data['user_login'] : '';
+		if ( '' !== self::validate_username_change( $user_login ) ) {
+			$errors['user_login'] = self::validate_username_change( $user_login );
 		}
 
 		$email = isset( $data['user_email'] ) ? trim( (string) $data['user_email'] ) : '';
@@ -576,16 +576,12 @@ final class Penalis_Policy {
 			return 'Masukkan username baru kamu.';
 		}
 
-		if ( self::length( $username ) < 3 || self::length( $username ) > 60 ) {
-			return 'Username harus 3-60 karakter.';
+		if ( self::length( $username ) < 3 || self::length( $username ) > 50 ) {
+			return 'Username harus 3-50 karakter.';
 		}
 
-		if ( ! preg_match( '/\A[a-zA-Z0-9._-]+\z/', $username ) ) {
-			return 'Gunakan hanya huruf, angka, titik, garis bawah, atau tanda hubung.';
-		}
-
-		if ( ! preg_match( '/[a-zA-Z0-9]/', $username ) ) {
-			return 'Username harus mengandung huruf atau angka.';
+		if ( ! preg_match( '/\A[a-z0-9][a-z0-9_-]{1,48}[a-z0-9]\z/', $username ) ) {
+			return 'Gunakan huruf kecil, angka, garis bawah, atau tanda hubung; awali dan akhiri dengan huruf atau angka.';
 		}
 
 		if ( '' !== (string) $current && 0 === strcasecmp( $username, (string) $current ) ) {

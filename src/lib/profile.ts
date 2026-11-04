@@ -61,6 +61,49 @@ export function resolveDisplayName(
 }
 
 /**
+ * Preview the author archive URL after a login change.
+ *
+ * The server rewrites `user_nicename` to the new login, so the last path
+ * segment of the current author URL is the part that changes. Everything
+ * before it — including a custom author base such as `/penulis/` — is kept,
+ * because the site may not use WordPress's default `/author/` prefix.
+ *
+ * Returns the input unchanged when either value is empty or the URL cannot be
+ * parsed, so the preview never invents a link the server would not produce.
+ */
+export function previewAuthorUrl(authorUrl: string, newUsername: string): string {
+  const login = newUsername.trim();
+
+  if (authorUrl === '' || login === '') {
+    return authorUrl;
+  }
+
+  try {
+    const url = new URL(authorUrl);
+    const segments = url.pathname.split('/');
+    let last = -1;
+
+    for (let index = segments.length - 1; index >= 0; index -= 1) {
+      if (segments[index] !== '') {
+        last = index;
+        break;
+      }
+    }
+
+    if (last === -1) {
+      return authorUrl;
+    }
+
+    segments[last] = encodeURIComponent(login);
+    url.pathname = segments.join('/');
+
+    return url.toString();
+  } catch {
+    return authorUrl;
+  }
+}
+
+/**
  * Options for the "Display name publicly as" control.
  *
  * Each option shows only the resulting public name. Options that need a field

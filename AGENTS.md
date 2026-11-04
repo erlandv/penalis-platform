@@ -189,6 +189,8 @@ including `edit_others_posts`, `manage_categories`, `moderate_comments`,
 | `_penalis_verification_token_hash`, `..._expires`, `..._created` | Email verification token (hashed) |
 | `_penalis_email_change_token_hash`, `..._expires`, `..._created`, `_penalis_email_change_new_email` | Pending verified email change (hashed token + candidate address) |
 | `_penalis_display_name_mode` | `auto`, `first`, `last`, `username`, `custom` |
+| `_penalis_author_history` | Previous author slugs (multi-row: slug, time, reserved, redirect) |
+| `_penalis_author_history_reserved` | Searchable reservation rows, one per historical slug |
 | `_penalis_needs_password` | Legacy "vouch" path: owner still has no password |
 | `_penalis_last_email_failed_at`, `..._context` | Mail delivery failure, surfaced to admins |
 | `{prefix}user_avatar` | Avatar attachment ID, **shared with One User Avatar** |
@@ -313,15 +315,18 @@ changes the login of the caller only. Eligibility is the same rule as an email
 change, including the administrator exemption; attempts are limited to 5 per IP
 and 3 per account per hour.
 
-- Validation is strict and never normalizes: 3–60 ASCII letters, digits, `.`,
-  `_` or `-`, at least one letter or digit. A value that only becomes valid
-  after `sanitize_user()` is rejected rather than rewritten.
+- Validation is strict and never normalizes: 3–50 lowercase ASCII letters,
+  digits, `_` or `-`, starting and ending with a letter or digit, at least one
+  letter or digit, no dots. A value that only becomes valid after
+  `sanitize_user()` is rejected rather than rewritten.
 - `wp_update_user()` ignores `user_login`, so the write is a direct
   `$wpdb->update()` inside a users-table advisory lock. The lock only serializes
   this endpoint; native registration and other plugins can still race.
-- The user ID and `user_nicename` are preserved, so `/author/<nicename>/` and
-  published links keep working. Only a public name that follows the username is
-  updated; custom pen names and first/last-name compositions are untouched.
+- The user ID is preserved and `user_nicename` follows the new login, so the
+  author archive moves. The previous slug is stored in
+  `_penalis_author_history` and 301-redirected, so published links keep working
+  even with a custom author base. Only a public name that follows the username
+  is updated; custom pen names and first/last-name compositions are untouched.
 - Old and new login caches are cleared, all sessions are destroyed, the current
   auth cookie is cleared, and the current email receives a security notice.
   Settings redirects to login afterwards.
@@ -411,6 +416,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-password-reset.php` | Forgot/reset flow |
 | `includes/class-email-change.php` | Verified email address change (request + confirmation) |
 | `includes/class-username-change.php` | Re-authenticated login change (direct users-table write) |
+| `includes/class-author-history.php` | Historical author slugs, reservations, native validation hooks, 301 redirects |
 | `includes/class-emails.php` | All outgoing mail (verification, reset, legacy, status, admin notice) |
 | `includes/class-dashboard.php` | Page/shortcode/template, asset enqueue, login POST, logout, cache headers, noindex, legacy slug redirect |
 | `includes/class-admin.php` | Users -> Penalis Writers screen: filters, status actions, legacy activation, default avatar |

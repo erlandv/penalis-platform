@@ -763,6 +763,12 @@
 
 .penalis-form--narrow { max-width: 520px; }
 
+.penalis-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .penalis-field {
   display: flex;
   flex-direction: column;

@@ -301,14 +301,14 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           type="text"
           value={values.user_login}
           onChange={(event) => update('user_login', event.target.value)}
-          maxLength={60}
+          maxLength={50}
           autoComplete="username"
           placeholder="Username kamu"
           aria-invalid={Boolean(errors.user_login)}
           aria-describedby={describedBy('user_login-hint', errors.user_login && 'user_login-error')}
         />
         <FieldHint id="user_login-hint">
-          3-60 karakter: huruf, angka, titik, garis bawah, atau tanda hubung.
+          3-50 karakter: huruf kecil, angka, garis bawah, atau tanda hubung. Titik tidak diperbolehkan.
         </FieldHint>
         <FieldError errors={errors} name="user_login" />
       </div>

@@ -76,6 +76,20 @@ if ( ! class_exists( 'WP_Error' ) ) {
 		public function get_error_data() {
 			return $this->data;
 		}
+
+		/**
+		 * Add an error, mirroring core's WP_Error::add().
+		 *
+		 * @param string              $code    Code.
+		 * @param string              $message Message.
+		 * @param array<string,mixed> $data    Data.
+		 * @return void
+		 */
+		public function add( $code, $message, $data = array() ) {
+			$this->code    = $code;
+			$this->message = $message;
+			$this->data    = $data;
+		}
 	}
 }
 
@@ -195,15 +209,36 @@ if ( ! function_exists( 'get_user_meta' ) ) {
 	 */
 	function get_user_meta( $user_id, $key, $single = false ) {
 		$user = get_userdata( $user_id );
+		if ( ! $user || ! isset( $user->meta[ $key ] ) ) {
+			return $single ? '' : array();
+		}
+
+		$values = (array) $user->meta[ $key ];
+
+		return $single ? reset( $values ) : $values;
+	}
+}
+
+if ( ! function_exists( 'add_user_meta' ) ) {
+	/**
+	 * Append user meta, mirroring core's multi-row behaviour.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $key     Key.
+	 * @param mixed  $value   Value.
+	 * @return int|false
+	 */
+	function add_user_meta( $user_id, $key, $value ) {
+		$user = get_userdata( $user_id );
 		if ( ! $user ) {
-			return $single ? '' : array();
+			return false;
 		}
 
-		if ( ! isset( $user->meta[ $key ] ) ) {
-			return $single ? '' : array();
-		}
+		$values   = isset( $user->meta[ $key ] ) ? (array) $user->meta[ $key ] : array();
+		$values[] = $value;
+		$user->meta[ $key ] = $values;
 
-		return $single ? $user->meta[ $key ] : array( $user->meta[ $key ] );
+		return count( $values );
 	}
 }
 
@@ -211,19 +246,35 @@ if ( ! function_exists( 'update_user_meta' ) ) {
 	/**
 	 * Write user meta.
 	 *
-	 * @param int    $user_id User ID.
-	 * @param string $key     Key.
-	 * @param mixed  $value   Value.
+	 * @param int    $user_id    User ID.
+	 * @param string $key        Key.
+	 * @param mixed  $value      Value.
+	 * @param mixed  $prev_value Optional row to replace.
 	 * @return bool
 	 */
-	function update_user_meta( $user_id, $key, $value ) {
+	function update_user_meta( $user_id, $key, $value, $prev_value = '' ) {
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
 			return false;
 		}
 
-		$user->meta[ $key ] = $value;
-		return true;
+		if ( '' === $prev_value ) {
+			// Core replaces every row for the key when no previous value is given.
+			$user->meta[ $key ] = array( $value );
+			return true;
+		}
+
+		$values = isset( $user->meta[ $key ] ) ? (array) $user->meta[ $key ] : array();
+
+		foreach ( $values as $index => $row ) {
+			if ( $row === $prev_value ) {
+				$values[ $index ] = $value;
+				$user->meta[ $key ] = $values;
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
 
@@ -233,15 +284,35 @@ if ( ! function_exists( 'delete_user_meta' ) ) {
 	 *
 	 * @param int    $user_id User ID.
 	 * @param string $key     Key.
+	 * @param mixed  $value   Optional row to delete.
 	 * @return bool
 	 */
-	function delete_user_meta( $user_id, $key ) {
+	function delete_user_meta( $user_id, $key, $value = '' ) {
 		$user = get_userdata( $user_id );
-		if ( ! $user ) {
+		if ( ! $user || ! isset( $user->meta[ $key ] ) ) {
 			return false;
 		}
 
-		unset( $user->meta[ $key ] );
+		if ( '' === $value ) {
+			unset( $user->meta[ $key ] );
+			return true;
+		}
+
+		$values = array_values(
+			array_filter(
+				(array) $user->meta[ $key ],
+				static function ( $row ) use ( $value ) {
+					return $row !== $value;
+				}
+			)
+		);
+
+		if ( array() === $values ) {
+			unset( $user->meta[ $key ] );
+		} else {
+			$user->meta[ $key ] = $values;
+		}
+
 		return true;
 	}
 }
@@ -274,7 +345,7 @@ if ( ! function_exists( 'get_users' ) ) {
 		$out   = array();
 
 		foreach ( $GLOBALS['penalis_test_users'] as $user ) {
-			if ( '' === $key || ( isset( $user->meta[ $key ] ) && $user->meta[ $key ] === $value ) ) {
+			if ( '' === $key || ( isset( $user->meta[ $key ] ) && in_array( $value, (array) $user->meta[ $key ], true ) ) ) {
 				$out[] = $user->ID;
 			}
 		}
@@ -472,6 +543,8 @@ if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
 	class Penalis_Test_WPDB {
 		/** @var string */
 		public $users = 'wp_users';
+		/** @var string */
+		public $usermeta = 'wp_usermeta';
 
 		/**
 		 * Prepare a simple %s / %d query.
@@ -486,7 +559,7 @@ if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
 		}
 
 		/**
-		 * Answer the lock, duplicate-lookup and verification queries.
+		 * Answer the lock, availability and verification queries.
 		 *
 		 * @param string $query Query.
 		 * @return string|null
@@ -499,7 +572,24 @@ if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
 			// Availability check: a configured duplicate ID simulates a login
 			// already owned by another account.
 			if ( false !== strpos( $query, 'SELECT ID FROM' ) ) {
-				return isset( $GLOBALS['penalis_test_duplicate_login'] ) ? $GLOBALS['penalis_test_duplicate_login'] : null;
+				if ( isset( $GLOBALS['penalis_test_duplicate_login'] ) ) {
+					return $GLOBALS['penalis_test_duplicate_login'];
+				}
+
+				$args = $this->quoted_args( $query );
+				$name = isset( $args[0] ) ? $args[0] : '';
+				$owner = isset( $args[2] ) ? (int) $args[2] : 0;
+
+				foreach ( $GLOBALS['penalis_test_users'] as $user ) {
+					if ( (int) $user->ID === $owner ) {
+						continue;
+					}
+					if ( $user->user_login === $name || $user->user_nicename === $name ) {
+						return (string) $user->ID;
+					}
+				}
+
+				return null;
 			}
 
 			// Post-write verification: report the login currently stored.
@@ -509,6 +599,46 @@ if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
 			}
 
 			return null;
+		}
+
+		/**
+		 * Answer a reservation lookup.
+		 *
+		 * @param string $query Query.
+		 * @return string[]
+		 */
+		public function get_col( $query ) {
+			if ( false === strpos( $query, 'SELECT user_id FROM' ) ) {
+				return array();
+			}
+
+			$args  = $this->quoted_args( $query );
+			$key   = isset( $args[0] ) ? $args[0] : '';
+			$value = isset( $args[1] ) ? $args[1] : '';
+			$owner = isset( $args[2] ) ? (int) $args[2] : 0;
+			$out   = array();
+
+			foreach ( $GLOBALS['penalis_test_users'] as $user ) {
+				if ( (int) $user->ID === $owner || ! isset( $user->meta[ $key ] ) ) {
+					continue;
+				}
+				if ( in_array( $value, (array) $user->meta[ $key ], true ) ) {
+					$out[] = (string) $user->ID;
+				}
+			}
+
+			return $out;
+		}
+
+		/**
+		 * Extract the single-quoted literals from a prepared query.
+		 *
+		 * @param string $query Query.
+		 * @return string[]
+		 */
+		private function quoted_args( $query ) {
+			preg_match_all( "/'([^']*)'/", $query, $matches );
+			return $matches[1];
 		}
 
 		/**
@@ -798,6 +928,10 @@ if ( ! function_exists( 'get_user_by' ) ) {
 			}
 
 			if ( 'login' === $field && $user->user_login === $value ) {
+				return $user;
+			}
+
+			if ( 'slug' === $field && $user->user_nicename === $value ) {
 				return $user;
 			}
 		}

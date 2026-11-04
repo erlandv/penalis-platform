@@ -12,7 +12,7 @@ import {
 
 const validRegistration = {
   display_name: 'Ada Lovelace',
-  user_login: 'ada.lovelace',
+  user_login: 'ada_lovelace',
   user_email: 'ada@example.com',
   password: 'correct horse battery',
   confirm_password: 'correct horse battery',
@@ -99,7 +99,7 @@ describe('validateEmail', () => {
 
 describe('validateLoginOrEmail', () => {
   it('accepts a bare username', () => {
-    expect(validateLoginOrEmail('ada.lovelace')).toBe('');
+    expect(validateLoginOrEmail('ada_lovelace')).toBe('');
   });
 
   it('accepts a valid email address', () => {
@@ -124,7 +124,7 @@ describe('validateLoginOrEmail', () => {
 describe('validateUsername', () => {
   it('accepts a plain login', () => {
     expect(validateUsername('penulis_baru-01')).toBe('');
-    expect(validateUsername('a.b_c-1')).toBe('');
+    expect(validateUsername('a_b-c1')).toBe('');
   });
 
   it('rejects an empty value', () => {
@@ -133,7 +133,15 @@ describe('validateUsername', () => {
 
   it('rejects values outside the length bounds', () => {
     expect(validateUsername('ab')).not.toBe('');
-    expect(validateUsername('a'.repeat(61))).not.toBe('');
+    expect(validateUsername('a'.repeat(51))).not.toBe('');
+    expect(validateUsername('a'.repeat(50))).toBe('');
+  });
+
+  it('rejects dots, uppercase letters and edge punctuation', () => {
+    expect(validateUsername('ada.lovelace')).not.toBe('');
+    expect(validateUsername('NamaBaru')).not.toBe('');
+    expect(validateUsername('_nama')).not.toBe('');
+    expect(validateUsername('nama-')).not.toBe('');
   });
 
   it('rejects characters the server would strip instead of rewriting them', () => {
@@ -147,7 +155,7 @@ describe('validateUsername', () => {
   });
 
   it('rejects a login with no letter or digit', () => {
-    expect(validateUsername('...')).not.toBe('');
+    expect(validateUsername('---')).not.toBe('');
     expect(validateUsername('___')).not.toBe('');
   });
 

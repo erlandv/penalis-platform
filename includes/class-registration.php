@@ -77,7 +77,7 @@ final class Penalis_Registration {
 		}
 
 		$email    = sanitize_email( $data['user_email'] );
-		$login    = sanitize_user( $data['user_login'], true );
+		$login    = (string) $data['user_login'];
 		$password = (string) $data['password'];
 		$display  = sanitize_text_field( $data['display_name'] );
 
@@ -85,7 +85,7 @@ final class Penalis_Registration {
 		$existing_email = email_exists( $email );
 		$existing_login = username_exists( $login );
 
-		if ( $existing_email || $existing_login ) {
+		if ( $existing_email || $existing_login || Penalis_Author_History::unavailable( $login ) ) {
 			self::handle_duplicate_attempt( $existing_email, $existing_login );
 
 			// Return the same response as a successful registration. This

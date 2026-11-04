@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { displayNameOptions, normalizePersonName, resolveDisplayName } from './profile';
+import {
+  displayNameOptions,
+  normalizePersonName,
+  previewAuthorUrl,
+  resolveDisplayName,
+} from './profile';
 
 describe('normalizePersonName', () => {
   it('trims and collapses whitespace', () => {
@@ -65,5 +70,39 @@ describe('displayNameOptions', () => {
 
   it('always offers the custom option', () => {
     expect(displayNameOptions('', '', '').map((option) => option.mode)).toContain('custom');
+  });
+});
+
+describe('previewAuthorUrl', () => {
+  it('replaces the last path segment with the new login', () => {
+    expect(previewAuthorUrl('https://penalis.com/author/sukentari/', 'penulis_baru')).toBe(
+      'https://penalis.com/author/penulis_baru/',
+    );
+  });
+
+  it('keeps a custom author base', () => {
+    expect(previewAuthorUrl('https://penalis.com/penulis/sukentari/', 'penulis_baru')).toBe(
+      'https://penalis.com/penulis/penulis_baru/',
+    );
+  });
+
+  it('keeps a query string and fragment', () => {
+    expect(previewAuthorUrl('https://penalis.com/author/sukentari/?feed=rss', 'baru')).toBe(
+      'https://penalis.com/author/baru/?feed=rss',
+    );
+  });
+
+  it('handles a URL without a trailing slash', () => {
+    expect(previewAuthorUrl('https://penalis.com/author/sukentari', 'baru')).toBe(
+      'https://penalis.com/author/baru',
+    );
+  });
+
+  it('returns the input when there is nothing to preview', () => {
+    expect(previewAuthorUrl('', 'baru')).toBe('');
+    expect(previewAuthorUrl('https://penalis.com/author/sukentari/', '')).toBe(
+      'https://penalis.com/author/sukentari/',
+    );
+    expect(previewAuthorUrl('not a url', 'baru')).toBe('not a url');
   });
 });

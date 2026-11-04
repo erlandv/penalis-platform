@@ -10,7 +10,9 @@ import { getBootstrap } from '../../lib/bootstrap';
 import type { Account, FieldErrors } from '../../lib/types';
 import { formatDate } from '../../lib/format';
 import { describedBy } from '../../lib/a11y';
+import { previewAuthorUrl } from '../../lib/profile';
 import { validateEmail, validateUsername } from '../../lib/validation';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { ErrorBanner, FieldError, FieldHint, Notice, StatusBadge } from '../../components/ui';
 
 export function Settings({ account, onUpdated }: { account: Account; onUpdated: (account: Account) => void }) {
@@ -28,8 +30,19 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
   const [usernameError, setUsernameError] = useState('');
   const [usernameNotice, setUsernameNotice] = useState('');
   const [usernameSaving, setUsernameSaving] = useState(false);
+  // The candidate login waiting for confirmation. Holding the value rather
+  // than a boolean lets the dialog show exactly what will change.
+  const [pendingUsername, setPendingUsername] = useState<string | null>(null);
 
-  const submitUsername = async (event: FormEvent) => {
+  const resetUsernameForm = () => {
+    setUsername('');
+    setUsernamePassword('');
+    setUsernameErrors({});
+    setUsernameError('');
+    setUsernameNotice('');
+  };
+
+  const submitUsername = (event: FormEvent) => {
     event.preventDefault();
     setUsernameError('');
     setUsernameNotice('');
@@ -51,13 +64,24 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
       return;
     }
 
+    // Renaming ends every session, so it is confirmed before the request is
+    // sent rather than after the account is already locked out.
+    setPendingUsername(username);
+  };
+
+  const confirmUsername = async () => {
+    if (pendingUsername === null) {
+      return;
+    }
+
     setUsernameSaving(true);
 
     try {
       const result = await accountApi.changeUsername({
-        new_username: username,
+        new_username: pendingUsername,
         current_password: usernamePassword,
       });
+      setPendingUsername(null);
       setUsernamePassword('');
       setUsername('');
       // The server destroyed every session, including this one, so the only
@@ -67,6 +91,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         window.location.href = bootstrap.loginUrl;
       }, 2000);
     } catch (caught) {
+      setPendingUsername(null);
       if (caught instanceof ApiError) {
         const fields: FieldErrors = { ...caught.fields };
         if (fields.current_password) {
@@ -192,8 +217,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         </div>
 
         <p className="penalis-muted">
-          Username dan alamat email dapat diubah sendiri dari halaman ini. Perubahan email baru berlaku
-          setelah kamu mengonfirmasi link yang dikirim ke alamat email baru.
+          Berikut ini informasi akun Penalis kamu.
         </p>
 
         <dl className="penalis-details">
@@ -236,10 +260,11 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         </div>
 
         <p className="penalis-muted">
-          Username adalah nama yang kamu pakai untuk masuk. Gunakan 3–60 karakter: huruf, angka, titik,
-          garis bawah, atau tanda hubung. URL profil dan tautan karya kamu tidak berubah. Jika nama publik
-          kamu mengikuti username, nama publik juga ikut berubah. Semua sesi akan diakhiri dan kamu perlu
-          masuk kembali.
+          Username adalah nama yang kamu pakai untuk masuk. Gunakan 3–50 karakter: huruf kecil, angka,
+          garis bawah, atau tanda hubung, diawali dan diakhiri huruf atau angka. Titik tidak diperbolehkan.
+          URL profil mengikuti username baru, sedangkan tautan lama tetap diarahkan ke profil kamu. Jika
+          nama publik kamu mengikuti username, nama publik juga ikut berubah. Semua sesi akan diakhiri dan
+          kamu perlu masuk kembali.
         </p>
 
         {usernameError ? <ErrorBanner message={usernameError} /> : null}
@@ -253,10 +278,12 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 autoComplete="username"
-                maxLength={60}
+                maxLength={50}
                 aria-invalid={Boolean(usernameErrors.new_username)}
                 aria-describedby={describedBy(
                   'new_username-hint',
+                  username !== '' && 'new_username-url-preview',
+                  username !== '' && 'new_username-url-hint',
                   usernameErrors.new_username && 'new_username-error',
                 )}
                 disabled={usernameSaving}
@@ -266,6 +293,18 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
               </FieldHint>
               <FieldError errors={usernameErrors} name="new_username" />
             </label>
+
+            {username !== '' ? (
+              <div className="penalis-field">
+                <span>Previw URL Profil</span>
+                <p className="penalis-muted" id="new_username-url-preview">
+                  {previewAuthorUrl(account.authorUrl, username)}
+                </p>
+                <FieldHint id="new_username-url-hint">
+                  Link profil lama tetap berfungsi dan diarahkan ke URL baru ini.
+                </FieldHint>
+              </div>
+            ) : null}
 
             <label className="penalis-field">
               <span>Password Saat Ini</span>
@@ -287,14 +326,50 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
               <FieldError errors={usernameErrors} name="username_password" />
             </label>
 
-            <button type="submit" className="penalis-button penalis-button--primary" disabled={usernameSaving}>
-              {usernameSaving ? 'Memperbarui…' : 'Ganti Username dan Keluar'}
-            </button>
+            <div className="penalis-form__actions">
+              <button type="submit" className="penalis-button penalis-button--primary" disabled={usernameSaving}>
+                {usernameSaving ? 'Memperbarui…' : 'Ganti Username dan Keluar'}
+              </button>
+              <button
+                type="button"
+                className="penalis-button penalis-button--ghost"
+                onClick={resetUsernameForm}
+                disabled={usernameSaving}
+              >
+                Bersihkan
+              </button>
+            </div>
           </form>
         ) : (
           <p className="penalis-muted">Username akun ini belum dapat diubah. Hubungi admin Penalis.</p>
         )}
       </section>
+
+      {pendingUsername !== null ? (
+        <ConfirmDialog
+          title="Ganti username dan keluar?"
+          description={
+            <>
+              <p>
+                Username kamu akan berubah dari <strong>{account.username}</strong> menjadi{' '}
+                <strong>{pendingUsername}</strong>.
+              </p>
+              <p>
+                URL profil baru: <strong>{previewAuthorUrl(account.authorUrl, pendingUsername)}</strong>
+              </p>
+              <p className="penalis-muted">
+                Semua sesi, termasuk sesi ini, akan diakhiri. Kamu perlu masuk kembali dengan username baru.
+                Link profil lama tetap berfungsi dan diarahkan ke URL baru.
+              </p>
+            </>
+          }
+          confirmLabel="Ganti Username"
+          tone="warning"
+          busy={usernameSaving}
+          onConfirm={() => void confirmUsername()}
+          onCancel={() => setPendingUsername(null)}
+        />
+      ) : null}
 
       <section className="penalis-panel">
         <div className="penalis-panel__header">

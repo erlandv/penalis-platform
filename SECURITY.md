@@ -215,13 +215,13 @@ touches the account status machine.
 | Scope | Self only: the user ID comes from the session, never the request |
 | Re-authentication | Current password required |
 | Eligibility | Same rule as email changes, plus the administrator exemption |
-| Validation | 3–60 ASCII letters, digits, `.`, `_`, `-`; at least one letter or digit |
+| Validation | 3–50 lowercase ASCII letters, digits, `_`, `-`; starts and ends with a letter or digit; at least one letter or digit; no dots |
 | Normalization | Rejected, never applied: a value that only becomes valid after `sanitize_user()` is refused |
 | Duplicates | Checked inside a users-table advisory lock; duplicate, reserved and lock-failure errors are identical |
-| Write | Direct `$wpdb->update()` on `user_login`, because `wp_update_user()` ignores the field |
-| Preserved | User ID and `user_nicename`, so author archives and post links keep working |
+| Write | Direct `$wpdb->update()` on `user_login` and `user_nicename`, because `wp_update_user()` ignores the login field |
+| Preserved | User ID; the previous slug is stored in `_penalis_author_history` and 301-redirected, so author archives and post links keep working |
 | Display name | Updated only when the public name follows the username |
-| Caches | `clean_user_cache()` plus old and new `userlogins` keys |
+| Caches | `clean_user_cache()` plus old and new `userlogins` and `userslugs` keys |
 | Sessions | All session tokens destroyed; the current auth cookie cleared |
 | Notice | Security email to the current address; a delivery failure is recorded, not rolled back |
 

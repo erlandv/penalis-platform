@@ -62,6 +62,7 @@ final class Penalis_Plugin {
 		Penalis_Access_Control::init();
 		Penalis_Rest_Api::init();
 		Penalis_Dashboard::init();
+		Penalis_Author_History::init();
 		Penalis_Avatar::register_provider();
 
 		if ( is_admin() ) {

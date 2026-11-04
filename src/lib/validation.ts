@@ -22,8 +22,9 @@ export function validateRegistration(input: {
     errors.display_name = 'Masukkan nama tampilan 2–80 karakter.';
   }
 
-  if (!/^[a-zA-Z0-9._-]{3,60}$/.test(input.user_login.trim())) {
-    errors.user_login = 'Gunakan 3–60 huruf, angka, titik, garis bawah, atau tanda hubung.';
+  const usernameMessage = validateUsername(input.user_login);
+  if (usernameMessage !== '') {
+    errors.user_login = usernameMessage;
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.user_email.trim())) {
@@ -91,16 +92,12 @@ export function validateUsername(value: string, current = ''): string {
     return 'Masukkan username baru kamu.';
   }
 
-  if (value.length < 3 || value.length > 60) {
-    return 'Username harus 3–60 karakter.';
+  if (value.length < 3 || value.length > 50) {
+    return 'Username harus 3–50 karakter.';
   }
 
-  if (!/^[a-zA-Z0-9._-]+$/.test(value)) {
-    return 'Gunakan hanya huruf, angka, titik, garis bawah, atau tanda hubung.';
-  }
-
-  if (!/[a-zA-Z0-9]/.test(value)) {
-    return 'Username harus mengandung huruf atau angka.';
+  if (!/^[a-z0-9][a-z0-9_-]{1,48}[a-z0-9]$/.test(value)) {
+    return 'Gunakan huruf kecil, angka, garis bawah, atau tanda hubung; awali dan akhiri dengan huruf atau angka.';
   }
 
   if (current !== '' && value.toLowerCase() === current.toLowerCase()) {

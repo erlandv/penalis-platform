@@ -22,6 +22,10 @@ if ( ! $penalis_opt_in ) {
 	return;
 }
 
+// History also belongs to administrators without plugin account status.
+delete_metadata( 'user', 0, '_penalis_author_history', '', true );
+delete_metadata( 'user', 0, '_penalis_author_history_reserved', '', true );
+
 // Remove the plugin role.
 remove_role( 'penalis_writer' );
 

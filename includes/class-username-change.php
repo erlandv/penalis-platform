@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Changes the authenticated account's login without changing its public slug.
+ * Changes the authenticated account's login and public author slug.
  *
  * WordPress has no API for changing `user_login`: `wp_update_user()` silently
  * ignores the field, so the only route is a direct users-table update. That is
@@ -18,10 +18,10 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Two invariants drive the design:
  *
- * - `user_nicename` is never touched. Author archives live at
- *   `/author/<nicename>/`, so rewriting it would break every published link
- *   and every post's author URL. The login is a credential, not a public
- *   identifier.
+ * - The new `user_nicename` follows the login. Before changing it, the old
+ *   author slug is reserved and recorded for a permanent redirect, preserving
+ *   existing author links. Login-only identifiers are reserved without
+ *   redirecting.
  * - The new login is validated, never sanitized. A value that only becomes
  *   valid after `sanitize_user()` is rejected, because silently rewriting it
  *   would hand the writer a login they did not type and cannot reproduce.
@@ -112,14 +112,28 @@ final class Penalis_Username_Change {
 			// Read the authoritative row inside the lock. A cached lookup could
 			// miss a row another connection committed a moment ago.
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Must read the authoritative row while holding the lock.
-			$existing = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->users} WHERE user_login = %s LIMIT 1", $username ) );
+			$existing = Penalis_Author_History::unavailable( $username, $user_id );
 
-			if ( $existing && (int) $existing !== $user_id ) {
+			if ( $existing ) {
 				return self::unavailable();
 			}
 
 			$old_login = (string) $user->user_login;
-			$data      = array( 'user_login' => $username );
+			$old_slug  = (string) $user->user_nicename;
+
+			// The old slug only needs a redirect when it is actually going
+			// away. Reserving the slug we are about to take would block the
+			// next writer for no reason.
+			$remembered = $old_slug === $username || Penalis_Author_History::remember( $user_id, $old_slug, true );
+
+			if ( ! $remembered ||
+				( $old_login !== $old_slug && $old_login !== $username && ! Penalis_Author_History::remember( $user_id, $old_login, false ) ) ) {
+				return self::unavailable();
+			}
+			$data = array(
+				'user_login'    => $username,
+				'user_nicename' => $username,
+			);
 
 			// Only a public name derived from the login follows it. A custom pen
 			// name, or a first/last name composition, must not change.
@@ -250,6 +264,8 @@ final class Penalis_Username_Change {
 		clean_user_cache( $user );
 		wp_cache_delete( $old_login, 'userlogins' );
 		wp_cache_delete( $new_login, 'userlogins' );
+		wp_cache_delete( $user->user_nicename, 'userslugs' );
+		wp_cache_delete( $new_login, 'userslugs' );
 	}
 
 	/**

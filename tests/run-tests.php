@@ -20,6 +20,7 @@ require_once __DIR__ . '/../includes/class-dashboard.php';
 require_once __DIR__ . '/../includes/class-rate-limiter.php';
 require_once __DIR__ . '/../includes/class-activator.php';
 require_once __DIR__ . '/../includes/class-emails.php';
+require_once __DIR__ . '/../includes/class-author-history.php';
 require_once __DIR__ . '/../includes/class-username-change.php';
 
 $GLOBALS['penalis_failures'] = 0;
@@ -182,7 +183,7 @@ penalis_assert( isset( $author['error'] ), 'Anonymous author assignment is rejec
 
 $valid_registration = array(
 	'display_name'    => 'Ada Lovelace',
-	'user_login'      => 'ada.lovelace',
+	'user_login'      => 'ada_lovelace',
 	'user_email'      => 'ada@example.com',
 	'password'        => 'correct horse battery',
 	'penalis_consent' => '1',
@@ -699,14 +700,19 @@ penalis_assert(
 
 // Validation is pure and must reject rather than rewrite.
 penalis_same( '', Penalis_Policy::validate_username_change( 'penulis_baru-01' ), 'A plain login is valid.' );
-penalis_same( '', Penalis_Policy::validate_username_change( 'a.b_c-1' ), 'Dots, underscores and hyphens are allowed.' );
+penalis_same( '', Penalis_Policy::validate_username_change( 'a_b-c1' ), 'Underscores and hyphens are allowed.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'a.b_c-1' ), 'Dots are rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'NamaBaru' ), 'Uppercase letters are rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( '_nama' ), 'A leading underscore is rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( 'nama-' ), 'A trailing hyphen is rejected.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( '' ), 'An empty login is rejected.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( 'bad name' ), 'Whitespace is rejected rather than stripped.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( ' nama' ), 'Leading whitespace is not trimmed away.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( 'nama@penalis' ), 'Characters removed by sanitization are rejected.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( 'nama!' ), 'Punctuation outside the allowed set is rejected.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( 'ab' ), 'Logins shorter than three characters are rejected.' );
-penalis_assert( '' !== Penalis_Policy::validate_username_change( str_repeat( 'a', 61 ) ), 'Logins longer than 60 characters are rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_username_change( str_repeat( 'a', 51 ) ), 'Logins longer than 50 characters are rejected.' );
+penalis_same( '', Penalis_Policy::validate_username_change( str_repeat( 'a', 50 ) ), 'A 50-character login is accepted.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( '...' ), 'A login with no letter or digit is rejected.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( 'user30', 'user30' ), 'The current login is rejected.' );
 penalis_assert( '' !== Penalis_Policy::validate_username_change( 'USER30', 'user30' ), 'A case-only change is rejected.' );
@@ -776,7 +782,9 @@ $GLOBALS['penalis_test_transients']   = array();
 $penalis_changed = Penalis_Username_Change::change( 30, 'penulis_baru', 'correct' );
 penalis_assert( ! is_wp_error( $penalis_changed ), 'A valid change succeeds.' );
 penalis_same( 'penulis_baru', $GLOBALS['penalis_test_users'][30]->user_login, 'The login is updated.' );
-penalis_same( 'user30', $GLOBALS['penalis_test_users'][30]->user_nicename, 'The author nicename is preserved.' );
+penalis_same( 'penulis_baru', $GLOBALS['penalis_test_users'][30]->user_nicename, 'The author nicename follows the new login.' );
+penalis_same( 30, Penalis_Author_History::redirect_owner( 'user30' ), 'The old author slug still resolves to its owner.' );
+penalis_same( 0, Penalis_Author_History::redirect_owner( 'penulis_baru' ), 'The current slug is not treated as historical.' );
 penalis_same( 'penulis_baru', $GLOBALS['penalis_test_users'][30]->display_name, 'Username display-name mode follows the new login.' );
 penalis_assert( ! empty( $GLOBALS['penalis_test_sessions_destroyed'] ), 'All sessions are destroyed.' );
 penalis_assert( ! empty( $GLOBALS['penalis_test_auth_cookie_cleared'] ), 'The current auth cookie is cleared.' );
@@ -848,6 +856,65 @@ penalis_reset();
 $GLOBALS['wpdb'] = new Penalis_Test_WPDB();
 $penalis_missing = Penalis_Username_Change::change( 999, 'penulis_baru', 'correct' );
 penalis_same( 'penalis_not_authenticated', $penalis_missing->get_error_code(), 'An unknown account is rejected.' );
+
+/* -------------------------------------------------------------------------
+ * Author history
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][40] = new WP_User( 40 );
+$GLOBALS['penalis_test_users'][41] = new WP_User( 41 );
+$GLOBALS['wpdb']                   = new Penalis_Test_WPDB();
+
+penalis_assert( ! Penalis_Author_History::unavailable( 'user40', 40 ), 'An owner may reuse its own identifier.' );
+penalis_assert( Penalis_Author_History::unavailable( 'user40' ), 'A current login is unavailable to others.' );
+penalis_assert( Penalis_Author_History::unavailable( 'user40', 41 ), 'A current login is unavailable to another owner.' );
+
+penalis_assert( Penalis_Author_History::remember( 40, 'penulis_lama', true ), 'A historical slug is remembered.' );
+penalis_assert( Penalis_Author_History::remember( 40, 'penulis_lama', true ), 'Remembering the same slug is idempotent.' );
+penalis_same( 1, count( get_user_meta( 40, Penalis_Author_History::META_KEY, false ) ), 'Only one history row is stored.' );
+penalis_same( 1, count( get_user_meta( 40, Penalis_Author_History::META_KEY . '_reserved', false ) ), 'Only one reservation row is stored.' );
+penalis_assert( Penalis_Author_History::unavailable( 'penulis_lama', 41 ), 'A reserved slug is unavailable to another owner.' );
+penalis_assert( ! Penalis_Author_History::unavailable( 'penulis_lama', 40 ), 'A reserved slug stays available to its owner.' );
+
+penalis_assert( Penalis_Author_History::remember( 40, 'penulis_login', false ), 'A login-only reservation is remembered.' );
+penalis_same( 0, Penalis_Author_History::redirect_owner( 'penulis_login' ), 'A login-only reservation does not redirect.' );
+penalis_assert( Penalis_Author_History::remember( 40, 'penulis_login', true ), 'A login-only reservation can be upgraded.' );
+penalis_same( 40, Penalis_Author_History::redirect_owner( 'penulis_login' ), 'An upgraded reservation redirects.' );
+penalis_same( 2, count( get_user_meta( 40, Penalis_Author_History::META_KEY, false ) ), 'Upgrading does not duplicate the history row.' );
+penalis_same( 40, Penalis_Author_History::redirect_owner( 'penulis_lama' ), 'A historical author slug resolves to its owner.' );
+penalis_same( 0, Penalis_Author_History::redirect_owner( 'user41' ), 'A current slug is not historical.' );
+
+penalis_assert( Penalis_Author_History::release( 40, 'penulis_lama' ), 'A reservation can be released.' );
+penalis_same( 0, Penalis_Author_History::redirect_owner( 'penulis_lama' ), 'A released slug no longer redirects.' );
+penalis_assert( ! Penalis_Author_History::unavailable( 'penulis_lama', 41 ), 'A released slug is available again.' );
+penalis_same( 2, count( get_user_meta( 40, Penalis_Author_History::META_KEY, false ) ), 'Released history rows are kept as audit data.' );
+
+// Native registration and profile validation use supported hooks.
+$registration_errors = new WP_Error();
+Penalis_Author_History::validate_registration( $registration_errors, 'user40' );
+penalis_same( 'penalis_username_unavailable', $registration_errors->get_error_code(), 'Registration rejects a reserved login.' );
+
+$registration_errors = new WP_Error();
+Penalis_Author_History::validate_registration( $registration_errors, 'penulis_bebas' );
+penalis_same( '', $registration_errors->get_error_code(), 'Registration accepts a free login.' );
+
+$profile_errors = new WP_Error();
+$profile_user   = clone $GLOBALS['penalis_test_users'][41];
+$profile_user->user_login = 'penulis_login';
+Penalis_Author_History::validate_profile( $profile_errors, true, $profile_user );
+penalis_same( 'penalis_username_unavailable', $profile_errors->get_error_code(), 'A profile update rejects a reserved login.' );
+
+$profile_errors = new WP_Error();
+$profile_user   = clone $GLOBALS['penalis_test_users'][40];
+Penalis_Author_History::validate_profile( $profile_errors, true, $profile_user );
+penalis_same( '', $profile_errors->get_error_code(), 'A profile update may keep its own login.' );
+
+$profile_errors = new WP_Error();
+$profile_user   = clone $GLOBALS['penalis_test_users'][41];
+$profile_user->user_email = 'baru@example.com';
+Penalis_Author_History::validate_profile( $profile_errors, true, $profile_user );
+penalis_same( '', $profile_errors->get_error_code(), 'An unrelated profile edit is not blocked.' );
 
 /* -------------------------------------------------------------------------
  * Report
