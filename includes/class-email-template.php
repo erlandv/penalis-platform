@@ -22,13 +22,17 @@ final class Penalis_Email_Template {
 	 * are escaped at the point where they enter the markup.
 	 *
 	 * @param string $content   Plain-text body.
-	 * @param string $preheader Preview text shown by email clients.
+	 * @param string $preheader      Preview text shown by email clients.
+	 * @param string $footer_context Purpose-specific explanation for the recipient.
 	 * @return string
 	 */
-	public static function render( $content, $preheader = '' ) {
-		$logo_url = 'https://penalis.com/wp-content/uploads/2021/01/logo-penalis.png';
-		$body     = self::render_content( (string) $content );
-		$preview  = esc_html( (string) $preheader );
+	public static function render( $content, $preheader = '', $footer_context = '' ) {
+		$logo_url       = 'https://penalis.com/wp-content/uploads/2021/01/logo-penalis.png';
+		$body           = self::render_content( (string) $content );
+		$preview        = esc_html( (string) $preheader );
+		$footer_context = '' !== (string) $footer_context ? (string) $footer_context : 'Email ini dikirim otomatis. Kamu menerima email ini karena kamu terdaftar sebagai penulis di platform Penalis. Beberapa isi email mungkin bersifat rahasia, sebaiknya jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.';
+		$footer         = self::render_content( $footer_context );
+		$footer         = str_replace( 'admin@penalis.com', '<a href="mailto:admin@penalis.com" style="color:#2873c8;">admin@penalis.com</a>', $footer );
 
 		return '<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>' . $preview . '</title></head>' .
 			'<body style="margin:0;padding:0;background-color:#f5f5f5;">' .
@@ -37,7 +41,7 @@ final class Penalis_Email_Template {
 			'<table role="presentation" border="0" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background-color:#fefefe;border:1px solid #e5e5e5;border-radius:8px;border-collapse:separate;overflow:hidden;">' .
 			'<tr><td style="padding:16px;background-color:#f0f0f0;"><img src="' . esc_url( $logo_url ) . '" alt="Penalis" width="130" style="display:block;width:130px;max-width:100%;height:auto;border:0;"></td></tr>' .
 			'<tr><td style="padding:20px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#333333;">' . $body . '</td></tr>' .
-			'<tr><td style="padding:20px;background-color:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:#777777;"><i>Email ini dikirim otomatis oleh Penalis. Jika ada pertanyaan atau kendala, hubungi <a href="mailto:admin@penalis.com" style="color:#2873c8;">admin@penalis.com</a>.</i></td></tr>' .
+			'<tr><td style="padding:20px;background-color:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:#777777;"><i>' . $footer . '</i></td></tr>' .
 			'</table></td></tr></table></body></html>';
 	}
 

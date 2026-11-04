@@ -47,7 +47,7 @@ final class Penalis_Emails {
 		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali.\n\n";
 		$message .= "Jika kamu tidak membuat akun ini, abaikan email ini.\n";
 
-		$sent = self::send_mail( $user->user_email, $subject, $message );
+		$sent = self::send_mail( $user->user_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami menerima permintaan verifikasi alamat email untuk akun Penalis kamu. Jika kamu tidak mendaftar, abaikan email ini. Jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'verification' );
@@ -90,7 +90,7 @@ final class Penalis_Emails {
 		$message .= $reset_url . "\n\n";
 		$message .= "Link ini hanya dapat digunakan sekali. Jika kamu tidak meminta reset, abaikan email ini; password kamu tidak akan berubah.\n";
 
-		$sent = self::send_mail( $user->user_email, $subject, $message );
+		$sent = self::send_mail( $user->user_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami menerima permintaan reset password untuk akun Penalis kamu. Jika kamu tidak meminta reset, abaikan email ini. Jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'password_reset' );
@@ -134,7 +134,7 @@ final class Penalis_Emails {
 		$message .= "Karya tulis yang sudah publish dari akun kontributor akan tetap terhubung ke akun ini.\n\n";
 		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta aktivasi, abaikan email ini.\n";
 
-		$sent = self::send_mail( $user->user_email, $subject, $message );
+		$sent = self::send_mail( $user->user_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami menerima permintaan aktivasi akun Penalis dari akun kontributor lama kamu. Jika kamu tidak meminta aktivasi, abaikan email ini. Jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'legacy_activation' );
@@ -179,7 +179,7 @@ final class Penalis_Emails {
 		$message .= "Alamat email kamu yang sekarang belum berubah. Alamat baru hanya dipakai setelah kamu mengonfirmasi.\n\n";
 		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta perubahan ini, abaikan email ini.\n";
 
-		$sent = self::send_mail( $new_email, $subject, $message );
+		$sent = self::send_mail( $new_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami menerima permintaan untuk mengubah email akun Penalis ke alamat ini. Jika kamu tidak meminta perubahan, abaikan email ini. Jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_confirmation' );
@@ -220,7 +220,7 @@ final class Penalis_Emails {
 		$message .= "Jika bukan kamu, segera reset password akun kamu dan hubungi admin Penalis:\n\n";
 		$message .= Penalis_Dashboard::dashboard_url() . "\n";
 
-		$sent = self::send_mail( $email, $subject, $message );
+		$sent = self::send_mail( $email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena username akun Penalis kamu baru saja diubah. Jika bukan kamu yang melakukan perubahan ini, segera reset password akun Penalis kamu. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'username_change_notice' );
@@ -252,7 +252,7 @@ final class Penalis_Emails {
 		$message .= "Jika bukan kamu, segera ubah password akun kamu dan hubungi admin Penalis:\n\n";
 		$message .= Penalis_Dashboard::dashboard_url() . "\n";
 
-		$sent = self::send_mail( $old_email, $subject, $message );
+		$sent = self::send_mail( $old_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena alamat email akun Penalis kamu baru saja diubah. Jika bukan kamu yang melakukan perubahan ini, segera reset password akun Penalis kamu. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_notice' );
@@ -287,7 +287,7 @@ final class Penalis_Emails {
 		$message .= 'Waktu Terdaftar: ' . $user->user_registered . "\n\n";
 		$message .= 'Tinjau pendaftaran melalui WordPress Admin: ' . admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) . "\n";
 
-		$sent = self::send_mail( $admin_email, $subject, $message );
+		$sent = self::send_mail( $admin_email, $subject, $message, 'Email ini dikirim otomatis untuk admin Penalis sebagai pemberitahuan bahwa ada pendaftaran penulis yang menunggu peninjauan.' );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'admin_notification' );
@@ -335,7 +335,7 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$sent = self::send_mail( $user->user_email, $subject, $body );
+		$sent = self::send_mail( $user->user_email, $subject, $body, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami perlu mengirim pemberitahuan tentang status akun Penalis kamu yang terhubung ke email ini. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'status_notification' );
@@ -352,11 +352,12 @@ final class Penalis_Emails {
 	 *
 	 * @param string $to      Recipient.
 	 * @param string $subject Subject.
-	 * @param string $message Plain-text source content.
+	 * @param string $message        Plain-text source content.
+	 * @param string $footer_context Purpose-specific recipient guidance.
 	 * @return bool Whether wp_mail accepted the message.
 	 */
-	private static function send_mail( $to, $subject, $message ) {
-		$html = Penalis_Email_Template::render( (string) $message, (string) $subject );
+	private static function send_mail( $to, $subject, $message, $footer_context = '' ) {
+		$html = Penalis_Email_Template::render( (string) $message, (string) $subject, (string) $footer_context );
 		return (bool) wp_mail( $to, $subject, $html, array( 'Content-Type: text/html; charset=UTF-8' ) );
 	}
 

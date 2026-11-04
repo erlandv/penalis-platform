@@ -931,10 +931,60 @@ penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'logo-pen
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'safe-test-token' ), 'Verification link is present in the rendered email.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], '>Konfirmasi Email</a>' ), 'Verification action has a descriptive button label.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'https://example.com/dashboard/?penalis_verify=safe-test-token' ), 'Verification action points to the full original URL.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'permintaan verifikasi alamat email' ), 'Verification email has verification-specific footer copy.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Jika kamu tidak mendaftar, abaikan email ini. Jangan bagikan isi email ini kepada siapapun.' ), 'Verification footer uses the approved request-denial and confidentiality copy.' );
 penalis_assert( false === strpos( Penalis_Email_Template::render( '<script>alert(1)</script>' ), '<script>' ), 'Message content is escaped before HTML output.' );
 penalis_assert( false !== strpos( Penalis_Email_Template::render( 'A & B' ), 'A &amp; B' ), 'HTML special characters are escaped.' );
 penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Visit https://example.com/?a=1&b=2' ), 'href="https://example.com/?a=1&b=2"' ), 'Inline links retain their URL query string.' );
 penalis_assert( in_array( 'Content-Type: text/html; charset=UTF-8', $GLOBALS['penalis_test_mail'][0][3] ?? array(), true ), 'HTML content type is passed per message.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][91] = new WP_User( 91 );
+$GLOBALS['penalis_test_users'][91]->user_email = 'writer@example.com';
+$GLOBALS['penalis_test_users'][91]->display_name = 'Penulis Uji';
+penalis_assert( Penalis_Emails::send_password_reset( 91, 'reset-key' ), 'Password reset email is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'permintaan reset password' ), 'Password reset email has reset-specific footer copy.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Jika kamu tidak meminta reset, abaikan email ini. Jangan bagikan isi email ini kepada siapapun.' ), 'Password reset footer uses the approved reset-denial and confidentiality copy.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][92] = new WP_User( 92 );
+$GLOBALS['penalis_test_users'][92]->user_email = 'writer@example.com';
+$GLOBALS['penalis_test_users'][92]->display_name = 'Penulis Uji';
+penalis_assert( Penalis_Emails::send_email_change_confirmation( 92, 'email-token', 'new@example.com' ), 'Email change confirmation is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Alamat baru hanya dipakai setelah kamu mengonfirmasi.' ), 'Email body explains that the new address is pending confirmation.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'mengubah email akun Penalis ke alamat ini' ), 'Email change confirmation has the approved contextual footer.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][93] = new WP_User( 93 );
+$GLOBALS['penalis_test_users'][93]->user_email = 'writer@example.com';
+$GLOBALS['penalis_test_users'][93]->display_name = 'Penulis Uji';
+penalis_assert( Penalis_Emails::send_username_change_notice( 93, 'writer@example.com', 'oldname', 'newname' ), 'Username change notice is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Username akun Penalis kamu baru saja diubah' ), 'Username notification has security-specific footer copy.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'segera reset password akun Penalis kamu.' ), 'Username notification uses the approved security response copy.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][94] = new WP_User( 94 );
+$GLOBALS['penalis_test_users'][94]->user_email = 'writer@example.com';
+$GLOBALS['penalis_test_users'][94]->display_name = 'Penulis Uji';
+penalis_assert( Penalis_Emails::send_legacy_activation( 94, 'legacy-token' ), 'Legacy activation email is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'permintaan aktivasi akun Penalis dari akun kontributor lama kamu' ), 'Legacy activation email uses the approved reason copy.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][95] = new WP_User( 95 );
+$GLOBALS['penalis_test_users'][95]->user_email = 'old@example.com';
+$GLOBALS['penalis_test_users'][95]->display_name = 'Penulis Uji';
+penalis_assert( Penalis_Emails::send_email_change_notice( 95, 'old@example.com', 'new@example.com' ), 'Email change security notice is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Alamat email akun Penalis kamu baru saja diubah' ), 'Email change notice has security-specific footer copy.' );
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][96] = new WP_User( 96 );
+$GLOBALS['penalis_test_users'][96]->user_email = 'writer@example.com';
+$GLOBALS['penalis_test_users'][96]->display_name = 'Penulis Uji';
+penalis_assert( Penalis_Emails::send_status_notification( 96, Penalis_Policy::STATUS_ACTIVE ), 'Account status notification is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'perlu mengirim pemberitahuan tentang status akun Penalis kamu yang terhubung ke email ini.' ), 'Status notification uses the approved status explanation.' );
+penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Body', 'Subject', 'Footer kontekstual.' ), 'Footer kontekstual.' ), 'Email layout renders the caller-provided contextual footer.' );
+penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Body' ), 'kamu terdaftar sebagai penulis di platform Penalis' ), 'Fallback footer uses the approved writer-account copy.' );
+penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Body' ), 'hubungi <a href="mailto:admin@penalis.com" style="color:#2873c8;">admin@penalis.com</a>.' ), 'Fallback footer renders the approved clickable support contact.' );
 
 /* -------------------------------------------------------------------------
  * Report
