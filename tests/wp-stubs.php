@@ -354,6 +354,19 @@ if ( ! function_exists( 'get_users' ) ) {
 	}
 }
 
+if ( ! function_exists( 'add_query_arg' ) ) {
+	/**
+	 * Query argument stub.
+	 *
+	 * @param array  $args Arguments.
+	 * @param string $url  URL.
+	 * @return string
+	 */
+	function add_query_arg( $args, $url = '' ) {
+		return $url . '?' . http_build_query( $args );
+	}
+}
+
 if ( ! function_exists( 'home_url' ) ) {
 	/**
 	 * Home URL double.
@@ -500,8 +513,8 @@ if ( ! function_exists( 'wp_mail' ) ) {
 	 * @param string $message Message.
 	 * @return bool
 	 */
-	function wp_mail( $to, $subject, $message ) {
-		$GLOBALS['penalis_test_mail'][] = array( $to, $subject, $message );
+	function wp_mail( $to, $subject, $message, $headers = array() ) {
+		$GLOBALS['penalis_test_mail'][] = array( $to, $subject, $message, (array) $headers );
 		return true;
 	}
 }
@@ -749,6 +762,18 @@ if ( ! function_exists( 'wp_parse_url' ) ) {
 	 */
 	function wp_parse_url( $url, $component = -1 ) {
 		return -1 === $component ? parse_url( $url ) : parse_url( $url, $component );
+	}
+}
+
+if ( ! function_exists( 'esc_html' ) ) {
+	/**
+	 * Escape HTML text.
+	 *
+	 * @param string $value Value.
+	 * @return string
+	 */
+	function esc_html( $value ) {
+		return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
 	}
 }
 

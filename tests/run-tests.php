@@ -19,6 +19,7 @@ require_once __DIR__ . '/../includes/class-avatar.php';
 require_once __DIR__ . '/../includes/class-dashboard.php';
 require_once __DIR__ . '/../includes/class-rate-limiter.php';
 require_once __DIR__ . '/../includes/class-activator.php';
+require_once __DIR__ . '/../includes/class-email-template.php';
 require_once __DIR__ . '/../includes/class-emails.php';
 require_once __DIR__ . '/../includes/class-author-history.php';
 require_once __DIR__ . '/../includes/class-username-change.php';
@@ -915,6 +916,25 @@ $profile_user   = clone $GLOBALS['penalis_test_users'][41];
 $profile_user->user_email = 'baru@example.com';
 Penalis_Author_History::validate_profile( $profile_errors, true, $profile_user );
 penalis_same( '', $profile_errors->get_error_code(), 'An unrelated profile edit is not blocked.' );
+
+/* -------------------------------------------------------------------------
+ * Branded transactional emails
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][90] = new WP_User( 90 );
+$GLOBALS['penalis_test_users'][90]->user_email = 'writer@example.com';
+$GLOBALS['penalis_test_users'][90]->display_name = 'Penulis Uji';
+penalis_assert( Penalis_Emails::send_verification( 90, 'safe-test-token' ), 'Verification email is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], '<table' ), 'Transactional email uses the branded HTML layout.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'logo-penalis.png' ), 'Transactional email includes the Penalis logo.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'safe-test-token' ), 'Verification link is present in the rendered email.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], '>Konfirmasi Email</a>' ), 'Verification action has a descriptive button label.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'https://example.com/dashboard/?penalis_verify=safe-test-token' ), 'Verification action points to the full original URL.' );
+penalis_assert( false === strpos( Penalis_Email_Template::render( '<script>alert(1)</script>' ), '<script>' ), 'Message content is escaped before HTML output.' );
+penalis_assert( false !== strpos( Penalis_Email_Template::render( 'A & B' ), 'A &amp; B' ), 'HTML special characters are escaped.' );
+penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Visit https://example.com/?a=1&b=2' ), 'href="https://example.com/?a=1&b=2"' ), 'Inline links retain their URL query string.' );
+penalis_assert( in_array( 'Content-Type: text/html; charset=UTF-8', $GLOBALS['penalis_test_mail'][0][3] ?? array(), true ), 'HTML content type is passed per message.' );
 
 /* -------------------------------------------------------------------------
  * Report

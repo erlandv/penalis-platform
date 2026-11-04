@@ -418,6 +418,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-username-change.php` | Re-authenticated login change (direct users-table write) |
 | `includes/class-author-history.php` | Historical author slugs, reservations, native validation hooks, 301 redirects |
 | `includes/class-emails.php` | All outgoing mail (verification, reset, legacy, status, admin notice) |
+| `includes/class-email-template.php` | Self-contained branded HTML layout and safe action links for transactional email |
 | `includes/class-dashboard.php` | Page/shortcode/template, asset enqueue, login POST, logout, cache headers, noindex, legacy slug redirect |
 | `includes/class-admin.php` | Users -> Penalis Writers screen: filters, status actions, legacy activation, default avatar |
 | `includes/class-avatar.php` | Avatar storage and provider, One User Avatar coexistence |

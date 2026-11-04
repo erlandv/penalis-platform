@@ -177,7 +177,8 @@ penalis-platform/
 │   ├── class-legacy-activation.php Legacy contributor activation
 │   ├── class-rest-api.php      penalis/v1 endpoints
 │   ├── class-dashboard.php     Page, shortcode, asset enqueue
-│   ├── class-emails.php        wp_mail() templates and failure recording
+│   ├── class-emails.php        Transactional messages and failure recording
+│   ├── class-email-template.php Branded responsive HTML email layout
 │   ├── class-rate-limiter.php  Transient-based abuse controls
 │   └── class-admin.php         Users → Penalis Writers screen
 ├── templates/

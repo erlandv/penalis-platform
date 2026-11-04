@@ -518,7 +518,7 @@ These are **not** verified against the live site:
 - The editor is a WYSIWYG surface, not a block editor. It covers text
   formatting, headings, lists, quotes, links, and images; it has no layout
   blocks, embeds, or reusable patterns.
-- Email templates are plain text; no HTML templating system.
+- Transactional emails use a self-contained branded HTML layout with inline styles, an HTTPS logo, descriptive action buttons, and per-message HTML headers.
 - No CAPTCHA integration; honeypot + rate limiting are used.
 - Rate limiting uses transients and is per-IP/per-account, not distributed.
 - Legacy profile claiming is out of scope.

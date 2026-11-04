@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Sends plugin emails and reports delivery failures.
+ * Sends branded HTML plugin emails and reports delivery failures.
  *
  * Tokens are never logged. The caller decides whether an account state may
  * advance; a failed send must not advance verification state.
@@ -47,7 +47,7 @@ final class Penalis_Emails {
 		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali.\n\n";
 		$message .= "Jika kamu tidak membuat akun ini, abaikan email ini.\n";
 
-		$sent = wp_mail( $user->user_email, $subject, $message );
+		$sent = self::send_mail( $user->user_email, $subject, $message );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'verification' );
@@ -90,7 +90,7 @@ final class Penalis_Emails {
 		$message .= $reset_url . "\n\n";
 		$message .= "Link ini hanya dapat digunakan sekali. Jika kamu tidak meminta reset, abaikan email ini; password kamu tidak akan berubah.\n";
 
-		$sent = wp_mail( $user->user_email, $subject, $message );
+		$sent = self::send_mail( $user->user_email, $subject, $message );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'password_reset' );
@@ -134,7 +134,7 @@ final class Penalis_Emails {
 		$message .= "Karya tulis yang sudah publish dari akun kontributor akan tetap terhubung ke akun ini.\n\n";
 		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta aktivasi, abaikan email ini.\n";
 
-		$sent = wp_mail( $user->user_email, $subject, $message );
+		$sent = self::send_mail( $user->user_email, $subject, $message );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'legacy_activation' );
@@ -179,7 +179,7 @@ final class Penalis_Emails {
 		$message .= "Alamat email kamu yang sekarang belum berubah. Alamat baru hanya dipakai setelah kamu mengonfirmasi.\n\n";
 		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta perubahan ini, abaikan email ini.\n";
 
-		$sent = wp_mail( $new_email, $subject, $message );
+		$sent = self::send_mail( $new_email, $subject, $message );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_confirmation' );
@@ -220,7 +220,7 @@ final class Penalis_Emails {
 		$message .= "Jika bukan kamu, segera reset password akun kamu dan hubungi admin Penalis:\n\n";
 		$message .= Penalis_Dashboard::dashboard_url() . "\n";
 
-		$sent = wp_mail( $email, $subject, $message );
+		$sent = self::send_mail( $email, $subject, $message );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'username_change_notice' );
@@ -252,7 +252,7 @@ final class Penalis_Emails {
 		$message .= "Jika bukan kamu, segera ubah password akun kamu dan hubungi admin Penalis:\n\n";
 		$message .= Penalis_Dashboard::dashboard_url() . "\n";
 
-		$sent = wp_mail( $old_email, $subject, $message );
+		$sent = self::send_mail( $old_email, $subject, $message );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_notice' );
@@ -287,7 +287,7 @@ final class Penalis_Emails {
 		$message .= 'Waktu Terdaftar: ' . $user->user_registered . "\n\n";
 		$message .= 'Tinjau pendaftaran melalui WordPress Admin: ' . admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) . "\n";
 
-		$sent = wp_mail( $admin_email, $subject, $message );
+		$sent = self::send_mail( $admin_email, $subject, $message );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'admin_notification' );
@@ -335,13 +335,29 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$sent = wp_mail( $user->user_email, $subject, $body );
+		$sent = self::send_mail( $user->user_email, $subject, $body );
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'status_notification' );
 		}
 
 		return (bool) $sent;
+	}
+
+	/**
+	 * Render and send one branded HTML email.
+	 *
+	 * The content-type header is scoped to this message; no global mail filter
+	 * can accidentally change messages sent by WordPress or another plugin.
+	 *
+	 * @param string $to      Recipient.
+	 * @param string $subject Subject.
+	 * @param string $message Plain-text source content.
+	 * @return bool Whether wp_mail accepted the message.
+	 */
+	private static function send_mail( $to, $subject, $message ) {
+		$html = Penalis_Email_Template::render( (string) $message, (string) $subject );
+		return (bool) wp_mail( $to, $subject, $html, array( 'Content-Type: text/html; charset=UTF-8' ) );
 	}
 
 	/**
