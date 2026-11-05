@@ -15,6 +15,7 @@ import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../com
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
+import { ImageDropzone } from '../../components/ImageDropzone';
 import { MediaSelection } from '../../components/MediaSelection';
 import { Icon } from '../../components/icons';
 import type { RichTextEditorHandle } from './RichTextEditor';
@@ -719,22 +720,14 @@ export function Editor({
               </div>
             </div>
 
-            <label className="penalis-upload">
-              <span>{uploading ? 'Mengunggah…' : 'Unggah gambar'}</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                disabled={uploading}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    void uploadImage(file);
-                  }
-                  event.target.value = '';
-                }}
-              />
-              <small>Hanya dapat mengunggah file JPEG, PNG, GIF, atau WebP.</small>
-            </label>
+            <ImageDropzone
+              onFile={(file) => void uploadImage(file)}
+              onReject={setUploadError}
+              busy={uploading}
+              title="Letakkan gambar di sini"
+              subtitle="atau klik untuk memilih file"
+              hint="Hanya dapat mengunggah file JPEG, PNG, GIF, atau WebP."
+            />
 
             {uploadError ? <ErrorBanner message={uploadError} /> : null}
 

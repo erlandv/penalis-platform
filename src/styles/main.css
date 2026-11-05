@@ -2228,20 +2228,94 @@
   .penalis-dashboard-root * { scroll-behavior: auto !important; }
 }
 
-.penalis-upload {
+/**
+ * Image upload dropzone.
+ *
+ * The visible target is a real `<button>` (see `ImageDropzone.tsx`) so keyboard
+ * users get Tab/Enter for free; the native file input stays hidden. The dashed
+ * frame plus the tinted fill is the only affordance that dropping a file works,
+ * hence the explicit hover and drag states.
+ */
+.penalis-dropzone-field {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
   margin-bottom: 1rem;
-  padding: 0.9rem;
-  border: 1px dashed var(--penalis-border);
-  border-radius: 10px;
-  background: var(--penalis-surface-alt);
-  font-size: 0.85rem;
-  font-weight: 600;
 }
 
-.penalis-upload small {
+.penalis-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 2rem 1.25rem;
+  border: 1.5px dashed #d8d1c7;
+  border-radius: 12px;
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-text);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.penalis-dropzone:hover,
+.penalis-dropzone:focus-visible {
+  border-color: var(--penalis-accent);
+  background: var(--penalis-accent-soft);
+}
+
+/* Active drop target. The accent fill is the cue that releasing will upload. */
+.penalis-dropzone.is-dragging {
+  border-color: var(--penalis-accent);
+  border-style: solid;
+  background: var(--penalis-accent-soft);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+/* Busy/disabled share one look: still readable, clearly not actionable. */
+.penalis-dashboard-root .penalis-dropzone[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.7;
+  border-color: var(--penalis-border);
+  background: var(--penalis-surface-alt);
+  box-shadow: none;
+}
+
+.penalis-dropzone__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--penalis-muted);
-  font-weight: 400;
+  margin-bottom: 0.15rem;
+}
+
+.penalis-dropzone__icon svg {
+  width: 34px;
+  height: 34px;
+  stroke-width: 1.6;
+}
+
+.penalis-dropzone__title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--penalis-text);
+}
+
+.penalis-dropzone__subtitle {
+  font-size: 0.82rem;
+  color: var(--penalis-muted);
+}
+
+.penalis-dropzone__hint {
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+}
+
+/* Kept in the DOM but out of the layout and the tab order: it is opened
+   programmatically by the button above. */
+.penalis-dropzone__input {
+  display: none;
 }

@@ -4,6 +4,7 @@
 
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { Dialog } from '../../components/Dialog';
+import { ImageDropzone } from '../../components/ImageDropzone';
 import { MediaSelection } from '../../components/MediaSelection';
 
 import { accountApi, ApiError, mediaApi } from '../../lib/api';
@@ -273,22 +274,14 @@ export function Profile({
               <h3>Pilih Foto Profil</h3>
             </div>
 
-            <label className="penalis-upload">
-              <span>{uploading ? 'Mengunggah…' : 'Unggah Gambar'}</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                disabled={uploading}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    void uploadAvatar(file);
-                  }
-                  event.target.value = '';
-                }}
-              />
-              <small>JPEG, PNG, GIF, atau WebP, minimal 100 x 100 piksel.</small>
-            </label>
+            <ImageDropzone
+              onFile={(file) => void uploadAvatar(file)}
+              onReject={setUploadError}
+              busy={uploading}
+              title="Letakkan gambar di sini"
+              subtitle="atau klik untuk memilih file"
+              hint="JPEG, PNG, GIF, atau WebP, minimal 100 x 100 piksel."
+            />
 
             {uploadError ? <ErrorBanner message={uploadError} /> : null}
             {avatarError ? <ErrorBanner message={avatarError} /> : null}

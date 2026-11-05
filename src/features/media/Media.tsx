@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { ApiError, mediaApi } from '../../lib/api';
 import type { MediaList } from '../../lib/types';
 import { formatDate } from '../../lib/format';
+import { ImageDropzone } from '../../components/ImageDropzone';
 import { EmptyState, ErrorBanner, Pagination, Spinner } from '../../components/ui';
 
 export function Media() {
@@ -73,16 +74,15 @@ export function Media() {
         </div>
       </div>
 
-      <label className="penalis-upload">
-        <span>{uploading ? 'Mengunggah…' : 'Unggah gambar'}</span>
-        <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" disabled={uploading || loading}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void upload(file);
-            event.target.value = '';
-          }} />
-        <small>JPEG, PNG, GIF, atau WebP.</small>
-      </label>
+      <ImageDropzone
+        onFile={(file) => void upload(file)}
+        onReject={setUploadError}
+        busy={uploading}
+        disabled={loading}
+        title="Letakkan gambar di sini"
+        subtitle="atau klik untuk memilih file"
+        hint="JPEG, PNG, GIF, atau WebP."
+      />
       {uploadError ? <ErrorBanner message={uploadError} /> : null}
       {error ? <ErrorBanner message={error} /> : null}
 

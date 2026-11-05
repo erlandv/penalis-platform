@@ -38,7 +38,11 @@ export function Dialog({
 
     const focusables = () =>
       Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-        (element) => !element.hasAttribute('disabled'),
+        // `display: none` controls (the hidden file input behind the upload
+        // dropzone) match the selector but cannot take focus. Leaving them in
+        // the list would make the trap treat an unfocusable element as the
+        // first or last stop, so Tab would appear to do nothing.
+        (element) => !element.hasAttribute('disabled') && element.getClientRects().length > 0,
       );
 
     (focusables()[0] ?? dialog).focus();
