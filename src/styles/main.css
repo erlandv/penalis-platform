@@ -115,7 +115,7 @@
 .penalis-header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding-bottom: 1.25rem;
@@ -134,15 +134,109 @@
 }
 
 /*
- * Header links are real navigation targets, so they need a tappable height.
- * As bare inline text they measured 23px tall, and at 320px "Keluar" broke
- * across two lines ("Kelua" / "r") because the row could not wrap.
+ * Account flyout.
+ *
+ * The header used to show the display name plus three bare links, which wrapped
+ * onto its own row on a phone. Only the name is visible now; the actions live
+ * in a popover. The wrapper is the hover/focus boundary, so the popover stays
+ * open while the pointer travels from the trigger into the menu — a gap between
+ * the two would otherwise close it mid-move.
  */
-.penalis-header__meta .penalis-link {
+.penalis-account {
+  position: relative;
+}
+
+.penalis-account__trigger {
   display: inline-flex;
   align-items: center;
+  gap: 0.35rem;
+  /* 44px keeps the trigger a comfortable touch target on a phone. */
   min-height: 44px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--penalis-text);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.penalis-account__trigger:hover,
+.penalis-account__trigger.is-open {
+  background: var(--penalis-surface);
+  border-color: var(--penalis-border);
+}
+
+/*
+ * The chevron is the only affordance that says "this opens something", so it
+ * must not be squeezed by a long display name.
+ */
+.penalis-account__trigger svg {
+  flex: 0 0 auto;
+  color: var(--penalis-muted);
+  transition: transform 120ms ease;
+}
+
+.penalis-account__trigger.is-open svg {
+  transform: rotate(180deg);
+}
+
+/*
+ * `padding-top` on the popover, not `margin`, so the hover boundary is
+ * continuous between the trigger and the first menu item.
+ */
+.penalis-account__popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  padding-top: 0.4rem;
+}
+
+.penalis-account__menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 13rem;
+  padding: 0.35rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 12px;
+  background: var(--penalis-surface);
+  box-shadow: var(--penalis-shadow);
+}
+
+.penalis-account__item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  color: var(--penalis-text);
+  font-size: 0.9rem;
+  text-decoration: none;
   white-space: nowrap;
+}
+
+.penalis-account__item svg {
+  flex: 0 0 auto;
+  color: var(--penalis-muted);
+}
+
+.penalis-account__item:hover,
+.penalis-account__item:focus-visible {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-account__item:hover svg,
+.penalis-account__item:focus-visible svg {
+  color: currentColor;
+}
+
+.penalis-account__item--danger:hover,
+.penalis-account__item--danger:focus-visible {
+  background: var(--penalis-danger-soft);
+  color: var(--penalis-danger);
 }
 
 .penalis-user {
@@ -162,14 +256,6 @@
   color: var(--penalis-muted);
   font-size: 0.92rem;
 }
-
-.penalis-link {
-  color: var(--penalis-muted);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-}
-
-.penalis-link:hover { border-bottom-color: currentColor; }
 
 .penalis-link-button {
   background: none;

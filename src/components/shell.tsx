@@ -2,7 +2,16 @@
  * Account status banner and navigation shell.
  */
 
-import { useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 
 import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
@@ -118,6 +127,220 @@ function ResendBanner({ email }: { email: string }) {
   );
 }
 
+/**
+ * Compact account menu in the dashboard header.
+ *
+ * The header used to list three bare links next to the display name, which ate
+ * a whole row on narrow screens. Only the name is shown now; the actions live
+ * in a flyout that opens on hover (mouse) or on click/keyboard.
+ *
+ * Hover alone is not accessible, so opening is pinned by a click and the whole
+ * widget is keyboard operable: Enter/Space or ArrowDown opens it, arrows move
+ * between items, Escape closes it and returns focus to the trigger, and focus
+ * leaving the widget closes it. `pointerleave` is ignored while the widget
+ * still holds focus so a keyboard user is never dropped out mid-navigation.
+ */
+function AccountMenu({
+  account,
+  adminUrl,
+  logoutUrl,
+}: {
+  account: Account;
+  adminUrl?: string;
+  logoutUrl: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const focusFirstOnOpen = useRef(false);
+
+  const close = useCallback((refocusTrigger = false) => {
+    setOpen(false);
+    setPinned(false);
+
+    if (refocusTrigger) {
+      triggerRef.current?.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const onDocumentPointerDown = (event: PointerEvent) => {
+      const wrapper = wrapperRef.current;
+      if (wrapper && !wrapper.contains(event.target as Node)) {
+        setOpen(false);
+        setPinned(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', onDocumentPointerDown);
+    return () => document.removeEventListener('pointerdown', onDocumentPointerDown);
+  }, [open]);
+
+  // Keyboard opening (ArrowDown) must land on the first item; hover must not
+  // steal focus from wherever the user was typing.
+  useEffect(() => {
+    if (open && focusFirstOnOpen.current) {
+      focusFirstOnOpen.current = false;
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    }
+  }, [open]);
+
+  const menuItems = () =>
+    Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+
+  const onPointerEnter = (event: ReactPointerEvent<HTMLDivElement>) => {
+    // Touch and pen "enter" is not hover intent; only a mouse should pre-open.
+    if (event.pointerType === 'mouse') {
+      setOpen(true);
+    }
+  };
+
+  const onPointerLeave = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'mouse' || pinned) {
+      return;
+    }
+
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && wrapperRef.current?.contains(active)) {
+      return;
+    }
+
+    setOpen(false);
+  };
+
+  const onBlur = (event: ReactFocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget;
+
+    /*
+     * Only close when focus provably moved to another element outside the
+     * widget. `relatedTarget === null` is ambiguous: Safari does not focus a
+     * link on mousedown, so clicking a menu item there fires blur with no
+     * related target. Closing on that would unmount the menu before the click
+     * lands and the navigation would be lost. The document-level pointerdown
+     * handler already covers "clicked somewhere else".
+     */
+    if (!(next instanceof HTMLElement) || wrapperRef.current?.contains(next)) {
+      return;
+    }
+
+    close();
+  };
+
+  const onTriggerClick = () => {
+    if (open && pinned) {
+      close();
+      return;
+    }
+
+    setOpen(true);
+    setPinned(true);
+  };
+
+  const onTriggerKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'ArrowDown') {
+      return;
+    }
+
+    event.preventDefault();
+    focusFirstOnOpen.current = true;
+    setOpen(true);
+    setPinned(true);
+  };
+
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close(true);
+      return;
+    }
+
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+      return;
+    }
+
+    const items = menuItems();
+    if (items.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    const step = event.key === 'ArrowDown' ? 1 : -1;
+    const next = items[(index + step + items.length) % items.length];
+    next?.focus();
+  };
+
+  return (
+    <div
+      className="penalis-account"
+      ref={wrapperRef}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      onBlur={onBlur}
+      onKeyDown={onMenuKeyDown}
+    >
+      <button
+        type="button"
+        ref={triggerRef}
+        className={`penalis-account__trigger ${open ? 'is-open' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? 'penalis-account-menu' : undefined}
+        onClick={onTriggerClick}
+        onKeyDown={onTriggerKeyDown}
+      >
+        <span className="penalis-user">{account.displayName}</span>
+        <Icon name="chevronDown" />
+      </button>
+
+      {open ? (
+        <div className="penalis-account__popover">
+          <div
+            className="penalis-account__menu"
+            id="penalis-account-menu"
+            role="menu"
+            aria-label="Menu akun"
+            ref={menuRef}
+          >
+            <a
+              className="penalis-account__item"
+              role="menuitem"
+              href={account.authorUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <Icon name="externalLink" />
+              <span>Lihat profil publik</span>
+            </a>
+
+            {adminUrl ? (
+              <a className="penalis-account__item" role="menuitem" href={adminUrl}>
+                <Icon name="users" />
+                <span>Kelola penulis</span>
+              </a>
+            ) : null}
+
+            <a
+              className="penalis-account__item penalis-account__item--danger"
+              role="menuitem"
+              href={logoutUrl}
+            >
+              <Icon name="logout" />
+              <span>Logout</span>
+            </a>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function Shell({
   account,
   view,
@@ -139,23 +362,11 @@ export function Shell({
           <h1>Dasbor Penulis</h1>
         </div>
         <div className="penalis-header__meta">
-          <span className="penalis-user">{account.displayName}</span>
-          {bootstrap.adminUrl ? (
-            <a className="penalis-link" href={bootstrap.adminUrl}>
-              Kelola penulis
-            </a>
-          ) : null}
-          <a
-            className="penalis-link"
-            href={account.authorUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            Lihat profil kamu
-          </a>
-          <a className="penalis-link" href={bootstrap.logoutUrl}>
-            Logout
-          </a>
+          <AccountMenu
+            account={account}
+            adminUrl={bootstrap.adminUrl}
+            logoutUrl={bootstrap.logoutUrl}
+          />
         </div>
       </header>
 
