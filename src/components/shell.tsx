@@ -7,15 +7,21 @@ import { useState, type ReactNode } from 'react';
 import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
 import type { Account, AccountStatus, ViewName } from '../lib/types';
+import { Icon, type IconName } from './icons';
 import { Notice } from './ui';
 
-const NAV_ITEMS: Array<{ view: ViewName; label: string }> = [
-  { view: 'overview', label: 'Ringkasan' },
-  { view: 'articles', label: 'Daftar Karya' },
-  { view: 'editor', label: 'Buat Karya' },
-  { view: 'media', label: 'Media' },
-  { view: 'profile', label: 'Profil' },
-  { view: 'settings', label: 'Pengaturan' },
+/**
+ * Navigation entries carry an icon so the sidebar reads as a set of places
+ * rather than a list of words. The icon is decorative: the label is still the
+ * accessible name, and the icon inherits the item's colour in every state.
+ */
+const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: IconName }> = [
+  { view: 'overview', label: 'Ringkasan', icon: 'layoutDashboard' },
+  { view: 'articles', label: 'Daftar Karya', icon: 'fileText' },
+  { view: 'editor', label: 'Buat Karya', icon: 'edit' },
+  { view: 'media', label: 'Media', icon: 'image' },
+  { view: 'profile', label: 'Profil', icon: 'user' },
+  { view: 'settings', label: 'Pengaturan', icon: 'settings' },
 ];
 
 export function StatusBanner({
@@ -182,7 +188,8 @@ export function Shell({
                 disabled={disabled}
                 title={disabled ? 'Tersedia setelah akun kamu disetujui' : undefined}
               >
-                {item.label}
+                <Icon name={item.icon} />
+                <span>{item.label}</span>
               </button>
             );
           })}

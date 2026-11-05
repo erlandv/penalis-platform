@@ -101,7 +101,13 @@
 }
 
 .penalis-app {
-  max-width: 1180px;
+  /*
+   * 1280px instead of 1180px: the article table needs four columns plus a
+   * title column wide enough for a 100-character excerpt. At the old width the
+   * sidebar left the table ~900px, which pushed the excerpt to three lines per
+   * row and made the action column the widest thing on screen.
+   */
+  max-width: 1280px;
   margin: 0 auto;
   padding: 2rem 1.25rem 4rem;
 }
@@ -176,22 +182,39 @@
   text-decoration: underline;
 }
 
+/*
+ * Sidebar width is a range, not a fixed track: 232px is the comfortable width
+ * for the longest label ("Daftar Karya") plus its icon, and the column is
+ * allowed to shrink to 200px on narrower desktops so the main column keeps as
+ * much room as possible for the article table.
+ */
 .penalis-layout {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap: 2rem;
+  grid-template-columns: clamp(200px, 17vw, 232px) minmax(0, 1fr);
+  gap: clamp(1.25rem, 2.5vw, 2rem);
   align-items: start;
 }
 
 .penalis-nav {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
   position: sticky;
   top: 1.5rem;
 }
 
 .penalis-nav__item {
+  display: flex;
+  align-items: center;
+  /*
+   * `justify-content` must be set explicitly. The active theme styles every
+   * `button` element with `display: inline-flex; justify-content: center`, and
+   * that rule survives our `display: flex` override. Without this line the
+   * icon+label pair is centred inside the item, and `text-align: left` cannot
+   * fix it because the children are flex items, not inline text.
+   */
+  justify-content: flex-start;
+  gap: 0.6rem;
   text-align: left;
   padding: 0.6rem 0.85rem;
   border-radius: 10px;
@@ -201,6 +224,14 @@
   font: inherit;
   font-weight: 500;
   cursor: pointer;
+}
+
+/*
+ * The icon must never be squeezed by a long label, and it inherits
+ * `currentColor` so the active/hover/disabled states colour it for free.
+ */
+.penalis-nav__item svg {
+  flex: 0 0 auto;
 }
 
 .penalis-nav__item:hover:not(:disabled) {
@@ -1994,9 +2025,22 @@
   border-radius: 10px;
 }
 
-@media (max-width: 900px) {
+/*
+ * Collapse to one column at 1024px, not 900px.
+ *
+ * At 900px the two-column layout left the main column about 640px, which is
+ * narrower than the article table needs: the title column collapsed and the
+ * excerpt wrapped to four lines per row. Turning the sidebar into a horizontal
+ * strip earlier gives the table the full width on small laptops and tablets in
+ * landscape, where it is still comfortable to use.
+ * `minmax(0, 1fr)` instead of `1fr` keeps the track from growing past the
+ * viewport when a table or a long unbroken word inside it is wider than the
+ * screen.
+ */
+@media (max-width: 1024px) {
   .penalis-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
   }
 
   .penalis-nav {
@@ -2010,7 +2054,9 @@
     padding: 0.45rem 0.7rem;
     font-size: 0.85rem;
   }
+}
 
+@media (max-width: 900px) {
   .penalis-editor {
     grid-template-columns: 1fr;
   }
