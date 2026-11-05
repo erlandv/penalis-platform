@@ -1006,6 +1006,28 @@
 }
 
 /**
+ * Read-only value shown in a form control, e.g. the profile URL preview.
+ *
+ * It must still look like a field (so it reads as "this is the value") but not
+ * like something the writer can type into: a muted surface, a dashed border and
+ * a text cursor instead of the caret. `readOnly` keeps it focusable and
+ * selectable, which is the point — the URL can be copied.
+ *
+ * The selector repeats `[type='text']` on purpose. The shared field rule above
+ * is `.penalis-dashboard-root input[type='text']`, which scores (0,2,1); a
+ * plain `.penalis-dashboard-root .penalis-input--readonly` only scores (0,2,0)
+ * and lost, so the input kept the white `--penalis-surface` background. Adding
+ * the attribute back raises this to (0,3,1), which wins regardless of the order
+ * the two rules end up in.
+ */
+.penalis-dashboard-root input[type='text'].penalis-input--readonly {
+  background: var(--penalis-surface-alt);
+  border-style: dashed;
+  color: var(--penalis-muted);
+  cursor: text;
+}
+
+/**
  * Password field with a show/hide toggle.
  *
  * The wrapper is the positioning context for the eye button, and the input

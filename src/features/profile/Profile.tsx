@@ -9,7 +9,7 @@ import { MediaSelection } from '../../components/MediaSelection';
 import { accountApi, ApiError, mediaApi } from '../../lib/api';
 import { displayNameOptions } from '../../lib/profile';
 import type { Account, DisplayNameMode, FieldErrors, MediaItem } from '../../lib/types';
-import { ErrorBanner, FieldError, Notice, Spinner } from '../../components/ui';
+import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../components/ui';
 
 export function Profile({
   account,
@@ -64,13 +64,13 @@ export function Profile({
       });
       onUpdated(updated);
       setCustomName(updated.displayNameMode === 'custom' ? updated.displayName : customName);
-      setNotice('Profil Anda telah diperbarui.');
+      setNotice('Profil kamu telah diperbarui.');
     } catch (caught) {
       if (caught instanceof ApiError) {
         setErrors(caught.fields);
         setError(caught.message);
       } else {
-        setError('Profil Anda tidak dapat diperbarui.');
+        setError('Profil kamu tidak dapat diperbarui.');
       }
     } finally {
       setSaving(false);
@@ -102,9 +102,9 @@ export function Profile({
       const updated = await accountApi.setAvatar(attachmentId);
       onUpdated(updated);
       setPickerOpen(false);
-      setNotice('Foto profil Anda telah diperbarui.');
+      setNotice('Foto profil kamu telah diperbarui.');
     } catch (caught) {
-      setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil Anda tidak dapat diperbarui.');
+      setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat diperbarui.');
     } finally {
       setAvatarBusy(false);
     }
@@ -117,9 +117,9 @@ export function Profile({
     try {
       const updated = await accountApi.removeAvatar();
       onUpdated(updated);
-      setNotice('Foto profil Anda telah dihapus.');
+      setNotice('Foto profil kamu telah dihapus.');
     } catch (caught) {
-      setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil Anda tidak dapat dihapus.');
+      setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat dihapus.');
     } finally {
       setAvatarBusy(false);
     }
@@ -156,8 +156,8 @@ export function Profile({
         <img className="penalis-avatar__preview" src={account.avatarUrl} alt="" width={96} height={96} />
 
         <div className="penalis-avatar__body">
-          <h3>Foto profil</h3>
-          <p className="penalis-muted">Tampil pada artikel dan halaman penulis Anda.</p>
+          <h3>Foto Profil</h3>
+          <p className="penalis-muted">Ganti atau hapus foto profil.</p>
 
           <div className="penalis-actions-row">
             <button
@@ -190,7 +190,7 @@ export function Profile({
       <form className="penalis-form penalis-form--narrow" onSubmit={submit} noValidate>
         <div className="penalis-field-row">
           <label className="penalis-field">
-            <span>Nama depan</span>
+            <span>Nama Depan</span>
             <input
               type="text"
               value={firstName}
@@ -198,12 +198,12 @@ export function Profile({
               maxLength={50}
               aria-invalid={Boolean(errors.first_name)}
             />
-            <small>Opsional</small>
+            <FieldHint id="first_name-hint">Opsional</FieldHint>
             <FieldError errors={errors} name="first_name" />
           </label>
 
           <label className="penalis-field">
-            <span>Nama belakang</span>
+            <span>Nama Belakang</span>
             <input
               type="text"
               value={lastName}
@@ -211,13 +211,13 @@ export function Profile({
               maxLength={50}
               aria-invalid={Boolean(errors.last_name)}
             />
-            <small>Opsional</small>
+            <FieldHint id="last_name-hint">Opsional</FieldHint>
             <FieldError errors={errors} name="last_name" />
           </label>
         </div>
 
         <label className="penalis-field">
-          <span>Tampilkan nama publik sebagai</span>
+          <span>Tampilkan Nama Publik Sebagai</span>
           <select
             value={selectedMode}
             onChange={(event) => setMode(event.target.value as DisplayNameMode)}
@@ -229,13 +229,13 @@ export function Profile({
               </option>
             ))}
           </select>
-          <small>Tampil pada artikel dan halaman penulis Anda.</small>
+          <FieldHint id="display_name_mode-hint">Tampil pada karya tulis dan halaman penulis</FieldHint>
           <FieldError errors={errors} name="display_name_mode" />
         </label>
 
         {selectedMode === 'custom' ? (
           <label className="penalis-field">
-            <span>Nama tampilan</span>
+            <span>Nama Tampilan</span>
             <input
               type="text"
               value={customName}
@@ -243,7 +243,7 @@ export function Profile({
               maxLength={80}
               aria-invalid={Boolean(errors.display_name)}
             />
-            <small>2-80 karakter.</small>
+            <FieldHint id="display_name-hint">2-80 karakter.</FieldHint>
             <FieldError errors={errors} name="display_name" />
           </label>
         ) : null}
@@ -257,12 +257,12 @@ export function Profile({
             maxLength={500}
             aria-invalid={Boolean(errors.description)}
           />
-          <small>{description.length}/500 karakter</small>
+          <FieldHint id="description-hint">{description.length}/500 karakter</FieldHint>
           <FieldError errors={errors} name="description" />
         </label>
 
         <button type="submit" className="penalis-button penalis-button--primary" disabled={saving}>
-          {saving ? 'Menyimpan…' : 'Simpan profil'}
+          {saving ? 'Menyimpan…' : 'Simpan Profil'}
         </button>
       </form>
 
@@ -270,11 +270,11 @@ export function Profile({
         <Dialog label="Pilih foto profil" onClose={closePicker}>
           <div className="penalis-modal__content">
             <div className="penalis-modal__header">
-              <h3>Pilih foto profil</h3>
+              <h3>Pilih Foto Profil</h3>
             </div>
 
             <label className="penalis-upload">
-              <span>{uploading ? 'Mengunggah…' : 'Unggah gambar'}</span>
+              <span>{uploading ? 'Mengunggah…' : 'Unggah Gambar'}</span>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/gif,image/webp"
@@ -287,7 +287,7 @@ export function Profile({
                   event.target.value = '';
                 }}
               />
-              <small>JPEG, PNG, GIF, atau WebP, minimal 100 × 100 piksel.</small>
+              <small>JPEG, PNG, GIF, atau WebP, minimal 100 x 100 piksel.</small>
             </label>
 
             {uploadError ? <ErrorBanner message={uploadError} /> : null}
@@ -296,7 +296,7 @@ export function Profile({
             {mediaLoading ? (
               <Spinner label="Memuat media…" />
             ) : media.length === 0 ? (
-              <p className="penalis-muted">Anda belum mengunggah gambar apa pun. Gunakan kontrol unggah di atas.</p>
+              <p className="penalis-muted">Kamu belum mengunggah gambar apa pun. Gunakan kontrol unggah di atas.</p>
             ) : (
               <MediaSelection items={media} selectedId={selectedMediaId} onSelect={setSelectedMediaId}
                 onConfirm={() => { if (selectedMediaId !== null) void chooseAvatar(selectedMediaId); }}

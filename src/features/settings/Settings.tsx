@@ -261,11 +261,8 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         </div>
 
         <p className="penalis-muted">
-          Username adalah nama yang kamu pakai untuk masuk. Gunakan 3–50 karakter: huruf kecil, angka,
-          garis bawah, atau tanda hubung, diawali dan diakhiri huruf atau angka. Titik tidak diperbolehkan.
-          URL profil mengikuti username baru, sedangkan tautan lama tetap diarahkan ke profil kamu. Jika
-          nama publik kamu mengikuti username, nama publik juga ikut berubah. Semua sesi akan diakhiri dan
-          kamu perlu masuk kembali.
+          Jika nama tampilan kamu mengikuti username, nama tampilan juga akan ikut berubah. 
+          Mengganti username akan mengakhiri sesi dan kamu perlu login kembali.
         </p>
 
         {usernameError ? <ErrorBanner message={usernameError} /> : null}
@@ -283,26 +280,46 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
                 aria-invalid={Boolean(usernameErrors.new_username)}
                 aria-describedby={describedBy(
                   'new_username-hint',
-                  username !== '' && 'new_username-url-preview',
                   username !== '' && 'new_username-url-hint',
                   usernameErrors.new_username && 'new_username-error',
                 )}
                 disabled={usernameSaving}
               />
               <FieldHint id="new_username-hint">
-                Username saat ini: {account.username}. Nama publik kamu saat ini: {account.displayName}.
+                Username saat ini: <strong>{account.username}</strong>. Nama Tampilan saat ini: <strong>{account.displayName}</strong>.
               </FieldHint>
               <FieldError errors={usernameErrors} name="new_username" />
             </label>
 
             {username !== '' ? (
               <div className="penalis-field">
-                <span>Previw URL Profil</span>
-                <p className="penalis-muted" id="new_username-url-preview">
-                  {previewAuthorUrl(account.authorUrl, username)}
-                </p>
+                <label htmlFor="new_username-url-preview">Preview Link Profil</label>
+                {/*
+                  A read-only input rather than a paragraph: the URL is
+                  something the writer may want to copy, and a form control
+                  makes that possible with the keyboard and the context menu.
+                  `readOnly` (not `disabled`) keeps it focusable and selectable.
+                */}
+                <input
+                  id="new_username-url-preview"
+                  type="text"
+                  className="penalis-input--readonly"
+                  value={previewAuthorUrl(account.authorUrl, username)}
+                  readOnly
+                  onFocus={(event) => event.currentTarget.select()}
+                  /*
+                   * Enter in a text input submits the surrounding form, which
+                   * here would open the "change username and sign out"
+                   * confirmation. The field is only a preview, so swallow it.
+                   */
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                    }
+                  }}
+                />
                 <FieldHint id="new_username-url-hint">
-                  Link profil lama tetap berfungsi dan diarahkan ke URL baru ini.
+                  Link profil mengikuti username. Link profil lama kamu auto redirect ke link baru.
                 </FieldHint>
               </div>
             ) : null}
@@ -348,7 +365,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
 
       {pendingUsername !== null ? (
         <ConfirmDialog
-          title="Ganti username dan keluar?"
+          title="Ganti Username dan Keluar?"
           description={
             <>
               <p>
@@ -356,11 +373,11 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
                 <strong>{pendingUsername}</strong>.
               </p>
               <p>
-                URL profil baru: <strong>{previewAuthorUrl(account.authorUrl, pendingUsername)}</strong>
+                Link profil baru: <strong>{previewAuthorUrl(account.authorUrl, pendingUsername)}</strong>
               </p>
               <p className="penalis-muted">
-                Semua sesi, termasuk sesi ini, akan diakhiri. Kamu perlu masuk kembali dengan username baru.
-                Link profil lama tetap berfungsi dan diarahkan ke URL baru.
+                Semua sesi akan diakhiri. Kamu perlu login kembali dengan username baru.
+                Link profil lama tetap berfungsi dan akan redirect ke link profil baru.
               </p>
             </>
           }
