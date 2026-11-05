@@ -47,7 +47,7 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 - Article editor with a WYSIWYG surface (TipTap), title, categories, tags,
   featured image, and image upload/insertion. The excerpt is left to WordPress
   and SEO plugins, so it is not part of the form.
-- Preview and publish/unpublish actions.
+- Draft saving and, in the planned V2 workflow, submission for administrator review. Writers will not publish directly or edit published articles; approval, publication, and direct editing of published content will be handled by Penalis administrators.
 - Writer profile with first name, last name, and a public name choice: first +
   last, first only, last only, username, or a custom pen name.
 - Profile photo selection from the writer's own media library, using the same
@@ -392,6 +392,8 @@ checklist in [PROJECT-SPECIFICATION.md](PROJECT-SPECIFICATION.md#13-manual-test-
   model, architecture map, conventions, and quality gates.
 - [PROJECT-SPECIFICATION.md](PROJECT-SPECIFICATION.md) — features, lifecycle,
   permission rules, status, assumptions, manual test checklist.
+- [EDITORIAL-WORKFLOW-ROADMAP.md](EDITORIAL-WORKFLOW-ROADMAP.md) — phased plan
+  for administrator review, revisions, feedback, and notifications.
 - [SECURITY.md](SECURITY.md) — security boundaries and authorization model.
 
 ## Known limitations

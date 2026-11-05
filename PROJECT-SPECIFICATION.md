@@ -1,16 +1,20 @@
 # Penalis Platform — Project Specification
 
-Status: initial implementation, repository-verified only.
-Last updated: 2026-10-22.
+Status: initial implementation plus V2 editorial workflow planning; repository-verified only.
+Last updated: 2026-11-05.
+
+The phased implementation plan for admin review and curation is tracked in [`EDITORIAL-WORKFLOW-ROADMAP.md`](EDITORIAL-WORKFLOW-ROADMAP.md). The roadmap is planning-only until its phases are marked complete.
 
 ## 1. Purpose
 
 `penalis-platform` is a self-contained WordPress plugin that adds:
 
 1. A controlled account lifecycle for new Penalis writers.
-2. Server-side authorization for writing and publishing.
+2. Server-side authorization for writing, submitting, and editorial approval.
 3. A React writing dashboard mounted on a plugin-managed frontend route.
 4. Native WordPress REST integration for articles, media, taxonomy, and account operations.
+
+The approved V2 direction replaces direct writer publishing with an editorial workflow. Writers save drafts and submit them for review; only an administrator approval action may publish a submission. Writers cannot edit published articles; administrators may edit them directly in wp-admin.
 
 The existing public site, theme, Elementor content, posts, comments, media, and
 legacy contributor accounts remain untouched by activation and normal operation.
@@ -200,8 +204,8 @@ Role `penalis_writer`:
 | `read` | yes |
 | `upload_files` | yes |
 | `edit_posts` | yes |
-| `publish_posts` | yes |
-| `edit_published_posts` | yes |
+| `publish_posts` | legacy capability retained only where required by WordPress/editor integration; writer publishing is blocked by server-side workflow guards |
+| `edit_published_posts` | retained only where required by WordPress/editor integration; writers are blocked from editing published articles by server-side workflow guards |
 | `delete_posts` | yes |
 | `delete_published_posts` | yes |
 | `edit_others_posts` | no |
@@ -248,8 +252,14 @@ Server-side guards additionally:
 | `/account/avatar` | DELETE | logged in | Detach the profile photo |
 | `/articles` | GET | active writer | Paginated own articles |
 | `/articles/(?P<id>\d+)` | GET | owner | Single own article |
-| `/articles/(?P<id>\d+)/publish` | POST | owner + active | Publish own draft |
-| `/articles/(?P<id>\d+)/unpublish` | POST | owner + active | Return own post to draft |
+| `/articles/(?P<id>\d+)/submit` | POST | owner + active | Submit a draft article for review |
+| `/articles/(?P<id>\d+)/resubmit` | POST | owner + active | Resubmit after requested changes |
+| `/articles/(?P<id>\d+)/review` | GET | owner | Read own editorial state, feedback, and history |
+| `/admin/articles` | GET | reviewer administrator | List submissions awaiting review |
+| `/admin/articles/(?P<id>\d+)/approve` | POST | reviewer administrator | Approve and publish a submission |
+| `/admin/articles/(?P<id>\d+)/request-changes` | POST | reviewer administrator | Return a submission with required feedback |
+| `/admin/articles/(?P<id>\d+)/reject` | POST | reviewer administrator | Reject a submission with required feedback |
+| `/admin/articles/(?P<id>\d+)/reopen` | POST | reviewer administrator | Reopen a rejected submission |
 | `/media` | GET | active writer | Paginated own media |
 | `/tags` | POST | active writer | Create or reuse a tag |
 
@@ -376,6 +386,14 @@ Guarantees:
   `penalis_writer`. Editors, authors, and administrators are never promoted.
 - A registration attempt that matches a legacy account sends an activation link
   instead of the dead-end "sign in or reset your password" notice.
+
+### Editorial workflow
+
+WordPress post statuses remain `draft`, `pending`, and `publish`. Penalis stores the editorial state separately in post meta: `draft`, `pending_review`, `changes_requested`, `rejected`, and `published`. Review history records the action, reviewer or submitter, timestamp, review cycle, and feedback where applicable.
+
+New articles become `pending` when submitted. Writers cannot edit any published article, including articles published before V2. Administrators may make direct editorial corrections to published or pending articles before approval. Feedback is required for requested changes and rejection, but not approval.
+
+Only the owner and administrators may read drafts, pending posts, feedback, and review history. Writer-facing endpoints can never publish or edit a published article; publication is available only through the administrator approval path.
 
 ### Native endpoint hardening
 
@@ -516,9 +534,10 @@ These are **not** verified against the live site:
 | Roles/capabilities | Implemented |
 | Account status model | Implemented |
 | Registration/verification | Implemented |
-| Admin approval UI | Implemented |
-| REST hardening | Implemented |
-| React dashboard | Implemented |
+| Admin approval UI for account lifecycle | Implemented |
+| Editorial review workflow | Planned — see `EDITORIAL-WORKFLOW-ROADMAP.md` |
+| REST hardening for editorial workflow | Partially implemented for direct publishing; V2 changes planned |
+| React dashboard | Implemented; editorial workflow changes planned |
 | Build pipeline | Implemented |
 | Repository tests | Implemented |
 | Live WordPress integration | Not run (out of scope) |
@@ -543,6 +562,11 @@ These are **not** verified against the live site:
 
 Run these in your local WordPress installation after activating the plugin and
 building the frontend. Each test states setup, action, and expected result.
+
+The items below describe the **current** direct-publishing implementation. The
+equivalent checklist for the V2 editorial workflow is produced in Phase 7 of
+`EDITORIAL-WORKFLOW-ROADMAP.md` and replaces the publish-related items here once
+that phase is complete.
 
 ### Setup
 

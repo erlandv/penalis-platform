@@ -39,10 +39,17 @@ Key features:
   author profiles: they are never promoted, never given the writer role, and
   cannot sign in, reset passwords, or write until an administrator explicitly
   enables access for the account.
-* **Server-side authorization.** Publishing requires an active writer status
+* **Server-side authorization.** Writing requires an active writer status
   *and* explicit access. Authors are always derived from the authenticated
   session, article ownership is enforced on every request, and privileged
   REST routes are blocked for writers.
+* **Editorial review (planned V2).** Writers will submit articles for
+  administrator review instead of publishing directly. Approval publishes the
+  article; requested changes and rejections carry feedback. Published articles
+  are read-only to writers, while administrators retain direct editing access.
+  See
+  EDITORIAL-WORKFLOW-ROADMAP.md for the phased plan; until a phase is marked
+  complete, the current direct-publishing behavior applies.
 
 This version targets WordPress 6.0 and PHP 7.4 as the minimums supported by
 the APIs and syntax used. Compatibility has been verified through repository
@@ -147,8 +154,10 @@ author IDs are rejected unless they match the signed-in user.
 
 = Is there a REST API endpoint for approval? =
 
-No. Approvals go through the nonce-protected WordPress admin screen at
+Account approvals go through the nonce-protected WordPress admin screen at
 **Users → Penalis Writers**, which only users with `list_users` can access.
+Article review endpoints are part of the planned V2 editorial workflow and are
+not implemented yet; see EDITORIAL-WORKFLOW-ROADMAP.md.
 
 = How are rate limits applied? =
 

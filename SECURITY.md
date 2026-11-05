@@ -90,6 +90,18 @@ install_themes, switch_themes, edit_themes,
 unfiltered_html, edit_files, import, export
 ```
 
+### Editorial review enforcement
+Writers must never be able to publish directly or edit published articles.
+New articles are submitted for review. Only an administrator approval action may
+publish a writer submission. Request-changes and rejection require feedback; a
+rejected submission cannot be resubmitted until an administrator reopens it.
+Drafts, pending posts, feedback, and review history are visible only to the owner
+and administrators. Administrators retain direct editing access to published
+articles.
+
+See `EDITORIAL-WORKFLOW-ROADMAP.md` for the phased implementation plan. Until a
+phase there is marked complete, the corresponding behavior is not implemented.
+
 ### Layered enforcement
 
 1. **Account status** — `Penalis_Account_Status::can_write()` requires

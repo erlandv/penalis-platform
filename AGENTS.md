@@ -29,6 +29,12 @@ Everything in this repository exists to serve that pipeline. When a change makes
 writing slower, less pleasant, or less trustworthy, it is wrong even if it is
 technically correct.
 
+The approved V2 direction adds administrator editorial review: writers submit
+new articles for approval, while only an administrator approval workflow may
+publish. Writers cannot edit published articles. Track implementation progress
+in `EDITORIAL-WORKFLOW-ROADMAP.md`; do not treat planned workflow behavior as
+implemented until that roadmap marks the phase complete.
+
 ---
 
 ## 2. The problem this plugin solves
@@ -168,6 +174,11 @@ browser cannot keep acting.
 including `edit_others_posts`, `manage_categories`, `moderate_comments`,
 `list_users`, `unfiltered_html`.
 
+`publish_posts` is retained only because WordPress and the editor integration
+expect it. In the approved V2 workflow the server blocks every writer path to
+`publish`; only the administrator approval action may publish a submission.
+See §4.6 and `EDITORIAL-WORKFLOW-ROADMAP.md`.
+
 - `Penalis_Roles::assign_writer()` promotes `subscriber`, `contributor`, or an
   existing writer to `penalis_writer`.
 - `revoke_writer()` demotes a writer to `subscriber` on rejection/suspension.
@@ -237,6 +248,40 @@ must pass an administrator decision.
 
 Conversions never change the user ID and never touch their posts, so author
 archives keep working.
+
+### 4.6 Editorial workflow (V2, approved, not implemented)
+
+Writers will stop publishing directly. WordPress post statuses stay `draft`,
+`pending`, `publish`; the Penalis editorial state lives in post meta
+(`_penalis_editorial_state`): `draft`, `pending_review`, `changes_requested`,
+`rejected`, `published`.
+
+| Action | Who | Effect |
+| --- | --- | --- |
+| Submit | owner | `draft` -> `pending` + `pending_review` |
+| Resubmit | owner | `changes_requested` -> `pending_review` |
+| Approve | administrator | publishes the submission, state `published` |
+| Request changes | administrator | back to the writer, feedback required |
+| Reject | administrator | state `rejected`, feedback required |
+| Reopen | administrator | `rejected` -> editable again |
+
+Rules that must not be broken:
+
+- Only the administrator approval action may publish a writer submission.
+- Writers cannot edit published articles, including articles published before
+  V2. Administrators may edit published articles directly.
+- A rejected submission cannot be resubmitted until an administrator reopens it.
+- Feedback is required for request-changes and reject, optional for approval.
+- Administrators may edit posts directly, including small corrections before
+  approval; every decision records the reviewer and timestamp.
+- Drafts, pending posts, feedback and review history are visible only
+  to the owner and administrators.
+- Every decision is recorded in a bounded review history with a review cycle so
+  two administrators cannot apply conflicting decisions to the same submission.
+
+Implementation order, exit criteria and current progress live in
+`EDITORIAL-WORKFLOW-ROADMAP.md`. Do not implement a later phase before the
+earlier one is marked complete there.
 
 ---
 
@@ -340,14 +385,23 @@ and 3 per account per hour.
 
 ### 5.4 Writing and publishing
 
+> **V2 direction (approved, not yet implemented).** Writers will no longer
+> publish directly or edit published articles. They save drafts and submit
+> them for administrator review; approval publishes, requested changes and
+> rejection carry feedback. Administrators retain direct editing access.
+> Track progress in `EDITORIAL-WORKFLOW-ROADMAP.md`. The behavior below is the
+> current implementation and remains authoritative until the roadmap marks the
+> relevant phase complete.
+
 - The editor saves through **core** `/wp/v2/posts` (create/update) and
   `/wp/v2/posts/{id}?force=true` (delete). The plugin does not re-implement
   content CRUD.
 - Author is always derived server-side; the client never sends one.
-- Writers may set `draft` or `publish`, and only for their own posts.
-  Ownership is enforced by capability filtering, `map_meta_cap`, and query
-  forcing in `Penalis_Access_Control`. `pending` is not offered: there is no
-  submit-for-review step in the dashboard.
+- Writers may save only `draft` content through the dashboard and may submit
+  it for review. Writers cannot edit or set any `publish` post through the
+  dashboard or direct REST requests. Ownership is enforced by capability
+  filtering, `map_meta_cap`, query forcing, and editorial workflow guards in
+  `Penalis_Access_Control`.
 - The articles list publishes/unpublishes through `penalis/v1`
   (`/articles/{id}/publish`, `/unpublish`) so the state machine stays explicit;
   the editor saves the chosen status (`draft`, `publish`) through core
@@ -497,6 +551,11 @@ profile fields); `require_active_writer` = `active` + access flag.
 | `/media` | GET | `list_media` | active writer |
 | `/tags` | POST | `create_tag` | active writer |
 
+Planned V2 additions (not implemented yet, see `EDITORIAL-WORKFLOW-ROADMAP.md`):
+`/articles/{id}/submit`, `/articles/{id}/resubmit`, `/articles/{id}/review`, and
+the administrator review routes under `/admin/articles/...`. The writer
+`publish`/`unpublish` routes are expected to be replaced by the submit flow.
+
 Content CRUD goes through WordPress core instead:
 `wp/v2/posts`, `wp/v2/media`, `wp/v2/categories`, `wp/v2/tags`, `wp/v2/users/me`.
 All plugin responses under this namespace are sent with private cache headers
@@ -566,6 +625,11 @@ Read `SECURITY.md` before changing anything in this area. The short version:
   requests. Every write goes through REST with a nonce; there is no admin-ajax
   endpoint.
 - Suspension/rejection destroys sessions.
+- **V2 editorial workflow (planned):** no writer-facing path may set a post to
+  `publish`. Only the administrator approval action publishes a submission.
+  Drafts, pending posts, feedback and review history are readable
+  only by the owner and administrators. A rejected submission stays rejected
+  until an administrator reopens it. See `EDITORIAL-WORKFLOW-ROADMAP.md`.
 
 ---
 
@@ -581,12 +645,15 @@ build/                      generated Vite output (gitignored)
 .github/workflows/          ci.yml (lint/tests/build), release.yml (tag -> ZIP)
 README.md                   operator + developer guide
 PROJECT-SPECIFICATION.md    product and architecture decisions
+EDITORIAL-WORKFLOW-ROADMAP.md  phased plan for the V2 review workflow
 SECURITY.md                 threat model and enforcement details
 readme.txt                  WordPress.org-style readme (changelog, stable tag)
 ```
 
-Ownership rule: if a behaviour is documented in one of the three docs and you
-change it, update the doc in the same change.
+Ownership rule: if a behaviour is documented in one of these docs and you
+change it, update the doc in the same change. `EDITORIAL-WORKFLOW-ROADMAP.md`
+is the single source of truth for what is planned versus implemented in the V2
+workflow; update its checkboxes and tracking log as phases land.
 
 ---
 
@@ -778,8 +845,9 @@ at the dashboard deeplinks instead of emailing the admin.
 - The public site, theme, and Elementor integration are not verified from this
   repository.
 
-There is no roadmap file in the repo. Treat this list plus the owner's stated
-priorities as the backlog, and ask before inventing features.
+There is no separate backlog file. `EDITORIAL-WORKFLOW-ROADMAP.md` tracks the
+approved V2 editorial workflow phases; treat this list plus the owner's stated
+priorities as the rest of the backlog, and ask before inventing features.
 
 ---
 
