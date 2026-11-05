@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.3
+Stable tag: 0.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -161,6 +161,18 @@ recommended.
 Screenshots are not provided yet.
 
 == Changelog ==
+
+= 0.2.4 =
+* The **Users -> Penulis Penalis** screen has been reorganised: status tabs with
+  live counts replace the dropdown filter, the search bar sits in its own
+  toolbar, each row shows the writer's avatar and a single-line status pill, and
+  the audit trail moved into a collapsible "Riwayat" panel so the action column
+  stays readable.
+* Destructive actions (Tolak, Tangguhkan) are outlined in red instead of using
+  the plain link style, so they read as buttons without looking like the primary
+  action. Approve and reactivate are the only primary buttons in a row.
+* The default profile photo panel moved below the list, and the copy is now
+  Indonesian like the rest of the plugin.
 
 = 0.2.3 =
 * Every password field now has an eye button that reveals the typed password,
