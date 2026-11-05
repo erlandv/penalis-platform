@@ -13,6 +13,7 @@
 
 require_once __DIR__ . '/wp-stubs.php';
 require_once __DIR__ . '/../includes/class-policy.php';
+require_once __DIR__ . '/../includes/class-editorial-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
@@ -1035,6 +1036,440 @@ penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'perlu me
 penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Body', 'Subject', 'Footer kontekstual.' ), 'Footer kontekstual.' ), 'Email layout renders the caller-provided contextual footer.' );
 penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Body' ), 'kamu terdaftar sebagai penulis di platform Penalis' ), 'Fallback footer uses the approved writer-account copy.' );
 penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Body' ), 'hubungi <a href="mailto:admin@penalis.com" style="color:#2873c8;">admin@penalis.com</a>.' ), 'Fallback footer renders the approved clickable support contact.' );
+
+/* -------------------------------------------------------------------------
+ * Editorial workflow policy (V2)
+ * ---------------------------------------------------------------------- */
+
+penalis_same( 5, count( Penalis_Editorial_Policy::states() ), 'There are five editorial states.' );
+penalis_same( 6, count( Penalis_Editorial_Policy::actions() ), 'There are six editorial actions.' );
+
+foreach ( Penalis_Editorial_Policy::states() as $state ) {
+	penalis_assert( Penalis_Editorial_Policy::is_valid_state( $state ), "Editorial state {$state} is valid." );
+}
+
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_state( 'publish' ), 'WordPress post status is not an editorial state.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_state( null ), 'null is not an editorial state.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_action( 'publish' ), 'publish is not a workflow action.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_action( '' ), 'An empty action is invalid.' );
+
+// Valid transitions.
+penalis_same(
+	Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_DRAFT, Penalis_Editorial_Policy::ACTION_SUBMIT ),
+	'Submitting a draft moves it to pending review.'
+);
+penalis_same(
+	Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED,
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ),
+	'Requesting changes returns the submission to the writer.'
+);
+penalis_same(
+	Penalis_Editorial_Policy::STATE_REJECTED,
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Policy::ACTION_REJECT ),
+	'Rejecting a submission records the rejected state.'
+);
+penalis_same(
+	Penalis_Editorial_Policy::STATE_PUBLISHED,
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Policy::ACTION_APPROVE ),
+	'Approval publishes the submission.'
+);
+penalis_same(
+	Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, Penalis_Editorial_Policy::ACTION_RESUBMIT ),
+	'Resubmitting after requested changes returns to pending review.'
+);
+penalis_same(
+	Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED,
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_REJECTED, Penalis_Editorial_Policy::ACTION_REOPEN ),
+	'Reopening a rejected submission makes it editable again.'
+);
+
+// Invalid transitions.
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_DRAFT, Penalis_Editorial_Policy::ACTION_APPROVE ),
+	'A draft cannot be approved without being submitted.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_DRAFT, Penalis_Editorial_Policy::ACTION_REJECT ),
+	'A draft cannot be rejected.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_REJECTED, Penalis_Editorial_Policy::ACTION_RESUBMIT ),
+	'A rejected submission cannot be resubmitted without an administrator reopening it.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_REJECTED, Penalis_Editorial_Policy::ACTION_APPROVE ),
+	'A rejected submission cannot be approved directly.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, Penalis_Editorial_Policy::ACTION_APPROVE ),
+	'Requested changes must be resubmitted before approval.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Policy::ACTION_SUBMIT ),
+	'A submission already under review cannot be submitted again.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Policy::ACTION_RESUBMIT ),
+	'Resubmit is only valid after requested changes.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Policy::ACTION_REOPEN ),
+	'Reopen is only valid for rejected submissions.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, Penalis_Editorial_Policy::ACTION_REJECT ),
+	'Requested changes cannot be rejected without a resubmission.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( 'unknown', Penalis_Editorial_Policy::ACTION_SUBMIT ),
+	'An unknown state has no transitions.'
+);
+penalis_same(
+	'',
+	Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_DRAFT, 'unknown' ),
+	'An unknown action has no transitions.'
+);
+
+// Published is terminal for the workflow: writers cannot edit it and no action
+// moves it anywhere.
+foreach ( Penalis_Editorial_Policy::actions() as $action ) {
+	penalis_same(
+		'',
+		Penalis_Editorial_Policy::transition( Penalis_Editorial_Policy::STATE_PUBLISHED, $action ),
+		"Published articles have no workflow transition for {$action}."
+	);
+}
+
+// Approval is the only path to published.
+$reaching_published = array();
+foreach ( Penalis_Editorial_Policy::states() as $state ) {
+	foreach ( Penalis_Editorial_Policy::actions() as $action ) {
+		if ( Penalis_Editorial_Policy::STATE_PUBLISHED === Penalis_Editorial_Policy::transition( $state, $action ) ) {
+			$reaching_published[] = $state . ':' . $action;
+		}
+	}
+}
+penalis_same(
+	array( 'pending_review:approve' ),
+	$reaching_published,
+	'Only administrator approval can reach the published state.'
+);
+
+// Feedback requirements.
+penalis_assert(
+	Penalis_Editorial_Policy::requires_feedback( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ),
+	'Requesting changes requires feedback.'
+);
+penalis_assert(
+	Penalis_Editorial_Policy::requires_feedback( Penalis_Editorial_Policy::ACTION_REJECT ),
+	'Rejection requires feedback.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::requires_feedback( Penalis_Editorial_Policy::ACTION_APPROVE ),
+	'Approval does not require feedback.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::requires_feedback( Penalis_Editorial_Policy::ACTION_SUBMIT ),
+	'Submission does not require feedback.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::has_required_feedback( Penalis_Editorial_Policy::ACTION_REJECT, '   ' ),
+	'Whitespace-only feedback does not satisfy the requirement.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::has_required_feedback( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES, null ),
+	'Missing feedback does not satisfy the requirement.'
+);
+penalis_assert(
+	Penalis_Editorial_Policy::has_required_feedback( Penalis_Editorial_Policy::ACTION_REJECT, 'Tidak sesuai prinsip komunitas.' ),
+	'Real feedback satisfies the requirement.'
+);
+penalis_assert(
+	Penalis_Editorial_Policy::has_required_feedback( Penalis_Editorial_Policy::ACTION_APPROVE, '' ),
+	'Approval passes without feedback.'
+);
+
+// Reviewer permission.
+penalis_assert( Penalis_Editorial_Policy::can_review( true, true ), 'An administrator who can edit others may review.' );
+penalis_assert( ! Penalis_Editorial_Policy::can_review( true, false ), 'An administrator without edit-others may not review.' );
+penalis_assert( ! Penalis_Editorial_Policy::can_review( false, true ), 'A non-administrator may not review even with edit-others.' );
+penalis_assert( ! Penalis_Editorial_Policy::can_review( false, false ), 'A writer may not review.' );
+
+// Writers may edit drafts only. Published posts are immutable to writers, and a
+// submission under review is not editable either.
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_post_status( 'publish' ), 'Writers cannot edit published posts.' );
+penalis_assert( Penalis_Editorial_Policy::writer_can_edit_post_status( 'draft' ), 'Writers can edit drafts.' );
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_post_status( 'pending' ), 'Writers cannot edit a submission under review.' );
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_post_status( 'private' ), 'Writers cannot edit private posts.' );
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_post_status( 'future' ), 'Writers cannot edit scheduled posts.' );
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_post_status( null ), 'A missing post status is not editable.' );
+
+// Action ownership.
+penalis_assert( Penalis_Editorial_Policy::is_writer_action( Penalis_Editorial_Policy::ACTION_SUBMIT ), 'Submit is a writer action.' );
+penalis_assert( Penalis_Editorial_Policy::is_writer_action( Penalis_Editorial_Policy::ACTION_RESUBMIT ), 'Resubmit is a writer action.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_writer_action( Penalis_Editorial_Policy::ACTION_APPROVE ), 'Approve is not a writer action.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_writer_action( Penalis_Editorial_Policy::ACTION_REJECT ), 'Reject is not a writer action.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_writer_action( Penalis_Editorial_Policy::ACTION_REOPEN ), 'Reopen is not a writer action.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_writer_action( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ), 'Request changes is not a writer action.' );
+
+penalis_assert( Penalis_Editorial_Policy::is_reviewer_action( Penalis_Editorial_Policy::ACTION_APPROVE ), 'Approve is a reviewer action.' );
+penalis_assert( Penalis_Editorial_Policy::is_reviewer_action( Penalis_Editorial_Policy::ACTION_REJECT ), 'Reject is a reviewer action.' );
+penalis_assert( Penalis_Editorial_Policy::is_reviewer_action( Penalis_Editorial_Policy::ACTION_REOPEN ), 'Reopen is a reviewer action.' );
+penalis_assert( Penalis_Editorial_Policy::is_reviewer_action( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ), 'Request changes is a reviewer action.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_reviewer_action( Penalis_Editorial_Policy::ACTION_SUBMIT ), 'Submit is not a reviewer action.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_reviewer_action( Penalis_Editorial_Policy::ACTION_RESUBMIT ), 'Resubmit is not a reviewer action.' );
+
+// Every action belongs to exactly one side of the workflow.
+foreach ( Penalis_Editorial_Policy::actions() as $action ) {
+	$writer_side   = Penalis_Editorial_Policy::is_writer_action( $action );
+	$reviewer_side = Penalis_Editorial_Policy::is_reviewer_action( $action );
+	penalis_assert(
+		$writer_side !== $reviewer_side,
+		"Action {$action} belongs to exactly one side of the workflow."
+	);
+}
+
+// Editorial state to WordPress post status mapping.
+penalis_same( 'draft', Penalis_Editorial_Policy::post_status_for_state( Penalis_Editorial_Policy::STATE_DRAFT ), 'A draft maps to the draft post status.' );
+penalis_same( 'pending', Penalis_Editorial_Policy::post_status_for_state( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ), 'Pending review maps to the pending post status.' );
+penalis_same( 'draft', Penalis_Editorial_Policy::post_status_for_state( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ), 'Requested changes return the post to draft.' );
+penalis_same( 'draft', Penalis_Editorial_Policy::post_status_for_state( Penalis_Editorial_Policy::STATE_REJECTED ), 'A rejected submission is not publicly visible.' );
+penalis_same( 'publish', Penalis_Editorial_Policy::post_status_for_state( Penalis_Editorial_Policy::STATE_PUBLISHED ), 'Only the published state maps to publish.' );
+penalis_same( '', Penalis_Editorial_Policy::post_status_for_state( 'unknown' ), 'An unknown state has no post status.' );
+
+// Only one editorial state may map to publish.
+$publish_states = array();
+foreach ( Penalis_Editorial_Policy::states() as $state ) {
+	if ( 'publish' === Penalis_Editorial_Policy::post_status_for_state( $state ) ) {
+		$publish_states[] = $state;
+	}
+}
+penalis_same( array( Penalis_Editorial_Policy::STATE_PUBLISHED ), $publish_states, 'Only the published state maps to the publish post status.' );
+
+// Writer editability by editorial state.
+penalis_assert( Penalis_Editorial_Policy::writer_can_edit_state( Penalis_Editorial_Policy::STATE_DRAFT ), 'Writers can edit drafts.' );
+penalis_assert( Penalis_Editorial_Policy::writer_can_edit_state( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ), 'Writers can edit after requested changes.' );
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_state( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ), 'Writers cannot edit a submission under review.' );
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_state( Penalis_Editorial_Policy::STATE_REJECTED ), 'Writers cannot edit a rejected submission.' );
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_state( Penalis_Editorial_Policy::STATE_PUBLISHED ), 'Writers cannot edit published articles.' );
+penalis_assert( ! Penalis_Editorial_Policy::writer_can_edit_state( 'unknown' ), 'An unknown state is not editable.' );
+
+// Review cycle.
+penalis_same( 1, Penalis_Editorial_Policy::next_review_cycle( 0 ), 'The first submission starts review cycle 1.' );
+penalis_same( 1, Penalis_Editorial_Policy::next_review_cycle( '' ), 'A missing cycle starts at 1.' );
+penalis_same( 2, Penalis_Editorial_Policy::next_review_cycle( 1 ), 'A resubmission increments the review cycle.' );
+penalis_same( 4, Penalis_Editorial_Policy::next_review_cycle( 3 ), 'The review cycle keeps incrementing.' );
+penalis_same( 1, Penalis_Editorial_Policy::next_review_cycle( -5 ), 'A negative cycle restarts at 1.' );
+
+// Stale review cycles: two administrators must not apply conflicting decisions.
+penalis_assert( ! Penalis_Editorial_Policy::is_stale_decision( 1, 1 ), 'A decision on the current cycle is accepted.' );
+penalis_assert( Penalis_Editorial_Policy::is_stale_decision( 1, 2 ), 'A decision on an older cycle is stale.' );
+penalis_assert( Penalis_Editorial_Policy::is_stale_decision( 3, 2 ), 'A decision from a future cycle is stale.' );
+penalis_assert( Penalis_Editorial_Policy::is_stale_decision( 0, 1 ), 'A missing expected cycle is stale.' );
+penalis_assert( Penalis_Editorial_Policy::is_stale_decision( 1, 0 ), 'A missing stored cycle is stale.' );
+penalis_assert( Penalis_Editorial_Policy::is_stale_decision( null, null ), 'Two missing cycles are stale.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_stale_decision( '2', 2 ), 'A numeric string cycle matches the stored integer.' );
+
+// Initial state for posts that predate the workflow.
+penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, Penalis_Editorial_Policy::initial_state_for_post_status( 'publish' ), 'A legacy published post starts as published.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Policy::initial_state_for_post_status( 'pending' ), 'A legacy pending post starts as pending review.' );
+penalis_same( Penalis_Editorial_Policy::STATE_DRAFT, Penalis_Editorial_Policy::initial_state_for_post_status( 'draft' ), 'A legacy draft starts as draft.' );
+penalis_same( Penalis_Editorial_Policy::STATE_DRAFT, Penalis_Editorial_Policy::initial_state_for_post_status( 'private' ), 'A private post is treated as a draft.' );
+penalis_same( Penalis_Editorial_Policy::STATE_DRAFT, Penalis_Editorial_Policy::initial_state_for_post_status( '' ), 'A missing post status is treated as a draft.' );
+
+// A legacy published post is read-only to its writer.
+penalis_assert(
+	! Penalis_Editorial_Policy::writer_can_edit_state(
+		Penalis_Editorial_Policy::initial_state_for_post_status( 'publish' )
+	),
+	'A legacy published post is not editable by its writer.'
+);
+
+// Bounded history append.
+$history_entry = array(
+	'action'       => Penalis_Editorial_Policy::ACTION_SUBMIT,
+	'actor_id'     => 7,
+	'created_at'   => 1730000000,
+	'review_cycle' => 1,
+);
+$history = array();
+for ( $i = 1; $i <= Penalis_Editorial_Policy::HISTORY_LIMIT + 5; $i++ ) {
+	$entry = $history_entry;
+	$entry['review_cycle'] = $i;
+	$history = Penalis_Editorial_Policy::append_history_entry( $history, $entry );
+}
+penalis_same( Penalis_Editorial_Policy::HISTORY_LIMIT, count( $history ), 'History is trimmed to the limit.' );
+penalis_same( Penalis_Editorial_Policy::HISTORY_LIMIT + 5, $history[ count( $history ) - 1 ]['review_cycle'], 'The newest history entry is kept.' );
+penalis_same( 6, $history[0]['review_cycle'], 'The oldest history entries are dropped first.' );
+penalis_assert( Penalis_Editorial_Policy::is_valid_history( $history ), 'A trimmed history is still valid.' );
+penalis_same( 1, count( Penalis_Editorial_Policy::append_history_entry( 'not-an-array', $history_entry ) ), 'A non-array history is replaced by a fresh list.' );
+
+// Combined action guard.
+$writer_submit = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'    => Penalis_Editorial_Policy::STATE_DRAFT,
+		'action'   => Penalis_Editorial_Policy::ACTION_SUBMIT,
+		'is_owner' => true,
+	)
+);
+penalis_assert( $writer_submit['allowed'], 'The owner may submit a draft.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $writer_submit['state'], 'Submitting returns the pending review state.' );
+
+$not_owner = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'    => Penalis_Editorial_Policy::STATE_DRAFT,
+		'action'   => Penalis_Editorial_Policy::ACTION_SUBMIT,
+		'is_owner' => false,
+	)
+);
+penalis_assert( ! $not_owner['allowed'], 'A writer cannot submit someone else\'s draft.' );
+penalis_assert( '' !== $not_owner['error'], 'A denied action explains why.' );
+
+$writer_approve = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'      => Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+		'action'     => Penalis_Editorial_Policy::ACTION_APPROVE,
+		'is_owner'   => true,
+		'can_review' => false,
+	)
+);
+penalis_assert( ! $writer_approve['allowed'], 'A writer cannot approve their own submission.' );
+
+$reviewer_approve = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'          => Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+		'action'         => Penalis_Editorial_Policy::ACTION_APPROVE,
+		'can_review'     => true,
+		'expected_cycle' => 2,
+		'current_cycle'  => 2,
+	)
+);
+penalis_assert( $reviewer_approve['allowed'], 'A reviewer may approve the current cycle.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, $reviewer_approve['state'], 'Approval returns the published state.' );
+
+$stale_approve = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'          => Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+		'action'         => Penalis_Editorial_Policy::ACTION_APPROVE,
+		'can_review'     => true,
+		'expected_cycle' => 1,
+		'current_cycle'  => 2,
+	)
+);
+penalis_assert( ! $stale_approve['allowed'], 'A stale reviewer decision is denied.' );
+
+$missing_feedback = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'          => Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+		'action'         => Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+		'can_review'     => true,
+		'feedback'       => '   ',
+		'expected_cycle' => 1,
+		'current_cycle'  => 1,
+	)
+);
+penalis_assert( ! $missing_feedback['allowed'], 'Requesting changes without feedback is denied.' );
+
+$with_feedback = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'          => Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+		'action'         => Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+		'can_review'     => true,
+		'feedback'       => 'Perbaiki paragraf kedua.',
+		'expected_cycle' => 1,
+		'current_cycle'  => 1,
+	)
+);
+penalis_assert( $with_feedback['allowed'], 'Requesting changes with feedback is allowed.' );
+penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, $with_feedback['state'], 'Requested changes return the writer state.' );
+
+$published_edit = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'    => Penalis_Editorial_Policy::STATE_PUBLISHED,
+		'action'   => Penalis_Editorial_Policy::ACTION_SUBMIT,
+		'is_owner' => true,
+	)
+);
+penalis_assert( ! $published_edit['allowed'], 'A published article cannot be resubmitted.' );
+
+$unknown_action = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'    => Penalis_Editorial_Policy::STATE_DRAFT,
+		'action'   => 'publish',
+		'is_owner' => true,
+	)
+);
+penalis_assert( ! $unknown_action['allowed'], 'An unknown action is denied.' );
+
+// Metadata contract.
+penalis_same( 8, count( Penalis_Editorial_Policy::metadata_keys() ), 'The workflow owns eight metadata keys.' );
+penalis_assert(
+	in_array( '_penalis_editorial_state', Penalis_Editorial_Policy::metadata_keys(), true ),
+	'The editorial state key is part of the contract.'
+);
+penalis_assert(
+	! in_array( '_penalis_pending_revision_id', Penalis_Editorial_Policy::metadata_keys(), true ),
+	'No pending-revision key exists after the published-article decision.'
+);
+
+// History validation.
+$valid_entry = array(
+	'action'       => Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+	'actor_id'     => 12,
+	'created_at'   => 1730000000,
+	'review_cycle' => 1,
+	'feedback'     => 'Mohon tambahkan sumber pada paragraf kedua.',
+);
+penalis_assert( Penalis_Editorial_Policy::is_valid_history_entry( $valid_entry ), 'A complete history entry is valid.' );
+penalis_assert( Penalis_Editorial_Policy::is_valid_history( array( $valid_entry ) ), 'A bounded history list is valid.' );
+penalis_assert( Penalis_Editorial_Policy::is_valid_history( array() ), 'An empty history is valid.' );
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_history_entry( 'not-an-array' ), 'A non-array history entry is invalid.' );
+
+$missing_action = $valid_entry;
+unset( $missing_action['action'] );
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_history_entry( $missing_action ), 'A history entry without an action is invalid.' );
+
+$bad_action = $valid_entry;
+$bad_action['action'] = 'publish';
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_history_entry( $bad_action ), 'A history entry with an unknown action is invalid.' );
+
+$bad_actor = $valid_entry;
+$bad_actor['actor_id'] = 0;
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_history_entry( $bad_actor ), 'A history entry without an actor is invalid.' );
+
+$bad_time = $valid_entry;
+$bad_time['created_at'] = 0;
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_history_entry( $bad_time ), 'A history entry without a timestamp is invalid.' );
+
+$bad_cycle = $valid_entry;
+$bad_cycle['review_cycle'] = 0;
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_history_entry( $bad_cycle ), 'A history entry without a review cycle is invalid.' );
+
+$bad_feedback = $valid_entry;
+$bad_feedback['feedback'] = array( 'not', 'a', 'string' );
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_history_entry( $bad_feedback ), 'Non-string feedback is invalid.' );
+
+$oversized = array();
+for ( $i = 0; $i <= Penalis_Editorial_Policy::HISTORY_LIMIT; $i++ ) {
+	$oversized[] = $valid_entry;
+}
+penalis_assert( ! Penalis_Editorial_Policy::is_valid_history( $oversized ), 'History beyond the limit is invalid.' );
+penalis_assert(
+	Penalis_Editorial_Policy::is_valid_history( array_slice( $oversized, 0, Penalis_Editorial_Policy::HISTORY_LIMIT ) ),
+	'History at the limit is valid.'
+);
 
 /* -------------------------------------------------------------------------
  * Report

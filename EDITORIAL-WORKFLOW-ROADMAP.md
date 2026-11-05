@@ -96,11 +96,36 @@ Exit criteria: all product and security rules have one unambiguous source of tru
 
 ### Phase 1 — Pure policy and data contracts
 
-- [ ] Define editorial states, actions, metadata keys, and bounded history shape.
-- [ ] Add pure transition rules for submit, resubmit, request changes, reject, reopen, and approve.
-- [ ] Define separate rules for new posts and for posts that are already published.
-- [ ] Define admin reviewer permission policy.
-- [ ] Add unit tests for every valid and invalid transition, including stale review cycles.
+- [x] Define editorial states, actions, metadata keys, and bounded history shape.
+- [x] Add pure transition rules for submit, resubmit, request changes, reject, reopen, and approve.
+- [x] Define separate rules for new posts and for posts that are already published.
+- [x] Define admin reviewer permission policy.
+- [x] Add unit tests for every valid and invalid transition, including stale review cycles.
+
+Implemented in `includes/class-editorial-policy.php` (`Penalis_Editorial_Policy`), a
+WordPress-free class so the rules stay unit-testable:
+
+- States: `draft`, `pending_review`, `changes_requested`, `rejected`, `published`.
+- Actions: `submit`, `resubmit`, `request_changes`, `reject`, `reopen`, `approve`.
+- `transition()` / `can_transition()` — the full state machine; `published` is terminal.
+- `post_status_for_state()` — the only mapping to `publish` is `published`.
+- `writer_can_edit_post_status()` / `writer_can_edit_state()` — allow-list, `draft` only
+  for post status and `draft` + `changes_requested` for editorial state.
+- `initial_state_for_post_status()` — infers state for posts that predate V2, so no
+  migration is needed and legacy published posts become read-only to writers.
+- `is_writer_action()` / `is_reviewer_action()` — every action belongs to exactly one side.
+- `can_review()` — administrator **and** `edit_others_posts`.
+- `requires_feedback()` / `has_required_feedback()` — required for request-changes and
+  reject, optional for approval.
+- `next_review_cycle()` / `is_stale_decision()` — two administrators cannot apply
+  conflicting decisions to the same round.
+- `metadata_keys()` — the eight `_penalis_*` keys, with no pending-revision key.
+- `is_valid_history_entry()` / `is_valid_history()` / `append_history_entry()` — bounded
+  to `HISTORY_LIMIT` (50) entries, newest last.
+- `evaluate_action()` — one combined guard (actor, state, feedback, stale cycle) so REST
+  and wp-admin cannot drift apart.
+
+Evidence: `php tests/run-tests.php` → 483 assertions passed; `composer lint` clean.
 
 Exit criteria: policy tests cover the complete state machine without WordPress dependencies.
 
@@ -194,6 +219,7 @@ Exit criteria: the plugin is ready for owner review and a later staging deployme
 | 2026-11-05 | Phase 0 | Roadmap created from Penalis editorial decisions | Planning discussion; implementation not started |
 | 2026-11-05 | Phase 0 | Documentation aligned with V2 model; baseline recorded | `composer lint` 8 files/0 errors, `composer test` 348 assertions, `npm run check` 72 tests + build OK |
 | 2026-11-05 | Planning | Published articles made writer-read-only | Penalis team decision; pending revisions removed from V2 scope |
+| 2026-11-05 | Phase 1 | Pure editorial policy and data contracts implemented | `includes/class-editorial-policy.php`; `php tests/run-tests.php` 483 assertions, `composer lint` clean |
 
 ## Explicit non-goals for V2
 
