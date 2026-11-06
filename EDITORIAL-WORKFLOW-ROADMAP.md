@@ -131,13 +131,37 @@ Exit criteria: policy tests cover the complete state machine without WordPress d
 
 ### Phase 2 — Server-side submission model
 
-- [ ] Add a dedicated editorial workflow service/class for persistence and transitions.
-- [ ] Initialize editorial metadata safely for existing and newly created posts.
-- [ ] Implement new-article submission: `draft` to WordPress `pending` plus `pending_review`.
-- [ ] Implement resubmission after requested changes.
-- [ ] Prevent writers from editing or resubmitting a submission while it is being reviewed, unless the state explicitly permits it.
-- [ ] Ensure writers cannot edit any `publish` post through the dashboard or direct REST requests, including older published posts.
-- [ ] Bound and validate review history.
+- [x] Add a dedicated editorial workflow service/class for persistence and transitions.
+- [x] Initialize editorial metadata safely for existing and newly created posts.
+- [x] Implement new-article submission: `draft` to WordPress `pending` plus `pending_review`.
+- [x] Implement resubmission after requested changes.
+- [x] Prevent writers from editing or resubmitting a submission while it is being reviewed, unless the state explicitly permits it.
+- [x] Ensure writers cannot edit any `publish` post through the dashboard or direct REST requests, including older published posts.
+- [x] Bound and validate review history.
+
+Implemented in `includes/class-editorial-workflow.php`
+(`Penalis_Editorial_Workflow`), which is the only class that may write workflow
+metadata:
+
+- `get_state()` infers state from the WordPress post status for posts that
+  predate V2, so no migration is needed and a legacy published post is read-only
+  to its writer immediately. Reads never write metadata.
+- `apply()` runs `Penalis_Editorial_Policy::evaluate_action()`, then updates the
+  post status, editorial state, timestamps, feedback, review cycle, and bounded
+  history. A failed `wp_update_post()` returns an error and writes nothing.
+- Writer actions (`submit`, `resubmit`) start a new review cycle and clear the
+  previous feedback once it has been addressed.
+- Reviewer actions record the reviewer, timestamp, and feedback; approval leaves
+  no feedback behind.
+- `requires_review_cycle()` limits the stale-cycle guard to decisions that
+  resolve an active review, so reopening a rejected submission needs no cycle.
+- `can_writer_edit()` requires ownership, active write access, a `draft` post
+  status, and an editable editorial state.
+- `can_review()` requires an administrator with `edit_others_posts`.
+- `penalis_editorial_action` fires with the post ID, action, new state, new post
+  status, actor, and feedback for the notification layer in Phase 6.
+
+Evidence: `php tests/run-tests.php` → 600 assertions passed; `composer lint` clean.
 
 Exit criteria: server tests prove that all state changes are centralized, ownership is enforced, published posts are immutable to writers, and no content is silently lost.
 
@@ -220,6 +244,7 @@ Exit criteria: the plugin is ready for owner review and a later staging deployme
 | 2026-11-05 | Phase 0 | Documentation aligned with V2 model; baseline recorded | `composer lint` 8 files/0 errors, `composer test` 348 assertions, `npm run check` 72 tests + build OK |
 | 2026-11-05 | Planning | Published articles made writer-read-only | Penalis team decision; pending revisions removed from V2 scope |
 | 2026-11-05 | Phase 1 | Pure editorial policy and data contracts implemented | `includes/class-editorial-policy.php`; `php tests/run-tests.php` 483 assertions, `composer lint` clean |
+| 2026-11-06 | Phase 2 | Editorial workflow persistence implemented | `includes/class-editorial-workflow.php`; post/post-meta test doubles in `tests/wp-stubs.php`; 600 assertions, `composer lint` clean |
 
 ## Explicit non-goals for V2
 

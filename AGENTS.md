@@ -471,6 +471,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-account-status.php` | Status persistence, transitions, audit log, tokens, mail-failure markers |
 | `includes/class-policy.php` | Pure rules: statuses, transitions, limits, validation, display names, tokens |
 | `includes/class-editorial-policy.php` | Pure V2 editorial rules: states, actions, transitions, feedback and stale-cycle guards, metadata contract, bounded history |
+| `includes/class-editorial-workflow.php` | V2 editorial persistence: state reads (with legacy inference), apply/transition side effects, bounded history writes |
 | `includes/class-rest-api.php` | `penalis/v1` routes and their handlers |
 | `includes/class-access-control.php` | Login gate, capability filtering, REST blocking, upload restrictions, post insert enforcement, privilege-escalation guards |
 | `includes/class-registration.php` | Registration, verification, resend |

@@ -164,7 +164,7 @@ if ( ! class_exists( 'WP_User' ) ) {
 			$map = array(
 				'penalis_writer' => array( 'read', 'edit_posts', 'publish_posts' ),
 				'subscriber'     => array( 'read' ),
-				'administrator'  => array( 'manage_options', 'edit_posts', 'publish_posts', 'list_users' ),
+				'administrator'  => array( 'manage_options', 'edit_posts', 'publish_posts', 'list_users', 'edit_others_posts' ),
 				'editor'         => array( 'edit_posts', 'publish_posts', 'edit_others_posts' ),
 				'author'         => array( 'edit_posts', 'publish_posts' ),
 				'contributor'    => array( 'read', 'edit_posts' ),
@@ -446,13 +446,25 @@ if ( ! function_exists( 'user_can' ) ) {
 	/**
 	 * Capability check double.
 	 *
-	 * @param int    $user_id User ID.
-	 * @param string $cap     Capability.
+	 * @param int|WP_User $user_id User ID or user object.
+	 * @param string      $cap     Capability.
 	 * @return bool
 	 */
 	function user_can( $user_id, $cap ) {
-		$user = get_userdata( $user_id );
-		return $user && in_array( 'administrator', $user->roles, true );
+		$user = is_object( $user_id ) ? $user_id : get_userdata( (int) $user_id );
+
+		return $user && $user->has_cap( $cap );
+	}
+}
+
+if ( ! function_exists( 'is_user_logged_in' ) ) {
+	/**
+	 * Logged-in state double.
+	 *
+	 * @return bool
+	 */
+	function is_user_logged_in() {
+		return get_current_user_id() > 0;
 	}
 }
 
@@ -944,7 +956,7 @@ if ( ! function_exists( 'delete_transient' ) ) {
 
 if ( ! class_exists( 'WP_Post' ) ) {
 	/**
-	 * Minimal post stub for avatar identifier resolution.
+	 * Minimal post stub used by the editorial workflow tests.
 	 */
 	class WP_Post {
 		/** @var int */
@@ -954,7 +966,139 @@ if ( ! class_exists( 'WP_Post' ) ) {
 		/** @var int */
 		public $post_author = 0;
 		/** @var string */
+		public $post_status = 'draft';
+		/** @var string */
+		public $post_title = '';
+		/** @var string */
+		public $post_content = '';
+		/** @var string */
+		public $post_excerpt = '';
+		/** @var string */
+		public $post_date_gmt = '2026-01-01 00:00:00';
+		/** @var string */
+		public $post_modified_gmt = '2026-01-01 00:00:00';
+		/** @var string */
 		public $post_mime_type = '';
+		/** @var array<string,mixed> */
+		public $meta = array();
+	}
+}
+
+if ( ! function_exists( 'get_post' ) ) {
+	/**
+	 * Post lookup double backed by a test registry.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return WP_Post|null
+	 */
+	function get_post( $post_id ) {
+		return isset( $GLOBALS['penalis_test_posts'][ (int) $post_id ] )
+			? $GLOBALS['penalis_test_posts'][ (int) $post_id ]
+			: null;
+	}
+}
+
+if ( ! function_exists( 'get_post_meta' ) ) {
+	/**
+	 * Read post meta.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Key.
+	 * @param bool   $single  Single.
+	 * @return mixed
+	 */
+	function get_post_meta( $post_id, $key = '', $single = false ) {
+		$post = get_post( $post_id );
+
+		if ( ! $post ) {
+			return $single ? '' : array();
+		}
+
+		if ( '' === $key ) {
+			return $post->meta;
+		}
+
+		if ( ! isset( $post->meta[ $key ] ) ) {
+			return $single ? '' : array();
+		}
+
+		$values = (array) $post->meta[ $key ];
+
+		return $single ? reset( $values ) : $values;
+	}
+}
+
+if ( ! function_exists( 'update_post_meta' ) ) {
+	/**
+	 * Write post meta.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Key.
+	 * @param mixed  $value   Value.
+	 * @return bool
+	 */
+	function update_post_meta( $post_id, $key, $value ) {
+		$post = get_post( $post_id );
+
+		if ( ! $post ) {
+			return false;
+		}
+
+		$post->meta[ $key ] = array( $value );
+
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_post_meta' ) ) {
+	/**
+	 * Delete post meta.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Key.
+	 * @return bool
+	 */
+	function delete_post_meta( $post_id, $key ) {
+		$post = get_post( $post_id );
+
+		if ( ! $post || ! isset( $post->meta[ $key ] ) ) {
+			return false;
+		}
+
+		unset( $post->meta[ $key ] );
+
+		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_update_post' ) ) {
+	/**
+	 * Update a post double.
+	 *
+	 * @param array $data  Post data.
+	 * @param bool  $error Whether to return a WP_Error.
+	 * @return int|WP_Error
+	 */
+	function wp_update_post( $data, $error = false ) {
+		if ( ! empty( $GLOBALS['penalis_test_post_update_fails'] ) ) {
+			return new WP_Error( 'penalis_test_update_failed', 'Update failed.' );
+		}
+
+		$post = get_post( isset( $data['ID'] ) ? (int) $data['ID'] : 0 );
+
+		if ( ! $post ) {
+			return new WP_Error( 'penalis_test_missing_post', 'Post not found.' );
+		}
+
+		foreach ( $data as $key => $value ) {
+			if ( 'ID' !== $key ) {
+				$post->$key = $value;
+			}
+		}
+
+		$GLOBALS['penalis_test_post_updates'][] = $data;
+
+		return (int) $post->ID;
 	}
 }
 

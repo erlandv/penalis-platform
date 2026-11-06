@@ -16,6 +16,7 @@ require_once __DIR__ . '/../includes/class-policy.php';
 require_once __DIR__ . '/../includes/class-editorial-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
+require_once __DIR__ . '/../includes/class-editorial-workflow.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
 require_once __DIR__ . '/../includes/class-dashboard.php';
 require_once __DIR__ . '/../includes/class-rate-limiter.php';
@@ -77,6 +78,8 @@ function penalis_reset() {
 	$GLOBALS['penalis_test_cleaned_users'] = array();
 	$GLOBALS['penalis_test_reset_key_users'] = array();
 	$GLOBALS['penalis_test_password_resets'] = array();
+	$GLOBALS['penalis_test_posts']           = array();
+	$GLOBALS['penalis_test_post_updates']    = array();
 	unset(
 		$GLOBALS['penalis_test_sessions_destroyed'],
 		$GLOBALS['penalis_test_auth_cookie_cleared'],
@@ -84,7 +87,9 @@ function penalis_reset() {
 		$GLOBALS['penalis_test_lock_available'],
 		$GLOBALS['penalis_test_update_fails'],
 		$GLOBALS['penalis_test_verified_user'],
-		$GLOBALS['penalis_test_updated_login']
+		$GLOBALS['penalis_test_updated_login'],
+		$GLOBALS['penalis_test_post_update_fails'],
+		$GLOBALS['penalis_test_current_user']
 	);
 }
 
@@ -1282,6 +1287,27 @@ penalis_assert( Penalis_Editorial_Policy::is_stale_decision( 1, 0 ), 'A missing 
 penalis_assert( Penalis_Editorial_Policy::is_stale_decision( null, null ), 'Two missing cycles are stale.' );
 penalis_assert( ! Penalis_Editorial_Policy::is_stale_decision( '2', 2 ), 'A numeric string cycle matches the stored integer.' );
 
+// Only actions that resolve an active review require a cycle.
+penalis_assert( Penalis_Editorial_Policy::requires_review_cycle( Penalis_Editorial_Policy::ACTION_APPROVE ), 'Approval requires a review cycle.' );
+penalis_assert( Penalis_Editorial_Policy::requires_review_cycle( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ), 'Requesting changes requires a review cycle.' );
+penalis_assert( Penalis_Editorial_Policy::requires_review_cycle( Penalis_Editorial_Policy::ACTION_REJECT ), 'Rejection requires a review cycle.' );
+penalis_assert( ! Penalis_Editorial_Policy::requires_review_cycle( Penalis_Editorial_Policy::ACTION_REOPEN ), 'Reopening a rejected submission does not require a cycle.' );
+penalis_assert( ! Penalis_Editorial_Policy::requires_review_cycle( Penalis_Editorial_Policy::ACTION_SUBMIT ), 'Submission starts a new cycle and does not carry one.' );
+penalis_assert( ! Penalis_Editorial_Policy::requires_review_cycle( Penalis_Editorial_Policy::ACTION_RESUBMIT ), 'Resubmission starts a new cycle and does not carry one.' );
+
+// Reopening a rejected submission with no cycle is allowed.
+$open_rejected = Penalis_Editorial_Policy::evaluate_action(
+	array(
+		'state'          => Penalis_Editorial_Policy::STATE_REJECTED,
+		'action'         => Penalis_Editorial_Policy::ACTION_REOPEN,
+		'can_review'     => true,
+		'expected_cycle' => 0,
+		'current_cycle'  => 0,
+	)
+);
+penalis_assert( $open_rejected['allowed'], 'Reopening a rejected submission does not need a cycle.' );
+penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, $open_rejected['state'], 'Reopening returns the changes-requested state.' );
+
 // Initial state for posts that predate the workflow.
 penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, Penalis_Editorial_Policy::initial_state_for_post_status( 'publish' ), 'A legacy published post starts as published.' );
 penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Policy::initial_state_for_post_status( 'pending' ), 'A legacy pending post starts as pending review.' );
@@ -1470,6 +1496,284 @@ penalis_assert(
 	Penalis_Editorial_Policy::is_valid_history( array_slice( $oversized, 0, Penalis_Editorial_Policy::HISTORY_LIMIT ) ),
 	'History at the limit is valid.'
 );
+
+/* -------------------------------------------------------------------------
+ * Editorial workflow persistence (V2)
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Register a test post.
+ *
+ * @param int    $id     Post ID.
+ * @param int    $author Author ID.
+ * @param string $status Post status.
+ * @return WP_Post
+ */
+function penalis_editorial_post( $id, $author, $status = 'draft' ) {
+	$post              = new WP_Post();
+	$post->ID          = (int) $id;
+	$post->post_author = (int) $author;
+	$post->post_status = $status;
+	$post->post_title  = 'Karya ' . $id;
+
+	$GLOBALS['penalis_test_posts'][ (int) $id ] = $post;
+
+	return $post;
+}
+
+/**
+ * Register an active writer account.
+ *
+ * @param int $id User ID.
+ * @return WP_User
+ */
+function penalis_editorial_writer( $id ) {
+	$user = new WP_User( $id, array( 'penalis_writer' ) );
+	$user->meta[ Penalis_Account_Status::META_STATUS ] = array( Penalis_Policy::STATUS_ACTIVE );
+	$user->meta[ Penalis_Account_Status::META_ACCESS ] = array( '1' );
+
+	$GLOBALS['penalis_test_users'][ (int) $id ] = $user;
+
+	return $user;
+}
+
+/**
+ * Register an administrator account.
+ *
+ * @param int $id User ID.
+ * @return WP_User
+ */
+function penalis_editorial_admin( $id ) {
+	$user = new WP_User( $id, array( 'administrator' ) );
+
+	$GLOBALS['penalis_test_users'][ (int) $id ] = $user;
+
+	return $user;
+}
+
+// Legacy posts infer their state from the WordPress post status.
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_post( 100, 10, 'publish' );
+penalis_editorial_post( 101, 10, 'pending' );
+penalis_editorial_post( 102, 10, 'draft' );
+
+penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, Penalis_Editorial_Workflow::get_state( 100 ), 'A legacy published post reads as published.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Workflow::get_state( 101 ), 'A legacy pending post reads as pending review.' );
+penalis_same( Penalis_Editorial_Policy::STATE_DRAFT, Penalis_Editorial_Workflow::get_state( 102 ), 'A legacy draft reads as draft.' );
+penalis_same( '', Penalis_Editorial_Workflow::get_state( 999 ), 'A missing post has no state.' );
+penalis_same( 0, Penalis_Editorial_Workflow::get_review_cycle( 102 ), 'A legacy post has no review cycle.' );
+penalis_same( '', Penalis_Editorial_Workflow::get_feedback( 102 ), 'A legacy post has no feedback.' );
+penalis_same( array(), Penalis_Editorial_Workflow::get_history( 102 ), 'A legacy post has no history.' );
+
+// Reading state never writes metadata.
+penalis_assert( ! isset( $GLOBALS['penalis_test_posts'][100]->meta[ Penalis_Editorial_Policy::META_STATE ] ), 'Reading a legacy post does not write workflow metadata.' );
+
+// Writer editability.
+penalis_assert( Penalis_Editorial_Workflow::can_writer_edit( 102, 10 ), 'A writer may edit their own draft.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_writer_edit( 101, 10 ), 'A writer may not edit a submission under review.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_writer_edit( 100, 10 ), 'A writer may not edit a published article.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_writer_edit( 102, 11 ), 'A writer may not edit another writer\'s draft.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_writer_edit( 102, 0 ), 'A guest may not edit a draft.' );
+
+// A writer without write access cannot edit even their own draft.
+$GLOBALS['penalis_test_users'][10]->meta[ Penalis_Account_Status::META_ACCESS ] = array( '0' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_writer_edit( 102, 10 ), 'A writer without access cannot edit a draft.' );
+$GLOBALS['penalis_test_users'][10]->meta[ Penalis_Account_Status::META_ACCESS ] = array( '1' );
+
+// Reviewer permission.
+penalis_editorial_admin( 20 );
+$GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'editor' ) );
+penalis_assert( Penalis_Editorial_Workflow::can_review( 20 ), 'An administrator may review.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_review( 21 ), 'An editor may not review.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_review( 10 ), 'A writer may not review.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_review( 0 ), 'A guest may not review.' );
+
+// Submit: draft -> pending.
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_post( 200, 10, 'draft' );
+
+$result = Penalis_Editorial_Workflow::apply( 200, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( ! is_wp_error( $result ), 'The owner may submit a draft.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $result['state'], 'Submission moves the editorial state to pending review.' );
+penalis_same( 'pending', $result['status'], 'Submission moves the post to the pending status.' );
+penalis_same( 1, $result['cycle'], 'The first submission starts review cycle 1.' );
+penalis_same( 'pending', $GLOBALS['penalis_test_posts'][200]->post_status, 'The stored post status is pending.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Workflow::get_state( 200 ), 'The stored editorial state is pending review.' );
+penalis_assert( Penalis_Editorial_Workflow::get_submitted_at( 200 ) > 0, 'Submission records a timestamp.' );
+penalis_same( 1, count( Penalis_Editorial_Workflow::get_history( 200 ) ), 'Submission appends one history entry.' );
+penalis_same( Penalis_Editorial_Policy::ACTION_SUBMIT, Penalis_Editorial_Workflow::get_history( 200 )[0]['action'], 'The history entry records the action.' );
+penalis_same( 10, Penalis_Editorial_Workflow::get_history( 200 )[0]['actor_id'], 'The history entry records the actor.' );
+
+// A submission cannot be submitted twice.
+$again = Penalis_Editorial_Workflow::apply( 200, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( is_wp_error( $again ), 'A submission under review cannot be submitted again.' );
+penalis_same( 'penalis_editorial_denied', $again->get_error_code(), 'A denied action returns the editorial error code.' );
+
+// A writer cannot submit someone else's draft.
+penalis_editorial_writer( 11 );
+penalis_editorial_post( 201, 11, 'draft' );
+$foreign = Penalis_Editorial_Workflow::apply( 201, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( is_wp_error( $foreign ), 'A writer cannot submit another writer\'s draft.' );
+penalis_same( 'draft', $GLOBALS['penalis_test_posts'][201]->post_status, 'A denied submission leaves the post untouched.' );
+
+// A writer cannot approve their own submission.
+$self_approve = Penalis_Editorial_Workflow::apply( 200, Penalis_Editorial_Policy::ACTION_APPROVE, array( 'actor_id' => 10, 'expected_cycle' => 1 ) );
+penalis_assert( is_wp_error( $self_approve ), 'A writer cannot approve their own submission.' );
+penalis_same( 'pending', $GLOBALS['penalis_test_posts'][200]->post_status, 'A denied approval leaves the post pending.' );
+
+// Request changes: pending -> draft with feedback.
+penalis_editorial_admin( 20 );
+$changes = Penalis_Editorial_Workflow::apply(
+	200,
+	Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+	array(
+		'actor_id'       => 20,
+		'feedback'       => 'Tambahkan sumber pada paragraf kedua.',
+		'expected_cycle' => 1,
+	)
+);
+penalis_assert( ! is_wp_error( $changes ), 'An administrator may request changes.' );
+penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, $changes['state'], 'Requested changes set the writer state.' );
+penalis_same( 'draft', $changes['status'], 'Requested changes return the post to draft.' );
+penalis_same( 1, $changes['cycle'], 'A reviewer decision does not start a new cycle.' );
+penalis_same( 'Tambahkan sumber pada paragraf kedua.', Penalis_Editorial_Workflow::get_feedback( 200 ), 'Feedback is stored for the writer.' );
+penalis_assert( Penalis_Editorial_Workflow::get_reviewed_at( 200 ) > 0, 'A reviewer decision records a timestamp.' );
+penalis_same( 2, count( Penalis_Editorial_Workflow::get_history( 200 ) ), 'A reviewer decision appends a history entry.' );
+penalis_assert( Penalis_Editorial_Workflow::can_writer_edit( 200, 10 ), 'The writer may edit after requested changes.' );
+
+// Feedback is required for request-changes.
+penalis_editorial_post( 202, 10, 'draft' );
+Penalis_Editorial_Workflow::apply( 202, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+$no_feedback = Penalis_Editorial_Workflow::apply(
+	202,
+	Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+	array( 'actor_id' => 20, 'expected_cycle' => 1 )
+);
+penalis_assert( is_wp_error( $no_feedback ), 'Requesting changes without feedback is denied.' );
+penalis_same( 'pending', $GLOBALS['penalis_test_posts'][202]->post_status, 'A denied request-changes leaves the post pending.' );
+
+// Resubmit: changes_requested -> pending, cycle 2.
+$resubmit = Penalis_Editorial_Workflow::apply( 200, Penalis_Editorial_Policy::ACTION_RESUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( ! is_wp_error( $resubmit ), 'The writer may resubmit after requested changes.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $resubmit['state'], 'Resubmission returns to pending review.' );
+penalis_same( 2, $resubmit['cycle'], 'Resubmission starts review cycle 2.' );
+penalis_same( '', Penalis_Editorial_Workflow::get_feedback( 200 ), 'Resubmission clears the addressed feedback.' );
+
+// A stale decision from the previous cycle is refused.
+$stale = Penalis_Editorial_Workflow::apply(
+	200,
+	Penalis_Editorial_Policy::ACTION_APPROVE,
+	array( 'actor_id' => 20, 'expected_cycle' => 1 )
+);
+penalis_assert( is_wp_error( $stale ), 'A decision from an older review cycle is refused.' );
+penalis_same( 'pending', $GLOBALS['penalis_test_posts'][200]->post_status, 'A stale decision leaves the post pending.' );
+
+// Approve: pending -> publish.
+$approve = Penalis_Editorial_Workflow::apply(
+	200,
+	Penalis_Editorial_Policy::ACTION_APPROVE,
+	array( 'actor_id' => 20, 'expected_cycle' => 2 )
+);
+penalis_assert( ! is_wp_error( $approve ), 'An administrator may approve the current cycle.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, $approve['state'], 'Approval sets the published state.' );
+penalis_same( 'publish', $approve['status'], 'Approval publishes the post.' );
+penalis_same( 'publish', $GLOBALS['penalis_test_posts'][200]->post_status, 'The stored post status is publish.' );
+penalis_same( '', Penalis_Editorial_Workflow::get_feedback( 200 ), 'Approval leaves no feedback behind.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_writer_edit( 200, 10 ), 'A published article is read-only to its writer.' );
+
+// A published article cannot be submitted again.
+$republish = Penalis_Editorial_Workflow::apply( 200, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( is_wp_error( $republish ), 'A published article cannot be resubmitted.' );
+
+// Reject: pending -> draft, rejected state.
+penalis_editorial_post( 203, 10, 'draft' );
+Penalis_Editorial_Workflow::apply( 203, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+$reject = Penalis_Editorial_Workflow::apply(
+	203,
+	Penalis_Editorial_Policy::ACTION_REJECT,
+	array(
+		'actor_id'       => 20,
+		'feedback'       => 'Isinya tidak sesuai prinsip komunitas.',
+		'expected_cycle' => 1,
+	)
+);
+penalis_assert( ! is_wp_error( $reject ), 'An administrator may reject a submission.' );
+penalis_same( Penalis_Editorial_Policy::STATE_REJECTED, $reject['state'], 'Rejection sets the rejected state.' );
+penalis_same( 'draft', $reject['status'], 'A rejected submission is not publicly visible.' );
+penalis_same( 'Isinya tidak sesuai prinsip komunitas.', Penalis_Editorial_Workflow::get_feedback( 203 ), 'Rejection feedback is stored.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_writer_edit( 203, 10 ), 'A rejected submission is closed to the writer.' );
+
+// A rejected submission cannot be resubmitted.
+$rejected_resubmit = Penalis_Editorial_Workflow::apply( 203, Penalis_Editorial_Policy::ACTION_RESUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( is_wp_error( $rejected_resubmit ), 'A rejected submission cannot be resubmitted.' );
+penalis_same( Penalis_Editorial_Policy::STATE_REJECTED, Penalis_Editorial_Workflow::get_state( 203 ), 'A denied resubmission keeps the rejected state.' );
+
+// Reopen: rejected -> changes_requested.
+$reopen = Penalis_Editorial_Workflow::apply( 203, Penalis_Editorial_Policy::ACTION_REOPEN, array( 'actor_id' => 20 ) );
+penalis_assert( ! is_wp_error( $reopen ), 'An administrator may reopen a rejected submission.' );
+penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, $reopen['state'], 'Reopening makes the submission editable again.' );
+penalis_assert( Penalis_Editorial_Workflow::can_writer_edit( 203, 10 ), 'The writer may edit after an administrator reopens the submission.' );
+
+// A writer cannot reopen.
+penalis_editorial_post( 204, 10, 'draft' );
+Penalis_Editorial_Workflow::apply( 204, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+Penalis_Editorial_Workflow::apply(
+	204,
+	Penalis_Editorial_Policy::ACTION_REJECT,
+	array( 'actor_id' => 20, 'feedback' => 'Ditolak.', 'expected_cycle' => 1 )
+);
+$writer_reopen = Penalis_Editorial_Workflow::apply( 204, Penalis_Editorial_Policy::ACTION_REOPEN, array( 'actor_id' => 10 ) );
+penalis_assert( is_wp_error( $writer_reopen ), 'A writer cannot reopen a rejected submission.' );
+
+// A failed post update leaves the workflow metadata untouched.
+penalis_editorial_post( 205, 10, 'draft' );
+$GLOBALS['penalis_test_post_update_fails'] = true;
+$failed = Penalis_Editorial_Workflow::apply( 205, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( is_wp_error( $failed ), 'A failed post update returns an error.' );
+penalis_same( 'penalis_editorial_failed', $failed->get_error_code(), 'A failed post update uses the workflow error code.' );
+penalis_assert(
+	! isset( $GLOBALS['penalis_test_posts'][205]->meta[ Penalis_Editorial_Policy::META_STATE ] ),
+	'A failed update writes no editorial state.'
+);
+penalis_same( 'draft', $GLOBALS['penalis_test_posts'][205]->post_status, 'A failed update leaves the post status untouched.' );
+penalis_same( array(), Penalis_Editorial_Workflow::get_history( 205 ), 'A failed update writes no history.' );
+unset( $GLOBALS['penalis_test_post_update_fails'] );
+
+// History stays bounded across many cycles.
+penalis_editorial_post( 206, 10, 'draft' );
+for ( $i = 0; $i < 30; $i++ ) {
+	$submit = 0 === $i
+		? Penalis_Editorial_Policy::ACTION_SUBMIT
+		: Penalis_Editorial_Policy::ACTION_RESUBMIT;
+
+	$submitted = Penalis_Editorial_Workflow::apply( 206, $submit, array( 'actor_id' => 10 ) );
+	penalis_assert( ! is_wp_error( $submitted ), "Cycle {$i} submission is accepted." );
+
+	Penalis_Editorial_Workflow::apply(
+		206,
+		Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+		array(
+			'actor_id'       => 20,
+			'feedback'       => 'Revisi putaran ' . $i,
+			'expected_cycle' => $i + 1,
+		)
+	);
+}
+penalis_same( Penalis_Editorial_Policy::HISTORY_LIMIT, count( Penalis_Editorial_Workflow::get_history( 206 ) ), 'Review history stays within the limit.' );
+penalis_assert( Penalis_Editorial_Policy::is_valid_history( Penalis_Editorial_Workflow::get_history( 206 ) ), 'The stored history is valid.' );
+
+// A missing post is reported, not silently ignored.
+$missing = Penalis_Editorial_Workflow::apply( 999, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( is_wp_error( $missing ), 'A missing post returns an error.' );
+penalis_same( 'penalis_not_found', $missing->get_error_code(), 'A missing post uses the not-found error code.' );
+
+// An unauthenticated actor is refused.
+penalis_editorial_post( 207, 10, 'draft' );
+$guest = Penalis_Editorial_Workflow::apply( 207, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 0 ) );
+penalis_assert( is_wp_error( $guest ), 'A guest cannot apply a workflow action.' );
+penalis_same( 'penalis_not_authenticated', $guest->get_error_code(), 'A guest action uses the authentication error code.' );
 
 /* -------------------------------------------------------------------------
  * Report

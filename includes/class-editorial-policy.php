@@ -271,6 +271,30 @@ final class Penalis_Editorial_Policy {
 	}
 
 	/**
+	 * Whether an action resolves an active review and must carry a cycle.
+	 *
+	 * Approval, requested changes and rejection all answer a submission that is
+	 * currently under review, so they must match the cycle the reviewer saw.
+	 * Reopening a rejected submission is not a review decision (nothing is under
+	 * review at that point), and submission actions start a new cycle, so neither
+	 * carries one.
+	 *
+	 * @param string $action Workflow action.
+	 * @return bool
+	 */
+	public static function requires_review_cycle( $action ) {
+		return in_array(
+			$action,
+			array(
+				self::ACTION_REQUEST_CHANGES,
+				self::ACTION_REJECT,
+				self::ACTION_APPROVE,
+			),
+			true
+		);
+	}
+
+	/**
 	 * Compute the next review cycle number.
 	 *
 	 * Every submission starts a new cycle so two administrators cannot apply
@@ -417,7 +441,7 @@ final class Penalis_Editorial_Policy {
 			return $denied;
 		}
 
-		if ( self::is_reviewer_action( $action ) && self::is_stale_decision( $expected_cycle, $current_cycle ) ) {
+		if ( self::requires_review_cycle( $action ) && self::is_stale_decision( $expected_cycle, $current_cycle ) ) {
 			$denied['error'] = 'Karya tulis ini sudah diproses pada siklus tinjauan yang lebih baru. Muat ulang halaman.';
 			return $denied;
 		}
