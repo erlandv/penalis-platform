@@ -1,26 +1,66 @@
 /**
- * Overview: account status, article counts, and recent activity.
+ * Overview: account status, article counts, notifications, and recent activity.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { articlesApi, ApiError } from '../../lib/api';
-import type { Account, ArticleList } from '../../lib/types';
+import { articlesApi, notificationsApi, ApiError } from '../../lib/api';
+import type { Account, ArticleList, DashboardNotification, NotificationList } from '../../lib/types';
 import { editorialStateLabel, formatDate } from '../../lib/format';
 import { EmptyState, ErrorBanner, Spinner, StatusBadge } from '../../components/ui';
+
+const INITIAL_VISIBLE_NOTIFICATIONS = 5;
 
 export function Overview({
   account,
   onOpenEditor,
+  onOpenArticle,
   onOpenArticles,
+  onNotificationsChanged,
 }: {
   account: Account;
   onOpenEditor: () => void;
+  onOpenArticle: (id: number) => void;
   onOpenArticles: () => void;
+  onNotificationsChanged?: (unreadCount: number) => void;
 }) {
   const [data, setData] = useState<ArticleList | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(account.canWrite);
+
+  const [notifications, setNotifications] = useState<NotificationList | null>(null);
+  const [notificationsLoading, setNotificationsLoading] = useState(account.canWrite || account.isAdministrator);
+  const [notificationsError, setNotificationsError] = useState('');
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [showAllNotifications, setShowAllNotifications] = useState(false);
+
+  const onNotificationsChangedRef = useRef(onNotificationsChanged);
+  onNotificationsChangedRef.current = onNotificationsChanged;
+
+  const loadNotifications = useCallback(async () => {
+    if (!account.canWrite && !account.isAdministrator) {
+      return;
+    }
+
+    setNotificationsLoading(true);
+    setNotificationsError('');
+
+    try {
+      const result = await notificationsApi.list();
+      setNotifications(result);
+      onNotificationsChangedRef.current?.(result.unreadCount);
+    } catch (caught) {
+      setNotificationsError(
+        caught instanceof ApiError ? caught.message : 'Notifikasi kamu tidak dapat dimuat.',
+      );
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, [account.canWrite, account.isAdministrator]);
+
+  useEffect(() => {
+    void loadNotifications();
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (!account.canWrite) {
@@ -54,7 +94,47 @@ export function Overview({
     };
   }, [account.canWrite]);
 
+  const markRead = async (id?: string) => {
+    setMarkingId(id ?? 'all');
+    setNotificationsError('');
+
+    try {
+      const updated = await notificationsApi.markRead(id);
+      setNotifications(updated);
+      onNotificationsChanged?.(updated.unreadCount);
+    } catch (caught) {
+      setNotificationsError(
+        caught instanceof ApiError ? caught.message : 'Status notifikasi tidak dapat diperbarui.',
+      );
+    } finally {
+      setMarkingId(null);
+    }
+  };
+
+  const openNotificationArticle = (item: DashboardNotification) => {
+    if (!item.isRead) {
+      void notificationsApi
+        .markRead(item.id)
+        .then((updated) => {
+          setNotifications(updated);
+          onNotificationsChanged?.(updated.unreadCount);
+        })
+        .catch(() => {
+          // Navigating to the article should never be blocked by a read-receipt failure.
+        });
+    }
+
+    onOpenArticle(item.articleId);
+  };
+
   const counts = data?.counts ?? account.counts;
+  const unreadCount = notifications?.unreadCount ?? account.unreadNotifications ?? 0;
+  const totalNotifications = notifications?.items.length ?? 0;
+  const visibleNotifications = notifications
+    ? showAllNotifications
+      ? notifications.items
+      : notifications.items.slice(0, INITIAL_VISIBLE_NOTIFICATIONS)
+    : [];
 
   return (
     <div className="penalis-stack">
@@ -89,6 +169,110 @@ export function Overview({
             Lihat semua karya tulis
           </button>
         </div>
+      ) : null}
+
+      {account.canWrite || account.isAdministrator ? (
+        <section className="penalis-panel" aria-label="Notifikasi tinjauan">
+          <div className="penalis-panel__header">
+            <div className="penalis-notification-header">
+              <h3>Notifikasi Tinjauan</h3>
+              {unreadCount > 0 ? (
+                <StatusBadge status="pending_review" label={`${unreadCount} belum dibaca`} />
+              ) : null}
+            </div>
+            {unreadCount > 0 ? (
+              <button
+                type="button"
+                className="penalis-notification-action"
+                onClick={() => void markRead()}
+                disabled={markingId !== null}
+              >
+                {markingId === 'all' ? 'Memperbarui…' : 'Tandai semua sudah dibaca'}
+              </button>
+            ) : null}
+          </div>
+
+          {notificationsLoading ? (
+            <Spinner label="Memuat notifikasi…" />
+          ) : notificationsError ? (
+            <ErrorBanner message={notificationsError} onRetry={() => void loadNotifications()} />
+          ) : !notifications || notifications.items.length === 0 ? (
+            <p className="penalis-muted">
+              Belum ada notifikasi tinjauan. Pembaruan pengajuan, catatan revisi, dan penerbitan karya tulismu
+              akan muncul di sini.
+            </p>
+          ) : (
+            <>
+              <ul className={`penalis-notification-list ${showAllNotifications ? 'is-expanded' : ''}`}>
+                {visibleNotifications.map((item) => (
+                  <li
+                    key={item.id}
+                    className={`penalis-notification-item ${item.isRead ? '' : 'is-unread'}`}
+                    aria-label={`${item.isRead ? 'Sudah dibaca' : 'Belum dibaca'}: ${item.typeLabel}`}
+                  >
+                    <span className="penalis-notification-item__dot" aria-hidden="true" />
+
+                    <div className="penalis-notification-item__body">
+                      <div className="penalis-notification-item__head">
+                        <StatusBadge status={item.type} label={item.typeLabel} />
+                        <span className="penalis-notification-item__meta">{formatDate(item.createdAt)}</span>
+                      </div>
+
+                      <p className="penalis-notification-item__message">{item.message}</p>
+                    </div>
+
+                    <div className="penalis-notification-item__actions">
+                      {account.canWrite ? (
+                        <button
+                          type="button"
+                          className="penalis-notification-action penalis-notification-action--primary"
+                          onClick={() => openNotificationArticle(item)}
+                        >
+                          Buka karya
+                        </button>
+                      ) : null}
+
+                      {item.reviewUrl ? (
+                        <a
+                          className="penalis-notification-action penalis-notification-action--primary"
+                          href={item.reviewUrl}
+                        >
+                          Tinjau di WP Admin
+                        </a>
+                      ) : null}
+
+                      {!item.isRead ? (
+                        <button
+                          type="button"
+                          className="penalis-notification-action"
+                          onClick={() => void markRead(item.id)}
+                          disabled={markingId !== null}
+                        >
+                          {markingId === item.id ? 'Menandai…' : 'Tandai dibaca'}
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
+              {totalNotifications > INITIAL_VISIBLE_NOTIFICATIONS ? (
+                <div className="penalis-notification-footer">
+                  <button
+                    type="button"
+                    className="penalis-notification-toggle"
+                    aria-expanded={showAllNotifications}
+                    onClick={() => setShowAllNotifications((prev) => !prev)}
+                  >
+                    {showAllNotifications
+                      ? 'Tampilkan lebih sedikit'
+                      : `Lihat semua (${totalNotifications} notifikasi)`}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
+        </section>
       ) : null}
 
       <section className="penalis-panel">

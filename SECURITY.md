@@ -124,7 +124,7 @@ Implemented in version 0.2.5 (Phase 3):
 - `Penalis_Editorial_Workflow::apply()` re-checks account status and ownership,
   so a direct service call cannot bypass the REST layer.
 
-Implemented in versions 0.2.6–0.2.7 (Phases 4–5):
+Implemented in versions 0.2.6–0.2.8 (Phases 4–6):
 
 - Reviewer decisions in **Posts → Tinjauan Penalis** are serialized per post
   with a MySQL advisory lock and the post is re-read inside it, so two
@@ -137,6 +137,14 @@ Implemented in versions 0.2.6–0.2.7 (Phases 4–5):
   use `get_readable_article()`, which permits only the article owner and
   reviewer administrators (`Penalis_Editorial_Workflow::can_review()`); any
   other writer receives `404 penalis_not_found`.
+- Editorial notifications (`_penalis_notifications`, bounded to 50 per user) and
+  decision emails are strictly recipient-scoped: submission notifications go
+  only to the article owner and reviewer administrators, and review decision
+  notifications go only to `$post->post_author`. Recipient eligibility is
+  enforced both on write (`Penalis_Editorial_Notifications::record_for_user()`)
+  and on read (`can_user_read_entry()`), and private `post_content` is never
+  included in notifications or emails. Mail delivery failures are recorded on
+  the author's account without rolling back a completed editorial transition.
 
 ### Layered enforcement
 

@@ -507,6 +507,15 @@ export function App() {
     }
   }, []);
 
+  const handleNotificationsChanged = useCallback((unreadCount: number) => {
+    setAccount((prev) => {
+      if (!prev || prev.unreadNotifications === unreadCount) {
+        return prev;
+      }
+      return { ...prev, unreadNotifications: unreadCount };
+    });
+  }, []);
+
   if (verificationToken) {
     return <VerificationPage token={verificationToken} />;
   }
@@ -614,7 +623,13 @@ export function App() {
   return (
     <Shell account={account} view={effectiveView} onNavigate={navigate}>
       {effectiveView === 'overview' ? (
-        <Overview account={account} onOpenEditor={() => openEditor()} onOpenArticles={() => navigate('articles')} />
+        <Overview
+          account={account}
+          onOpenEditor={() => openEditor()}
+          onOpenArticle={(id) => openEditor(id)}
+          onOpenArticles={() => navigate('articles')}
+          onNotificationsChanged={handleNotificationsChanged}
+        />
       ) : null}
 
       {effectiveView === 'articles' && account.canWrite ? (

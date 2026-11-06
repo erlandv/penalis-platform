@@ -22,9 +22,25 @@ if ( ! $penalis_opt_in ) {
 	return;
 }
 
-// History also belongs to administrators without plugin account status.
+// History and notifications also belong to administrators without plugin account status.
 delete_metadata( 'user', 0, '_penalis_author_history', '', true );
 delete_metadata( 'user', 0, '_penalis_author_history_reserved', '', true );
+delete_metadata( 'user', 0, '_penalis_notifications', '', true );
+
+// Remove V2 editorial metadata from posts (posts themselves are never deleted).
+$penalis_post_meta_keys = array(
+	'_penalis_editorial_state',
+	'_penalis_review_feedback',
+	'_penalis_submitted_at',
+	'_penalis_submitted_by',
+	'_penalis_reviewed_at',
+	'_penalis_reviewed_by',
+	'_penalis_review_cycle',
+	'_penalis_review_history',
+);
+foreach ( $penalis_post_meta_keys as $penalis_post_meta_key ) {
+	delete_metadata( 'post', 0, $penalis_post_meta_key, '', true );
+}
 
 // Remove the plugin role.
 remove_role( 'penalis_writer' );
@@ -74,6 +90,7 @@ $penalis_meta_keys = array(
 	'_penalis_email_change_new_email',
 	'_penalis_last_email_failed_at',
 	'_penalis_last_email_failed_context',
+	'_penalis_notifications',
 );
 
 $penalis_offset = 0;

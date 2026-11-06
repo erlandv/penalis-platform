@@ -164,6 +164,7 @@ Additional metadata:
 | `_penalis_verification_token_hash` | SHA-256 hash of the raw token |
 | `_penalis_verification_token_expires` | Expiry timestamp |
 | `_penalis_verification_token_created` | Issue timestamp for resend throttling |
+| `_penalis_notifications` | Bounded user-scoped editorial notifications (max 50) |
 
 Raw verification tokens are never stored. Tokens are 32 random bytes encoded as
 URL-safe base64, hashed with SHA-256, and looked up by hash. Because the lookup
@@ -255,6 +256,9 @@ Server-side guards additionally:
 | `/articles/(?P<id>\d+)/submit` | POST | owner + active | Submit a draft article for review |
 | `/articles/(?P<id>\d+)/resubmit` | POST | owner + active | Resubmit after requested changes |
 | `/articles/(?P<id>\d+)/review` | GET | owner | Read own editorial state, feedback, and history |
+| `/notifications` | GET | logged in | List own bounded editorial notifications |
+| `/notifications/read` | POST | logged in | Mark all own notifications read |
+| `/notifications/(?P<id>[a-zA-Z0-9_\-]+)/read` | POST | logged in | Mark one own notification read |
 | `/admin/articles` | GET | reviewer administrator | List submissions awaiting review |
 | `/admin/articles/(?P<id>\d+)/approve` | POST | reviewer administrator | Approve and publish a submission |
 | `/admin/articles/(?P<id>\d+)/request-changes` | POST | reviewer administrator | Return a submission with required feedback |
@@ -535,9 +539,9 @@ These are **not** verified against the live site:
 | Account status model | Implemented |
 | Registration/verification | Implemented |
 | Admin approval UI for account lifecycle | Implemented |
-| Editorial review workflow | Implemented server-side, in wp-admin, and in the writer dashboard (Phases 1–5); notifications planned (Phase 6) |
-| REST hardening for editorial workflow | Implemented for writer publish, published-article editing, and submit/resubmit/review routes (Phases 3 & 5) |
-| React dashboard | Implemented, including V2 editorial submission, feedback, review history, and read-only published view (Phase 5) |
+| Editorial review workflow | Implemented server-side, in wp-admin, in the writer dashboard, and with email + dashboard notifications (Phases 1–6) |
+| REST hardening for editorial workflow | Implemented for writer publish, published-article editing, submit/resubmit/review, and notification routes (Phases 3, 5 & 6) |
+| React dashboard | Implemented, including V2 editorial submission, feedback, review history, notifications, and read-only published view (Phases 5 & 6) |
 | Build pipeline | Implemented |
 | Repository tests | Implemented |
 | Live WordPress integration | Not run (out of scope) |

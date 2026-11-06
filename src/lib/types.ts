@@ -93,6 +93,27 @@ export interface ArticleReview {
   message?: string;
 }
 
+export interface DashboardNotification {
+  id: string;
+  type: EditorialAction | string;
+  typeLabel: string;
+  articleId: number;
+  articleTitle: string;
+  message: string;
+  feedback: string;
+  createdAt: number;
+  readAt: number;
+  isRead: boolean;
+  targetView: 'editor';
+  targetUrl: string;
+  reviewUrl: string;
+}
+
+export interface NotificationList {
+  items: DashboardNotification[];
+  unreadCount: number;
+}
+
 export interface Account {
   id: number;
   username: string;
@@ -121,6 +142,7 @@ export interface Account {
   registeredAt: number;
   approvedAt: number;
   counts: AccountCounts;
+  unreadNotifications?: number;
   registrationOn: boolean;
 }
 

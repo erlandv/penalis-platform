@@ -334,7 +334,7 @@ if ( ! function_exists( 'metadata_exists' ) ) {
 
 if ( ! function_exists( 'get_users' ) ) {
 	/**
-	 * Find users by meta.
+	 * Find users by meta or role.
 	 *
 	 * @param array $args Args.
 	 * @return int[]
@@ -342,9 +342,14 @@ if ( ! function_exists( 'get_users' ) ) {
 	function get_users( $args ) {
 		$key   = isset( $args['meta_key'] ) ? $args['meta_key'] : '';
 		$value = isset( $args['meta_value'] ) ? $args['meta_value'] : '';
+		$role  = isset( $args['role'] ) ? (string) $args['role'] : '';
 		$out   = array();
 
 		foreach ( $GLOBALS['penalis_test_users'] as $user ) {
+			if ( '' !== $role && ! in_array( $role, (array) $user->roles, true ) ) {
+				continue;
+			}
+
 			if ( '' === $key || ( isset( $user->meta[ $key ] ) && in_array( $value, (array) $user->meta[ $key ], true ) ) ) {
 				$out[] = $user->ID;
 			}
@@ -363,7 +368,9 @@ if ( ! function_exists( 'add_query_arg' ) ) {
 	 * @return string
 	 */
 	function add_query_arg( $args, $url = '' ) {
-		return $url . '?' . http_build_query( $args );
+		$separator = false !== strpos( (string) $url, '?' ) ? '&' : '?';
+
+		return $url . $separator . http_build_query( $args );
 	}
 }
 
@@ -376,6 +383,18 @@ if ( ! function_exists( 'home_url' ) ) {
 	 */
 	function home_url( $path = '' ) {
 		return 'https://example.com' . $path;
+	}
+}
+
+if ( ! function_exists( 'admin_url' ) ) {
+	/**
+	 * Admin URL double.
+	 *
+	 * @param string $path Path.
+	 * @return string
+	 */
+	function admin_url( $path = '' ) {
+		return 'https://example.com/wp-admin/' . ltrim( (string) $path, '/' );
 	}
 }
 
@@ -523,9 +542,14 @@ if ( ! function_exists( 'wp_mail' ) ) {
 	 * @param string $to      Recipient.
 	 * @param string $subject Subject.
 	 * @param string $message Message.
+	 * @param array  $headers Headers.
 	 * @return bool
 	 */
 	function wp_mail( $to, $subject, $message, $headers = array() ) {
+		if ( ! empty( $GLOBALS['penalis_test_mail_fails'] ) ) {
+			return false;
+		}
+
 		$GLOBALS['penalis_test_mail'][] = array( $to, $subject, $message, (array) $headers );
 		return true;
 	}

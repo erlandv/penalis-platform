@@ -17,6 +17,7 @@ import type {
   FieldErrors,
   MediaItem,
   MediaList,
+  NotificationList,
   Term,
 } from './types';
 
@@ -229,6 +230,20 @@ export const passwordApi = {
 
   reset: (payload: { key: string; login: string; password: string }) =>
     request<{ message: string }>('/password/reset', { method: 'POST', body: payload }),
+};
+
+/* --------------------------- Notifications ---------------------------- */
+
+export const notificationsApi = {
+  /** List the current user's bounded editorial notifications, newest first. */
+  list: () => request<NotificationList>('/notifications'),
+
+  /** Mark one notification (or all notifications when `id` is omitted) as read. */
+  markRead: (id?: string) =>
+    request<NotificationList>('/notifications/read', {
+      method: 'POST',
+      body: id ? { id } : {},
+    }),
 };
 
 /* ------------------------------ Articles ----------------------------- */

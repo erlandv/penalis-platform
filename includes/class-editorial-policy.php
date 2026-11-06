@@ -38,8 +38,10 @@ final class Penalis_Editorial_Policy {
 	public const META_REVIEWED_BY    = '_penalis_reviewed_by';
 	public const META_REVIEW_CYCLE   = '_penalis_review_cycle';
 	public const META_REVIEW_HISTORY = '_penalis_review_history';
+	public const META_NOTIFICATIONS  = '_penalis_notifications';
 
-	public const HISTORY_LIMIT = 50;
+	public const HISTORY_LIMIT      = 50;
+	public const NOTIFICATION_LIMIT = 50;
 
 	/**
 	 * Return all supported editorial states.
@@ -588,5 +590,181 @@ final class Penalis_Editorial_Policy {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether a user may receive a notification for a workflow action on a post.
+	 *
+	 * Submission actions notify the article owner and reviewer administrators.
+	 * Reviewer decisions notify only the article owner. Other writers and
+	 * non-reviewer roles are always denied so private titles and feedback never
+	 * leak across accounts.
+	 *
+	 * @param string $action     Workflow action.
+	 * @param bool   $is_owner   Whether the recipient owns the article.
+	 * @param bool   $can_review Whether the recipient may review submissions.
+	 * @return bool
+	 */
+	public static function can_receive_notification( $action, $is_owner, $can_review ) {
+		if ( ! self::is_valid_action( $action ) ) {
+			return false;
+		}
+
+		if ( self::is_writer_action( $action ) ) {
+			return (bool) $is_owner || (bool) $can_review;
+		}
+
+		return (bool) $is_owner;
+	}
+
+	/**
+	 * Validate the shape of one user-scoped notification entry.
+	 *
+	 * @param mixed $entry Notification entry.
+	 * @return bool
+	 */
+	public static function is_valid_notification( $entry ) {
+		if ( ! is_array( $entry ) ) {
+			return false;
+		}
+
+		$required = array( 'id', 'type', 'article_id', 'message', 'created_at', 'read_at' );
+		foreach ( $required as $key ) {
+			if ( ! array_key_exists( $key, $entry ) ) {
+				return false;
+			}
+		}
+
+		if ( ! is_string( $entry['id'] ) || '' === trim( $entry['id'] ) ) {
+			return false;
+		}
+
+		if ( ! self::is_valid_action( $entry['type'] ) ) {
+			return false;
+		}
+
+		if ( (int) $entry['article_id'] <= 0 || (int) $entry['created_at'] <= 0 ) {
+			return false;
+		}
+
+		if ( ! is_string( $entry['message'] ) || '' === trim( $entry['message'] ) ) {
+			return false;
+		}
+
+		if ( ! is_int( $entry['read_at'] ) && ! is_numeric( $entry['read_at'] ) ) {
+			return false;
+		}
+
+		if ( (int) $entry['read_at'] < 0 ) {
+			return false;
+		}
+
+		if ( array_key_exists( 'article_title', $entry ) && ! is_string( $entry['article_title'] ) ) {
+			return false;
+		}
+
+		if ( array_key_exists( 'feedback', $entry ) && ! is_string( $entry['feedback'] ) ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Validate a bounded notification list.
+	 *
+	 * @param mixed $notifications Notification list.
+	 * @return bool
+	 */
+	public static function is_valid_notifications( $notifications ) {
+		if ( ! is_array( $notifications ) || count( $notifications ) > self::NOTIFICATION_LIMIT ) {
+			return false;
+		}
+
+		foreach ( $notifications as $entry ) {
+			if ( ! self::is_valid_notification( $entry ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Append an entry to a bounded notification list.
+	 *
+	 * The newest notification is kept last in storage and the oldest entries
+	 * are dropped once the limit is reached, keeping user meta bounded.
+	 *
+	 * @param mixed $notifications Existing notifications.
+	 * @param array $entry         New notification entry.
+	 * @return array
+	 */
+	public static function append_notification( $notifications, $entry ) {
+		$notifications   = is_array( $notifications ) ? array_values( $notifications ) : array();
+		$notifications[] = $entry;
+
+		if ( count( $notifications ) > self::NOTIFICATION_LIMIT ) {
+			$notifications = array_slice( $notifications, -self::NOTIFICATION_LIMIT );
+		}
+
+		return $notifications;
+	}
+
+	/**
+	 * Mark one notification or all unread notifications as read.
+	 *
+	 * @param mixed  $notifications   Stored notifications.
+	 * @param string $notification_id Specific notification ID, or empty/'all' for all.
+	 * @param int    $read_at         Unix timestamp when marked read.
+	 * @return array{notifications:array,changed:bool}
+	 */
+	public static function mark_notifications_read( $notifications, $notification_id, $read_at ) {
+		$notifications   = is_array( $notifications ) ? array_values( $notifications ) : array();
+		$notification_id = trim( (string) $notification_id );
+		$mark_all        = '' === $notification_id || 'all' === $notification_id;
+		$timestamp       = max( 1, (int) $read_at );
+		$changed         = false;
+
+		foreach ( $notifications as $index => $entry ) {
+			if ( ! self::is_valid_notification( $entry ) ) {
+				continue;
+			}
+
+			if ( ! $mark_all && (string) $entry['id'] !== $notification_id ) {
+				continue;
+			}
+
+			if ( (int) $entry['read_at'] <= 0 ) {
+				$notifications[ $index ]['read_at'] = $timestamp;
+				$changed                            = true;
+			}
+		}
+
+		return array(
+			'notifications' => $notifications,
+			'changed'       => $changed,
+		);
+	}
+
+	/**
+	 * Count unread notifications in a list.
+	 *
+	 * @param mixed $notifications Stored notifications.
+	 * @return int
+	 */
+	public static function count_unread_notifications( $notifications ) {
+		if ( ! is_array( $notifications ) ) {
+			return 0;
+		}
+
+		$unread = 0;
+		foreach ( $notifications as $entry ) {
+			if ( self::is_valid_notification( $entry ) && (int) $entry['read_at'] <= 0 ) {
+				++$unread;
+			}
+		}
+
+		return $unread;
 	}
 }

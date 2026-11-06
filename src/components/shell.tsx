@@ -388,6 +388,7 @@ export function Shell({
           {NAV_ITEMS.map((item) => {
             const disabled =
               !canWrite && item.view !== 'overview' && item.view !== 'profile' && item.view !== 'settings';
+            const unreadCount = item.view === 'overview' ? (account.unreadNotifications ?? 0) : 0;
 
             return (
               <button
@@ -401,6 +402,14 @@ export function Shell({
               >
                 <Icon name={item.icon} />
                 <span>{item.label}</span>
+                {unreadCount > 0 ? (
+                  <span
+                    className="penalis-nav__badge"
+                    aria-label={`${unreadCount} notifikasi belum dibaca`}
+                  >
+                    {unreadCount}
+                  </span>
+                ) : null}
               </button>
             );
           })}

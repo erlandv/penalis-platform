@@ -50,9 +50,15 @@ describe('editorialStateLabel and statusTone', () => {
 
     expect(statusTone('published')).toBe('success');
     expect(statusTone('publish')).toBe('success');
+    expect(statusTone('approve')).toBe('success');
     expect(statusTone('pending_review')).toBe('warning');
     expect(statusTone('changes_requested')).toBe('warning');
+    expect(statusTone('submit')).toBe('warning');
+    expect(statusTone('resubmit')).toBe('warning');
+    expect(statusTone('request_changes')).toBe('warning');
+    expect(statusTone('reopen')).toBe('warning');
     expect(statusTone('rejected')).toBe('danger');
+    expect(statusTone('reject')).toBe('danger');
     expect(statusTone('draft')).toBe('neutral');
   });
 });

@@ -439,6 +439,7 @@ final class Penalis_Access_Control {
 				// Penalis_Policy::can_change_email() and can_change_username().
 				'/penalis/v1/account/email',
 				'/penalis/v1/account/username',
+				'/penalis/v1/notifications/',
 			);
 
 			$is_always_allowed = false;
@@ -467,6 +468,7 @@ final class Penalis_Access_Control {
 				'/penalis/v1/account/',
 				'/penalis/v1/verification/',
 				'/penalis/v1/password/',
+				'/penalis/v1/notifications/',
 				'/penalis/v1/tags',
 			);
 

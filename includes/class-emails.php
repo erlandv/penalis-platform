@@ -345,6 +345,193 @@ final class Penalis_Emails {
 	}
 
 	/**
+	 * Notify the site administrator that a writer submitted or resubmitted an article.
+	 *
+	 * Only the article title, author identity, review cycle, and review URL are
+	 * included; private draft body content is never sent over email. Mail
+	 * delivery failures are recorded on the author's account without rolling
+	 * back the submission.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $action  Writer workflow action (`submit` or `resubmit`).
+	 * @return bool
+	 */
+	public static function send_editorial_submission_notification( $post_id, $action ) {
+		$post   = get_post( (int) $post_id );
+		$action = (string) $action;
+
+		if ( ! $post || 'post' !== $post->post_type || ! Penalis_Editorial_Policy::is_writer_action( $action ) ) {
+			return false;
+		}
+
+		$author_id = (int) $post->post_author;
+		$author    = get_userdata( $author_id );
+		if ( ! $author ) {
+			return false;
+		}
+
+		$admin_email = get_option( 'admin_email' );
+		if ( ! is_email( $admin_email ) ) {
+			Penalis_Account_Status::record_email_failure( $author_id, 'editorial_' . $action );
+			return false;
+		}
+
+		$site       = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$title      = self::safe_article_title( $post );
+		$cycle      = max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) );
+		$review_url = admin_url( 'edit.php?page=penalis-review&post_id=' . (int) $post->ID );
+
+		if ( Penalis_Editorial_Policy::ACTION_RESUBMIT === $action ) {
+			$subject = sprintf( '[%s] Revisi Karya Tulis Menunggu Tinjauan', $site );
+			$intro   = sprintf( 'Ada revisi karya tulis di %s yang diajukan ulang dan menunggu tinjauan admin.', $site );
+		} else {
+			$subject = sprintf( '[%s] Karya Tulis Baru Menunggu Tinjauan', $site );
+			$intro   = sprintf( 'Ada karya tulis baru di %s yang menunggu tinjauan admin.', $site );
+		}
+
+		$message  = $intro . "\n\n";
+		$message .= 'Judul Karya: ' . $title . "\n";
+		$message .= 'Penulis: ' . $author->display_name . ' (' . $author->user_login . ")\n";
+		$message .= 'Putaran Tinjauan: #' . $cycle . "\n\n";
+		$message .= "Tinjau karya tulis melalui WordPress Admin:\n\n";
+		$message .= $review_url . "\n";
+
+		$sent = self::send_mail(
+			$admin_email,
+			$subject,
+			$message,
+			'Email ini dikirim otomatis untuk admin Penalis sebagai pemberitahuan bahwa ada karya tulis yang menunggu peninjauan editorial.'
+		);
+
+		if ( ! $sent ) {
+			Penalis_Account_Status::record_email_failure( $author_id, 'editorial_' . $action );
+		}
+
+		return (bool) $sent;
+	}
+
+	/**
+	 * Send an editorial review decision email to the article owner.
+	 *
+	 * The recipient is always derived from `$post->post_author` so a reviewer
+	 * decision can never be sent to another writer. Private article body content
+	 * is never included in the email. Mail failures are recorded on the author
+	 * account without rolling back the editorial decision.
+	 *
+	 * @param int    $post_id  Post ID.
+	 * @param string $action   Reviewer action (`request_changes`, `reject`, `reopen`, `approve`).
+	 * @param string $feedback Optional reviewer feedback.
+	 * @return bool
+	 */
+	public static function send_editorial_decision_notification( $post_id, $action, $feedback = '' ) {
+		$post   = get_post( (int) $post_id );
+		$action = (string) $action;
+
+		if ( ! $post || 'post' !== $post->post_type || ! Penalis_Editorial_Policy::is_reviewer_action( $action ) ) {
+			return false;
+		}
+
+		$author_id = (int) $post->post_author;
+		$author    = get_userdata( $author_id );
+		if ( ! $author || ! is_email( $author->user_email ) ) {
+			if ( $author_id > 0 ) {
+				Penalis_Account_Status::record_email_failure( $author_id, 'invalid_recipient' );
+			}
+			return false;
+		}
+
+		$site       = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
+		$title      = self::safe_article_title( $post );
+		$clean_note = wp_strip_all_tags( trim( (string) $feedback ) );
+		$editor_url = add_query_arg(
+			array(
+				'view' => 'editor',
+				'id'   => (int) $post->ID,
+			),
+			Penalis_Dashboard::dashboard_url()
+		);
+
+		$subject = '';
+		$body    = self::greeting( $author ) . "\n\n";
+
+		switch ( $action ) {
+			case Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES:
+				$subject = sprintf( '[%s] Karya Tulis Kamu Perlu Revisi', $site );
+				$body   .= sprintf( 'Admin %s telah meninjau karya tulis kamu yang berjudul "%s" dan meminta beberapa revisi sebelum dapat diterbitkan.', $site, $title ) . "\n\n";
+				if ( '' !== $clean_note ) {
+					$body .= "Catatan tinjauan admin:\n" . $clean_note . "\n\n";
+				}
+				$body .= "Buka dasbor penulis untuk memperbaiki draf dan mengajukannya ulang:\n\n";
+				$body .= $editor_url . "\n";
+				break;
+
+			case Penalis_Editorial_Policy::ACTION_REJECT:
+				$subject = sprintf( '[%s] Pembaruan Tinjauan Karya Tulis Kamu', $site );
+				$body   .= sprintf( 'Terima kasih telah mengirimkan karya tulis berjudul "%s" ke %s. Setelah ditinjau oleh admin, karya tulis ini belum dapat diterbitkan.', $title, $site ) . "\n\n";
+				if ( '' !== $clean_note ) {
+					$body .= "Catatan tinjauan admin:\n" . $clean_note . "\n\n";
+				}
+				$body .= "Karya tulis yang ditolak tidak dapat diajukan ulang kecuali dibuka kembali oleh admin. Kamu dapat melihat detail tinjauan di dasbor penulis:\n\n";
+				$body .= $editor_url . "\n";
+				break;
+
+			case Penalis_Editorial_Policy::ACTION_REOPEN:
+				$subject = sprintf( '[%s] Karya Tulis Kamu Dibuka Kembali untuk Revisi', $site );
+				$body   .= sprintf( 'Admin %s telah membuka kembali karya tulis kamu yang berjudul "%s". Kamu kini dapat menyunting draf tersebut dan mengajukannya ulang untuk ditinjau.', $site, $title ) . "\n\n";
+				if ( '' !== $clean_note ) {
+					$body .= "Catatan admin:\n" . $clean_note . "\n\n";
+				}
+				$body .= "Buka karya tulis kamu di dasbor penulis:\n\n";
+				$body .= $editor_url . "\n";
+				break;
+
+			case Penalis_Editorial_Policy::ACTION_APPROVE:
+				$subject    = sprintf( '[%s] Karya Tulis Kamu Telah Terbit', $site );
+				$public_url = get_permalink( (int) $post->ID );
+				$body      .= sprintf( 'Selamat! Karya tulis kamu yang berjudul "%s" telah disetujui admin dan kini resmi terbit di %s.', $title, $site ) . "\n\n";
+				if ( '' !== $clean_note ) {
+					$body .= "Catatan admin:\n" . $clean_note . "\n\n";
+				}
+				if ( is_string( $public_url ) && '' !== $public_url ) {
+					$body .= 'Lihat karya tulis yang telah terbit: ' . $public_url . "\n\n";
+				}
+				$body .= "Buka detail karya tulis di dasbor penulis:\n\n";
+				$body .= $editor_url . "\n";
+				break;
+		}
+
+		if ( '' === $subject ) {
+			return false;
+		}
+
+		$sent = self::send_mail(
+			$author->user_email,
+			$subject,
+			$body,
+			'Email ini dikirim otomatis. Kamu menerima email ini karena ada pembaruan status tinjauan karya tulis di akun Penalis kamu. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.'
+		);
+
+		if ( ! $sent ) {
+			Penalis_Account_Status::record_email_failure( $author_id, 'editorial_' . $action );
+		}
+
+		return (bool) $sent;
+	}
+
+	/**
+	 * Extract a sanitized plain-text article title without exposing post body.
+	 *
+	 * @param WP_Post $post Post object.
+	 * @return string
+	 */
+	private static function safe_article_title( $post ) {
+		$title = wp_strip_all_tags( wp_specialchars_decode( (string) $post->post_title, ENT_QUOTES ) );
+		$title = trim( preg_replace( '/\s+/', ' ', $title ) );
+
+		return '' !== $title ? $title : 'Tanpa judul';
+	}
+
+	/**
 	 * Render and send one branded HTML email.
 	 *
 	 * The content-type header is scoped to this message; no global mail filter

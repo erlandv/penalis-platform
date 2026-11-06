@@ -186,6 +186,7 @@ penalis-platform/
 │   ├── class-policy.php        Pure, testable policy rules
 │   ├── class-editorial-policy.php Pure V2 editorial rules and state machine
 │   ├── class-editorial-workflow.php V2 editorial persistence and serialized transitions
+│   ├── class-editorial-notifications.php Bounded dashboard notifications and editorial emails
 │   ├── class-editorial-admin.php Posts → Tinjauan Penalis review screen
 │   ├── class-account-status.php Status persistence and transitions
 │   ├── class-roles.php         Writer role and capabilities
@@ -229,6 +230,7 @@ penalis-platform/
 | Verification token hash | User meta `_penalis_verification_token_hash` |
 | Token expiry | User meta `_penalis_verification_token_expires` |
 | Audit trail | User meta `_penalis_status_log` (bounded) |
+| Editorial notifications | User meta `_penalis_notifications` (bounded to 50) |
 | Public name preference | User meta `_penalis_display_name_mode` |
 | Profile photo | User meta `{prefix}user_avatar` (owned by One User Avatar) |
 | Dashboard page ID | Option `penalis_dashboard_page_id` |

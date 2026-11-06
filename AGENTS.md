@@ -204,6 +204,7 @@ See §4.6 and `EDITORIAL-WORKFLOW-ROADMAP.md`.
 | `_penalis_author_history_reserved` | Searchable reservation rows, one per historical slug |
 | `_penalis_needs_password` | Legacy "vouch" path: owner still has no password |
 | `_penalis_last_email_failed_at`, `..._context` | Mail delivery failure, surfaced to admins |
+| `_penalis_notifications` | Bounded user-scoped editorial notifications (max 50) |
 | `{prefix}user_avatar` | Avatar attachment ID, **shared with One User Avatar** |
 | `first_name`, `last_name`, `description` | Native WordPress fields |
 
@@ -249,7 +250,7 @@ must pass an administrator decision.
 Conversions never change the user ID and never touch their posts, so author
 archives keep working.
 
-### 4.6 Editorial workflow (V2, Phases 1–5 implemented)
+### 4.6 Editorial workflow (V2, Phases 1–6 implemented)
 
 Writers do not publish directly. WordPress post statuses stay `draft`,
 `pending`, `publish`; the Penalis editorial state lives in post meta
@@ -385,12 +386,13 @@ and 3 per account per hour.
 
 ### 5.4 Writing and publishing
 
-> **V2 direction (Phases 1–5 implemented).** The server refuses every writer
+> **V2 direction (Phases 1–6 implemented).** The server refuses every writer
 > publish path and every writer edit of a published or under-review article
 > (Phase 3, version 0.2.5), administrators review submissions under **Posts ->
-> Tinjauan Penalis** (Phase 4, version 0.2.6), and the writer dashboard uses the
-> submit/resubmit/review workflow (Phase 5, version 0.2.7). Notifications land
-> in Phase 6. Track progress in `EDITORIAL-WORKFLOW-ROADMAP.md`.
+> Tinjauan Penalis** (Phase 4, version 0.2.6), the writer dashboard uses the
+> submit/resubmit/review workflow (Phase 5, version 0.2.7), and editorial email
+> + bounded dashboard notifications are active (Phase 6, version 0.2.8). Track
+> progress in `EDITORIAL-WORKFLOW-ROADMAP.md`.
 
 - The editor saves drafts through **core** `/wp/v2/posts` (create/update) and
   `/wp/v2/posts/{id}?force=true` (delete). The plugin does not re-implement
@@ -481,8 +483,9 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-roles.php` | Writer role, promotion/demotion |
 | `includes/class-account-status.php` | Status persistence, transitions, audit log, tokens, mail-failure markers |
 | `includes/class-policy.php` | Pure rules: statuses, transitions, limits, validation, display names, tokens |
-| `includes/class-editorial-policy.php` | Pure V2 editorial rules: states, actions, transitions, feedback and stale-cycle guards, metadata contract, bounded history |
+| `includes/class-editorial-policy.php` | Pure V2 editorial rules: states, actions, transitions, feedback and stale-cycle guards, metadata contract, bounded history and notifications |
 | `includes/class-editorial-workflow.php` | V2 editorial persistence: state reads (with legacy inference), apply/transition side effects, bounded history writes |
+| `includes/class-editorial-notifications.php` | V2 editorial notifications: bounded user-scoped dashboard notifications and transactional email dispatch |
 | `includes/class-editorial-admin.php` | V2 review screen under Posts: submission list, detail view, nonce-bound decisions, review history |
 | `includes/class-rest-api.php` | `penalis/v1` routes and their handlers |
 | `includes/class-access-control.php` | Login gate, capability filtering, REST blocking, upload restrictions, post insert enforcement, privilege-escalation guards |
@@ -565,6 +568,9 @@ profile fields); `require_active_writer` = `active` + access flag.
 | `/articles/{id}/resubmit` | POST | `resubmit_article` | active writer (owner) |
 | `/articles/{id}/publish` | POST | `reject_legacy_publish` | active writer (always refused) |
 | `/articles/{id}/unpublish` | POST | `reject_legacy_publish` | active writer (always refused) |
+| `/notifications` | GET | `list_notifications` | logged in |
+| `/notifications/read` | POST | `mark_notifications_read` | logged in |
+| `/notifications/{id}/read` | POST | `mark_notifications_read` | logged in |
 | `/media` | GET | `list_media` | active writer |
 | `/tags` | POST | `create_tag` | active writer |
 

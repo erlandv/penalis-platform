@@ -62,16 +62,22 @@ export function statusTone(status: string): 'success' | 'warning' | 'danger' | '
   switch (status) {
     case 'publish':
     case 'published':
+    case 'approve':
     case 'active':
       return 'success';
     case 'pending':
     case 'pending_review':
     case 'changes_requested':
+    case 'submit':
+    case 'resubmit':
+    case 'request_changes':
+    case 'reopen':
     case 'pending_verification':
     case 'pending_approval':
     case 'future':
       return 'warning';
     case 'rejected':
+    case 'reject':
     case 'suspended':
       return 'danger';
     default:

@@ -1,7 +1,7 @@
 # Penalis Editorial Workflow V2 Roadmap
 
-Status: in progress — Phases 0–5 complete; Phases 6–8 remaining.
-Last updated: 2026-11-06 (Phase 5 writer dashboard workflow complete).
+Status: in progress — Phases 0–6 complete; Phases 7–8 remaining.
+Last updated: 2026-11-06 (Phase 6 notifications complete).
 
 This document tracks the migration from direct writer publishing to admin review and curation. It is the implementation checklist for the V2 editorial workflow. Account registration, verification, legacy activation, login, profile, media, and dashboard authentication remain unchanged unless explicitly noted below.
 
@@ -341,11 +341,58 @@ Exit criteria: a writer can create, submit, revise, resubmit, and understand eve
 
 ### Phase 6 — Notifications
 
-- [ ] Add email templates for submission, requested changes, rejection, reopening, and publication.
-- [ ] Add bounded dashboard notifications with read/unread behavior.
-- [ ] Link notifications to the relevant dashboard article/review view.
-- [ ] Record mail failures without rolling back a successful editorial decision.
-- [ ] Prevent notification content from leaking private article content to the wrong recipient.
+- [x] Add email templates for submission, requested changes, rejection, reopening, and publication.
+- [x] Add bounded dashboard notifications with read/unread behavior.
+- [x] Link notifications to the relevant dashboard article/review view.
+- [x] Record mail failures without rolling back a successful editorial decision.
+- [x] Prevent notification content from leaking private article content to the wrong recipient.
+
+Implemented across `Penalis_Editorial_Policy`, `Penalis_Editorial_Notifications`,
+`Penalis_Emails`, `Penalis_Email_Template`, `Penalis_Rest_Api`, and the React
+dashboard (`Shell`, `Overview`):
+
+- Policy and storage (`includes/class-editorial-policy.php`,
+  `includes/class-editorial-notifications.php`):
+  - Bounded user-scoped notifications stored in `_penalis_notifications`
+    (`META_NOTIFICATIONS`), capped at `NOTIFICATION_LIMIT` (50) entries per user.
+  - Pure rules in `Penalis_Editorial_Policy`: `can_receive_notification()`,
+    `is_valid_notification()`, `is_valid_notifications()`,
+    `append_notification()`, `mark_notifications_read()`, and
+    `count_unread_notifications()`.
+  - Recipient eligibility is enforced both on write (`record_for_user()`) and on
+    read (`can_user_read_entry()`): writer submission/resubmission notifications
+    are visible only to the article owner and reviewer administrators, and
+    reviewer decision notifications are visible only to the article owner.
+    Private `post_content` is never stored in notifications or sent over email.
+- Transactional emails (`includes/class-emails.php`,
+  `includes/class-email-template.php`):
+  - `send_editorial_submission_notification()` emails `admin_email` on `submit`
+    and `resubmit` with the sanitized plain-text title, author identity, review
+    cycle, and a **Tinjau Karya Tulis** CTA pointing to
+    `edit.php?page=penalis-review&post_id={id}`.
+  - `send_editorial_decision_notification()` emails `$post->post_author` on
+    `request_changes`, `reject`, `reopen`, and `approve` with the sanitized
+    title, reviewer feedback note (when present), public permalink (on
+    `approve`), and a **Buka Karya Tulis** CTA pointing to
+    `/dashboard/?view=editor&id={id}`.
+  - Mail delivery failures record `_penalis_last_email_failed_at` and
+    `_penalis_last_email_failed_context` (`editorial_submit`,
+    `editorial_resubmit`, `editorial_request_changes`, `editorial_reject`,
+    `editorial_reopen`, `editorial_approve`) on the author's account without
+    rolling back the completed editorial transition.
+- REST surface and dashboard UI (`includes/class-rest-api.php`,
+  `src/components/shell.tsx`, `src/features/overview/Overview.tsx`):
+  - `GET /penalis/v1/notifications`, `POST /penalis/v1/notifications/read`, and
+    `POST /penalis/v1/notifications/{id}/read` (all self-scoped to the signed-in
+    account), plus `unreadNotifications` on `GET /penalis/v1/account`.
+  - Unread count badge in the dashboard navigation (**Ringkasan**) and a
+    **Notifikasi Tinjauan** panel in `Overview` with read/unread states,
+    **Tandai sudah dibaca** / **Tandai semua sudah dibaca**, and direct links to
+    open the article in the dashboard editor (plus **Tinjau di WP Admin** for
+    reviewer administrators).
+
+Evidence: `php tests/run-tests.php` → 872 assertions passed; `phpcs` clean;
+`npm run check` passes (74 Vitest tests, build OK).
 
 Exit criteria: every required event produces an email and dashboard notification, with safe failure handling.
 
@@ -385,6 +432,7 @@ Exit criteria: the plugin is ready for owner review and a later staging deployme
 | 2026-11-06 | Phase 3 | Writer publish and published-article editing blocked server-side | `class-access-control.php`, `class-rest-api.php`, `class-editorial-policy.php`, `class-editorial-workflow.php`; 693 assertions, phpcs clean, `npm run check` OK; version 0.2.5 |
 | 2026-11-06 | Phase 4 | Administrator review screen and serialized decisions | `includes/class-editorial-admin.php`, per-post advisory lock in `class-editorial-workflow.php`; 730 assertions, phpcs clean, `npm run check` OK; version 0.2.6 |
 | 2026-11-06 | Phase 5 | Writer dashboard editorial workflow and submit/resubmit/review REST routes | `class-rest-api.php`, `class-access-control.php`, `Editor.tsx`, `RichTextEditor.tsx`, `Articles.tsx`, `Overview.tsx`; 791 assertions, phpcs clean, `npm run check` 74 tests + build OK; version 0.2.7 |
+| 2026-11-06 | Phase 6 | Editorial email templates and bounded dashboard notifications | `class-editorial-notifications.php`, `class-editorial-policy.php`, `class-emails.php`, `class-email-template.php`, `class-rest-api.php`, `Overview.tsx`, `shell.tsx`; 872 assertions, phpcs clean, `npm run check` 74 tests + build OK; version 0.2.8 |
 
 ## Explicit non-goals for V2
 

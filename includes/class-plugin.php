@@ -60,6 +60,7 @@ final class Penalis_Plugin {
 		$this->maybe_upgrade();
 
 		Penalis_Access_Control::init();
+		Penalis_Editorial_Notifications::init();
 		Penalis_Rest_Api::init();
 		Penalis_Dashboard::init();
 		Penalis_Author_History::init();

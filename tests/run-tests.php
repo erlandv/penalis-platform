@@ -17,6 +17,7 @@ require_once __DIR__ . '/../includes/class-editorial-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
 require_once __DIR__ . '/../includes/class-editorial-workflow.php';
+require_once __DIR__ . '/../includes/class-editorial-notifications.php';
 require_once __DIR__ . '/../includes/class-editorial-admin.php';
 require_once __DIR__ . '/../includes/class-access-control.php';
 require_once __DIR__ . '/../includes/class-rest-api.php';
@@ -92,7 +93,8 @@ function penalis_reset() {
 		$GLOBALS['penalis_test_verified_user'],
 		$GLOBALS['penalis_test_updated_login'],
 		$GLOBALS['penalis_test_post_update_fails'],
-		$GLOBALS['penalis_test_current_user']
+		$GLOBALS['penalis_test_current_user'],
+		$GLOBALS['penalis_test_mail_fails']
 	);
 }
 
@@ -2568,6 +2570,312 @@ penalis_assert( false === $published_data['canEdit'], 'Published article is read
 penalis_assert( false === $published_data['canSubmit'], 'Published article cannot be submitted.' );
 penalis_assert( false === $published_data['canResubmit'], 'Published article cannot be resubmitted.' );
 penalis_assert( '' !== $published_data['link'], 'Published article exposes its public permalink.' );
+
+/* -------------------------------------------------------------------------
+ * Editorial notifications & emails (Phase 6)
+ * ---------------------------------------------------------------------- */
+
+// Pure policy rules for notification recipient scoping, validation, bounding, and read state.
+penalis_assert(
+	Penalis_Editorial_Policy::can_receive_notification( Penalis_Editorial_Policy::ACTION_SUBMIT, false, true ),
+	'An administrator may receive a submission notification.'
+);
+penalis_assert(
+	Penalis_Editorial_Policy::can_receive_notification( Penalis_Editorial_Policy::ACTION_SUBMIT, true, false ),
+	'The submitting writer may receive a submission confirmation notification.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::can_receive_notification( Penalis_Editorial_Policy::ACTION_SUBMIT, false, false ),
+	'Another writer cannot receive a submission notification.'
+);
+penalis_assert(
+	Penalis_Editorial_Policy::can_receive_notification( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES, true, false ),
+	'The owner receives a requested-changes notification.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::can_receive_notification( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES, false, true ),
+	'A non-owner administrator does not receive the writer decision notification.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::can_receive_notification( 'unknown', true, true ),
+	'Unknown actions never produce notifications.'
+);
+
+$valid_item = array(
+	'id'         => 'notif_1',
+	'type'       => Penalis_Editorial_Policy::ACTION_SUBMIT,
+	'article_id' => 600,
+	'message'    => 'Karya tulis menunggu tinjauan.',
+	'created_at' => 1700000000,
+	'read_at'    => 0,
+);
+penalis_assert( Penalis_Editorial_Policy::is_valid_notification( $valid_item ), 'A well-formed notification is valid.' );
+penalis_assert(
+	! Penalis_Editorial_Policy::is_valid_notification( array_merge( $valid_item, array( 'article_id' => 0 ) ) ),
+	'A notification with article_id 0 is rejected.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::is_valid_notification( array_merge( $valid_item, array( 'type' => 'invalid' ) ) ),
+	'A notification with an unknown type is rejected.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::is_valid_notification( array_merge( $valid_item, array( 'message' => '' ) ) ),
+	'A notification with an empty message is rejected.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::is_valid_notification( array_merge( $valid_item, array( 'read_at' => -1 ) ) ),
+	'A notification with a negative read_at is rejected.'
+);
+
+// Bounding to NOTIFICATION_LIMIT (50) and chronological storage order.
+$bounded_list = array();
+for ( $i = 1; $i <= 60; $i++ ) {
+	$bounded_list = Penalis_Editorial_Policy::append_notification(
+		$bounded_list,
+		array(
+			'id'         => 'notif_' . $i,
+			'type'       => Penalis_Editorial_Policy::ACTION_APPROVE,
+			'article_id' => $i,
+			'message'    => 'Pesan ' . $i,
+			'created_at' => 1700000000 + $i,
+			'read_at'    => 0,
+		)
+	);
+}
+penalis_same( Penalis_Editorial_Policy::NOTIFICATION_LIMIT, count( $bounded_list ), 'Notifications are bounded to NOTIFICATION_LIMIT.' );
+penalis_same( 'notif_11', $bounded_list[0]['id'], 'Oldest notifications beyond the limit are dropped.' );
+penalis_same( 'notif_60', $bounded_list[49]['id'], 'Newest notification is kept at the tail of storage.' );
+penalis_assert( Penalis_Editorial_Policy::is_valid_notifications( $bounded_list ), 'Bounded notification list passes validation.' );
+penalis_same( 50, Penalis_Editorial_Policy::count_unread_notifications( $bounded_list ), 'All 50 notifications start unread.' );
+
+$one_read = Penalis_Editorial_Policy::mark_notifications_read( $bounded_list, 'notif_60', 1700000999 );
+penalis_assert( true === $one_read['changed'], 'Marking an unread notification reports changed = true.' );
+penalis_same( 1700000999, $one_read['notifications'][49]['read_at'], 'Marking a single notification read sets its read_at timestamp.' );
+penalis_same( 49, Penalis_Editorial_Policy::count_unread_notifications( $one_read['notifications'] ), 'Unread count decrements by one.' );
+
+$all_read = Penalis_Editorial_Policy::mark_notifications_read( $one_read['notifications'], '', 1700001000 );
+penalis_assert( true === $all_read['changed'], 'Marking remaining unread notifications reports changed = true.' );
+penalis_same( 0, Penalis_Editorial_Policy::count_unread_notifications( $all_read['notifications'] ), 'Marking all notifications read leaves zero unread.' );
+penalis_same( 1700000999, $all_read['notifications'][49]['read_at'], 'Already-read notifications preserve their original read_at timestamp.' );
+
+// Email template CTA labels for review and editor links.
+$review_mail = Penalis_Email_Template::render(
+	"Ada kiriman baru.\n\nhttps://example.com/wp-admin/edit.php?page=penalis-review&post_id=600",
+	'Karya Tulis Baru'
+);
+penalis_assert( false !== strpos( $review_mail, 'Tinjau Karya Tulis' ), 'Review email CTA uses the Tinjau Karya Tulis label.' );
+
+$editor_mail = Penalis_Email_Template::render(
+	"Silakan perbaiki.\n\nhttps://example.com/dashboard/?view=editor&id=600",
+	'Perlu Revisi'
+);
+penalis_assert( false !== strpos( $editor_mail, 'Buka Karya Tulis' ), 'Editor email CTA uses the Buka Karya Tulis label.' );
+
+// End-to-end notifications & emails across all 5 editorial events, plus privacy and REST routes.
+penalis_reset();
+update_option( 'admin_email', 'admin@example.com' );
+penalis_editorial_writer( 10 );
+penalis_editorial_writer( 11 );
+penalis_editorial_admin( 20 );
+penalis_editorial_post( 600, 10, 'draft' );
+$GLOBALS['penalis_test_posts'][600]->post_title   = 'Malam di Pelabuhan';
+$GLOBALS['penalis_test_posts'][600]->post_content = '<p>RAHASIA_ISI_ARTIKEL_PRIVAT_YANG_TIDAK_BOLEH_BOCOR</p>';
+
+// Dispatch guard allows notification routes for active accounts.
+penalis_assert(
+	null === penalis_guard( 10, '/penalis/v1/notifications', 'GET' ),
+	'An active writer may reach GET /notifications.'
+);
+penalis_assert(
+	null === penalis_guard( 10, '/penalis/v1/notifications/read', 'POST' ),
+	'An active writer may reach POST /notifications/read.'
+);
+penalis_assert(
+	null === penalis_guard( 10, '/penalis/v1/notifications/notif_1/read', 'POST' ),
+	'An active writer may reach POST /notifications/{id}/read.'
+);
+
+// 1. Submit: emails admin_email, records admin + owner dashboard notifications, never leaks post_content.
+Penalis_Editorial_Workflow::apply( 600, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'Submitting an article sends one email to the administrator.' );
+penalis_same( 'admin@example.com', $GLOBALS['penalis_test_mail'][0][0], 'Submission email is addressed to admin_email.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][1], 'Karya Tulis Baru' ), 'Submission email has the new-submission subject.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Malam di Pelabuhan' ), 'Submission email names the article title.' );
+penalis_assert(
+	false === strpos( $GLOBALS['penalis_test_mail'][0][2], 'RAHASIA_ISI_ARTIKEL_PRIVAT_YANG_TIDAK_BOLEH_BOCOR' ),
+	'Submission email never includes private post_content.'
+);
+penalis_same( 1, Penalis_Editorial_Notifications::count_unread( 20 ), 'Administrator receives one unread dashboard notification on submit.' );
+penalis_same( 1, Penalis_Editorial_Notifications::count_unread( 10 ), 'Submitting writer receives one submission confirmation notification.' );
+penalis_same( 0, Penalis_Editorial_Notifications::count_unread( 11 ), 'Another writer receives no notification on submit.' );
+
+$admin_notifs = Penalis_Editorial_Notifications::get_for_user( 20 );
+penalis_same( 1, count( $admin_notifs ), 'Administrator notification list has one entry.' );
+penalis_same( Penalis_Editorial_Policy::ACTION_SUBMIT, $admin_notifs[0]['type'], 'Admin notification type is submit.' );
+penalis_assert(
+	false !== strpos( $admin_notifs[0]['reviewUrl'], 'page=penalis-review' ) && false !== strpos( $admin_notifs[0]['reviewUrl'], 'post_id=600' ),
+	'Admin notification links to the wp-admin editorial review detail view.'
+);
+
+// 2. Request changes: emails the author only, records writer notification with editor link.
+Penalis_Editorial_Workflow::apply(
+	600,
+	Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+	array(
+		'actor_id'       => 20,
+		'feedback'       => 'Mohon rapikan bait kedua.',
+		'expected_cycle' => 1,
+	)
+);
+penalis_same( 2, count( $GLOBALS['penalis_test_mail'] ), 'Requesting changes sends an email to the writer.' );
+penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][1][0], 'Requested-changes email goes only to the article owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][1][2], 'Mohon rapikan bait kedua.' ), 'Requested-changes email includes the reviewer feedback.' );
+penalis_assert(
+	false === strpos( $GLOBALS['penalis_test_mail'][1][2], 'RAHASIA_ISI_ARTIKEL_PRIVAT_YANG_TIDAK_BOLEH_BOCOR' ),
+	'Requested-changes email never includes private post_content.'
+);
+penalis_same( 2, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer has two unread notifications after requested changes.' );
+penalis_same( 0, Penalis_Editorial_Notifications::count_unread( 11 ), 'Other writer still has zero notifications.' );
+
+$writer_notifs = Penalis_Editorial_Notifications::get_for_user( 10 );
+penalis_same( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES, $writer_notifs[0]['type'], 'Newest writer notification type is request_changes.' );
+penalis_assert(
+	false !== strpos( $writer_notifs[0]['targetUrl'], 'view=editor' ) && false !== strpos( $writer_notifs[0]['targetUrl'], 'id=600' ),
+	'Writer notification links directly to the dashboard editor for the article.'
+);
+penalis_same( '', $writer_notifs[0]['reviewUrl'], 'Non-admin writer notification does not expose an admin reviewUrl.' );
+
+// 3. Resubmit: emails admin_email, records admin + owner resubmit notifications.
+Penalis_Editorial_Workflow::apply( 600, Penalis_Editorial_Policy::ACTION_RESUBMIT, array( 'actor_id' => 10 ) );
+penalis_same( 3, count( $GLOBALS['penalis_test_mail'] ), 'Resubmitting sends an email to admin_email.' );
+penalis_same( 'admin@example.com', $GLOBALS['penalis_test_mail'][2][0], 'Resubmission email is addressed to admin_email.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][2][1], 'Revisi Karya Tulis Menunggu Tinjauan' ), 'Resubmission email has the resubmission subject.' );
+penalis_same( 2, Penalis_Editorial_Notifications::count_unread( 20 ), 'Administrator now has two unread notifications.' );
+penalis_same( 3, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has three unread notifications.' );
+
+// 4. Reject: emails author, records writer reject notification.
+Penalis_Editorial_Workflow::apply(
+	600,
+	Penalis_Editorial_Policy::ACTION_REJECT,
+	array(
+		'actor_id'       => 20,
+		'feedback'       => 'Tema belum sesuai kurasi bulan ini.',
+		'expected_cycle' => 2,
+	)
+);
+penalis_same( 4, count( $GLOBALS['penalis_test_mail'] ), 'Rejecting sends an email to the writer.' );
+penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][3][0], 'Rejection email goes only to the article owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][3][2], 'Tema belum sesuai kurasi bulan ini.' ), 'Rejection email includes the feedback.' );
+penalis_same( 4, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has four unread notifications.' );
+
+// 5. Reopen: emails author, records writer reopen notification.
+Penalis_Editorial_Workflow::apply( 600, Penalis_Editorial_Policy::ACTION_REOPEN, array( 'actor_id' => 20 ) );
+penalis_same( 5, count( $GLOBALS['penalis_test_mail'] ), 'Reopening sends an email to the writer.' );
+penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][4][0], 'Reopen email goes only to the article owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][4][1], 'Dibuka Kembali' ), 'Reopen email has the reopen subject.' );
+penalis_same( 5, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has five unread notifications.' );
+
+// 6. Resubmit and Approve (publication): emails author with public link, records writer approve notification.
+Penalis_Editorial_Workflow::apply( 600, Penalis_Editorial_Policy::ACTION_RESUBMIT, array( 'actor_id' => 10 ) );
+Penalis_Editorial_Workflow::apply(
+	600,
+	Penalis_Editorial_Policy::ACTION_APPROVE,
+	array(
+		'actor_id'       => 20,
+		'feedback'       => 'Selamat, karya siap tayang.',
+		'expected_cycle' => 3,
+	)
+);
+penalis_same( 7, count( $GLOBALS['penalis_test_mail'] ), 'Resubmit + approve sends two more emails.' );
+penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][6][0], 'Publication email goes to the article owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][6][1], 'Telah Terbit' ), 'Publication email has the published subject.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][6][2], 'Selamat, karya siap tayang.' ), 'Publication email includes optional approval note.' );
+penalis_same( 7, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has seven unread notifications.' );
+
+// REST notifications list and read/unread mutations for the writer.
+$GLOBALS['penalis_test_current_user'] = 10;
+$notif_resp = Penalis_Rest_Api::list_notifications();
+penalis_assert( $notif_resp instanceof WP_REST_Response, 'GET /notifications returns a REST response.' );
+$notif_data = $notif_resp->get_data();
+penalis_same( 7, $notif_data['unreadCount'], 'REST payload reports 7 unread notifications.' );
+penalis_same( 7, count( $notif_data['items'] ), 'REST payload returns 7 notification items.' );
+penalis_same( Penalis_Editorial_Policy::ACTION_APPROVE, $notif_data['items'][0]['type'], 'Newest notification is approve.' );
+
+$first_notif_id = $notif_data['items'][0]['id'];
+$mark_one_resp  = Penalis_Rest_Api::mark_notifications_read(
+	new WP_REST_Request( 'POST', '/penalis/v1/notifications/' . $first_notif_id . '/read', array( 'id' => $first_notif_id ) )
+);
+$mark_one_data = $mark_one_resp->get_data();
+penalis_same( 6, $mark_one_data['unreadCount'], 'Marking one notification read reduces unreadCount to 6.' );
+penalis_assert( true === $mark_one_data['items'][0]['isRead'], 'Marked notification reports isRead = true.' );
+
+$mark_all_resp = Penalis_Rest_Api::mark_notifications_read( new WP_REST_Request( 'POST', '/penalis/v1/notifications/read' ) );
+$mark_all_data = $mark_all_resp->get_data();
+penalis_same( 0, $mark_all_data['unreadCount'], 'Marking all notifications read reduces unreadCount to 0.' );
+
+// Cross-recipient isolation: even if a notification entry for writer 10's private article is
+// injected into writer 11's user meta, writer 11 cannot see or count it.
+penalis_editorial_post( 601, 10, 'pending' );
+$GLOBALS['penalis_test_posts'][601]->post_title = 'Judul Rahasia Penulis 10';
+update_user_meta(
+	11,
+	Penalis_Editorial_Policy::META_NOTIFICATIONS,
+	array(
+		array(
+			'id'         => 'notif_leaked',
+			'type'       => Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+			'article_id' => 601,
+			'message'    => 'Judul Rahasia Penulis 10 perlu revisi.',
+			'created_at' => 1700000500,
+			'read_at'    => 0,
+		),
+	)
+);
+penalis_same( 0, Penalis_Editorial_Notifications::count_unread( 11 ), 'Cross-writer notification is filtered out of unread counts.' );
+penalis_same( array(), Penalis_Editorial_Notifications::get_for_user( 11 ), 'Cross-writer notification is never returned to another writer.' );
+
+// Mail failure handling: when wp_mail fails, the editorial transition and dashboard notification
+// still succeed, and the email failure marker is recorded on the author's account.
+$GLOBALS['penalis_test_mail_fails'] = true;
+penalis_editorial_post( 602, 10, 'draft' );
+$GLOBALS['penalis_test_posts'][602]->post_title   = 'Puisi Saat Server Email Gangguan';
+$GLOBALS['penalis_test_posts'][602]->post_content = '<p>Isi puisi lengkap.</p>';
+
+$submit_with_mail_fail = Penalis_Editorial_Workflow::apply( 602, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_assert( ! is_wp_error( $submit_with_mail_fail ), 'Submission succeeds even when wp_mail fails.' );
+penalis_same(
+	Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+	Penalis_Editorial_Workflow::get_state( 602 ),
+	'Post transitions to pending_review despite mail failure.'
+);
+penalis_same(
+	'editorial_submit',
+	(string) get_user_meta( 10, Penalis_Account_Status::META_MAIL_CONTEXT, true ),
+	'Mail failure on submit records the editorial_submit failure context on the author.'
+);
+
+$decision_with_mail_fail = Penalis_Editorial_Workflow::apply(
+	602,
+	Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+	array(
+		'actor_id'       => 20,
+		'feedback'       => 'Revisi saat email gagal.',
+		'expected_cycle' => 1,
+	)
+);
+penalis_assert( ! is_wp_error( $decision_with_mail_fail ), 'Editorial decision succeeds even when wp_mail fails.' );
+penalis_same(
+	Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED,
+	Penalis_Editorial_Workflow::get_state( 602 ),
+	'Post transitions to changes_requested despite mail failure.'
+);
+penalis_same(
+	'editorial_request_changes',
+	(string) get_user_meta( 10, Penalis_Account_Status::META_MAIL_CONTEXT, true ),
+	'Mail failure on request_changes records the editorial_request_changes context on the author.'
+);
+penalis_same( 2, Penalis_Editorial_Notifications::count_unread( 10 ), 'Dashboard notifications are still recorded when wp_mail fails.' );
+unset( $GLOBALS['penalis_test_mail_fails'] );
 
 /* -------------------------------------------------------------------------
  * Report

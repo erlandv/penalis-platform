@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.7
+Stable tag: 0.2.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -46,10 +46,11 @@ Key features:
 * **Editorial review (V2).** Writers submit draft articles for administrator
   review instead of publishing directly. Approval under **Posts → Tinjauan
   Penalis** publishes the article; requested changes and rejections carry
-  feedback that appears in the writer dashboard. Published articles are
-  read-only to writers, while administrators retain direct editing access.
-  See EDITORIAL-WORKFLOW-ROADMAP.md for the phased plan (Phases 0–5 complete;
-  notifications in Phase 6).
+  feedback that appears in the writer dashboard. Submissions and review
+  decisions send branded email notifications and bounded in-dashboard
+  notifications. Published articles are read-only to writers, while
+  administrators retain direct editing access. See
+  EDITORIAL-WORKFLOW-ROADMAP.md for the phased plan (Phases 0–6 complete).
 
 This version targets WordPress 6.0 and PHP 7.4 as the minimums supported by
 the APIs and syntax used. Compatibility has been verified through repository
@@ -173,6 +174,25 @@ Screenshots are not provided yet.
 
 == Changelog ==
 
+= 0.2.8 =
+* Editorial workflow notifications (Phase 6). Submitting or resubmitting an
+  article emails the site administrator and records bounded dashboard
+  notifications; administrator review decisions (request changes, reject,
+  reopen, approve/publish) email the article owner and record a writer
+  dashboard notification.
+* New `penalis/v1` notification endpoints: `GET /notifications`,
+  `POST /notifications/read`, and `POST /notifications/{id}/read`.
+* The dashboard **Ringkasan** view now includes a **Notifikasi Tinjauan** panel
+  with read/unread states, unread count badge in navigation, and direct links
+  to the relevant article editor (or **Posts → Tinjauan Penalis** for reviewer
+  administrators).
+* Notification emails and dashboard notifications never expose private draft or
+  pending article body content, and cross-writer notification access is denied
+  both on write and on read.
+* Mail delivery failures during editorial transitions are recorded on the
+  author's account (`_penalis_last_email_failed_at` / `..._context`) without
+  rolling back the completed editorial decision.
+
 = 0.2.7 =
 * The writer dashboard now uses the V2 editorial review workflow. Direct publish
   and unpublish buttons are replaced by **Simpan Draf**, **Ajukan Tinjauan**
@@ -291,6 +311,11 @@ Screenshots are not provided yet.
   production build pipeline.
 
 == Upgrade Notice ==
+
+= 0.2.8 =
+Adds email and bounded dashboard notifications for article submissions,
+resubmissions, requested changes, rejections, reopenings, and publications. No
+content or user data is migrated.
 
 = 0.2.7 =
 Replaces the writer dashboard publish buttons with the V2 editorial submission
