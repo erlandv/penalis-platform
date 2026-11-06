@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, articlesApi } from '../../lib/api';
 import type { ArticleList, ArticleSummary } from '../../lib/types';
-import { formatDate, truncate } from '../../lib/format';
+import { editorialStateLabel, formatDate, truncate } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import {
@@ -20,8 +20,11 @@ import {
 
 const FILTERS = [
   { value: 'all', label: 'Semua' },
-  { value: 'publish', label: 'Terbit' },
   { value: 'draft', label: 'Draf' },
+  { value: 'pending_review', label: 'Menunggu tinjauan' },
+  { value: 'changes_requested', label: 'Perlu revisi' },
+  { value: 'rejected', label: 'Ditolak' },
+  { value: 'published', label: 'Terbit' },
 ];
 
 /**
@@ -32,8 +35,8 @@ const FILTERS = [
  */
 type PendingAction =
   | { kind: 'delete'; article: ArticleSummary }
-  | { kind: 'unpublish'; article: ArticleSummary }
-  | { kind: 'publish'; article: ArticleSummary }
+  | { kind: 'submit'; article: ArticleSummary }
+  | { kind: 'resubmit'; article: ArticleSummary }
   | null;
 
 export function Articles({
@@ -75,33 +78,54 @@ export function Articles({
     setPage(1);
   };
 
-  const publish = async (id: number) => {
+  const isStaleEditorialError = (caught: unknown): boolean => {
+    if (!(caught instanceof ApiError)) {
+      return false;
+    }
+
+    return (
+      caught.status === 409 ||
+      caught.code === 'penalis_editorial_denied' ||
+      caught.code === 'penalis_editorial_locked' ||
+      caught.code === 'penalis_editorial_busy'
+    );
+  };
+
+  const submitForReview = async (id: number) => {
     setBusyId(id);
     setError('');
     setNotice('');
     try {
-      await articlesApi.publish(id);
-      setNotice('Karya tulis diterbitkan.');
+      const result = await articlesApi.submit(id);
+      setNotice(result.message || 'Karya tulis kamu telah diajukan dan sedang menunggu tinjauan admin.');
       setPending(null);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat diterbitkan.');
+      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat diajukan untuk ditinjau.');
+      setPending(null);
+      if (isStaleEditorialError(caught)) {
+        await load();
+      }
     } finally {
       setBusyId(null);
     }
   };
 
-  const unpublish = async (id: number) => {
+  const resubmitForReview = async (id: number) => {
     setBusyId(id);
     setError('');
     setNotice('');
     try {
-      await articlesApi.unpublish(id);
-      setNotice('Karya tulis dikembalikan ke draf.');
+      const result = await articlesApi.resubmit(id);
+      setNotice(result.message || 'Revisi karya tulis kamu telah diajukan ulang untuk ditinjau admin.');
       setPending(null);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat dikembalikan ke draf.');
+      setError(caught instanceof ApiError ? caught.message : 'Revisi karya tulis tidak dapat diajukan ulang.');
+      setPending(null);
+      if (isStaleEditorialError(caught)) {
+        await load();
+      }
     } finally {
       setBusyId(null);
     }
@@ -118,17 +142,23 @@ export function Articles({
       await load();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat dihapus.');
+      setPending(null);
     } finally {
       setBusyId(null);
     }
   };
+
+  const activeFilterLabel = FILTERS.find((item) => item.value === status)?.label ?? status;
 
   return (
     <div className="penalis-stack">
       <div className="penalis-page-heading">
         <div>
           <h2>Daftar Karya Tulis</h2>
-          <p className="penalis-muted">Tinjau dan kelola daftar karya tulismu di sini.</p>
+          <p className="penalis-muted">
+            Tinjau dan kelola daftar karya tulismu di sini. Karya yang sudah terbit bersifat read-only; hubungi admin
+            jika memerlukan perubahan.
+          </p>
         </div>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onCreate}>
           Buat Karya Baru
@@ -161,7 +191,7 @@ export function Articles({
           description={
             status === 'all'
               ? 'Kamu belum menulis karya apa pun.'
-              : `Kamu tidak memiliki karya tulis dengan status “${status}”.`
+              : `Kamu tidak memiliki karya tulis dengan status “${activeFilterLabel}”.`
           }
           action={
             <button type="button" className="penalis-button penalis-button--primary" onClick={onCreate}>
@@ -186,9 +216,22 @@ export function Articles({
                   <td>
                     <strong>{article.title || 'Tanpa judul'}</strong>
                     <p className="penalis-muted">{truncate(article.excerpt, 100)}</p>
+                    {article.feedback ? (
+                      <p className="penalis-article-feedback-note">
+                        <strong>Catatan tinjauan:</strong> {truncate(article.feedback, 140)}
+                      </p>
+                    ) : null}
                   </td>
                   <td data-label="Status">
-                    <StatusBadge status={article.status} />
+                    <div className="penalis-status-cell">
+                      <StatusBadge
+                        status={article.editorialState}
+                        label={article.editorialStateLabel || editorialStateLabel(article.editorialState)}
+                      />
+                      {article.reviewCycle > 0 ? (
+                        <span className="penalis-table__submeta">Siklus {article.reviewCycle}</span>
+                      ) : null}
+                    </div>
                   </td>
                   <td data-label="Diubah">{formatDate(article.modified)}</td>
                   <td data-label="Tindakan">
@@ -206,13 +249,17 @@ export function Articles({
                         className="penalis-icon-button"
                         onClick={() => onEdit(article.id)}
                         disabled={busyId === article.id}
-                        aria-label={`Ubah “${article.title || 'Tanpa judul'}”`}
-                        title="Ubah"
+                        aria-label={
+                          article.canEdit
+                            ? `Ubah “${article.title || 'Tanpa judul'}”`
+                            : `Lihat detail “${article.title || 'Tanpa judul'}”`
+                        }
+                        title={article.canEdit ? 'Ubah' : 'Lihat detail'}
                       >
-                        <Icon name="edit" />
+                        <Icon name={article.canEdit ? 'edit' : 'eye'} />
                       </button>
 
-                      {article.link ? (
+                      {article.editorialState === 'published' && article.link ? (
                         <a
                           className="penalis-icon-button"
                           href={article.link}
@@ -225,40 +272,44 @@ export function Articles({
                         </a>
                       ) : null}
 
-                      {article.status === 'publish' ? (
+                      {article.canSubmit ? (
                         <button
                           type="button"
                           className="penalis-icon-button"
-                          onClick={() => setPending({ kind: 'unpublish', article })}
+                          onClick={() => setPending({ kind: 'submit', article })}
                           disabled={busyId === article.id}
-                          aria-label={`Batalkan terbit “${article.title || 'Tanpa judul'}”`}
-                          title="Batalkan terbit"
-                        >
-                          <Icon name="eyeOff" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="penalis-icon-button"
-                          onClick={() => setPending({ kind: 'publish', article })}
-                          disabled={busyId === article.id}
-                          aria-label={`Terbitkan “${article.title || 'Tanpa judul'}”`}
-                          title="Terbitkan"
+                          aria-label={`Ajukan tinjauan “${article.title || 'Tanpa judul'}”`}
+                          title="Ajukan tinjauan"
                         >
                           <Icon name="send" />
                         </button>
-                      )}
+                      ) : null}
 
-                      <button
-                        type="button"
-                        className="penalis-icon-button penalis-icon-button--danger"
-                        onClick={() => setPending({ kind: 'delete', article })}
-                        disabled={busyId === article.id}
-                        aria-label={`Hapus “${article.title || 'Tanpa judul'}”`}
-                        title="Hapus"
-                      >
-                        <Icon name="trash" />
-                      </button>
+                      {article.canResubmit ? (
+                        <button
+                          type="button"
+                          className="penalis-icon-button"
+                          onClick={() => setPending({ kind: 'resubmit', article })}
+                          disabled={busyId === article.id}
+                          aria-label={`Ajukan ulang “${article.title || 'Tanpa judul'}”`}
+                          title="Ajukan ulang"
+                        >
+                          <Icon name="send" />
+                        </button>
+                      ) : null}
+
+                      {article.editorialState !== 'published' && article.editorialState !== 'pending_review' ? (
+                        <button
+                          type="button"
+                          className="penalis-icon-button penalis-icon-button--danger"
+                          onClick={() => setPending({ kind: 'delete', article })}
+                          disabled={busyId === article.id}
+                          aria-label={`Hapus “${article.title || 'Tanpa judul'}”`}
+                          title="Hapus"
+                        >
+                          <Icon name="trash" />
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -276,10 +327,9 @@ export function Articles({
           description={
             <>
               <p>
-                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dihapus permanen beserta
-                gambarnya. Tindakan ini tidak dapat dibatalkan.
+                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dihapus permanen. Tindakan ini tidak
+                dapat dibatalkan.
               </p>
-              <p className="penalis-muted">Jika hanya ingin menyembunyikannya, gunakan “Batalkan terbit”.</p>
             </>
           }
           confirmLabel="Hapus permanen"
@@ -289,43 +339,47 @@ export function Articles({
         />
       ) : null}
 
-      {pending?.kind === 'unpublish' ? (
+      {pending?.kind === 'submit' ? (
         <ConfirmDialog
-          title="Batalkan terbit?"
+          title="Ajukan karya tulis untuk ditinjau?"
           description={
             <>
               <p>
-                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan kembali menjadi draf dan tidak
-                lagi tampil di situs. Karya tulisnya tetap tersimpan dan bisa diterbitkan lagi kapan saja.
+                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim ke antrean tinjauan admin
+                Penalis.
+              </p>
+              <p className="penalis-muted">
+                Selama proses tinjauan berlangsung, karya tulis dikunci dari perubahan sampai admin menyetujui,
+                meminta revisi, atau menolak pengajuan.
               </p>
             </>
           }
-          confirmLabel="Batalkan terbit"
+          confirmLabel="Ajukan Tinjauan"
           tone="warning"
           busy={busyId === pending.article.id}
-          onConfirm={() => void unpublish(pending.article.id)}
+          onConfirm={() => void submitForReview(pending.article.id)}
           onCancel={() => setPending(null)}
         />
       ) : null}
 
-      {pending?.kind === 'publish' ? (
+      {pending?.kind === 'resubmit' ? (
         <ConfirmDialog
-          title="Terbitkan karya tulis?"
+          title="Ajukan ulang revisi karya tulis?"
           description={
             <>
               <p>
-                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan langsung tampil di situs dan
-                dapat dibaca siapa saja.
+                Revisi untuk <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim kembali ke antrean
+                tinjauan admin Penalis.
               </p>
               <p className="penalis-muted">
-                Kamu masih bisa membatalkan terbit kapan saja jika ada yang perlu diperbaiki.
+                Pastikan kamu sudah memperbarui karya tulis sesuai catatan tinjauan admin sebelum mengajukannya ulang.
               </p>
             </>
           }
-          confirmLabel="Terbitkan"
+          confirmLabel="Ajukan Ulang"
           tone="warning"
           busy={busyId === pending.article.id}
-          onConfirm={() => void publish(pending.article.id)}
+          onConfirm={() => void resubmitForReview(pending.article.id)}
           onCancel={() => setPending(null)}
         />
       ) : null}

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { articlesApi, ApiError } from '../../lib/api';
 import type { Account, ArticleList } from '../../lib/types';
-import { formatDate } from '../../lib/format';
+import { editorialStateLabel, formatDate } from '../../lib/format';
 import { EmptyState, ErrorBanner, Spinner, StatusBadge } from '../../components/ui';
 
 export function Overview({
@@ -64,7 +64,7 @@ export function Overview({
           <h2>{account.displayName}</h2>
           <p className="penalis-muted">
             {account.canWrite
-              ? 'Di dashboard ini kamu dapat mengelola karya tulismu secara mandiri. Buat draft tulisan, publish saat kamu merasa sudah siap. Jadi, mau menulis apa hari ini?'
+              ? 'Di dasbor ini kamu dapat menulis draf karya tulis, mengajukannya untuk ditinjau admin, dan memantau status penerbitan karyamu di satu tempat.'
               : 'Akun Penalis kamu saat ini belum dapat mengelola karya tulis. Kamu dapat meninjau detail akun di bawah ini. Jika ada pertanyaan, hubungi admin Penalis.'}
           </p>
         </div>
@@ -76,6 +76,7 @@ export function Overview({
       <section className="penalis-cards" aria-label="Ringkasan karya tulis">
         <StatCard label="Total karya tulis" value={counts.all} />
         <StatCard label="Diterbitkan" value={counts.publish} />
+        <StatCard label="Menunggu tinjauan" value={counts.pending} />
         <StatCard label="Draf" value={counts.draft} />
       </section>
 
@@ -123,7 +124,10 @@ export function Overview({
                   <p className="penalis-muted">{article.excerpt}</p>
                 </div>
                 <div className="penalis-article-row__meta">
-                  <StatusBadge status={article.status} />
+                  <StatusBadge
+                    status={article.editorialState}
+                    label={article.editorialStateLabel || editorialStateLabel(article.editorialState)}
+                  />
                   <span>{formatDate(article.modified)}</span>
                 </div>
               </li>

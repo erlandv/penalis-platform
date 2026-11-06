@@ -249,9 +249,9 @@ must pass an administrator decision.
 Conversions never change the user ID and never touch their posts, so author
 archives keep working.
 
-### 4.6 Editorial workflow (V2, approved, not implemented)
+### 4.6 Editorial workflow (V2, Phases 1–5 implemented)
 
-Writers will stop publishing directly. WordPress post statuses stay `draft`,
+Writers do not publish directly. WordPress post statuses stay `draft`,
 `pending`, `publish`; the Penalis editorial state lives in post meta
 (`_penalis_editorial_state`): `draft`, `pending_review`, `changes_requested`,
 `rejected`, `published`.
@@ -385,26 +385,27 @@ and 3 per account per hour.
 
 ### 5.4 Writing and publishing
 
-> **V2 direction (partially implemented).** The server already refuses every
-> writer publish path and every writer edit of a published or under-review
-> article (Phase 3, version 0.2.5). The dashboard does not have the review
-> workflow screen yet, so the old publish buttons now surface a refusal message
-> until Phase 5. Track progress in `EDITORIAL-WORKFLOW-ROADMAP.md`.
+> **V2 direction (Phases 1–5 implemented).** The server refuses every writer
+> publish path and every writer edit of a published or under-review article
+> (Phase 3, version 0.2.5), administrators review submissions under **Posts ->
+> Tinjauan Penalis** (Phase 4, version 0.2.6), and the writer dashboard uses the
+> submit/resubmit/review workflow (Phase 5, version 0.2.7). Notifications land
+> in Phase 6. Track progress in `EDITORIAL-WORKFLOW-ROADMAP.md`.
 
-- The editor saves through **core** `/wp/v2/posts` (create/update) and
+- The editor saves drafts through **core** `/wp/v2/posts` (create/update) and
   `/wp/v2/posts/{id}?force=true` (delete). The plugin does not re-implement
   content CRUD.
 - Author is always derived server-side; the client never sends one.
-- Writers may save only `draft` content through the dashboard and may submit
-  it for review. Writers cannot edit or set any `publish` post through the
-  dashboard or direct REST requests. Ownership is enforced by capability
-  filtering, `map_meta_cap`, query forcing, and editorial workflow guards in
-  `Penalis_Access_Control`.
-- The articles list publishes/unpublishes through `penalis/v1`
-  (`/articles/{id}/publish`, `/unpublish`), and both routes now answer
-  `penalis_publish_forbidden` without touching the post. The editor still sends
-  a status through core `wp/v2/posts`, where a writer `status: publish` is
-  refused.
+- Writers may save only `draft` content through the dashboard and submit or
+  resubmit it for review via `POST /penalis/v1/articles/{id}/submit` and
+  `POST /penalis/v1/articles/{id}/resubmit`. Writers cannot edit or set any
+  `publish` post through the dashboard or direct REST requests. Ownership is
+  enforced by capability filtering, `map_meta_cap`, query forcing, and editorial
+  workflow guards in `Penalis_Access_Control`.
+- The legacy `/articles/{id}/publish` and `/unpublish` routes stay registered
+  and always answer `penalis_publish_forbidden` without touching the post. The
+  editor and articles list use `/articles/{id}/submit`, `/resubmit`, and
+  `/review`.
 - Markup is filtered by WordPress `wp_kses` (writers lack `unfiltered_html`).
   That is the only authority on allowed HTML.
 
@@ -558,16 +559,19 @@ profile fields); `require_active_writer` = `active` + access flag.
 | `/account/email/confirm` | POST | `confirm_email_change` | public (token) |
 | `/account/avatar` | POST, DELETE | `set_avatar`, `remove_avatar` | logged in |
 | `/articles` | GET | `list_articles` | active writer |
-| `/articles/{id}` | GET | `get_article` | active writer |
+| `/articles/{id}` | GET | `get_article` | active writer (owner or reviewer admin) |
+| `/articles/{id}/review` | GET | `get_article_review` | active writer (owner or reviewer admin) |
+| `/articles/{id}/submit` | POST | `submit_article` | active writer (owner) |
+| `/articles/{id}/resubmit` | POST | `resubmit_article` | active writer (owner) |
 | `/articles/{id}/publish` | POST | `reject_legacy_publish` | active writer (always refused) |
 | `/articles/{id}/unpublish` | POST | `reject_legacy_publish` | active writer (always refused) |
 | `/media` | GET | `list_media` | active writer |
 | `/tags` | POST | `create_tag` | active writer |
 
-Planned V2 additions (not implemented yet, see `EDITORIAL-WORKFLOW-ROADMAP.md`):
-`/articles/{id}/submit`, `/articles/{id}/resubmit`, `/articles/{id}/review`, and
-the administrator review routes under `/admin/articles/...`. The writer
-`publish`/`unpublish` routes are expected to be replaced by the submit flow.
+Administrator review decisions run on the nonce-protected wp-admin screen under
+**Posts -> Tinjauan Penalis** (`Penalis_Editorial_Admin`). The legacy writer
+`publish`/`unpublish` routes stay registered so stale bundles or direct API
+callers receive an explicit `penalis_publish_forbidden` refusal.
 
 Content CRUD goes through WordPress core instead:
 `wp/v2/posts`, `wp/v2/media`, `wp/v2/categories`, `wp/v2/tags`, `wp/v2/users/me`.

@@ -2395,6 +2395,181 @@ penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, Penalis_Editori
 penalis_same( 'Perbaiki paragraf pembuka.', Penalis_Editorial_Workflow::get_feedback( 403 ), 'A refused second decision does not overwrite the first feedback.' );
 
 /* -------------------------------------------------------------------------
+ * Writer dashboard workflow and REST surface (Phase 5)
+ * ---------------------------------------------------------------------- */
+
+// Dispatch guard allows writer submission and resubmission routes while keeping
+// the retired publish/unpublish routes blocked.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_writer( 11 );
+penalis_auth_account( 12, Penalis_Policy::STATUS_PENDING_APPROVAL );
+
+penalis_assert(
+	null === penalis_guard( 10, '/penalis/v1/articles/500/submit', 'POST' ),
+	'An active writer may reach the article submit route.'
+);
+penalis_assert(
+	null === penalis_guard( 10, '/penalis/v1/articles/500/resubmit', 'POST' ),
+	'An active writer may reach the article resubmit route.'
+);
+penalis_assert(
+	null === penalis_guard( 10, '/penalis/v1/articles/500/review', 'GET' ),
+	'An active writer may reach the article review route.'
+);
+penalis_same(
+	'penalis_rest_forbidden',
+	penalis_guard( 10, '/penalis/v1/articles/500/publish', 'POST' )->get_error_code(),
+	'The publish route stays blocked by the dispatch guard.'
+);
+penalis_same(
+	'penalis_rest_forbidden',
+	penalis_guard( 10, '/penalis/v1/articles/500/unpublish', 'POST' )->get_error_code(),
+	'The unpublish route stays blocked by the dispatch guard.'
+);
+penalis_same(
+	'penalis_account_inactive',
+	penalis_guard( 12, '/penalis/v1/articles/500/submit', 'POST' )->get_error_code(),
+	'A pending account cannot submit an article.'
+);
+
+// Query filtering by editorial state separates draft, changes_requested,
+// rejected, pending_review, and published.
+$all_args = Penalis_Rest_Api::editorial_query_args( 10, 'all', 1, 10 );
+penalis_same( array( 'publish', 'draft', 'pending', 'future' ), $all_args['post_status'], 'The all filter includes all dashboard post statuses.' );
+penalis_assert( ! isset( $all_args['meta_query'] ), 'The all filter does not add a meta query.' );
+
+$draft_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_DRAFT, 1, 10 );
+penalis_same( array( 'draft' ), $draft_args['post_status'], 'The draft filter queries draft posts.' );
+penalis_same( 'OR', $draft_args['meta_query']['relation'], 'The draft filter matches both legacy drafts without meta and explicit draft state.' );
+
+$changes_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, 1, 10 );
+penalis_same( array( 'draft' ), $changes_args['post_status'], 'Requested changes use the draft post status.' );
+penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, $changes_args['meta_query'][0]['value'], 'Requested changes filter by editorial state meta.' );
+
+$rejected_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_REJECTED, 1, 10 );
+penalis_same( array( 'draft' ), $rejected_args['post_status'], 'Rejected submissions use the draft post status.' );
+penalis_same( Penalis_Editorial_Policy::STATE_REJECTED, $rejected_args['meta_query'][0]['value'], 'Rejected submissions filter by editorial state meta.' );
+
+$pending_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_PENDING_REVIEW, 1, 10 );
+penalis_same( array( 'pending' ), $pending_args['post_status'], 'Pending review queries pending posts.' );
+
+$published_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_PUBLISHED, 1, 10 );
+penalis_same( array( 'publish' ), $published_args['post_status'], 'Published queries publish posts.' );
+
+// Incomplete drafts (missing title or content) cannot be submitted for review.
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_writer( 11 );
+penalis_editorial_admin( 20 );
+penalis_editorial_post( 500, 10, 'draft' );
+$GLOBALS['penalis_test_current_user'] = 10;
+
+$empty_submit = Penalis_Rest_Api::submit_article( new WP_REST_Request( 'POST', '/penalis/v1/articles/500/submit', array( 'id' => 500 ) ) );
+penalis_assert( is_wp_error( $empty_submit ), 'An empty draft cannot be submitted.' );
+penalis_same( 'penalis_editorial_incomplete', $empty_submit->get_error_code(), 'Submitting an empty draft returns the incomplete error code.' );
+penalis_same( 'draft', $GLOBALS['penalis_test_posts'][500]->post_status, 'A refused incomplete submission leaves the post in draft.' );
+
+$GLOBALS['penalis_test_posts'][500]->post_title   = 'Senja di Pelabuhan';
+$GLOBALS['penalis_test_posts'][500]->post_content = '<p>Puisi tentang laut dan pulang.</p>';
+
+// Full REST lifecycle: draft -> submit -> admin request changes -> resubmit -> admin approve.
+$initial_article = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/penalis/v1/articles/500', array( 'id' => 500 ) ) );
+penalis_assert( $initial_article instanceof WP_REST_Response, 'The owner may fetch their draft article.' );
+$initial_data = $initial_article->get_data();
+penalis_same( Penalis_Editorial_Policy::STATE_DRAFT, $initial_data['editorialState'], 'A new draft reports the draft editorial state.' );
+penalis_same( 'Draf', $initial_data['editorialStateLabel'], 'A new draft reports the Indonesian state label.' );
+penalis_assert( true === $initial_data['canEdit'], 'A draft is editable by its owner.' );
+penalis_assert( true === $initial_data['canSubmit'], 'A draft can be submitted by its owner.' );
+penalis_assert( false === $initial_data['canResubmit'], 'A draft cannot be resubmitted before a review.' );
+
+$submit_resp = Penalis_Rest_Api::submit_article( new WP_REST_Request( 'POST', '/penalis/v1/articles/500/submit', array( 'id' => 500 ) ) );
+penalis_assert( $submit_resp instanceof WP_REST_Response, 'A complete draft is accepted for review.' );
+$submit_data = $submit_resp->get_data();
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $submit_data['editorialState'], 'Submission moves the article to pending review.' );
+penalis_same( 'Menunggu tinjauan', $submit_data['editorialStateLabel'], 'Submission reports the pending review label.' );
+penalis_assert( false === $submit_data['canEdit'], 'A submission under review is locked from writer edits.' );
+penalis_assert( false === $submit_data['canSubmit'], 'A submission under review cannot be submitted again.' );
+penalis_assert( false === $submit_data['canResubmit'], 'A submission under review cannot be resubmitted.' );
+penalis_same( 1, $submit_data['reviewCycle'], 'Submission starts review cycle 1.' );
+penalis_same( 1, count( $submit_data['reviewHistory'] ), 'Submission records one review history entry.' );
+
+// Another writer cannot read or submit the pending submission (404, no existence leak).
+$GLOBALS['penalis_test_current_user'] = 11;
+$foreign_read = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/penalis/v1/articles/500', array( 'id' => 500 ) ) );
+penalis_assert( is_wp_error( $foreign_read ), 'Another writer cannot read the pending submission.' );
+penalis_same( 'penalis_not_found', $foreign_read->get_error_code(), 'Cross-writer article read answers 404.' );
+
+$foreign_review = Penalis_Rest_Api::get_article_review( new WP_REST_Request( 'GET', '/penalis/v1/articles/500/review', array( 'id' => 500 ) ) );
+penalis_assert( is_wp_error( $foreign_review ), 'Another writer cannot read the review history.' );
+penalis_same( 'penalis_not_found', $foreign_review->get_error_code(), 'Cross-writer review read answers 404.' );
+
+$foreign_submit = Penalis_Rest_Api::submit_article( new WP_REST_Request( 'POST', '/penalis/v1/articles/500/submit', array( 'id' => 500 ) ) );
+penalis_same( 'penalis_not_found', $foreign_submit->get_error_code(), 'Cross-writer submit attempt answers 404.' );
+
+// An administrator may read the pending submission and its review state.
+$GLOBALS['penalis_test_current_user'] = 20;
+$admin_review = Penalis_Rest_Api::get_article_review( new WP_REST_Request( 'GET', '/penalis/v1/articles/500/review', array( 'id' => 500 ) ) );
+penalis_assert( $admin_review instanceof WP_REST_Response, 'An administrator may read a pending submission review.' );
+penalis_assert( false === $admin_review->get_data()['canSubmit'], 'A non-owner administrator does not get writer submit flags.' );
+
+// Administrator requests changes; writer sees feedback and can edit + resubmit.
+Penalis_Editorial_Workflow::apply(
+	500,
+	Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+	array(
+		'actor_id'       => 20,
+		'feedback'       => 'Perkuat bait ketiga sebelum diterbitkan.',
+		'expected_cycle' => 1,
+	)
+);
+
+$GLOBALS['penalis_test_current_user'] = 10;
+$changes_review = Penalis_Rest_Api::get_article_review( new WP_REST_Request( 'GET', '/penalis/v1/articles/500/review', array( 'id' => 500 ) ) );
+$changes_data   = $changes_review->get_data();
+penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, $changes_data['editorialState'], 'Writer sees the requested-changes state.' );
+penalis_same( 'Perlu revisi', $changes_data['editorialStateLabel'], 'Writer sees the requested-changes label.' );
+penalis_same( 'Perkuat bait ketiga sebelum diterbitkan.', $changes_data['feedback'], 'Writer receives the reviewer feedback.' );
+penalis_assert( true === $changes_data['canEdit'], 'Writer may edit the article after requested changes.' );
+penalis_assert( false === $changes_data['canSubmit'], 'First-time submit is disabled on requested changes.' );
+penalis_assert( true === $changes_data['canResubmit'], 'Resubmit is enabled on requested changes.' );
+penalis_same( 2, count( $changes_data['reviewHistory'] ), 'Review history contains both submission and decision.' );
+penalis_same( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES, $changes_data['reviewHistory'][0]['action'], 'Review history is ordered newest first.' );
+
+// Calling initial submit on a changes_requested article is refused with 409.
+$wrong_action = Penalis_Rest_Api::submit_article( new WP_REST_Request( 'POST', '/penalis/v1/articles/500/submit', array( 'id' => 500 ) ) );
+penalis_assert( is_wp_error( $wrong_action ), 'Initial submit is refused when changes were requested.' );
+penalis_same( 'penalis_editorial_denied', $wrong_action->get_error_code(), 'Wrong action returns editorial denied.' );
+penalis_same( 409, $wrong_action->get_error_data()['status'], 'Wrong action answers 409 Conflict for stale-state handling.' );
+
+// Writer resubmits; feedback is cleared and cycle increments to 2.
+$resubmit_resp = Penalis_Rest_Api::resubmit_article( new WP_REST_Request( 'POST', '/penalis/v1/articles/500/resubmit', array( 'id' => 500 ) ) );
+penalis_assert( $resubmit_resp instanceof WP_REST_Response, 'The writer may resubmit after addressing feedback.' );
+$resubmit_data = $resubmit_resp->get_data();
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $resubmit_data['editorialState'], 'Resubmission moves back to pending review.' );
+penalis_same( 2, $resubmit_data['reviewCycle'], 'Resubmission increments the review cycle to 2.' );
+penalis_same( '', $resubmit_data['feedback'], 'Resubmission clears active feedback.' );
+
+// Administrator approves; published article becomes read-only to the writer.
+Penalis_Editorial_Workflow::apply(
+	500,
+	Penalis_Editorial_Policy::ACTION_APPROVE,
+	array(
+		'actor_id'       => 20,
+		'expected_cycle' => 2,
+	)
+);
+
+$published_review = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/penalis/v1/articles/500', array( 'id' => 500 ) ) );
+$published_data   = $published_review->get_data();
+penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, $published_data['editorialState'], 'Approved article reports the published state.' );
+penalis_same( 'Terbit', $published_data['editorialStateLabel'], 'Approved article reports the Terbit label.' );
+penalis_assert( false === $published_data['canEdit'], 'Published article is read-only to its writer.' );
+penalis_assert( false === $published_data['canSubmit'], 'Published article cannot be submitted.' );
+penalis_assert( false === $published_data['canResubmit'], 'Published article cannot be resubmitted.' );
+penalis_assert( '' !== $published_data['link'], 'Published article exposes its public permalink.' );
+
+/* -------------------------------------------------------------------------
  * Report
  * ---------------------------------------------------------------------- */
 

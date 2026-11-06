@@ -535,9 +535,9 @@ These are **not** verified against the live site:
 | Account status model | Implemented |
 | Registration/verification | Implemented |
 | Admin approval UI for account lifecycle | Implemented |
-| Editorial review workflow | Implemented server-side and in wp-admin (Phases 1–4); writer dashboard workflow planned |
-| REST hardening for editorial workflow | Implemented for writer publish and published-article editing (Phase 3); submit/review routes planned |
-| React dashboard | Implemented; editorial workflow changes planned |
+| Editorial review workflow | Implemented server-side, in wp-admin, and in the writer dashboard (Phases 1–5); notifications planned (Phase 6) |
+| REST hardening for editorial workflow | Implemented for writer publish, published-article editing, and submit/resubmit/review routes (Phases 3 & 5) |
+| React dashboard | Implemented, including V2 editorial submission, feedback, review history, and read-only published view (Phase 5) |
 | Build pipeline | Implemented |
 | Repository tests | Implemented |
 | Live WordPress integration | Not run (out of scope) |

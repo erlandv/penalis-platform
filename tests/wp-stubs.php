@@ -1303,3 +1303,126 @@ if ( ! class_exists( 'WP_REST_Server' ) ) {
 		public const DELETABLE = 'DELETE';
 	}
 }
+
+if ( ! class_exists( 'WP_REST_Response' ) ) {
+	/**
+	 * Minimal REST response double.
+	 */
+	class WP_REST_Response {
+		/** @var mixed */
+		private $data;
+		/** @var int */
+		private $status;
+		/** @var array<string,string> */
+		private $headers = array();
+
+		/**
+		 * Constructor.
+		 *
+		 * @param mixed $data   Response data.
+		 * @param int   $status HTTP status code.
+		 */
+		public function __construct( $data = null, $status = 200 ) {
+			$this->data   = $data;
+			$this->status = (int) $status;
+		}
+
+		/**
+		 * Response data.
+		 *
+		 * @return mixed
+		 */
+		public function get_data() {
+			return $this->data;
+		}
+
+		/**
+		 * HTTP status code.
+		 *
+		 * @return int
+		 */
+		public function get_status() {
+			return $this->status;
+		}
+
+		/**
+		 * Set a response header.
+		 *
+		 * @param string $key   Header name.
+		 * @param string $value Header value.
+		 * @return void
+		 */
+		public function header( $key, $value ) {
+			$this->headers[ (string) $key ] = (string) $value;
+		}
+	}
+}
+
+if ( ! function_exists( 'wp_get_post_terms' ) ) {
+	/**
+	 * Post terms stub.
+	 *
+	 * @param int   $post_id    Post ID.
+	 * @param array $taxonomies Taxonomies.
+	 * @param array $args       Arguments.
+	 * @return array
+	 */
+	function wp_get_post_terms( $post_id, $taxonomies = array(), $args = array() ) {
+		return array();
+	}
+}
+
+if ( ! function_exists( 'get_permalink' ) ) {
+	/**
+	 * Permalink stub.
+	 *
+	 * @param WP_Post|int $post Post or ID.
+	 * @return string
+	 */
+	function get_permalink( $post ) {
+		$id = $post instanceof WP_Post ? (int) $post->ID : (int) $post;
+		return 'https://example.com/?p=' . $id;
+	}
+}
+
+if ( ! function_exists( 'get_post_thumbnail_id' ) ) {
+	/**
+	 * Thumbnail ID stub.
+	 *
+	 * @param WP_Post|int $post Post or ID.
+	 * @return int
+	 */
+	function get_post_thumbnail_id( $post ) {
+		return 0;
+	}
+}
+
+if ( ! function_exists( 'get_the_post_thumbnail_url' ) ) {
+	/**
+	 * Thumbnail URL stub.
+	 *
+	 * @param WP_Post|int $post Post or ID.
+	 * @param string      $size Image size.
+	 * @return string
+	 */
+	function get_the_post_thumbnail_url( $post, $size = 'thumbnail' ) {
+		return '';
+	}
+}
+
+if ( ! function_exists( 'wp_trim_words' ) ) {
+	/**
+	 * Trim words stub.
+	 *
+	 * @param string $text      Text.
+	 * @param int    $num_words Max words.
+	 * @return string
+	 */
+	function wp_trim_words( $text, $num_words = 55 ) {
+		$words = preg_split( '/\s+/', trim( (string) $text ) );
+		if ( ! is_array( $words ) || count( $words ) <= $num_words ) {
+			return trim( (string) $text );
+		}
+		return implode( ' ', array_slice( $words, 0, $num_words ) ) . '…';
+	}
+}

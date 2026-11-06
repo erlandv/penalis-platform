@@ -1,7 +1,7 @@
 # Penalis Editorial Workflow V2 Roadmap
 
-Status: planning only — no implementation from this roadmap has started.
-Last updated: 2026-11-05 (published articles are writer-read-only).
+Status: in progress — Phases 0–5 complete; Phases 6–8 remaining.
+Last updated: 2026-11-06 (Phase 5 writer dashboard workflow complete).
 
 This document tracks the migration from direct writer publishing to admin review and curation. It is the implementation checklist for the V2 editorial workflow. Account registration, verification, legacy activation, login, profile, media, and dashboard authentication remain unchanged unless explicitly noted below.
 
@@ -273,13 +273,69 @@ Exit criteria: an administrator can complete every review decision without using
 
 ### Phase 5 — Writer dashboard workflow
 
-- [ ] Replace direct publish actions with save draft, submit, and resubmit actions.
-- [ ] Display editorial state, current feedback, and review history.
-- [ ] Explain that published articles are read-only for writers and changes must be requested from an administrator.
-- [ ] Hide or disable editing and submission actions that are invalid for the current state.
-- [ ] Show pending submissions only to the owner and administrators.
-- [ ] Add loading, empty, error, success, and stale-review states.
-- [ ] Keep all user-facing copy in Indonesian and preserve accessibility rules.
+- [x] Replace direct publish actions with save draft, submit, and resubmit actions.
+- [x] Display editorial state, current feedback, and review history.
+- [x] Explain that published articles are read-only for writers and changes must be requested from an administrator.
+- [x] Hide or disable editing and submission actions that are invalid for the current state.
+- [x] Show pending submissions only to the owner and administrators.
+- [x] Add loading, empty, error, success, and stale-review states.
+- [x] Keep all user-facing copy in Indonesian and preserve accessibility rules.
+
+Implemented across `Penalis_Rest_Api`, `Penalis_Access_Control`, and the React
+dashboard (`Overview`, `Articles`, `Editor`, `RichTextEditor`):
+
+- REST endpoints in `penalis/v1`:
+  - `GET /articles/{id}/review` returns editorial state, state label, edit/submit
+    capability flags, latest feedback, review cycle, submission/review timestamps,
+    and bounded review history (newest first, with Indonesian action labels and
+    actor display names). Readable only by the owner and reviewer administrators;
+    another writer receives `404 penalis_not_found`.
+  - `POST /articles/{id}/submit` and `POST /articles/{id}/resubmit` are owner-only
+    and allow-listed on `POST` in `Penalis_Access_Control::guard_rest_request()`.
+    Both validate that the article has a non-empty title and content
+    (`400 penalis_editorial_incomplete`) before calling
+    `Penalis_Editorial_Workflow::apply()`.
+  - `GET /articles` and `GET /articles/{id}` now include editorial state, capability
+    flags, feedback, review cycle, and review history, and `GET /articles` filters
+    accurately across `all`, `draft`, `pending_review` (`pending`),
+    `changes_requested`, `rejected`, and `published` (`publish`).
+  - `GET /account` counts now include `pending`, `changes_requested`, and
+    `rejected` alongside `all`, `publish`, and `draft`.
+- Dashboard editor (`src/features/editor/Editor.tsx`,
+  `src/features/editor/RichTextEditor.tsx`):
+  - Direct publish actions are replaced with **Simpan Draf**, **Ajukan Tinjauan**
+    (for `draft`), and **Ajukan Ulang** (for `changes_requested`) with a
+    confirmation dialog. Unsaved draft edits are saved before submitting.
+  - Explanatory Indonesian banners describe `published` (read-only for writers;
+    changes must be requested from an administrator), `pending_review`,
+    `changes_requested`, and `rejected`.
+  - All form controls and the TipTap editor switch to read-only mode when
+    `!canEdit`.
+  - A **Catatan Tinjauan Admin** card shows the current reviewer feedback, and a
+    sidebar **Status Tinjauan** + **Riwayat Tinjauan** card shows the state,
+    review cycle, timestamps, refresh button, and bounded history.
+  - Stale or concurrent review conflicts (`409`, `penalis_editorial_denied`,
+    `penalis_editorial_locked`, `penalis_editorial_busy`) surface a stale-state
+    banner with a one-click reload action.
+- Articles list (`src/features/articles/Articles.tsx`) and overview
+  (`src/features/overview/Overview.tsx`):
+  - Filter tabs cover **Semua**, **Draf**, **Menunggu tinjauan**, **Perlu revisi**,
+    **Ditolak**, and **Terbit**, with inline review feedback notes and cycle
+    indicators.
+  - Row actions show **Ubah** or **Lihat detail** based on `canEdit`, offer
+    **Ajukan tinjauan** / **Ajukan ulang** only when valid for the current state,
+    and hide **Hapus** on published and under-review articles.
+  - The overview hero copy and stat cards reflect the editorial review workflow
+    and show the **Menunggu tinjauan** count.
+
+Evidence: `php tests/run-tests.php` → 791 assertions passed; `phpcs` clean;
+`npm run check` passes (74 Vitest tests, build OK).
+
+Known limitations at the end of this phase:
+
+- Email and in-dashboard notifications for submission and review decisions land
+  in Phase 6.
+- No live browser verification has been run for this phase.
 
 Exit criteria: a writer can create, submit, revise, resubmit, and understand every state from the dashboard, while published articles stay read-only.
 
@@ -328,6 +384,7 @@ Exit criteria: the plugin is ready for owner review and a later staging deployme
 | 2026-11-06 | Phase 2 | Editorial workflow persistence implemented | `includes/class-editorial-workflow.php`; post/post-meta test doubles in `tests/wp-stubs.php`; 600 assertions, `composer lint` clean |
 | 2026-11-06 | Phase 3 | Writer publish and published-article editing blocked server-side | `class-access-control.php`, `class-rest-api.php`, `class-editorial-policy.php`, `class-editorial-workflow.php`; 693 assertions, phpcs clean, `npm run check` OK; version 0.2.5 |
 | 2026-11-06 | Phase 4 | Administrator review screen and serialized decisions | `includes/class-editorial-admin.php`, per-post advisory lock in `class-editorial-workflow.php`; 730 assertions, phpcs clean, `npm run check` OK; version 0.2.6 |
+| 2026-11-06 | Phase 5 | Writer dashboard editorial workflow and submit/resubmit/review REST routes | `class-rest-api.php`, `class-access-control.php`, `Editor.tsx`, `RichTextEditor.tsx`, `Articles.tsx`, `Overview.tsx`; 791 assertions, phpcs clean, `npm run check` 74 tests + build OK; version 0.2.7 |
 
 ## Explicit non-goals for V2
 

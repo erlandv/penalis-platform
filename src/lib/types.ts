@@ -49,6 +49,48 @@ export interface AccountCounts {
   publish: number;
   draft: number;
   pending: number;
+  changes_requested?: number;
+  rejected?: number;
+}
+
+export type EditorialState =
+  | 'draft'
+  | 'pending_review'
+  | 'changes_requested'
+  | 'rejected'
+  | 'published';
+
+export type EditorialAction =
+  | 'submit'
+  | 'resubmit'
+  | 'request_changes'
+  | 'reject'
+  | 'reopen'
+  | 'approve';
+
+export interface ReviewHistoryEntry {
+  action: EditorialAction | string;
+  actionLabel: string;
+  actorName: string;
+  createdAt: string;
+  reviewCycle: number;
+  feedback: string;
+}
+
+export interface ArticleReview {
+  id: number;
+  status: string;
+  editorialState: EditorialState;
+  editorialStateLabel: string;
+  canEdit: boolean;
+  canSubmit: boolean;
+  canResubmit: boolean;
+  feedback: string;
+  reviewCycle: number;
+  submittedAt: string;
+  reviewedAt: string;
+  reviewHistory: ReviewHistoryEntry[];
+  message?: string;
 }
 
 export interface Account {
@@ -87,6 +129,15 @@ export interface ArticleSummary {
   title: string;
   excerpt: string;
   status: string;
+  editorialState: EditorialState;
+  editorialStateLabel: string;
+  canEdit: boolean;
+  canSubmit: boolean;
+  canResubmit: boolean;
+  feedback: string;
+  reviewCycle: number;
+  submittedAt: string;
+  reviewedAt: string;
   date: string;
   modified: string;
   link: string;
@@ -114,6 +165,16 @@ export interface Article {
   content: string;
   excerpt: string;
   status: string;
+  editorialState: EditorialState;
+  editorialStateLabel: string;
+  canEdit: boolean;
+  canSubmit: boolean;
+  canResubmit: boolean;
+  feedback: string;
+  reviewCycle: number;
+  submittedAt: string;
+  reviewedAt: string;
+  reviewHistory: ReviewHistoryEntry[];
   date: string;
   modified: string;
   link: string;

@@ -124,10 +124,19 @@ Implemented in version 0.2.5 (Phase 3):
 - `Penalis_Editorial_Workflow::apply()` re-checks account status and ownership,
   so a direct service call cannot bypass the REST layer.
 
-Not yet implemented: the writer submit/review routes and the dashboard review
-screen (Phase 5). Reviewer decisions are serialized per post with a MySQL
-advisory lock and the post is re-read inside it, so two administrators cannot
-both decide the same round of review.
+Implemented in versions 0.2.6–0.2.7 (Phases 4–5):
+
+- Reviewer decisions in **Posts → Tinjauan Penalis** are serialized per post
+  with a MySQL advisory lock and the post is re-read inside it, so two
+  administrators cannot both decide the same round of review.
+- `POST /penalis/v1/articles/{id}/submit` and `/resubmit` are allow-listed on
+  `POST` for active writers, require ownership (`get_owned_article` returns 404
+  for any other user's article), and require a non-empty title and content
+  before transitioning.
+- `GET /penalis/v1/articles/{id}` and `GET /penalis/v1/articles/{id}/review`
+  use `get_readable_article()`, which permits only the article owner and
+  reviewer administrators (`Penalis_Editorial_Workflow::can_review()`); any
+  other writer receives `404 penalis_not_found`.
 
 ### Layered enforcement
 

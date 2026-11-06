@@ -47,11 +47,12 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 - Article editor with a WYSIWYG surface (TipTap), title, categories, tags,
   featured image, and image upload/insertion. The excerpt is left to WordPress
   and SEO plugins, so it is not part of the form.
-- Draft saving. Writers cannot publish: the server refuses every writer publish
-  path and every writer edit of a published or under-review article (version
-  0.2.5). Submission for administrator review and the review screen are the
-  remaining V2 work; until they land, the dashboard's publish buttons surface
-  the refusal message.
+- Draft saving and editorial submission. Writers save drafts, submit them for
+  administrator review (`Ajukan Tinjauan`), revise and resubmit when changes are
+  requested (`Ajukan Ulang`), and view reviewer feedback and bounded review
+  history inside the editor and articles list. Published articles are read-only
+  for writers; only an administrator approval under **Posts → Tinjauan Penalis**
+  may publish a submission.
 - Writer profile with first name, last name, and a public name choice: first +
   last, first only, last only, username, or a custom pen name.
 - Profile photo selection from the writer's own media library, using the same
@@ -183,6 +184,9 @@ penalis-platform/
 │   ├── class-activator.php     Non-destructive activation
 │   ├── class-deactivator.php   Transient cleanup only
 │   ├── class-policy.php        Pure, testable policy rules
+│   ├── class-editorial-policy.php Pure V2 editorial rules and state machine
+│   ├── class-editorial-workflow.php V2 editorial persistence and serialized transitions
+│   ├── class-editorial-admin.php Posts → Tinjauan Penalis review screen
 │   ├── class-account-status.php Status persistence and transitions
 │   ├── class-roles.php         Writer role and capabilities
 │   ├── class-access-control.php Login, capability, and REST hardening

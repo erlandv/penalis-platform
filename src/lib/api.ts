@@ -12,6 +12,7 @@ import type {
   ApiErrorShape,
   Article,
   ArticleList,
+  ArticleReview,
   DisplayNameMode,
   FieldErrors,
   MediaItem,
@@ -248,12 +249,20 @@ export const articlesApi = {
       tags: article.tags.map(decodeTermName),
     })),
 
-  publish: (id: number) => request<{ id: number }>(`/articles/${id}/publish`, { method: 'POST' }),
+  /** Fetch the editorial review state, feedback, and review history for an article. */
+  review: (id: number) => request<ArticleReview>(`/articles/${id}/review`),
 
-  unpublish: (id: number) => request<{ id: number }>(`/articles/${id}/unpublish`, { method: 'POST' }),
+  /** Submit an owned draft article for administrator editorial review. */
+  submit: (id: number) => request<ArticleReview>(`/articles/${id}/submit`, { method: 'POST' }),
+
+  /** Resubmit an owned article after administrator requested changes. */
+  resubmit: (id: number) => request<ArticleReview>(`/articles/${id}/resubmit`, { method: 'POST' }),
 
   /**
-   * Create or update through the native WordPress posts endpoint.
+   * Create or update a draft through the native WordPress posts endpoint.
+   *
+   * Writers may only save drafts; publication is reserved for administrator
+   * approval in the editorial review workflow.
    *
    * The author is always derived server-side; it is never sent by the client.
    *
@@ -265,7 +274,7 @@ export const articlesApi = {
     id?: number;
     title: string;
     content: string;
-    status: 'draft' | 'publish';
+    status: 'draft';
     categories: number[];
     tags: number[];
     featured_media: number;

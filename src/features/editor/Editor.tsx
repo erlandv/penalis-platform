@@ -8,8 +8,17 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { ApiError, articlesApi, mediaApi, taxonomyApi } from '../../lib/api';
+import { editorialStateLabel as formatEditorialStateLabel, formatDate } from '../../lib/format';
 import { trimTrailingEmptyParagraphs } from '../../lib/html';
-import type { Article, FieldErrors, MediaItem, Term } from '../../lib/types';
+import type {
+  Article,
+  ArticleReview,
+  EditorialState,
+  FieldErrors,
+  MediaItem,
+  ReviewHistoryEntry,
+  Term,
+} from '../../lib/types';
 import { hasErrors, validateArticle } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../components/ui';
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
@@ -28,8 +37,6 @@ import type { RichTextEditorHandle } from './RichTextEditor';
 const RichTextEditor = lazy(() =>
   import('./RichTextEditor').then((module) => ({ default: module.RichTextEditor })),
 );
-
-type SaveStatus = 'draft' | 'publish';
 
 /**
  * What the media picker should do with the chosen image.
@@ -98,6 +105,19 @@ export function Editor({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('draft');
+  const [editorialState, setEditorialState] = useState<EditorialState>('draft');
+  const [editorialStateLabel, setEditorialStateLabel] = useState('Draf');
+  const [canEdit, setCanEdit] = useState(true);
+  const [canSubmit, setCanSubmit] = useState(true);
+  const [canResubmit, setCanResubmit] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [reviewCycle, setReviewCycle] = useState(0);
+  const [submittedAt, setSubmittedAt] = useState('');
+  const [reviewedAt, setReviewedAt] = useState('');
+  const [reviewHistory, setReviewHistory] = useState<ReviewHistoryEntry[]>([]);
+  const [link, setLink] = useState('');
+  const [staleReview, setStaleReview] = useState(false);
+
   const [categories, setCategories] = useState<Term[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [selectedTags, setSelectedTags] = useState<Term[]>([]);
@@ -123,11 +143,10 @@ export function Editor({
   const [previewOpen, setPreviewOpen] = useState(false);
 
   /**
-   * Publishing is irreversible from the reader's point of view — the article
-   * becomes public the moment it succeeds — so it asks for confirmation first,
-   * matching the publish action in the articles list.
+   * Submitting an article locks it while administrators review it, so the
+   * writer confirms before sending the draft or revision into the queue.
    */
-  const [publishConfirmOpen, setPublishConfirmOpen] = useState(false);
+  const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
 
   /**
    * Snapshot of the last persisted state, used to tell whether the writer has
@@ -152,7 +171,22 @@ export function Editor({
     [title, content, status, selectedCategories, selectedTags, featuredMedia],
   );
 
-  const isDirty = currentSnapshot !== savedSnapshot;
+  const isDirty = canEdit && currentSnapshot !== savedSnapshot;
+
+  const applyReviewState = useCallback((review: ArticleReview) => {
+    setStatus(review.status);
+    setEditorialState(review.editorialState);
+    setEditorialStateLabel(review.editorialStateLabel || formatEditorialStateLabel(review.editorialState));
+    setCanEdit(review.canEdit);
+    setCanSubmit(review.canSubmit);
+    setCanResubmit(review.canResubmit);
+    setFeedback(review.feedback ?? '');
+    setReviewCycle(review.reviewCycle ?? 0);
+    setSubmittedAt(review.submittedAt ?? '');
+    setReviewedAt(review.reviewedAt ?? '');
+    setReviewHistory(review.reviewHistory ?? []);
+    setStaleReview(false);
+  }, []);
 
   const load = useCallback(async () => {
     if (!articleId) {
@@ -161,6 +195,7 @@ export function Editor({
 
     setLoading(true);
     setLoadError('');
+    setStaleReview(false);
 
     try {
       const article: Article = await articlesApi.get(articleId);
@@ -168,6 +203,17 @@ export function Editor({
       setTitle(article.title);
       setContent(article.content);
       setStatus(article.status);
+      setEditorialState(article.editorialState);
+      setEditorialStateLabel(article.editorialStateLabel || formatEditorialStateLabel(article.editorialState));
+      setCanEdit(article.canEdit);
+      setCanSubmit(article.canSubmit);
+      setCanResubmit(article.canResubmit);
+      setFeedback(article.feedback ?? '');
+      setReviewCycle(article.reviewCycle ?? 0);
+      setSubmittedAt(article.submittedAt ?? '');
+      setReviewedAt(article.reviewedAt ?? '');
+      setReviewHistory(article.reviewHistory ?? []);
+      setLink(article.link ?? '');
       setSelectedCategories(article.categories.map((term) => term.id));
       setSelectedTags(article.tags);
 
@@ -179,6 +225,9 @@ export function Editor({
         } catch {
           // A missing preview is not fatal; the ID is still preserved.
         }
+      } else {
+        setFeaturedMedia(0);
+        setFeaturedPreview('');
       }
 
       // Baseline for the dirty check: the article as it exists on the server.
@@ -198,6 +247,26 @@ export function Editor({
       setLoading(false);
     }
   }, [articleId]);
+
+  const refreshReviewState = useCallback(async () => {
+    if (!id) {
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setNotice('');
+
+    try {
+      const review = await articlesApi.review(id);
+      applyReviewState(review);
+      setNotice('Status tinjauan terbaru berhasil dimuat.');
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Status tinjauan terbaru tidak dapat dimuat.');
+    } finally {
+      setSaving(false);
+    }
+  }, [id, applyReviewState]);
 
   useEffect(() => {
     void load();
@@ -249,7 +318,7 @@ export function Editor({
     setSelectedMediaId(null);
   }, []);
   const closePreview = useCallback(() => setPreviewOpen(false), []);
-  const closePublishConfirm = useCallback(() => setPublishConfirmOpen(false), []);
+  const closeSubmitConfirm = useCallback(() => setSubmitConfirmOpen(false), []);
 
   /**
    * Open the media picker for a specific purpose.
@@ -335,9 +404,27 @@ export function Editor({
     }
   };
 
-  const save = async (nextStatus: SaveStatus) => {
+  const isStaleEditorialError = (caught: unknown): boolean => {
+    if (!(caught instanceof ApiError)) {
+      return false;
+    }
+
+    return (
+      caught.status === 409 ||
+      caught.code === 'penalis_editorial_denied' ||
+      caught.code === 'penalis_editorial_locked' ||
+      caught.code === 'penalis_editorial_busy'
+    );
+  };
+
+  const saveDraft = async () => {
+    if (!canEdit) {
+      return;
+    }
+
     setError('');
     setNotice('');
+    setStaleReview(false);
 
     // TipTap keeps an empty trailing paragraph after block nodes so the writer
     // can keep typing. Drop it from what is sent to WordPress.
@@ -346,9 +433,7 @@ export function Editor({
     const clientErrors = validateArticle({ title, content: payloadContent });
     if (hasErrors(clientErrors)) {
       setErrors(clientErrors);
-      // Close the confirmation so the field errors are not hidden behind the
-      // modal overlay; the writer needs to see which field to fix.
-      setPublishConfirmOpen(false);
+      setSubmitConfirmOpen(false);
       return;
     }
     setErrors({});
@@ -359,7 +444,7 @@ export function Editor({
         id,
         title: title.trim(),
         content: payloadContent,
-        status: nextStatus,
+        status: 'draft',
         categories: selectedCategories,
         tags: selectedTags.map((term) => term.id),
         featured_media: featuredMedia,
@@ -367,7 +452,7 @@ export function Editor({
 
       setId(result.id);
       setStatus(result.status);
-      setNotice(nextStatus === 'publish' ? 'Artikel Anda telah diterbitkan.' : 'Perubahan Anda telah disimpan.');
+      setNotice('Draf karya tulis telah disimpan.');
       // The server may normalise the payload (kses filtering, slug, status),
       // so the baseline is rebuilt from what was actually sent plus the status
       // the server reported back.
@@ -382,17 +467,95 @@ export function Editor({
         }),
       );
       setSavedAt(new Date());
-      setPublishConfirmOpen(false);
       onSaved(result.id);
     } catch (caught) {
+      if (isStaleEditorialError(caught)) {
+        setStaleReview(true);
+      }
       if (caught instanceof ApiError) {
         setErrors(caught.fields);
         setError(caught.message);
       } else {
-        setError('Artikel tidak dapat disimpan.');
+        setError('Draf karya tulis tidak dapat disimpan.');
       }
-      // Surface the failure instead of leaving it behind the modal overlay.
-      setPublishConfirmOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitForReview = async () => {
+    if (!canEdit || (!canSubmit && !canResubmit)) {
+      return;
+    }
+
+    setError('');
+    setNotice('');
+    setStaleReview(false);
+
+    const payloadContent = trimTrailingEmptyParagraphs(content);
+    const clientErrors = validateArticle({ title, content: payloadContent });
+    if (hasErrors(clientErrors)) {
+      setErrors(clientErrors);
+      setSubmitConfirmOpen(false);
+      return;
+    }
+    setErrors({});
+    setSaving(true);
+
+    try {
+      let targetId = id;
+
+      // Persist any unsaved draft edits before handing the article to the
+      // editorial workflow service.
+      if (!targetId || isDirty) {
+        const saved = await articlesApi.save({
+          id: targetId,
+          title: title.trim(),
+          content: payloadContent,
+          status: 'draft',
+          categories: selectedCategories,
+          tags: selectedTags.map((term) => term.id),
+          featured_media: featuredMedia,
+        });
+        targetId = saved.id;
+        setId(saved.id);
+      }
+
+      const review = canResubmit
+        ? await articlesApi.resubmit(targetId)
+        : await articlesApi.submit(targetId);
+
+      applyReviewState(review);
+      setSavedSnapshot(
+        snapshotOf({
+          title,
+          content: payloadContent,
+          status: review.status,
+          categories: selectedCategories,
+          tags: selectedTags.map((term) => term.id),
+          featuredMedia,
+        }),
+      );
+      setSavedAt(new Date());
+      setNotice(
+        review.message ||
+        (canResubmit
+          ? 'Revisi karya tulis kamu telah diajukan ulang untuk ditinjau admin.'
+          : 'Karya tulis kamu telah diajukan dan sedang menunggu tinjauan admin.'),
+      );
+      setSubmitConfirmOpen(false);
+      onSaved(targetId);
+    } catch (caught) {
+      if (isStaleEditorialError(caught)) {
+        setStaleReview(true);
+      }
+      if (caught instanceof ApiError) {
+        setErrors(caught.fields);
+        setError(caught.message);
+      } else {
+        setError('Karya tulis tidak dapat diajukan untuk ditinjau.');
+      }
+      setSubmitConfirmOpen(false);
     } finally {
       setSaving(false);
     }
@@ -400,7 +563,7 @@ export function Editor({
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    void save('draft');
+    void saveDraft();
   };
 
   /**
@@ -479,8 +642,11 @@ export function Editor({
           Kembali ke daftar karya
         </button>
         <div className="penalis-editor-heading__title">
-          <h2>{id ? 'Edit Karya Tulis' : 'Buat Karya Tulis'}</h2>
-          <StatusBadge status={status} />
+          <h2>{!id ? 'Buat Karya Tulis' : canEdit ? 'Edit Karya Tulis' : 'Detail Karya Tulis'}</h2>
+          <StatusBadge
+            status={editorialState}
+            label={editorialStateLabel || formatEditorialStateLabel(editorialState)}
+          />
         </div>
       </div>
 
@@ -493,8 +659,10 @@ export function Editor({
           {saving ? (
             <>
               <span className="penalis-spinner" aria-hidden="true" />
-              Menyimpan…
+              Memproses…
             </>
+          ) : !canEdit ? (
+            `Read-only mode (${editorialStateLabel || formatEditorialStateLabel(editorialState)})`
           ) : isDirty ? (
             'Belum disimpan'
           ) : savedAt ? (
@@ -506,38 +674,108 @@ export function Editor({
 
         <div className="penalis-action-bar__actions">
           <button type="button" className="penalis-button penalis-button--ghost" onClick={() => setPreviewOpen(true)}>
-            Preview
+            Pratinjau
           </button>
-          <button
-            type="button"
-            className="penalis-button penalis-button--soft"
-            onClick={() => void save(status === 'publish' ? 'publish' : 'draft')}
-            disabled={saving || !isDirty}
-          >
-            {saving ? 'Menyimpan…' : status === 'publish' ? 'Simpan Perubahan' : 'Simpan Draft'}
-          </button>
-          {/*
-            The publish slot is always rendered so the action group keeps the
-            same width in every state; it is disabled rather than removed once
-            the article is already published.
-          */}
-          <button
-            type="button"
-            className="penalis-button penalis-button--primary"
-            onClick={() => setPublishConfirmOpen(true)}
-            disabled={saving || status === 'publish'}
-            title={status === 'publish' ? 'Karya tulis ini sudah publish' : undefined}
-          >
-            Publish
-          </button>
+          {editorialState === 'published' && link ? (
+            <a
+              className="penalis-button penalis-button--ghost"
+              href={link}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              <Icon name="externalLink" />
+              Lihat di Situs
+            </a>
+          ) : null}
+          {canEdit ? (
+            <button
+              type="button"
+              className="penalis-button penalis-button--soft"
+              onClick={() => void saveDraft()}
+              disabled={saving || !isDirty}
+            >
+              {saving ? 'Menyimpan…' : 'Simpan Draf'}
+            </button>
+          ) : null}
+          {canEdit && (canSubmit || canResubmit) ? (
+            <button
+              type="button"
+              className="penalis-button penalis-button--primary"
+              onClick={() => setSubmitConfirmOpen(true)}
+              disabled={saving}
+            >
+              {canResubmit ? 'Ajukan Ulang' : 'Ajukan Tinjauan'}
+            </button>
+          ) : null}
         </div>
       </div>
+
+      {editorialState === 'published' ? (
+        <Notice tone="info">
+          <strong>Karya tulis sudah publish (read-only mode).</strong> Karya yang telah publish tidak dapat diubah oleh
+          penulis. Jika ada perubahan atau perbaikan yang diperlukan, silakan ajukan permintaan kepada admin Penalis.
+        </Notice>
+      ) : null}
+
+      {editorialState === 'pending_review' ? (
+        <Notice tone="info">
+          <strong>Sedang menunggu tinjauan admin.</strong> Karya tulis ini sedang berada dalam antrean tinjauan
+          {reviewCycle > 0 ? ` (siklus ${reviewCycle})` : ''} dan dikunci sementara agar isi yang ditinjau admin tetap
+          konsisten.
+        </Notice>
+      ) : null}
+
+      {editorialState === 'changes_requested' ? (
+        <Notice tone="warning">
+          <strong>Perlu revisi dari penulis.</strong> Admin telah meninjau karya tulis ini dan memberikan catatan
+          perbaikan. Silakan perbarui karya tulismu sesuai catatan di bawah, simpan draf bila perlu, lalu klik{' '}
+          <strong>Ajukan Ulang</strong>.
+        </Notice>
+      ) : null}
+
+      {editorialState === 'rejected' ? (
+        <Notice tone="warning">
+          <strong>Pengajuan karya tulis ditolak.</strong> Karya tulis ini dikunci dan tidak dapat diajukan ulang kecuali
+          admin membukanya kembali untuk revisi.
+        </Notice>
+      ) : null}
+
+      {staleReview ? (
+        <Notice tone="warning">
+          <div className="penalis-stale-banner">
+            <span>
+              Status tinjauan karya tulis ini telah berubah di server. Muat ulang data terbaru sebelum melanjutkan.
+            </span>
+            <button
+              type="button"
+              className="penalis-button penalis-button--ghost"
+              onClick={() => void (id ? load() : refreshReviewState())}
+              disabled={saving}
+            >
+              Muat ulang status terbaru
+            </button>
+          </div>
+        </Notice>
+      ) : null}
 
       {error ? <ErrorBanner message={error} /> : null}
       {notice ? <Notice tone="success">{notice}</Notice> : null}
 
       <div className="penalis-editor">
         <div className="penalis-editor__main">
+          {feedback ? (
+            <section className="penalis-panel penalis-editorial-feedback" aria-label="Catatan tinjauan admin">
+              <div className="penalis-panel__header">
+                <h3>Catatan Tinjauan Admin</h3>
+                {reviewCycle > 0 ? <span className="penalis-muted">Siklus {reviewCycle}</span> : null}
+              </div>
+              <p className="penalis-editorial-feedback__body">{feedback}</p>
+              {reviewedAt ? (
+                <p className="penalis-fineprint">Ditinjau pada {formatDate(reviewedAt)}</p>
+              ) : null}
+            </section>
+          ) : null}
+
           <label className="penalis-field">
             <span>Judul Karya Tulis</span>
             <input
@@ -546,6 +784,8 @@ export function Editor({
               onChange={(event) => setTitle(event.target.value)}
               maxLength={200}
               placeholder="Judul karya kamu"
+              readOnly={!canEdit}
+              disabled={!canEdit}
               aria-invalid={Boolean(errors.title)}
             />
             <FieldError errors={errors} name="title" />
@@ -570,6 +810,8 @@ export function Editor({
                     onChange={(event) => setContent(event.target.value)}
                     rows={18}
                     spellCheck={false}
+                    readOnly={!canEdit}
+                    disabled={!canEdit}
                     aria-label="Isi karya tulis dalam HTML"
                     aria-invalid={Boolean(errors.content)}
                     aria-describedby={errors.content ? 'content-error' : undefined}
@@ -586,6 +828,7 @@ export function Editor({
                   invalid={Boolean(errors.content)}
                   errorId={errors.content ? 'content-error' : undefined}
                   labelledBy="penalis-content-label"
+                  readOnly={!canEdit}
                 />
               </Suspense>
             </ChunkErrorBoundary>
@@ -594,6 +837,78 @@ export function Editor({
         </div>
 
         <aside className="penalis-editor__side">
+          <section className="penalis-panel" aria-label="Status dan riwayat tinjauan">
+            <div className="penalis-panel__header">
+              <h3>Status Tinjauan</h3>
+              <StatusBadge
+                status={editorialState}
+                label={editorialStateLabel || formatEditorialStateLabel(editorialState)}
+              />
+            </div>
+
+            <dl className="penalis-editorial-meta">
+              <div>
+                <dt>Siklus tinjauan</dt>
+                <dd>{reviewCycle > 0 ? `Siklus ${reviewCycle}` : 'Belum diajukan'}</dd>
+              </div>
+              {submittedAt ? (
+                <div>
+                  <dt>Terakhir diajukan</dt>
+                  <dd>{formatDate(submittedAt)}</dd>
+                </div>
+              ) : null}
+              {reviewedAt ? (
+                <div>
+                  <dt>Terakhir ditinjau</dt>
+                  <dd>{formatDate(reviewedAt)}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {id ? (
+              <button
+                type="button"
+                className="penalis-button penalis-button--ghost"
+                onClick={() => void refreshReviewState()}
+                disabled={saving}
+              >
+                Perbarui status tinjauan
+              </button>
+            ) : null}
+
+            {id ? (
+              <div className="penalis-editorial-history">
+                <h4>Riwayat Tinjauan</h4>
+                {reviewHistory.length === 0 ? (
+                  <p className="penalis-muted">Belum ada riwayat tinjauan untuk karya tulis ini.</p>
+                ) : (
+                  <ol className="penalis-review-history">
+                    {reviewHistory.map((entry, index) => (
+                      <li
+                        key={`${entry.action}-${entry.reviewCycle}-${entry.createdAt}-${index}`}
+                        className="penalis-review-history__item"
+                      >
+                        <div className="penalis-review-history__head">
+                          <strong>{entry.actionLabel}</strong>
+                          {entry.reviewCycle > 0 ? (
+                            <span className="penalis-muted">Siklus {entry.reviewCycle}</span>
+                          ) : null}
+                        </div>
+                        <p className="penalis-review-history__meta">
+                          {entry.actorName}
+                          {entry.createdAt ? ` · ${formatDate(entry.createdAt)}` : ''}
+                        </p>
+                        {entry.feedback ? (
+                          <p className="penalis-review-history__feedback">{entry.feedback}</p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            ) : null}
+          </section>
+
           <section className="penalis-panel">
             <div className="penalis-panel__header">
               <h3>Thumbnail</h3>
@@ -602,28 +917,32 @@ export function Editor({
             {featuredMedia > 0 ? (
               <div className="penalis-featured">
                 {featuredPreview ? <img src={featuredPreview} alt="" /> : null}
-                <button
-                  type="button"
-                  className="penalis-button penalis-button--ghost"
-                  onClick={() => {
-                    setFeaturedMedia(0);
-                    setFeaturedPreview('');
-                  }}
-                >
-                  Hapus
-                </button>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className="penalis-button penalis-button--ghost"
+                    onClick={() => {
+                      setFeaturedMedia(0);
+                      setFeaturedPreview('');
+                    }}
+                  >
+                    Hapus
+                  </button>
+                ) : null}
               </div>
             ) : (
               <p className="penalis-muted">Belum ada thumbnail yang dipilih.</p>
             )}
 
-            <button
-              type="button"
-              className="penalis-button penalis-button--ghost"
-              onClick={() => void openMediaPicker('featured')}
-            >
-              Pilih dari pustaka media
-            </button>
+            {canEdit ? (
+              <button
+                type="button"
+                className="penalis-button penalis-button--ghost"
+                onClick={() => void openMediaPicker('featured')}
+              >
+                Pilih dari pustaka media
+              </button>
+            ) : null}
           </section>
 
           <section className="penalis-panel">
@@ -640,6 +959,7 @@ export function Editor({
                     <input
                       type="checkbox"
                       checked={selectedCategories.includes(category.id)}
+                      disabled={!canEdit}
                       onChange={(event) => {
                         setSelectedCategories((current) =>
                           event.target.checked
@@ -664,48 +984,56 @@ export function Editor({
               {selectedTags.map((term) => (
                 <span key={term.id} className="penalis-chip">
                   {term.name}
-                  <button
-                    type="button"
-                    aria-label={`Hapus ${term.name}`}
-                    onClick={() => setSelectedTags((current) => current.filter((item) => item.id !== term.id))}
-                  >
-                    x
-                  </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      aria-label={`Hapus ${term.name}`}
+                      onClick={() => setSelectedTags((current) => current.filter((item) => item.id !== term.id))}
+                    >
+                      x
+                    </button>
+                  ) : null}
                 </span>
               ))}
             </div>
 
-            <label className="penalis-field">
-              <span>Tambahkan tag</span>
-              <input
-                type="text"
-                value={tagSearch}
-                onChange={(event) => setTagSearch(event.target.value)}
-                placeholder="Cari atau buat tag"
-              />
-            </label>
+            {canEdit ? (
+              <>
+                <label className="penalis-field">
+                  <span>Tambahkan tag</span>
+                  <input
+                    type="text"
+                    value={tagSearch}
+                    onChange={(event) => setTagSearch(event.target.value)}
+                    placeholder="Cari atau buat tag"
+                  />
+                </label>
 
-            {tagSuggestions.length > 0 ? (
-              <ul className="penalis-suggestions">
-                {tagSuggestions.map((term) => (
-                  <li key={term.id}>
-                    <button type="button" onClick={() => addTag(term)}>
-                      {term.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+                {tagSuggestions.length > 0 ? (
+                  <ul className="penalis-suggestions">
+                    {tagSuggestions.map((term) => (
+                      <li key={term.id}>
+                        <button type="button" onClick={() => addTag(term)}>
+                          {term.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
 
-            {tagSearch.trim().length >= 2 ? (
-              <button type="button" className="penalis-button penalis-button--ghost" onClick={() => void createTag()}>
-                Buat “{tagSearch.trim()}”
-              </button>
+                {tagSearch.trim().length >= 2 ? (
+                  <button type="button" className="penalis-button penalis-button--ghost" onClick={() => void createTag()}>
+                    Buat “{tagSearch.trim()}”
+                  </button>
+                ) : null}
+              </>
+            ) : selectedTags.length === 0 ? (
+              <p className="penalis-muted">Belum ada tag yang dipilih.</p>
             ) : null}
           </section>
         </aside>
       </div>
-            
+
       {mediaIntent ? (
         <Dialog label="Pustaka media" onClose={closeMedia}>
           <div className="penalis-modal__content">
@@ -738,7 +1066,7 @@ export function Editor({
                 Kamu belum mengunggah media apa pun. Gunakan kontrol unggah di atas untuk menambahkan gambar pertama.
               </p>
             ) : (
-              
+
               <MediaSelection items={media} selectedId={selectedMediaId} onSelect={setSelectedMediaId}
                 onConfirm={confirmMediaSelection} onCancel={closeMedia} busy={uploading} />
             )}
@@ -750,16 +1078,16 @@ export function Editor({
         <Dialog label="Pratinjau artikel" onClose={closePreview}>
           <div className="penalis-modal__content penalis-modal__content--wide">
             <div className="penalis-modal__header">
-              <h3>Preview</h3>
+              <h3>Pratinjau</h3>
               <div className="penalis-row-actions">
-                {status === 'publish' ? (
+                {editorialState === 'published' && link ? (
                   <a
                     className="penalis-button penalis-button--ghost"
-                    href={`${window.location.origin}/?p=${id ?? ''}`}
+                    href={link}
                     target="_blank"
                     rel="noreferrer noopener"
                   >
-                    Lihat Karya Publish
+                    Lihat Karya Terbit
                   </a>
                 ) : null}
                 <button
@@ -772,7 +1100,7 @@ export function Editor({
               </div>
             </div>
             <iframe
-              title="Preview karya tulis"
+              title="Pratinjau karya tulis"
               className="penalis-preview-frame"
               sandbox=""
               srcDoc={previewDocument}
@@ -781,25 +1109,26 @@ export function Editor({
         </Dialog>
       ) : null}
 
-      {publishConfirmOpen ? (
+      {submitConfirmOpen ? (
         <ConfirmDialog
-          title="Publish Karya Tulis?"
+          title={canResubmit ? 'Ajukan ulang revisi karya tulis?' : 'Ajukan karya tulis untuk ditinjau?'}
           description={
             <>
               <p>
-                Karya tulis berjudul <strong>{title.trim() || 'Tanpa judul'}</strong> ini akan langsung tampil di beranda Penalis 
-                dan dapat dibaca siapa saja.
+                Karya tulis berjudul <strong>{title.trim() || 'Tanpa judul'}</strong> akan dikirim ke antrean tinjauan
+                admin Penalis.
               </p>
               <p className="penalis-muted">
-                Kamu masih bisa membatalkan publish kapan saja jika ada yang perlu diperbaiki.
+                Selama proses tinjauan berlangsung, karya tulis tidak dapat diubah sampai admin memberikan keputusan
+                (menyetujui untuk terbit, meminta revisi, atau menolak).
               </p>
             </>
           }
-          confirmLabel="Publish"
+          confirmLabel={canResubmit ? 'Ajukan Ulang' : 'Ajukan Tinjauan'}
           tone="warning"
           busy={saving}
-          onConfirm={() => void save('publish')}
-          onCancel={closePublishConfirm}
+          onConfirm={() => void submitForReview()}
+          onCancel={closeSubmitConfirm}
         />
       ) : null}
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { decodeEntities } from './format';
+import { decodeEntities, editorialStateLabel, statusLabel, statusTone } from './format';
 
 describe('decodeEntities', () => {
   it('decodes named entities', () => {
@@ -28,5 +28,31 @@ describe('decodeEntities', () => {
 
   it('decodes a single level only', () => {
     expect(decodeEntities('&amp;amp;')).toBe('&amp;');
+  });
+});
+
+describe('editorialStateLabel and statusTone', () => {
+  it('returns Indonesian labels for every V2 editorial state', () => {
+    expect(editorialStateLabel('draft')).toBe('Draf');
+    expect(editorialStateLabel('pending_review')).toBe('Menunggu tinjauan');
+    expect(editorialStateLabel('changes_requested')).toBe('Perlu revisi');
+    expect(editorialStateLabel('rejected')).toBe('Ditolak');
+    expect(editorialStateLabel('published')).toBe('Terbit');
+    expect(editorialStateLabel('unknown')).toBe('Tidak diketahui');
+  });
+
+  it('maps editorial and post statuses to badge tones and Indonesian labels', () => {
+    expect(statusLabel('published')).toBe('Terbit');
+    expect(statusLabel('pending_review')).toBe('Menunggu tinjauan');
+    expect(statusLabel('changes_requested')).toBe('Perlu revisi');
+    expect(statusLabel('draft')).toBe('Draf');
+    expect(statusLabel('rejected')).toBe('Ditolak');
+
+    expect(statusTone('published')).toBe('success');
+    expect(statusTone('publish')).toBe('success');
+    expect(statusTone('pending_review')).toBe('warning');
+    expect(statusTone('changes_requested')).toBe('warning');
+    expect(statusTone('rejected')).toBe('danger');
+    expect(statusTone('draft')).toBe('neutral');
   });
 });

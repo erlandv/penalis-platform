@@ -38,6 +38,8 @@ export type RichTextEditorProps = {
   invalid?: boolean;
   /** ID of the error element, for `aria-describedby`. */
   errorId?: string;
+  /** Whether the editor is locked from modification. */
+  readOnly?: boolean;
 };
 
 type ToolbarButtonProps = {
@@ -78,7 +80,7 @@ function ToolbarButton({
 }
 
 export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(function RichTextEditor(
-  { value, onChange, onRequestImage, labelledBy, invalid = false, errorId },
+  { value, onChange, onRequestImage, labelledBy, invalid = false, errorId, readOnly = false },
   ref,
 ) {
   const [htmlMode, setHtmlMode] = useState(false);
@@ -89,6 +91,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
   const linkInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
+    editable: !readOnly,
     extensions: [
       StarterKit.configure({
         // StarterKit v3 bundles Link and Underline. Configure them here instead
@@ -116,19 +119,39 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         class: 'penalis-editor-content',
         role: 'textbox',
         'aria-multiline': 'true',
+        ...(readOnly ? { 'aria-readonly': 'true' } : {}),
         ...(labelledBy ? { 'aria-labelledby': labelledBy } : {}),
         ...(errorId ? { 'aria-describedby': errorId } : {}),
         ...(invalid ? { 'aria-invalid': 'true' } : {}),
       },
     },
     onUpdate: ({ editor: instance }) => {
+      if (readOnly) {
+        return;
+      }
       // TipTap keeps an empty paragraph after a block node so the writer can
       // keep typing there. It is useful in the editor but noise in stored
       // `post_content`, so it is trimmed before leaving the component.
       const html = trimTrailingEmptyParagraphs(instance.getHTML());
       lastEmitted.current = html;
       onChange(html);
-    },  });
+    },
+  });
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    editor.setEditable(!readOnly);
+    const element = editor.view.dom;
+    if (readOnly) {
+      element.setAttribute('aria-readonly', 'true');
+      setLinkOpen(false);
+    } else {
+      element.removeAttribute('aria-readonly');
+    }
+  }, [editor, readOnly]);
 
   // Keep the editor in sync when the parent replaces the value, for example
   // after loading an article. Skipping identical content avoids resetting the
@@ -269,7 +292,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     ref,
     () => ({
       insertImage: (src: string, alt: string) => {
-        if (!editor) {
+        if (!editor || readOnly) {
           return;
         }
 
@@ -284,8 +307,21 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         editor.chain().focus().setImage({ src, alt }).run();
       },
     }),
-    [editor, htmlMode, exitHtmlMode],
+    [editor, htmlMode, exitHtmlMode, readOnly],
   );
+
+  if (readOnly) {
+    return (
+      <div className="penalis-editor-shell is-readonly">
+        <div className="penalis-editor-toolbar" aria-label="Status isi karya tulis">
+          <span className="penalis-editor-toolbar__hint">
+            Read-only mode — isi karya tulis tidak dapat diubah pada status saat ini.
+          </span>
+        </div>
+        <EditorContent editor={editor} />
+      </div>
+    );
+  }
 
   if (htmlMode) {
     return (

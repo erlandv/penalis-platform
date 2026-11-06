@@ -459,7 +459,8 @@ final class Penalis_Access_Control {
 
 			// Writers may only write through a narrow allowlist of routes. The
 			// legacy publish endpoints are deliberately excluded: publication is
-			// an administrator-only workflow action now.
+			// an administrator-only workflow action now, while submission and
+			// resubmission for editorial review remain open to the owner.
 			$allowed_write_prefixes = array(
 				'/wp/v2/posts',
 				'/wp/v2/media',
@@ -475,6 +476,10 @@ final class Penalis_Access_Control {
 					$allowed = true;
 					break;
 				}
+			}
+
+			if ( ! $allowed && 'POST' === $method && 1 === preg_match( '#^/penalis/v1/articles/\d+/(submit|resubmit)$#', $route ) ) {
+				$allowed = true;
 			}
 
 			if ( ! $allowed ) {

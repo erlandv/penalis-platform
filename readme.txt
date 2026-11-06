@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.6
+Stable tag: 0.2.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,13 +43,13 @@ Key features:
   *and* explicit access. Authors are always derived from the authenticated
   session, article ownership is enforced on every request, and privileged
   REST routes are blocked for writers.
-* **Editorial review (planned V2).** Writers will submit articles for
-  administrator review instead of publishing directly. Approval publishes the
-  article; requested changes and rejections carry feedback. Published articles
-  are read-only to writers, while administrators retain direct editing access.
-  See
-  EDITORIAL-WORKFLOW-ROADMAP.md for the phased plan; until a phase is marked
-  complete, the current direct-publishing behavior applies.
+* **Editorial review (V2).** Writers submit draft articles for administrator
+  review instead of publishing directly. Approval under **Posts → Tinjauan
+  Penalis** publishes the article; requested changes and rejections carry
+  feedback that appears in the writer dashboard. Published articles are
+  read-only to writers, while administrators retain direct editing access.
+  See EDITORIAL-WORKFLOW-ROADMAP.md for the phased plan (Phases 0–5 complete;
+  notifications in Phase 6).
 
 This version targets WordPress 6.0 and PHP 7.4 as the minimums supported by
 the APIs and syntax used. Compatibility has been verified through repository
@@ -156,8 +156,10 @@ author IDs are rejected unless they match the signed-in user.
 
 Account approvals go through the nonce-protected WordPress admin screen at
 **Users → Penalis Writers**, which only users with `list_users` can access.
-Article review endpoints are part of the planned V2 editorial workflow and are
-not implemented yet; see EDITORIAL-WORKFLOW-ROADMAP.md.
+Article review decisions go through the nonce-protected admin screen at
+**Posts → Tinjauan Penalis** (`edit_others_posts` + administrator). Writers
+submit and resubmit articles and read their review status through
+`/penalis/v1/articles/{id}/submit`, `/resubmit`, and `/review`.
 
 = How are rate limits applied? =
 
@@ -170,6 +172,25 @@ recommended.
 Screenshots are not provided yet.
 
 == Changelog ==
+
+= 0.2.7 =
+* The writer dashboard now uses the V2 editorial review workflow. Direct publish
+  and unpublish buttons are replaced by **Simpan Draf**, **Ajukan Tinjauan**
+  (for drafts), and **Ajukan Ulang** (after requested changes).
+* New `penalis/v1` endpoints for writers: `POST /articles/{id}/submit`,
+  `POST /articles/{id}/resubmit`, and `GET /articles/{id}/review`. Submissions
+  require a non-empty title and content, and review state/history is visible
+  only to the article owner and reviewer administrators.
+* The editor displays explanatory banners for every editorial state, the latest
+  administrator feedback (**Catatan Tinjauan Admin**), a **Status Tinjauan** and
+  **Riwayat Tinjauan** panel, and a stale-state banner when an administrator
+  updates the review while the editor is open.
+* Published, under-review, and rejected articles open in read-only mode for
+  writers, with a clear notice that published articles can only be changed by
+  contacting an administrator.
+* The articles list and overview now filter and count `Draf`, `Menunggu
+  tinjauan`, `Perlu revisi`, `Ditolak`, and `Terbit`, and surface inline review
+  feedback notes.
 
 = 0.2.6 =
 * New **Posts → Tinjauan Penalis** screen for administrators. It lists
@@ -270,6 +291,11 @@ Screenshots are not provided yet.
   production build pipeline.
 
 == Upgrade Notice ==
+
+= 0.2.7 =
+Replaces the writer dashboard publish buttons with the V2 editorial submission
+and revision workflow, review feedback, and read-only view for published
+articles. No content or user data is migrated.
 
 = 0.2.6 =
 Adds the administrator review screen under Posts → Tinjauan Penalis. No content

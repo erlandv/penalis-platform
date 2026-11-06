@@ -7,8 +7,11 @@ export function formatDate(value: string | number): string {
     return '—';
   }
 
+  const normalized = typeof value === 'string' ? value.replace(' ', 'T') : '';
   const date =
-    typeof value === 'number' ? new Date(value * 1000) : new Date(value.endsWith('Z') ? value : `${value}Z`);
+    typeof value === 'number'
+      ? new Date(value * 1000)
+      : new Date(normalized.endsWith('Z') ? normalized : `${normalized}Z`);
 
   if (Number.isNaN(date.getTime())) {
     return '—';
@@ -23,11 +26,14 @@ export function formatDate(value: string | number): string {
 
 export function statusLabel(status: string): string {
   const labels: Record<string, string> = {
-    publish: 'Publish',
-    draft: 'Draft',
-    pending: 'Pending',
+    publish: 'Terbit',
+    published: 'Terbit',
+    draft: 'Draf',
+    pending: 'Menunggu tinjauan',
+    pending_review: 'Menunggu tinjauan',
+    changes_requested: 'Perlu revisi',
     future: 'Terjadwal',
-    private: 'Private',
+    private: 'Privat',
     pending_verification: 'Menunggu Verifikasi Email',
     pending_approval: 'Menunggu Persetujuan',
     active: 'Aktif',
@@ -38,12 +44,29 @@ export function statusLabel(status: string): string {
   return labels[status] ?? status;
 }
 
+export function editorialStateLabel(state: string): string {
+  const labels: Record<string, string> = {
+    draft: 'Draf',
+    pending_review: 'Menunggu tinjauan',
+    changes_requested: 'Perlu revisi',
+    rejected: 'Ditolak',
+    published: 'Terbit',
+    publish: 'Terbit',
+    pending: 'Menunggu tinjauan',
+  };
+
+  return labels[state] ?? 'Tidak diketahui';
+}
+
 export function statusTone(status: string): 'success' | 'warning' | 'danger' | 'neutral' {
   switch (status) {
     case 'publish':
+    case 'published':
     case 'active':
       return 'success';
     case 'pending':
+    case 'pending_review':
+    case 'changes_requested':
     case 'pending_verification':
     case 'pending_approval':
     case 'future':
