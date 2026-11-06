@@ -17,6 +17,7 @@ require_once __DIR__ . '/../includes/class-editorial-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
 require_once __DIR__ . '/../includes/class-editorial-workflow.php';
+require_once __DIR__ . '/../includes/class-editorial-admin.php';
 require_once __DIR__ . '/../includes/class-access-control.php';
 require_once __DIR__ . '/../includes/class-rest-api.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
@@ -2256,6 +2257,142 @@ penalis_same( 'publish', $editor_publish['post_status'], 'An editor publish is u
 $GLOBALS['penalis_test_current_user'] = 0;
 $guest_publish = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'publish' ), array() );
 penalis_same( 'publish', $guest_publish['post_status'], 'An anonymous insert is left to core.' );
+
+/* -------------------------------------------------------------------------
+ * Administrator review surface (Phase 4)
+ * ---------------------------------------------------------------------- */
+
+// Labels are user-facing Indonesian copy, not internal state codes.
+penalis_same( 'Draf', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_DRAFT ), 'Draft has an Indonesian label.' );
+penalis_same( 'Menunggu tinjauan', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ), 'Pending review has an Indonesian label.' );
+penalis_same( 'Perlu revisi', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ), 'Requested changes has an Indonesian label.' );
+penalis_same( 'Ditolak', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_REJECTED ), 'Rejected has an Indonesian label.' );
+penalis_same( 'Terbit', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_PUBLISHED ), 'Published has an Indonesian label.' );
+penalis_same( 'Tidak diketahui', Penalis_Editorial_Policy::state_label( 'unknown' ), 'An unknown state has a safe label.' );
+
+penalis_same( 'Disetujui dan diterbitkan', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_APPROVE ), 'Approval has an Indonesian label.' );
+penalis_same( 'Diminta revisi', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ), 'Requested changes has an Indonesian label.' );
+penalis_same( 'Ditolak', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_REJECT ), 'Rejection has an Indonesian label.' );
+penalis_same( 'Dibuka kembali', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_REOPEN ), 'Reopen has an Indonesian label.' );
+penalis_same( 'Diajukan penulis', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_SUBMIT ), 'Submission has an Indonesian label.' );
+penalis_same( 'Diajukan ulang penulis', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_RESUBMIT ), 'Resubmission has an Indonesian label.' );
+
+// The buttons shown must match the transitions the state machine accepts.
+penalis_same(
+	array(
+		Penalis_Editorial_Policy::ACTION_APPROVE,
+		Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+		Penalis_Editorial_Policy::ACTION_REJECT,
+	),
+	Penalis_Editorial_Admin::actions_for_state( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ),
+	'A submission under review offers approve, request changes, and reject.'
+);
+penalis_same(
+	array( Penalis_Editorial_Policy::ACTION_REOPEN ),
+	Penalis_Editorial_Admin::actions_for_state( Penalis_Editorial_Policy::STATE_REJECTED ),
+	'A rejected submission offers only reopen.'
+);
+penalis_same(
+	array(),
+	Penalis_Editorial_Admin::actions_for_state( Penalis_Editorial_Policy::STATE_PUBLISHED ),
+	'A published article offers no reviewer action.'
+);
+penalis_same(
+	array(),
+	Penalis_Editorial_Admin::actions_for_state( Penalis_Editorial_Policy::STATE_DRAFT ),
+	'A draft offers no reviewer action.'
+);
+penalis_same(
+	array(),
+	Penalis_Editorial_Admin::actions_for_state( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ),
+	'A submission waiting for the writer offers no reviewer action.'
+);
+
+// Every offered action is a reviewer action and is accepted by the policy.
+foreach ( Penalis_Editorial_Policy::states() as $state ) {
+	foreach ( Penalis_Editorial_Admin::actions_for_state( $state ) as $action ) {
+		penalis_assert(
+			Penalis_Editorial_Policy::is_reviewer_action( $action ),
+			"The review screen never offers the writer action {$action}."
+		);
+		penalis_assert(
+			Penalis_Editorial_Policy::can_transition( $state, $action ),
+			"The review screen only offers transitions the policy accepts ({$state}:{$action})."
+		);
+	}
+}
+
+// Decisions are serialized per post.
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_admin( 20 );
+penalis_editorial_post( 400, 10, 'draft' );
+Penalis_Editorial_Workflow::apply( 400, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+
+$locked = Penalis_Editorial_Workflow::apply(
+	400,
+	Penalis_Editorial_Policy::ACTION_APPROVE,
+	array( 'actor_id' => 20, 'expected_cycle' => 1 )
+);
+penalis_assert( ! is_wp_error( $locked ), 'A decision is applied while the lock is available.' );
+penalis_same( 'publish', $GLOBALS['penalis_test_posts'][400]->post_status, 'The locked decision publishes the article.' );
+
+// A lock that cannot be acquired fails closed.
+penalis_editorial_post( 401, 10, 'draft' );
+Penalis_Editorial_Workflow::apply( 401, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+$GLOBALS['penalis_test_lock_available'] = false;
+
+$busy = Penalis_Editorial_Workflow::apply(
+	401,
+	Penalis_Editorial_Policy::ACTION_APPROVE,
+	array( 'actor_id' => 20, 'expected_cycle' => 1 )
+);
+penalis_assert( is_wp_error( $busy ), 'A decision is refused when the lock cannot be acquired.' );
+penalis_same( 'penalis_editorial_busy', $busy->get_error_code(), 'A busy submission reports the busy error code.' );
+penalis_same( 'pending', $GLOBALS['penalis_test_posts'][401]->post_status, 'A refused decision leaves the post pending.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Workflow::get_state( 401 ), 'A refused decision leaves the editorial state untouched.' );
+
+unset( $GLOBALS['penalis_test_lock_available'] );
+unset( $GLOBALS['wpdb'] );
+
+// Without a database handle the workflow still works (unit-test bootstrap).
+penalis_editorial_post( 402, 10, 'draft' );
+Penalis_Editorial_Workflow::apply( 402, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+$no_db = Penalis_Editorial_Workflow::apply(
+	402,
+	Penalis_Editorial_Policy::ACTION_APPROVE,
+	array( 'actor_id' => 20, 'expected_cycle' => 1 )
+);
+penalis_assert( ! is_wp_error( $no_db ), 'A missing database handle does not block the workflow.' );
+
+// Two administrators deciding the same round: the second decision is refused
+// because the post is re-read inside the lock.
+penalis_editorial_admin( 22 );
+penalis_editorial_post( 403, 10, 'draft' );
+Penalis_Editorial_Workflow::apply( 403, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+
+$first = Penalis_Editorial_Workflow::apply(
+	403,
+	Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+	array(
+		'actor_id'       => 20,
+		'feedback'       => 'Perbaiki paragraf pembuka.',
+		'expected_cycle' => 1,
+	)
+);
+penalis_assert( ! is_wp_error( $first ), 'The first reviewer decision is applied.' );
+
+$second = Penalis_Editorial_Workflow::apply(
+	403,
+	Penalis_Editorial_Policy::ACTION_APPROVE,
+	array( 'actor_id' => 22, 'expected_cycle' => 1 )
+);
+penalis_assert( is_wp_error( $second ), 'The second reviewer decision on the same round is refused.' );
+penalis_same( 'draft', $GLOBALS['penalis_test_posts'][403]->post_status, 'A refused second decision leaves the post status untouched.' );
+penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, Penalis_Editorial_Workflow::get_state( 403 ), 'A refused second decision leaves the first decision intact.' );
+penalis_same( 'Perbaiki paragraf pembuka.', Penalis_Editorial_Workflow::get_feedback( 403 ), 'A refused second decision does not overwrite the first feedback.' );
 
 /* -------------------------------------------------------------------------
  * Report

@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.5
+Stable tag: 0.2.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -171,6 +171,22 @@ Screenshots are not provided yet.
 
 == Changelog ==
 
+= 0.2.6 =
+* New **Posts → Tinjauan Penalis** screen for administrators. It lists
+  submissions waiting for review, submissions that need revision, rejected
+  submissions, and published articles, with the writer, submission time, and
+  review cycle.
+* Each submission opens a detail view with the article content, the latest
+  feedback, the review history, and a link to the native WordPress editor for
+  corrections before approval.
+* Administrators can approve and publish, request changes, reject, and reopen.
+  Requesting changes and rejecting require a note for the writer; approval does
+  not.
+* Reviewer decisions are serialized per article with a database lock, so two
+  administrators cannot both decide the same round of review. A decision that
+  cannot be locked is refused instead of applied.
+* An admin notice reports how many articles are waiting for review.
+
 = 0.2.5 =
 * **Writers can no longer publish.** Publication is an administrator-only
   action in the V2 editorial workflow. The writer publish/unpublish endpoints,
@@ -254,6 +270,11 @@ Screenshots are not provided yet.
   production build pipeline.
 
 == Upgrade Notice ==
+
+= 0.2.6 =
+Adds the administrator review screen under Posts → Tinjauan Penalis. No content
+or user data is migrated. The writer dashboard still shows the previous publish
+buttons until the writer review workflow lands.
 
 = 0.2.5 =
 Writers can no longer publish. Direct publish requests, edits to published

@@ -214,21 +214,60 @@ Known limitations at the end of this phase:
   buttons. This is intentional: the server is already authoritative.
 - The review-cycle check is a stale-write guard, not a lock. Two administrators
   submitting at the same instant can still both pass the check before either
-  write lands; Phase 4 must add a compare-and-set or lock around the decision.
+  write lands; Phase 4 adds the per-post lock around the decision.
 - No browser verification has been run for this phase.
 
 Exit criteria: authorization tests pass for anonymous users, pending writers, active writers, multiple writers, and administrators.
 
 ### Phase 4 — Administrator review surface
 
-- [ ] Add an admin review screen under a clear wp-admin menu location.
-- [ ] List pending review submissions with writer, title, date, and review cycle.
-- [ ] Show the submitted content, with a link to the public article when one exists.
-- [ ] Add actions: approve and publish, request changes, reject, reopen.
-- [ ] Require feedback for request-changes and reject actions.
-- [ ] Allow admin corrections before approval without accidentally bypassing audit history.
-- [ ] Handle concurrent reviewer decisions safely using current state/review cycle checks.
-- [ ] Record reviewer identity and timestamps.
+- [x] Add an admin review screen under a clear wp-admin menu location.
+- [x] List pending review submissions with writer, title, date, and review cycle.
+- [x] Show the submitted content, with a link to the public article when one exists.
+- [x] Add actions: approve and publish, request changes, reject, reopen.
+- [x] Require feedback for request-changes and reject actions.
+- [x] Allow admin corrections before approval without accidentally bypassing audit history.
+- [x] Handle concurrent reviewer decisions safely using current state/review cycle checks.
+- [x] Record reviewer identity and timestamps.
+
+Implemented in `includes/class-editorial-admin.php` (`Penalis_Editorial_Admin`),
+registered from `Penalis_Plugin::run()` only when `is_admin()`:
+
+- **Posts → Tinjauan Penalis** (`edit.php?page=penalis-review`), gated by
+  `edit_others_posts` and re-checked through
+  `Penalis_Editorial_Workflow::can_review()`.
+- Tabs for `pending_review`, `changes_requested`, `rejected`, and `published`
+  with live counts. `changes_requested` and `rejected` share the `draft` post
+  status, so those tabs filter on `_penalis_editorial_state`.
+- The list shows title, writer, state, submission time, and review cycle.
+- The detail view shows the submitted content through `wp_kses_post()`, the
+  latest feedback, the bounded review history with reviewer names, and a link to
+  the native WordPress editor for corrections before approval.
+- Decision forms are nonce-bound per action and post, carry the review cycle the
+  administrator is looking at, and require feedback for request-changes and
+  reject. The available buttons come from
+  `Penalis_Editorial_Admin::actions_for_state()`, which is derived from the same
+  state machine the handler enforces.
+- Every decision goes through `Penalis_Editorial_Workflow::apply()`, so the
+  state machine, cycle guard, lock, and audit history are shared with the REST
+  layer. The handler never writes post content or status itself.
+- `Penalis_Editorial_Workflow::apply()` now takes a per-post MySQL advisory lock
+  (`GET_LOCK`, 5s timeout) and re-reads the post inside it. A second reviewer
+  decision on the same round is refused by the cycle check after the first
+  write lands, and a lock that cannot be acquired fails closed with
+  `penalis_editorial_busy`.
+- An admin notice reports how many submissions are waiting for review.
+
+Evidence: `php tests/run-tests.php` → 730 assertions passed; `phpcs` clean;
+`npm run check` passes (72 Vitest tests, build OK).
+
+Known limitations at the end of this phase:
+
+- The writer dashboard still shows the previous publish UI (Phase 5).
+- The lock serializes decisions on one post; it is not a general editorial
+  queue. A reviewer who opens a stale detail page is refused by the cycle check
+  rather than shown a diff.
+- No browser verification has been run for this phase.
 
 Exit criteria: an administrator can complete every review decision without using direct database changes, and duplicate/stale actions fail safely.
 
@@ -288,6 +327,7 @@ Exit criteria: the plugin is ready for owner review and a later staging deployme
 | 2026-11-05 | Phase 1 | Pure editorial policy and data contracts implemented | `includes/class-editorial-policy.php`; `php tests/run-tests.php` 483 assertions, `composer lint` clean |
 | 2026-11-06 | Phase 2 | Editorial workflow persistence implemented | `includes/class-editorial-workflow.php`; post/post-meta test doubles in `tests/wp-stubs.php`; 600 assertions, `composer lint` clean |
 | 2026-11-06 | Phase 3 | Writer publish and published-article editing blocked server-side | `class-access-control.php`, `class-rest-api.php`, `class-editorial-policy.php`, `class-editorial-workflow.php`; 693 assertions, phpcs clean, `npm run check` OK; version 0.2.5 |
+| 2026-11-06 | Phase 4 | Administrator review screen and serialized decisions | `includes/class-editorial-admin.php`, per-post advisory lock in `class-editorial-workflow.php`; 730 assertions, phpcs clean, `npm run check` OK; version 0.2.6 |
 
 ## Explicit non-goals for V2
 

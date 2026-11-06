@@ -491,6 +491,43 @@ final class Penalis_Editorial_Policy {
 	}
 
 	/**
+	 * Human-readable label for an editorial state.
+	 *
+	 * @param string $state Editorial state.
+	 * @return string
+	 */
+	public static function state_label( $state ) {
+		$labels = array(
+			self::STATE_DRAFT             => 'Draf',
+			self::STATE_PENDING_REVIEW    => 'Menunggu tinjauan',
+			self::STATE_CHANGES_REQUESTED => 'Perlu revisi',
+			self::STATE_REJECTED          => 'Ditolak',
+			self::STATE_PUBLISHED         => 'Terbit',
+		);
+
+		return isset( $labels[ $state ] ) ? $labels[ $state ] : 'Tidak diketahui';
+	}
+
+	/**
+	 * Human-readable label for a workflow action.
+	 *
+	 * @param string $action Workflow action.
+	 * @return string
+	 */
+	public static function action_label( $action ) {
+		$labels = array(
+			self::ACTION_SUBMIT          => 'Diajukan penulis',
+			self::ACTION_RESUBMIT        => 'Diajukan ulang penulis',
+			self::ACTION_REQUEST_CHANGES => 'Diminta revisi',
+			self::ACTION_REJECT          => 'Ditolak',
+			self::ACTION_REOPEN          => 'Dibuka kembali',
+			self::ACTION_APPROVE         => 'Disetujui dan diterbitkan',
+		);
+
+		return isset( $labels[ $action ] ) ? $labels[ $action ] : $action;
+	}
+
+	/**
 	 * Return the metadata keys owned by this workflow.
 	 *
 	 * @return string[]

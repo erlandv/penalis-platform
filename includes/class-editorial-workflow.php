@@ -160,6 +160,11 @@ final class Penalis_Editorial_Workflow {
 	/**
 	 * Apply a workflow action to a post.
 	 *
+	 * The decision is serialized per post: the post is re-read inside an
+	 * advisory lock so two administrators cannot both decide on the same round
+	 * of review. The lock fails closed, because a reviewer decision that cannot
+	 * be serialized must not be applied at all.
+	 *
 	 * @param WP_Post|int $post Post or post ID.
 	 * @param string      $action Workflow action.
 	 * @param array       $args  {
@@ -216,6 +221,47 @@ final class Penalis_Editorial_Workflow {
 					array( 'status' => 404 )
 				);
 			}
+		}
+
+		$lock = self::acquire_lock( (int) $post->ID );
+
+		if ( is_wp_error( $lock ) ) {
+			return $lock;
+		}
+
+		try {
+			return self::apply_locked( (int) $post->ID, $action, $args, $actor );
+		} finally {
+			self::release_lock( (int) $post->ID );
+		}
+	}
+
+	/**
+	 * Apply a workflow action while holding the per-post lock.
+	 *
+	 * The post is re-read after the lock is taken, so the decision always sees
+	 * the authoritative status, editorial state and review cycle instead of a
+	 * value cached before another reviewer's write landed.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $action  Workflow action.
+	 * @param array  $args    Action arguments.
+	 * @param int    $actor   Acting user ID.
+	 * @return array{state:string,status:string,cycle:int,history:array}|WP_Error
+	 */
+	private static function apply_locked( $post_id, $action, $args, $actor ) {
+		if ( function_exists( 'clean_post_cache' ) ) {
+			clean_post_cache( $post_id );
+		}
+
+		$post = get_post( $post_id );
+
+		if ( ! $post || 'post' !== $post->post_type ) {
+			return new WP_Error(
+				'penalis_not_found',
+				'Karya tulis tidak ditemukan.',
+				array( 'status' => 404 )
+			);
 		}
 
 		$current_state = self::get_state( $post );
@@ -336,6 +382,74 @@ final class Penalis_Editorial_Workflow {
 			'cycle'   => $next_cycle,
 			'history' => $history,
 		);
+	}
+
+	/**
+	 * Name of the per-post advisory lock.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	private static function lock_name( $post_id ) {
+		return 'penalis_editorial_' . (int) $post_id;
+	}
+
+	/**
+	 * Acquire the per-post advisory lock.
+	 *
+	 * Two administrators can open the same submission at once. The review cycle
+	 * guard rejects a *stale* decision, but it cannot stop two requests that both
+	 * read the same cycle. The lock serializes the decision itself: the second
+	 * request waits for the first to finish, then re-reads the post and is
+	 * rejected by the cycle check.
+	 *
+	 * Fails closed: if the database cannot hand out the lock, the decision is
+	 * refused rather than applied unserialized.
+	 *
+	 * A test/bootstrap environment without `$wpdb` proceeds unlocked; a real
+	 * WordPress request always has it.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return true|WP_Error
+	 */
+	private static function acquire_lock( $post_id ) {
+		global $wpdb;
+
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) ) {
+			return true;
+		}
+
+		$lock = self::lock_name( $post_id );
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Advisory lock is the serialization primitive; it is not cacheable.
+		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $lock ) );
+
+		if ( '1' !== (string) $acquired ) {
+			return new WP_Error(
+				'penalis_editorial_busy',
+				'Karya tulis ini sedang diproses admin lain. Coba lagi sebentar lagi.',
+				array( 'status' => 409 )
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Release the per-post advisory lock.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	private static function release_lock( $post_id ) {
+		global $wpdb;
+
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Releases the advisory lock taken above.
+		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', self::lock_name( $post_id ) ) );
 	}
 
 	/**

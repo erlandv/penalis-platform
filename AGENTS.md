@@ -416,15 +416,26 @@ Reinstatement (`suspended` -> `active`) restores access and the role.
 
 ### 5.6 Admin console (wp-admin, not the dashboard)
 
-One screen carries the whole curation surface: **Users -> Penalis Writers**
-(`add_users_page`, `includes/class-admin.php`). It lists accounts by status and
-offers, per account: approve, reject, reopen a rejected application, suspend,
-reactivate, resend the verification email, send a legacy activation link, and
-vouch for a legacy account. It also holds the default profile photo setting.
+Two screens carry the curation surface.
+
+**Users -> Penalis Writers** (`add_users_page`, `includes/class-admin.php`) lists
+accounts by status and offers, per account: approve, reject, reopen a rejected
+application, suspend, reactivate, resend the verification email, send a legacy
+activation link, and vouch for a legacy account. It also holds the default
+profile photo setting.
+
+**Posts -> Tinjauan Penalis** (`add_posts_page`,
+`includes/class-editorial-admin.php`) is the article review surface: tabs for
+pending review, requested changes, rejected, and published; a detail view with
+the content, latest feedback, review history, and a link to the native editor;
+and nonce-bound approve / request-changes / reject / reopen forms. Every
+decision goes through `Penalis_Editorial_Workflow::apply()`, which holds a
+per-post advisory lock and re-reads the post before deciding.
 
 Everything here goes through `Penalis_Account_Status::transition()` (or
-`convert_legacy()`), so the status machine and the audit log stay the only path
-— never write status meta directly from an admin action.
+`convert_legacy()`) and `Penalis_Editorial_Workflow::apply()`, so the status
+machines and the audit logs stay the only path — never write status meta
+directly from an admin action.
 
 Registration on/off has **no UI**: it is the `penalis_registration_enabled`
 option, read by `Penalis_Registration::is_registration_enabled()` and exposed to
@@ -471,6 +482,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-policy.php` | Pure rules: statuses, transitions, limits, validation, display names, tokens |
 | `includes/class-editorial-policy.php` | Pure V2 editorial rules: states, actions, transitions, feedback and stale-cycle guards, metadata contract, bounded history |
 | `includes/class-editorial-workflow.php` | V2 editorial persistence: state reads (with legacy inference), apply/transition side effects, bounded history writes |
+| `includes/class-editorial-admin.php` | V2 review screen under Posts: submission list, detail view, nonce-bound decisions, review history |
 | `includes/class-rest-api.php` | `penalis/v1` routes and their handlers |
 | `includes/class-access-control.php` | Login gate, capability filtering, REST blocking, upload restrictions, post insert enforcement, privilege-escalation guards |
 | `includes/class-registration.php` | Registration, verification, resend |

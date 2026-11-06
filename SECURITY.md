@@ -125,8 +125,9 @@ Implemented in version 0.2.5 (Phase 3):
   so a direct service call cannot bypass the REST layer.
 
 Not yet implemented: the writer submit/review routes and the dashboard review
-screen (Phases 4–5). The review-cycle check is a stale-write guard, not a lock;
-concurrent reviewer decisions still need a compare-and-set or lock in Phase 4.
+screen (Phase 5). Reviewer decisions are serialized per post with a MySQL
+advisory lock and the post is re-read inside it, so two administrators cannot
+both decide the same round of review.
 
 ### Layered enforcement
 
