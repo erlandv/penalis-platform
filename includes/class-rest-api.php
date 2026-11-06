@@ -325,7 +325,7 @@ final class Penalis_Rest_Api {
 			'/articles/(?P<id>\d+)/publish',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array( __CLASS__, 'publish_article' ),
+				'callback'            => array( __CLASS__, 'reject_legacy_publish' ),
 				'permission_callback' => array( __CLASS__, 'require_active_writer' ),
 			)
 		);
@@ -335,7 +335,7 @@ final class Penalis_Rest_Api {
 			'/articles/(?P<id>\d+)/unpublish',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
-				'callback'            => array( __CLASS__, 'unpublish_article' ),
+				'callback'            => array( __CLASS__, 'reject_legacy_publish' ),
 				'permission_callback' => array( __CLASS__, 'require_active_writer' ),
 			)
 		);
@@ -990,85 +990,22 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
-	 * Publish an owned article.
+	 * Refuse the retired writer publish/unpublish endpoints.
+	 *
+	 * Publication is an administrator-only workflow action in V2. The routes
+	 * stay registered so an older dashboard bundle, a bookmark or a direct
+	 * request receives an explicit refusal instead of a confusing 404, and so
+	 * the refusal is auditable in one place. They never touch the post.
 	 *
 	 * @param WP_REST_Request $request Request.
-	 * @return WP_REST_Response|WP_Error
+	 * @return WP_Error
 	 */
-	public static function publish_article( $request ) {
-		$post = self::get_owned_article( (int) $request['id'] );
-
-		if ( is_wp_error( $post ) ) {
-			return $post;
-		}
-
-		if ( ! in_array( $post->post_status, array( 'draft', 'pending', 'future' ), true ) ) {
-			return new WP_Error(
-				'penalis_invalid_transition',
-				'Karya tulis ini tidak dapat diterbitkan dari statusnya saat ini.',
-				array( 'status' => 409 )
-			);
-		}
-
-		$result = wp_update_post(
-			array(
-				'ID'          => $post->ID,
-				'post_status' => 'publish',
-			),
-			true
+	public static function reject_legacy_publish( $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Route callback signature.
+		return new WP_Error(
+			'penalis_publish_forbidden',
+			'Penerbitan karya tulis dilakukan oleh admin melalui alur tinjauan.',
+			array( 'status' => 403 )
 		);
-
-		if ( is_wp_error( $result ) ) {
-			return new WP_Error(
-				'penalis_publish_failed',
-				'Karya tulis tidak dapat diterbitkan.',
-				array( 'status' => 500 )
-			);
-		}
-
-		$updated = get_post( $post->ID );
-		return new WP_REST_Response( self::prepare_article_summary( $updated ), 200 );
-	}
-
-	/**
-	 * Return an owned article to draft.
-	 *
-	 * @param WP_REST_Request $request Request.
-	 * @return WP_REST_Response|WP_Error
-	 */
-	public static function unpublish_article( $request ) {
-		$post = self::get_owned_article( (int) $request['id'] );
-
-		if ( is_wp_error( $post ) ) {
-			return $post;
-		}
-
-		if ( 'publish' !== $post->post_status ) {
-			return new WP_Error(
-				'penalis_invalid_transition',
-				'Hanya karya tulis yang sudah terbit yang dapat dikembalikan ke draf.',
-				array( 'status' => 409 )
-			);
-		}
-
-		$result = wp_update_post(
-			array(
-				'ID'          => $post->ID,
-				'post_status' => 'draft',
-			),
-			true
-		);
-
-		if ( is_wp_error( $result ) ) {
-			return new WP_Error(
-				'penalis_unpublish_failed',
-				'karya tulis tidak dapat dikembalikan ke draf.',
-				array( 'status' => 500 )
-			);
-		}
-
-		$updated = get_post( $post->ID );
-		return new WP_REST_Response( self::prepare_article_summary( $updated ), 200 );
 	}
 
 	/**

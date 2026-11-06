@@ -26,6 +26,11 @@ final class Penalis_Editorial_Workflow {
 	 * keeps GET requests free of side effects and makes every legacy published
 	 * article read-only to its writer immediately.
 	 *
+	 * The stored metadata is never trusted over `post_status`: a post whose meta
+	 * claims `draft` while the site already shows it as `publish` is treated as
+	 * published. That closes the window where stale or hand-edited metadata would
+	 * let a writer keep editing a live article.
+	 *
 	 * @param WP_Post|int $post Post or post ID.
 	 * @return string Editorial state.
 	 */
@@ -38,11 +43,7 @@ final class Penalis_Editorial_Workflow {
 
 		$state = get_post_meta( $post->ID, Penalis_Editorial_Policy::META_STATE, true );
 
-		if ( Penalis_Editorial_Policy::is_valid_state( $state ) ) {
-			return (string) $state;
-		}
-
-		return Penalis_Editorial_Policy::initial_state_for_post_status( (string) $post->post_status );
+		return Penalis_Editorial_Policy::effective_state( (string) $post->post_status, $state );
 	}
 
 	/**
@@ -190,6 +191,31 @@ final class Penalis_Editorial_Workflow {
 				'Kamu harus masuk terlebih dahulu.',
 				array( 'status' => 401 )
 			);
+		}
+
+		// The service is a public entry point: REST handlers, the admin screen
+		// and any future caller reach the state machine through it. The actor
+		// therefore has to satisfy the same account rules here, not only in the
+		// caller, so a direct invocation cannot submit content for a suspended
+		// or pending account.
+		if ( Penalis_Editorial_Policy::is_writer_action( $action ) ) {
+			if ( ! Penalis_Account_Status::can_write( $actor ) ) {
+				return new WP_Error(
+					'penalis_account_inactive',
+					'Akun kamu saat ini tidak diizinkan mengirim karya tulis.',
+					array( 'status' => 403 )
+				);
+			}
+
+			if ( (int) $post->post_author !== $actor ) {
+				// Same 404-style refusal as the REST layer so the existence of
+				// another writer's article is never confirmed.
+				return new WP_Error(
+					'penalis_not_found',
+					'Karya tulis tidak ditemukan.',
+					array( 'status' => 404 )
+				);
+			}
 		}
 
 		$current_state = self::get_state( $post );

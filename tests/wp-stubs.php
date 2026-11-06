@@ -1161,3 +1161,145 @@ if ( ! function_exists( 'get_user_by' ) ) {
 
 $GLOBALS['penalis_test_options']    = array();
 $GLOBALS['penalis_test_transients'] = array();
+
+if ( ! function_exists( 'wp_get_current_user' ) ) {
+	/**
+	 * Current user double.
+	 *
+	 * Returns a real WP_User instance so access-control checks that inspect
+	 * `roles` behave the same way they would against WordPress.
+	 *
+	 * @return WP_User
+	 */
+	function wp_get_current_user() {
+		$user_id = get_current_user_id();
+
+		if ( $user_id > 0 ) {
+			$user = get_userdata( $user_id );
+			if ( $user ) {
+				return $user;
+			}
+
+			return new WP_User( $user_id, array( 'subscriber' ) );
+		}
+
+		return new WP_User( 0, array() );
+	}
+}
+
+if ( ! function_exists( 'current_user_can' ) ) {
+	/**
+	 * Current-user capability double.
+	 *
+	 * Meta capabilities are delegated to the access-control mapping so a test
+	 * exercises the same filter chain WordPress would apply.
+	 *
+	 * @param string $cap  Capability.
+	 * @param mixed  ...$args Capability arguments.
+	 * @return bool
+	 */
+	function current_user_can( $cap, ...$args ) {
+		$user_id = get_current_user_id();
+
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		$caps = user_can( $user_id, $cap ) ? array( $cap ) : array( 'do_not_allow' );
+
+		if ( class_exists( 'Penalis_Access_Control' ) ) {
+			$caps = Penalis_Access_Control::map_meta_cap( $caps, $cap, $user_id, $args );
+		}
+
+		return ! in_array( 'do_not_allow', $caps, true );
+	}
+}
+
+if ( ! function_exists( 'rest_authorization_required_code' ) ) {
+	/**
+	 * REST authorization status code double.
+	 *
+	 * @return int
+	 */
+	function rest_authorization_required_code() {
+		return is_user_logged_in() ? 403 : 401;
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	/**
+	 * Minimal REST request double.
+	 */
+	class WP_REST_Request {
+		/** @var string */
+		private $route = '';
+		/** @var string */
+		private $method = 'GET';
+		/** @var array<string,mixed> */
+		private $params = array();
+
+		/**
+		 * Constructor.
+		 *
+		 * @param string               $method HTTP method.
+		 * @param string               $route  Route.
+		 * @param array<string,mixed>  $params Parameters.
+		 */
+		public function __construct( $method = 'GET', $route = '', $params = array() ) {
+			$this->method = strtoupper( (string) $method );
+			$this->route  = (string) $route;
+			$this->params = (array) $params;
+		}
+
+		/**
+		 * Request route.
+		 *
+		 * @return string
+		 */
+		public function get_route() {
+			return $this->route;
+		}
+
+		/**
+		 * Request method.
+		 *
+		 * @return string
+		 */
+		public function get_method() {
+			return $this->method;
+		}
+
+		/**
+		 * Read a parameter.
+		 *
+		 * @param string $key Parameter name.
+		 * @return mixed
+		 */
+		public function get_param( $key ) {
+			return isset( $this->params[ $key ] ) ? $this->params[ $key ] : null;
+		}
+
+		/**
+		 * Write a parameter.
+		 *
+		 * @param string $key   Parameter name.
+		 * @param mixed  $value Value.
+		 * @return void
+		 */
+		public function set_param( $key, $value ) {
+			$this->params[ $key ] = $value;
+		}
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Server' ) ) {
+	/**
+	 * REST server method constants.
+	 */
+	class WP_REST_Server {
+		public const READABLE  = 'GET';
+		public const CREATABLE = 'POST';
+		public const EDITABLE  = 'POST, PUT, PATCH';
+		public const DELETABLE = 'DELETE';
+	}
+}

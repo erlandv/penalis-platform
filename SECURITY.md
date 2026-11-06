@@ -102,6 +102,32 @@ articles.
 See `EDITORIAL-WORKFLOW-ROADMAP.md` for the phased implementation plan. Until a
 phase there is marked complete, the corresponding behavior is not implemented.
 
+Implemented in version 0.2.5 (Phase 3):
+
+- A writer `status: publish` request through core REST is refused with
+  `penalis_publish_forbidden`, and `wp_insert_post_data` refuses it again as a
+  second layer.
+- The legacy `/articles/{id}/publish` and `/articles/{id}/unpublish` routes stay
+  registered but always answer `penalis_publish_forbidden` without touching the
+  post.
+- A writer update is refused unless `Penalis_Editorial_Workflow::can_writer_edit()`
+  accepts it: own post, active write access, `draft` post status, and an
+  editable editorial state. Published, under-review, and rejected articles are
+  therefore closed to the writer.
+- Stored editorial metadata is reconciled with `post_status`, so stale or
+  hand-edited meta cannot make a live article editable.
+- Single-post and single-media reads by ID enforce ownership; another writer's
+  draft, pending submission, or media is refused, while published articles stay
+  readable.
+- Media may only be attached to the writer's own articles, and the check runs
+  before the file is written.
+- `Penalis_Editorial_Workflow::apply()` re-checks account status and ownership,
+  so a direct service call cannot bypass the REST layer.
+
+Not yet implemented: the writer submit/review routes and the dashboard review
+screen (Phases 4–5). The review-cycle check is a stale-write guard, not a lock;
+concurrent reviewer decisions still need a compare-and-set or lock in Phase 4.
+
 ### Layered enforcement
 
 1. **Account status** — `Penalis_Account_Status::can_write()` requires
@@ -111,14 +137,16 @@ phase there is marked complete, the corresponding behavior is not implemented.
    Legacy accounts explicitly enabled by an administrator keep native behavior.
 3. **Meta capability mapping** — `map_meta_cap` adds `do_not_allow` for
    `edit_post`, `delete_post`, and `publish_post` when the post is not owned or
-   the account cannot write.
+   the account cannot write, and for attachments the writer does not own.
 4. **REST dispatch guard** — blocks administrative routes, non-allowlisted write
-   routes, and any write by inactive accounts.
-5. **Post insert filter** — forces the author, validates status, blocks
-   privileged fields, and verifies featured media ownership.
+   routes, cross-writer single-item reads, and any write by inactive accounts.
+5. **Post insert filter** — forces the author, refuses `publish`, refuses edits
+   to locked editorial states, blocks privileged fields, and verifies featured
+   media ownership.
 6. **Query filters** — forces post and media list queries to the current author
    for restricted users.
-7. **Upload validation** — restricts MIME types and verifies image contents.
+7. **Upload validation** — restricts MIME types, verifies image contents, and
+   keeps attachments on the writer's own articles.
 8. **UI restrictions** — the React app disables actions, but this is a
    convenience, not a security control.
 

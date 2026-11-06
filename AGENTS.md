@@ -385,13 +385,11 @@ and 3 per account per hour.
 
 ### 5.4 Writing and publishing
 
-> **V2 direction (approved, not yet implemented).** Writers will no longer
-> publish directly or edit published articles. They save drafts and submit
-> them for administrator review; approval publishes, requested changes and
-> rejection carry feedback. Administrators retain direct editing access.
-> Track progress in `EDITORIAL-WORKFLOW-ROADMAP.md`. The behavior below is the
-> current implementation and remains authoritative until the roadmap marks the
-> relevant phase complete.
+> **V2 direction (partially implemented).** The server already refuses every
+> writer publish path and every writer edit of a published or under-review
+> article (Phase 3, version 0.2.5). The dashboard does not have the review
+> workflow screen yet, so the old publish buttons now surface a refusal message
+> until Phase 5. Track progress in `EDITORIAL-WORKFLOW-ROADMAP.md`.
 
 - The editor saves through **core** `/wp/v2/posts` (create/update) and
   `/wp/v2/posts/{id}?force=true` (delete). The plugin does not re-implement
@@ -403,9 +401,10 @@ and 3 per account per hour.
   filtering, `map_meta_cap`, query forcing, and editorial workflow guards in
   `Penalis_Access_Control`.
 - The articles list publishes/unpublishes through `penalis/v1`
-  (`/articles/{id}/publish`, `/unpublish`) so the state machine stays explicit;
-  the editor saves the chosen status (`draft`, `publish`) through core
-  `wp/v2/posts`.
+  (`/articles/{id}/publish`, `/unpublish`), and both routes now answer
+  `penalis_publish_forbidden` without touching the post. The editor still sends
+  a status through core `wp/v2/posts`, where a writer `status: publish` is
+  refused.
 - Markup is filtered by WordPress `wp_kses` (writers lack `unfiltered_html`).
   That is the only authority on allowed HTML.
 
@@ -548,8 +547,8 @@ profile fields); `require_active_writer` = `active` + access flag.
 | `/account/avatar` | POST, DELETE | `set_avatar`, `remove_avatar` | logged in |
 | `/articles` | GET | `list_articles` | active writer |
 | `/articles/{id}` | GET | `get_article` | active writer |
-| `/articles/{id}/publish` | POST | `publish_article` | active writer |
-| `/articles/{id}/unpublish` | POST | `unpublish_article` | active writer |
+| `/articles/{id}/publish` | POST | `reject_legacy_publish` | active writer (always refused) |
+| `/articles/{id}/unpublish` | POST | `reject_legacy_publish` | active writer (always refused) |
 | `/media` | GET | `list_media` | active writer |
 | `/tags` | POST | `create_tag` | active writer |
 

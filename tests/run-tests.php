@@ -17,6 +17,8 @@ require_once __DIR__ . '/../includes/class-editorial-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
 require_once __DIR__ . '/../includes/class-editorial-workflow.php';
+require_once __DIR__ . '/../includes/class-access-control.php';
+require_once __DIR__ . '/../includes/class-rest-api.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
 require_once __DIR__ . '/../includes/class-dashboard.php';
 require_once __DIR__ . '/../includes/class-rate-limiter.php';
@@ -1774,6 +1776,486 @@ penalis_editorial_post( 207, 10, 'draft' );
 $guest = Penalis_Editorial_Workflow::apply( 207, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 0 ) );
 penalis_assert( is_wp_error( $guest ), 'A guest cannot apply a workflow action.' );
 penalis_same( 'penalis_not_authenticated', $guest->get_error_code(), 'A guest action uses the authentication error code.' );
+
+/* -------------------------------------------------------------------------
+ * Authorization and native REST hardening (Phase 3)
+ * ---------------------------------------------------------------------- */
+/**
+ * Register a post for the authorization tests.
+ *
+ * @param int    $id     Post ID.
+ * @param int    $author Author ID.
+ * @param string $status Post status.
+ * @param string $type   Post type.
+ * @return void
+ */
+function penalis_auth_post( $id, $author, $status = 'draft', $type = 'post' ) {
+	$post              = new WP_Post();
+	$post->ID          = (int) $id;
+	$post->post_author = (int) $author;
+	$post->post_status = $status;
+	$post->post_type   = $type;
+	$GLOBALS['penalis_test_posts'][ (int) $id ] = $post;
+}
+
+/**
+ * Register an active writer for the authorization tests.
+ *
+ * @param int $id User ID.
+ * @return void
+ */
+function penalis_auth_writer( $id ) {
+	$user = new WP_User( (int) $id, array( 'penalis_writer' ) );
+	$user->meta[ Penalis_Account_Status::META_STATUS ] = array( Penalis_Policy::STATUS_ACTIVE );
+	$user->meta[ Penalis_Account_Status::META_ACCESS ] = array( '1' );
+	$GLOBALS['penalis_test_users'][ (int) $id ] = $user;
+}
+
+/**
+ * Register an account in a given status.
+ *
+ * @param int    $id     User ID.
+ * @param string $status Account status.
+ * @param string $role   Role.
+ * @return void
+ */
+function penalis_auth_account( $id, $status, $role = 'subscriber' ) {
+	$user = new WP_User( (int) $id, array( $role ) );
+	$user->meta[ Penalis_Account_Status::META_STATUS ] = array( $status );
+	$user->meta[ Penalis_Account_Status::META_ACCESS ] = array( '0' );
+	$GLOBALS['penalis_test_users'][ (int) $id ] = $user;
+}
+
+/**
+ * Run the REST dispatch guard as the given user.
+ *
+ * @param int                 $user_id Acting user.
+ * @param string              $route   Route.
+ * @param string              $method  HTTP method.
+ * @return mixed
+ */
+function penalis_guard( $user_id, $route, $method ) {
+	$GLOBALS['penalis_test_current_user'] = (int) $user_id;
+
+	return Penalis_Access_Control::guard_rest_request( null, null, new WP_REST_Request( $method, $route ) );
+}
+
+// The retired writer publish endpoints are gone and refuse direct requests.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_post( 100, 10, 'draft' );
+$GLOBALS['penalis_test_current_user'] = 10;
+
+penalis_assert( ! method_exists( 'Penalis_Rest_Api', 'publish_article' ), 'The writer publish handler no longer exists.' );
+penalis_assert( ! method_exists( 'Penalis_Rest_Api', 'unpublish_article' ), 'The writer unpublish handler no longer exists.' );
+
+$legacy_publish = Penalis_Rest_Api::reject_legacy_publish( new WP_REST_Request( 'POST', '/penalis/v1/articles/100/publish' ) );
+penalis_assert( is_wp_error( $legacy_publish ), 'The retired publish endpoint answers with an error.' );
+penalis_same( 'penalis_publish_forbidden', $legacy_publish->get_error_code(), 'The retired publish endpoint reports the publish error code.' );
+penalis_same( 403, $legacy_publish->get_error_data()['status'], 'The retired publish endpoint answers 403.' );
+
+$legacy_unpublish = Penalis_Rest_Api::reject_legacy_publish( new WP_REST_Request( 'POST', '/penalis/v1/articles/100/unpublish' ) );
+penalis_same( 'penalis_publish_forbidden', $legacy_unpublish->get_error_code(), 'The retired unpublish endpoint reports the publish error code.' );
+
+// A direct REST request to the retired route is refused before dispatch.
+$direct_publish = penalis_guard( 10, '/penalis/v1/articles/100/publish', 'POST' );
+penalis_assert( is_wp_error( $direct_publish ), 'A writer cannot reach the retired publish route.' );
+penalis_same( 'penalis_rest_forbidden', $direct_publish->get_error_code(), 'The retired publish route is outside the write allowlist.' );
+
+// Account self-service routes stay reachable for pending accounts.
+penalis_auth_account( 12, Penalis_Policy::STATUS_PENDING_APPROVAL );
+penalis_assert( null === penalis_guard( 12, '/penalis/v1/account/profile', 'POST' ), 'A pending account may update its own profile.' );
+penalis_assert( null === penalis_guard( 12, '/penalis/v1/account/password', 'POST' ), 'A pending account may change its own password.' );
+penalis_same( 'penalis_account_inactive', penalis_guard( 12, '/wp/v2/posts', 'POST' )->get_error_code(), 'A pending account cannot write posts.' );
+
+// Anonymous requests are passed through so core can answer unauthenticated.
+penalis_assert( null === penalis_guard( 0, '/wp/v2/posts', 'POST' ), 'The guard leaves anonymous requests to core.' );
+
+// Taxonomies are readable but never writable for writers; the dashboard uses
+// its own narrow tag endpoint instead of taxonomy administration.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_assert( null === penalis_guard( 10, '/wp/v2/categories', 'GET' ), 'A writer may read categories.' );
+penalis_assert( null === penalis_guard( 10, '/wp/v2/tags', 'GET' ), 'A writer may read tags.' );
+penalis_same( 'penalis_rest_forbidden', penalis_guard( 10, '/wp/v2/categories', 'POST' )->get_error_code(), 'A writer cannot create categories through core REST.' );
+penalis_same( 'penalis_rest_forbidden', penalis_guard( 10, '/wp/v2/categories/5', 'DELETE' )->get_error_code(), 'A writer cannot delete categories through core REST.' );
+penalis_same( 'penalis_rest_forbidden', penalis_guard( 10, '/wp/v2/tags/5', 'POST' )->get_error_code(), 'A writer cannot update tags through core REST.' );
+penalis_assert( null === penalis_guard( 10, '/penalis/v1/tags', 'POST' ), 'A writer may use the narrow tag endpoint.' );
+
+// Administrator and editor workflows are untouched by the guard.
+$GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
+$GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'editor' ) );
+penalis_assert( null === penalis_guard( 20, '/wp/v2/posts', 'POST' ), 'An administrator may write posts through core REST.' );
+penalis_assert( null === penalis_guard( 20, '/penalis/v1/articles/100/publish', 'POST' ), 'An administrator is not restricted by the writer allowlist.' );
+penalis_assert( null === penalis_guard( 21, '/wp/v2/posts/100', 'POST' ), 'An editor is not restricted by the writer allowlist.' );
+
+// Single-item IDOR: another writer's draft, pending post, and media.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_writer( 11 );
+penalis_auth_post( 100, 10, 'publish' );
+penalis_auth_post( 101, 10, 'pending' );
+penalis_auth_post( 102, 10, 'draft' );
+penalis_auth_post( 310, 10, 'inherit', 'attachment' );
+
+penalis_assert( null === penalis_guard( 11, '/wp/v2/posts/100', 'GET' ), 'A writer may read another writer\'s published article.' );
+penalis_same( 'penalis_rest_forbidden', penalis_guard( 11, '/wp/v2/posts/101', 'GET' )->get_error_code(), 'A writer cannot read another writer\'s pending submission.' );
+penalis_same( 'penalis_rest_forbidden', penalis_guard( 11, '/wp/v2/posts/102', 'GET' )->get_error_code(), 'A writer cannot read another writer\'s draft.' );
+penalis_same( 'penalis_rest_forbidden', penalis_guard( 11, '/wp/v2/media/310', 'GET' )->get_error_code(), 'A writer cannot read another writer\'s media.' );
+penalis_assert( null === penalis_guard( 10, '/wp/v2/media/310', 'GET' ), 'A writer may read their own media.' );
+penalis_assert( null === penalis_guard( 10, '/wp/v2/posts/102', 'GET' ), 'A writer may read their own draft.' );
+penalis_assert( null === penalis_guard( 11, '/wp/v2/media/999', 'GET' ), 'A missing item is left to core for its own 404.' );
+penalis_assert( null === penalis_guard( 11, '/wp/v2/posts', 'GET' ), 'The list endpoint is not affected by the single-item guard.' );
+
+// An administrator reads every item.
+$GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
+penalis_assert( null === penalis_guard( 20, '/wp/v2/posts/101', 'GET' ), 'An administrator may read any submission.' );
+penalis_assert( null === penalis_guard( 20, '/wp/v2/media/310', 'GET' ), 'An administrator may read any media item.' );
+
+// Core REST insert guard: status, author, ownership and editorial lock.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_writer( 11 );
+penalis_auth_post( 100, 10, 'draft' );
+penalis_auth_post( 101, 10, 'publish' );
+penalis_auth_post( 102, 10, 'pending' );
+penalis_auth_post( 310, 10, 'inherit', 'attachment' );
+penalis_auth_post( 311, 11, 'inherit', 'attachment' );
+$GLOBALS['penalis_test_current_user'] = 10;
+
+$prepared = new stdClass();
+$created  = Penalis_Access_Control::enforce_post_insert(
+	$prepared,
+	new WP_REST_Request( 'POST', '/wp/v2/posts', array( 'status' => 'draft' ) )
+);
+penalis_assert( ! is_wp_error( $created ), 'A writer may create a draft.' );
+penalis_same( 10, $created->post_author, 'The server derives the author of a new draft.' );
+
+$publish = Penalis_Access_Control::enforce_post_insert(
+	new stdClass(),
+	new WP_REST_Request( 'POST', '/wp/v2/posts', array( 'status' => 'publish' ) )
+);
+penalis_assert( is_wp_error( $publish ), 'A writer cannot set a post status to publish.' );
+penalis_same( 'penalis_publish_forbidden', $publish->get_error_code(), 'Publishing through core REST uses the publish error code.' );
+
+$pending = Penalis_Access_Control::enforce_post_insert(
+	new stdClass(),
+	new WP_REST_Request( 'POST', '/wp/v2/posts', array( 'status' => 'pending' ) )
+);
+penalis_same( 'penalis_invalid_status', $pending->get_error_code(), 'A writer cannot park a post in pending.' );
+
+$spoof = Penalis_Access_Control::enforce_post_insert(
+	new stdClass(),
+	new WP_REST_Request( 'POST', '/wp/v2/posts', array( 'author' => 11 ) )
+);
+penalis_same( 'penalis_invalid_author', $spoof->get_error_code(), 'A writer cannot assign another author.' );
+
+$foreign = new stdClass();
+$foreign->ID = 100;
+$GLOBALS['penalis_test_current_user'] = 11;
+penalis_same(
+	'penalis_not_owner',
+	Penalis_Access_Control::enforce_post_insert( $foreign, new WP_REST_Request( 'POST', '/wp/v2/posts/100', array( 'status' => 'draft' ) ) )->get_error_code(),
+	'A writer cannot update another writer\'s draft.'
+);
+
+$GLOBALS['penalis_test_current_user'] = 10;
+$published_update = new stdClass();
+$published_update->ID = 101;
+$published_result = Penalis_Access_Control::enforce_post_insert( $published_update, new WP_REST_Request( 'POST', '/wp/v2/posts/101' ) );
+penalis_same( 'penalis_editorial_locked', $published_result->get_error_code(), 'A writer cannot update their own published article.' );
+
+$review_update = new stdClass();
+$review_update->ID = 102;
+$review_result = Penalis_Access_Control::enforce_post_insert( $review_update, new WP_REST_Request( 'POST', '/wp/v2/posts/102' ) );
+penalis_same( 'penalis_editorial_locked', $review_result->get_error_code(), 'A writer cannot update a submission under review.' );
+
+$own_draft_update = new stdClass();
+$own_draft_update->ID = 100;
+penalis_assert(
+	! is_wp_error( Penalis_Access_Control::enforce_post_insert( $own_draft_update, new WP_REST_Request( 'POST', '/wp/v2/posts/100', array( 'status' => 'draft' ) ) ) ),
+	'A writer may update their own draft.'
+);
+
+$foreign_media = new stdClass();
+$foreign_media_result = Penalis_Access_Control::enforce_post_insert(
+	$foreign_media,
+	new WP_REST_Request( 'POST', '/wp/v2/posts', array( 'status' => 'draft', 'featured_media' => 311 ) )
+);
+penalis_same( 'penalis_invalid_media', $foreign_media_result->get_error_code(), 'A writer cannot use another writer\'s media as a featured image.' );
+
+$own_media = new stdClass();
+penalis_assert(
+	! is_wp_error(
+		Penalis_Access_Control::enforce_post_insert(
+			$own_media,
+			new WP_REST_Request( 'POST', '/wp/v2/posts', array( 'status' => 'draft', 'featured_media' => 310 ) )
+		)
+	),
+	'A writer may use their own media as a featured image.'
+);
+
+$privileged = Penalis_Access_Control::enforce_post_insert(
+	new stdClass(),
+	new WP_REST_Request( 'POST', '/wp/v2/posts', array( 'status' => 'draft', 'sticky' => true ) )
+);
+penalis_same( 'penalis_invalid_field', $privileged->get_error_code(), 'A writer cannot make a post sticky.' );
+
+// Administrators keep native post behaviour, including publishing.
+$GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
+$GLOBALS['penalis_test_current_user'] = 20;
+$admin_prepared = new stdClass();
+penalis_assert(
+	! is_wp_error(
+		Penalis_Access_Control::enforce_post_insert(
+			$admin_prepared,
+			new WP_REST_Request( 'POST', '/wp/v2/posts', array( 'status' => 'publish' ) )
+		)
+	),
+	'An administrator may publish through core REST.'
+);
+$admin_update = new stdClass();
+$admin_update->ID = 101;
+penalis_assert(
+	! is_wp_error( Penalis_Access_Control::enforce_post_insert( $admin_update, new WP_REST_Request( 'POST', '/wp/v2/posts/101' ) ) ),
+	'An administrator may update a published article through core REST.'
+);
+
+// Attachment insert guard: ownership, parent, author and status.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_writer( 11 );
+penalis_auth_post( 100, 10, 'draft' );
+penalis_auth_post( 101, 11, 'draft' );
+penalis_auth_post( 310, 10, 'inherit', 'attachment' );
+penalis_auth_post( 311, 11, 'inherit', 'attachment' );
+$GLOBALS['penalis_test_current_user'] = 10;
+
+$media_create = new stdClass();
+penalis_assert(
+	! is_wp_error( Penalis_Access_Control::enforce_attachment_insert( $media_create, new WP_REST_Request( 'POST', '/wp/v2/media' ) ) ),
+	'A writer may upload media.'
+);
+penalis_same( 10, $media_create->post_author, 'The server derives the author of a new attachment.' );
+
+$media_spoof = new stdClass();
+penalis_same(
+	'penalis_invalid_author',
+	Penalis_Access_Control::enforce_attachment_insert( $media_spoof, new WP_REST_Request( 'POST', '/wp/v2/media', array( 'author' => 11 ) ) )->get_error_code(),
+	'A writer cannot upload media for another account.'
+);
+
+$media_foreign_update = new stdClass();
+$media_foreign_update->ID = 311;
+penalis_same(
+	'penalis_not_found',
+	Penalis_Access_Control::enforce_attachment_insert( $media_foreign_update, new WP_REST_Request( 'POST', '/wp/v2/media/311' ) )->get_error_code(),
+	'A writer cannot update another writer\'s media (404, not 403).'
+);
+
+$media_status = new stdClass();
+penalis_same(
+	'penalis_invalid_status',
+	Penalis_Access_Control::enforce_attachment_insert( $media_status, new WP_REST_Request( 'POST', '/wp/v2/media', array( 'status' => 'publish' ) ) )->get_error_code(),
+	'A writer cannot publish an attachment post.'
+);
+
+$media_parent_foreign = new stdClass();
+penalis_same(
+	'penalis_invalid_media_parent',
+	Penalis_Access_Control::enforce_attachment_insert( $media_parent_foreign, new WP_REST_Request( 'POST', '/wp/v2/media', array( 'post' => 101 ) ) )->get_error_code(),
+	'A writer cannot attach media to another writer\'s article.'
+);
+
+$media_parent_own = new stdClass();
+penalis_assert(
+	! is_wp_error( Penalis_Access_Control::enforce_attachment_insert( $media_parent_own, new WP_REST_Request( 'POST', '/wp/v2/media', array( 'post' => 100 ) ) ) ),
+	'A writer may attach media to their own article.'
+);
+
+$media_own_update = new stdClass();
+$media_own_update->ID = 310;
+penalis_assert(
+	! is_wp_error( Penalis_Access_Control::enforce_attachment_insert( $media_own_update, new WP_REST_Request( 'POST', '/wp/v2/media/310' ) ) ),
+	'A writer may update their own media.'
+);
+
+$GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
+$GLOBALS['penalis_test_current_user'] = 20;
+penalis_assert(
+	! is_wp_error( Penalis_Access_Control::enforce_attachment_insert( new stdClass(), new WP_REST_Request( 'POST', '/wp/v2/media', array( 'post' => 101, 'author' => 11 ) ) ) ),
+	'An administrator is unaffected by the attachment insert guard.'
+);
+
+// Media parameters are also refused before the upload is written: core's
+// attachment controller casts the prepared object to an array without checking
+// for WP_Error, so the filter alone would refuse only after the file exists.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_writer( 11 );
+penalis_auth_post( 100, 10, 'draft' );
+penalis_auth_post( 101, 11, 'draft' );
+
+penalis_assert(
+	null === penalis_guard( 10, '/wp/v2/media', 'POST' ),
+	'A writer may upload media through the dispatch guard: the author is derived server-side.'
+);
+
+$GLOBALS['penalis_test_current_user'] = 10;
+$media_dispatch_spoof = Penalis_Access_Control::guard_rest_request(
+	null,
+	null,
+	new WP_REST_Request( 'POST', '/wp/v2/media', array( 'author' => 11 ) )
+);
+penalis_same( 'penalis_invalid_author', $media_dispatch_spoof->get_error_code(), 'A writer cannot spoof the media author before dispatch.' );
+
+$media_dispatch_status = Penalis_Access_Control::guard_rest_request(
+	null,
+	null,
+	new WP_REST_Request( 'POST', '/wp/v2/media', array( 'status' => 'publish' ) )
+);
+penalis_same( 'penalis_invalid_status', $media_dispatch_status->get_error_code(), 'A writer cannot publish an attachment before dispatch.' );
+
+$media_dispatch_parent = Penalis_Access_Control::guard_rest_request(
+	null,
+	null,
+	new WP_REST_Request( 'POST', '/wp/v2/media', array( 'post' => 101 ) )
+);
+penalis_same( 'penalis_invalid_media_parent', $media_dispatch_parent->get_error_code(), 'A writer cannot attach media to another writer\'s article before dispatch.' );
+
+$media_dispatch_own = Penalis_Access_Control::guard_rest_request(
+	null,
+	null,
+	new WP_REST_Request( 'POST', '/wp/v2/media', array( 'post' => 100, 'status' => 'inherit' ) )
+);
+penalis_assert( null === $media_dispatch_own, 'A writer may attach media to their own article before dispatch.' );
+
+$media_dispatch_update = Penalis_Access_Control::guard_rest_request(
+	null,
+	null,
+	new WP_REST_Request( 'POST', '/wp/v2/media/310' )
+);
+penalis_assert( null === $media_dispatch_update, 'The media dispatch guard leaves updates to the insert filter.' );
+
+$GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
+$GLOBALS['penalis_test_current_user'] = 20;
+$media_dispatch_admin = Penalis_Access_Control::guard_rest_request(
+	null,
+	null,
+	new WP_REST_Request( 'POST', '/wp/v2/media', array( 'author' => 11, 'post' => 101, 'status' => 'publish' ) )
+);
+penalis_assert( null === $media_dispatch_admin, 'An administrator is unaffected by the media dispatch guard.' );
+
+// Meta capability mapping for writers, editors and administrators.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_writer( 11 );
+penalis_auth_post( 100, 10, 'draft' );
+penalis_auth_post( 101, 10, 'publish' );
+penalis_auth_post( 102, 10, 'pending' );
+penalis_auth_post( 103, 11, 'draft' );
+penalis_auth_post( 310, 10, 'inherit', 'attachment' );
+penalis_auth_post( 311, 11, 'inherit', 'attachment' );
+penalis_auth_post( 400, 10, 'publish', 'page' );
+
+/**
+ * Whether a capability check ends with do_not_allow.
+ *
+ * @param string $cap     Capability.
+ * @param int    $user_id User ID.
+ * @param int    $post_id Post ID.
+ * @return bool
+ */
+function penalis_cap_denied( $cap, $user_id, $post_id ) {
+	$caps = Penalis_Access_Control::map_meta_cap( array( $cap ), $cap, (int) $user_id, array( (int) $post_id ) );
+
+	return in_array( 'do_not_allow', $caps, true );
+}
+
+penalis_assert( ! penalis_cap_denied( 'edit_post', 10, 100 ), 'A writer may edit their own draft.' );
+penalis_assert( penalis_cap_denied( 'edit_post', 10, 101 ), 'A writer may not edit their own published article.' );
+penalis_assert( penalis_cap_denied( 'edit_post', 10, 102 ), 'A writer may not edit a submission under review.' );
+penalis_assert( penalis_cap_denied( 'edit_post', 10, 103 ), 'A writer may not edit another writer\'s draft.' );
+penalis_assert( penalis_cap_denied( 'publish_post', 10, 100 ), 'A writer never gets publish_post, even on their own draft.' );
+penalis_assert( ! penalis_cap_denied( 'delete_post', 10, 101 ), 'A writer may still delete their own published article.' );
+penalis_assert( penalis_cap_denied( 'delete_post', 10, 103 ), 'A writer may not delete another writer\'s article.' );
+penalis_assert( ! penalis_cap_denied( 'edit_post', 10, 310 ), 'A writer may edit their own attachment.' );
+penalis_assert( penalis_cap_denied( 'edit_post', 10, 311 ), 'A writer may not edit another writer\'s attachment.' );
+penalis_assert( penalis_cap_denied( 'edit_post', 10, 400 ), 'A writer may not reach a page through a meta capability.' );
+
+$GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
+$GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'editor' ) );
+penalis_assert( ! penalis_cap_denied( 'edit_post', 20, 101 ), 'An administrator may edit a published article.' );
+penalis_assert( ! penalis_cap_denied( 'publish_post', 20, 100 ), 'An administrator keeps publish_post.' );
+penalis_assert( ! penalis_cap_denied( 'edit_post', 21, 101 ), 'An editor may edit a published article.' );
+penalis_assert( ! penalis_cap_denied( 'edit_post', 21, 311 ), 'An editor may edit any media item.' );
+
+// An inactive writer loses every meta capability.
+$GLOBALS['penalis_test_users'][11]->meta[ Penalis_Account_Status::META_ACCESS ] = array( '0' );
+penalis_assert( penalis_cap_denied( 'edit_post', 11, 103 ), 'A writer without access cannot edit their own draft.' );
+penalis_assert( penalis_cap_denied( 'delete_post', 11, 103 ), 'A writer without access cannot delete their own draft.' );
+
+// List queries stay narrowed for writers and wide for administrators.
+penalis_reset();
+penalis_auth_writer( 10 );
+$GLOBALS['penalis_test_current_user'] = 10;
+$writer_query = Penalis_Access_Control::force_own_post_query( array(), new WP_REST_Request( 'GET', '/wp/v2/posts' ) );
+penalis_same( 10, $writer_query['author'], 'Post list queries are forced to the current writer.' );
+$writer_media_query = Penalis_Access_Control::force_own_media_query( array(), new WP_REST_Request( 'GET', '/wp/v2/media' ) );
+penalis_same( 10, $writer_media_query['author'], 'Media list queries are forced to the current writer.' );
+
+$GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
+$GLOBALS['penalis_test_current_user'] = 20;
+penalis_assert( ! isset( Penalis_Access_Control::force_own_post_query( array(), new WP_REST_Request( 'GET', '/wp/v2/posts' ) )['author'] ), 'An administrator\'s post query is not rewritten.' );
+penalis_assert( ! isset( Penalis_Access_Control::force_own_media_query( array(), new WP_REST_Request( 'GET', '/wp/v2/media' ) )['author'] ), 'An administrator\'s media query is not rewritten.' );
+
+// A tampered editorial state never reopens a published article.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_post( 500, 10, 'publish' );
+$GLOBALS['penalis_test_posts'][500]->meta[ Penalis_Editorial_Policy::META_STATE ] = array( Penalis_Editorial_Policy::STATE_DRAFT );
+penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, Penalis_Editorial_Workflow::get_state( 500 ), 'Stored draft metadata cannot override a published status.' );
+penalis_assert( ! Penalis_Editorial_Workflow::can_writer_edit( 500, 10 ), 'A tampered state does not reopen a published article.' );
+
+penalis_auth_post( 501, 10, 'pending' );
+$GLOBALS['penalis_test_posts'][501]->meta[ Penalis_Editorial_Policy::META_STATE ] = array( Penalis_Editorial_Policy::STATE_DRAFT );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, Penalis_Editorial_Workflow::get_state( 501 ), 'Stored draft metadata cannot override a pending status.' );
+
+// The insert-data guard is the last line of defence for any write path.
+penalis_reset();
+penalis_auth_writer( 10 );
+penalis_auth_post( 100, 10, 'draft' );
+penalis_auth_post( 101, 10, 'publish' );
+$GLOBALS['penalis_test_current_user'] = 10;
+
+$downgraded = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'publish' ), array() );
+penalis_same( 'draft', $downgraded['post_status'], 'A writer publish attempt is downgraded to draft.' );
+
+$future = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'future' ), array() );
+penalis_same( 'draft', $future['post_status'], 'A writer scheduled post is downgraded to draft.' );
+
+$private = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'private' ), array() );
+penalis_same( 'draft', $private['post_status'], 'A writer private post is downgraded to draft.' );
+
+$draft_kept = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'draft' ), array() );
+penalis_same( 'draft', $draft_kept['post_status'], 'A writer draft is left alone.' );
+
+$live_kept = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'publish' ), array( 'ID' => 101 ) );
+penalis_same( 'publish', $live_kept['post_status'], 'The guard never unpublishes an already published article.' );
+
+$GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
+$GLOBALS['penalis_test_current_user'] = 20;
+$admin_publish = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'publish' ), array() );
+penalis_same( 'publish', $admin_publish['post_status'], 'An administrator publish is untouched by the insert-data guard.' );
+
+$GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'editor' ) );
+$GLOBALS['penalis_test_current_user'] = 21;
+$editor_publish = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'publish' ), array() );
+penalis_same( 'publish', $editor_publish['post_status'], 'An editor publish is untouched by the insert-data guard.' );
+
+$GLOBALS['penalis_test_current_user'] = 0;
+$guest_publish = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'publish' ), array() );
+penalis_same( 'publish', $guest_publish['post_status'], 'An anonymous insert is left to core.' );
 
 /* -------------------------------------------------------------------------
  * Report

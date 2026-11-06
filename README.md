@@ -47,7 +47,11 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
 - Article editor with a WYSIWYG surface (TipTap), title, categories, tags,
   featured image, and image upload/insertion. The excerpt is left to WordPress
   and SEO plugins, so it is not part of the form.
-- Draft saving and, in the planned V2 workflow, submission for administrator review. Writers will not publish directly or edit published articles; approval, publication, and direct editing of published content will be handled by Penalis administrators.
+- Draft saving. Writers cannot publish: the server refuses every writer publish
+  path and every writer edit of a published or under-review article (version
+  0.2.5). Submission for administrator review and the review screen are the
+  remaining V2 work; until they land, the dashboard's publish buttons surface
+  the refusal message.
 - Writer profile with first name, last name, and a public name choice: first +
   last, first only, last only, username, or a custom pen name.
 - Profile photo selection from the writer's own media library, using the same

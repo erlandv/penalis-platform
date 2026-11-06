@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, registration, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.4
+Stable tag: 0.2.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -171,6 +171,24 @@ Screenshots are not provided yet.
 
 == Changelog ==
 
+= 0.2.5 =
+* **Writers can no longer publish.** Publication is an administrator-only
+  action in the V2 editorial workflow. The writer publish/unpublish endpoints,
+  a direct `status: publish` request, and a writer edit of an already published
+  article are all refused server-side with a clear message.
+* Writers may save drafts only. Updates are limited to their own `draft` posts
+  whose editorial state still allows editing, so a submission under review, a
+  rejected submission, and any published article are closed to its writer.
+* Single-post and single-media reads now enforce ownership, so a draft or
+  pending submission cannot be fetched by ID from another account. Uploads may
+  only be attached to the writer's own articles.
+* Editorial metadata is reconciled against the WordPress post status, so stale
+  or hand-edited meta can no longer make a live article editable.
+* The workflow service re-checks account status and ownership itself, so a
+  direct call cannot bypass the REST layer.
+* The dashboard still shows the previous publish UI. It now receives the
+  refusal message below until the writer workflow screen lands.
+
 = 0.2.4 =
 * The **Users -> Penulis Penalis** screen has been reorganised: status tabs with
   live counts replace the dropdown filter, the search bar sits in its own
@@ -236,6 +254,13 @@ Screenshots are not provided yet.
   production build pipeline.
 
 == Upgrade Notice ==
+
+= 0.2.5 =
+Writers can no longer publish. Direct publish requests, edits to published
+articles, and edits to submissions under review are refused server-side. The
+dashboard still shows the previous publish buttons until the writer review
+workflow lands, so writers will see a refusal message instead of a published
+article. No content or user data is migrated.
 
 = 0.2.0 =
 Renames the plugin-managed dashboard page to `/dashboard/`. No content or user

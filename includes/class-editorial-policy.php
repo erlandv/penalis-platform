@@ -336,6 +336,43 @@ final class Penalis_Editorial_Policy {
 	}
 
 	/**
+	 * Reconcile stored editorial metadata with the WordPress post status.
+	 *
+	 * `post_status` stays the public-visibility authority, so it wins over stale
+	 * or tampered metadata. Without this rule a post whose meta still said
+	 * `draft` could be moved to `pending` while it is already live, or a reviewer
+	 * could act on metadata claiming a round of review that no longer matches
+	 * what the site is showing. Visibility states are derived from the post
+	 * status; only the two draft-rooted states (`changes_requested`, `rejected`)
+	 * keep their stored value, because both map to the same post status and the
+	 * distinction only exists in metadata.
+	 *
+	 * @param string $post_status  WordPress post status.
+	 * @param mixed  $stored_state Stored editorial state, if any.
+	 * @return string Effective editorial state.
+	 */
+	public static function effective_state( $post_status, $stored_state ) {
+		if ( 'publish' === $post_status ) {
+			return self::STATE_PUBLISHED;
+		}
+
+		if ( 'pending' === $post_status ) {
+			return self::STATE_PENDING_REVIEW;
+		}
+
+		if (
+			is_string( $stored_state )
+			&& self::is_valid_state( $stored_state )
+			&& self::STATE_PUBLISHED !== $stored_state
+			&& self::STATE_PENDING_REVIEW !== $stored_state
+		) {
+			return $stored_state;
+		}
+
+		return self::STATE_DRAFT;
+	}
+
+	/**
 	 * Derive the editorial state for a post that has no workflow metadata yet.
 	 *
 	 * Existing posts predate V2, so their state has to be inferred from the

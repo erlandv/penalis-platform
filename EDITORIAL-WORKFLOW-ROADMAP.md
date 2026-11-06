@@ -117,8 +117,9 @@ WordPress-free class so the rules stay unit-testable:
 - `can_review()` — administrator **and** `edit_others_posts`.
 - `requires_feedback()` / `has_required_feedback()` — required for request-changes and
   reject, optional for approval.
-- `next_review_cycle()` / `is_stale_decision()` — two administrators cannot apply
-  conflicting decisions to the same round.
+- `next_review_cycle()` / `is_stale_decision()` — a decision made against an
+  older review cycle is refused. This is a stale-write guard, not a lock; see
+  the Phase 3 limitations.
 - `metadata_keys()` — the eight `_penalis_*` keys, with no pending-revision key.
 - `is_valid_history_entry()` / `is_valid_history()` / `append_history_entry()` — bounded
   to `HISTORY_LIMIT` (50) entries, newest last.
@@ -167,13 +168,54 @@ Exit criteria: server tests prove that all state changes are centralized, owners
 
 ### Phase 3 — Authorization and native REST hardening
 
-- [ ] Prevent writer requests from setting or changing a post to `publish`.
-- [ ] Ensure only the approval action can publish a writer submission.
-- [ ] Preserve administrator/editor native workflows.
-- [ ] Enforce ownership for posts, pending submissions, media, taxonomies, and featured images.
-- [ ] Prevent access to another writer’s `pending`, draft, feedback, or review history.
-- [ ] Deny writer updates to any `publish` post through core REST while preserving administrator editing.
-- [ ] Add direct-request and IDOR tests for every protected route.
+- [x] Prevent writer requests from setting or changing a post to `publish`.
+- [x] Ensure only the approval action can publish a writer submission.
+- [x] Preserve administrator/editor native workflows.
+- [x] Enforce ownership for posts, pending submissions, media, taxonomies, and featured images.
+- [x] Prevent access to another writer’s `pending`, draft, feedback, or review history.
+- [x] Deny writer updates to any `publish` post through core REST while preserving administrator editing.
+- [x] Add direct-request and IDOR tests for every protected route.
+
+Implemented across `Penalis_Access_Control`, `Penalis_Rest_Api`,
+`Penalis_Editorial_Policy`, and `Penalis_Editorial_Workflow`:
+
+- `enforce_post_insert()` refuses `status: publish` from a writer with
+  `penalis_publish_forbidden`, and refuses any update to a post that
+  `Penalis_Editorial_Workflow::can_writer_edit()` rejects (published, under
+  review, rejected, or not owned).
+- `guard_writer_publish_status()` runs on `wp_insert_post_data` as a second
+  layer, so a publish attempt that reaches `wp_insert_post()` by another path is
+  still refused.
+- The legacy `/articles/{id}/publish` and `/articles/{id}/unpublish` routes stay
+  registered but now answer `penalis_publish_forbidden` (403) without touching
+  the post, so an older dashboard bundle or a bookmark gets an explicit refusal.
+- `guard_single_item_read()` refuses cross-writer reads of single posts and
+  attachments by ID; published articles by other writers remain readable.
+- `enforce_attachment_insert()` and `guard_media_params()` keep media owned by
+  the writer and refuse attaching it to another writer's article. The dispatch
+  guard runs before the file is written, because core swallows a `WP_Error`
+  returned from `rest_pre_insert_attachment` on create.
+- `map_meta_cap()` now also covers attachment ownership.
+- `Penalis_Editorial_Policy::effective_state()` reconciles stored metadata with
+  `post_status`, so stale or hand-edited meta cannot make a live article
+  editable.
+- `Penalis_Editorial_Workflow::apply()` re-checks account status and ownership
+  itself, so a direct service call cannot bypass the REST layer.
+- Administrators and editors are unaffected: every guard returns early for
+  `is_restricted_user() === false`.
+
+Evidence: `php tests/run-tests.php` → 693 assertions passed; `phpcs` clean;
+`npm run check` passes (72 Vitest tests, build OK).
+
+Known limitations at the end of this phase:
+
+- The dashboard still renders the previous publish UI. Writers now receive the
+  refusal message instead of a published article until Phase 5 replaces the
+  buttons. This is intentional: the server is already authoritative.
+- The review-cycle check is a stale-write guard, not a lock. Two administrators
+  submitting at the same instant can still both pass the check before either
+  write lands; Phase 4 must add a compare-and-set or lock around the decision.
+- No browser verification has been run for this phase.
 
 Exit criteria: authorization tests pass for anonymous users, pending writers, active writers, multiple writers, and administrators.
 
@@ -245,6 +287,7 @@ Exit criteria: the plugin is ready for owner review and a later staging deployme
 | 2026-11-05 | Planning | Published articles made writer-read-only | Penalis team decision; pending revisions removed from V2 scope |
 | 2026-11-05 | Phase 1 | Pure editorial policy and data contracts implemented | `includes/class-editorial-policy.php`; `php tests/run-tests.php` 483 assertions, `composer lint` clean |
 | 2026-11-06 | Phase 2 | Editorial workflow persistence implemented | `includes/class-editorial-workflow.php`; post/post-meta test doubles in `tests/wp-stubs.php`; 600 assertions, `composer lint` clean |
+| 2026-11-06 | Phase 3 | Writer publish and published-article editing blocked server-side | `class-access-control.php`, `class-rest-api.php`, `class-editorial-policy.php`, `class-editorial-workflow.php`; 693 assertions, phpcs clean, `npm run check` OK; version 0.2.5 |
 
 ## Explicit non-goals for V2
 

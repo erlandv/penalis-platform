@@ -50,6 +50,7 @@ final class Penalis_Access_Control {
 		add_filter( 'user_has_cap', array( __CLASS__, 'filter_capabilities' ), 10, 4 );
 		add_filter( 'rest_pre_dispatch', array( __CLASS__, 'guard_rest_request' ), 10, 3 );
 		add_filter( 'rest_pre_insert_post', array( __CLASS__, 'enforce_post_insert' ), 10, 2 );
+		add_filter( 'rest_pre_insert_attachment', array( __CLASS__, 'enforce_attachment_insert' ), 10, 2 );
 		add_filter( 'rest_post_query', array( __CLASS__, 'force_own_post_query' ), 10, 2 );
 		add_filter( 'rest_media_query', array( __CLASS__, 'force_own_media_query' ), 10, 2 );
 		add_filter( 'upload_mimes', array( __CLASS__, 'restrict_upload_mimes' ) );
@@ -58,6 +59,7 @@ final class Penalis_Access_Control {
 		add_action( 'profile_update', array( __CLASS__, 'prevent_profile_escalation' ), 10, 2 );
 		add_filter( 'send_email_change_email', array( __CLASS__, 'suppress_core_email_change_notice' ), 10, 1 );
 		add_filter( 'map_meta_cap', array( __CLASS__, 'map_meta_cap' ), 10, 4 );
+		add_filter( 'wp_insert_post_data', array( __CLASS__, 'guard_writer_publish_status' ), 10, 2 );
 	}
 
 	/**
@@ -414,6 +416,15 @@ final class Penalis_Access_Control {
 			);
 		}
 
+		// Single posts and attachments are fetched by ID, which bypasses the
+		// list query filters below. Refuse cross-writer reads explicitly.
+		if ( 'GET' === $method ) {
+			$read_guard = self::guard_single_item_read( $route, $user );
+			if ( is_wp_error( $read_guard ) ) {
+				return $read_guard;
+			}
+		}
+
 		// Any write operation requires an active writer account, except the
 		// account and verification routes that pending users may legitimately
 		// use.
@@ -446,11 +457,16 @@ final class Penalis_Access_Control {
 				);
 			}
 
-			// Writers may only write through a narrow allowlist of routes.
+			// Writers may only write through a narrow allowlist of routes. The
+			// legacy publish endpoints are deliberately excluded: publication is
+			// an administrator-only workflow action now.
 			$allowed_write_prefixes = array(
 				'/wp/v2/posts',
 				'/wp/v2/media',
-				'/penalis/v1/',
+				'/penalis/v1/account/',
+				'/penalis/v1/verification/',
+				'/penalis/v1/password/',
+				'/penalis/v1/tags',
 			);
 
 			$allowed = false;
@@ -468,9 +484,110 @@ final class Penalis_Access_Control {
 					array( 'status' => rest_authorization_required_code() )
 				);
 			}
+
+			// Media writes are validated before the upload is handled.
+			//
+			// `WP_REST_Attachments_Controller::insert_attachment()` casts the
+			// prepared attachment to an array without checking for WP_Error, so
+			// a refusal returned from `rest_pre_insert_attachment` on create is
+			// swallowed *after* the file has already been written to disk. The
+			// dispatch guard refuses first, and the filter below still covers
+			// the update path, where core does return the error.
+			if ( 0 === strpos( $route, '/wp/v2/media' ) ) {
+				$media_guard = self::guard_media_params( $request, $user );
+				if ( is_wp_error( $media_guard ) ) {
+					return $media_guard;
+				}
+			}
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Validate media parameters before any file is written.
+	 *
+	 * Mirrors the insert filter so a writer cannot assign media to another
+	 * account, publish an attachment post, or attach media to an article they
+	 * do not own — and cannot do any of it by having core swallow the error.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @param WP_User         $user    Current restricted user.
+	 * @return WP_Error|null
+	 */
+	private static function guard_media_params( $request, $user ) {
+		$author = Penalis_Policy::resolve_author( $request->get_param( 'author' ), (int) $user->ID );
+
+		if ( isset( $author['error'] ) ) {
+			return new WP_Error( 'penalis_invalid_author', $author['error'], array( 'status' => 403 ) );
+		}
+
+		$requested_status = $request->get_param( 'status' );
+		if ( null !== $requested_status && '' !== (string) $requested_status && 'inherit' !== (string) $requested_status ) {
+			return new WP_Error(
+				'penalis_invalid_status',
+				'Status media tersebut tidak diizinkan.',
+				array( 'status' => 403 )
+			);
+		}
+
+		$parent_id = (int) $request->get_param( 'post' );
+		if ( $parent_id > 0 ) {
+			$parent = get_post( $parent_id );
+
+			if ( ! $parent || 'post' !== $parent->post_type || (int) $parent->post_author !== (int) $user->ID ) {
+				return new WP_Error(
+					'penalis_invalid_media_parent',
+					'Kamu hanya dapat melampirkan media ke karya tulismu sendiri.',
+					array( 'status' => 403 )
+				);
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Refuse cross-writer reads of single posts and attachments.
+	 *
+	 * The list endpoints are narrowed by the query filters below, but reading
+	 * an item by ID bypasses them. Core capability mapping does reject most of
+	 * these requests, and this explicit guard keeps the rule in one place: a
+	 * writer may read their own items plus already published articles by other
+	 * writers, and nothing else.
+	 *
+	 * A missing item is not answered here so core can return its own 404.
+	 *
+	 * @param string  $route Request route.
+	 * @param WP_User $user  Current user.
+	 * @return WP_Error|null
+	 */
+	private static function guard_single_item_read( $route, $user ) {
+		if ( ! preg_match( '#^/wp/v2/(posts|media)/(\d+)(?:/|$)#', $route, $matches ) ) {
+			return null;
+		}
+
+		$post = get_post( (int) $matches[2] );
+
+		if ( ! $post ) {
+			return null;
+		}
+
+		if ( (int) $post->post_author === (int) $user->ID ) {
+			return null;
+		}
+
+		// Published articles are public; drafts, pending submissions and other
+		// writers' media are not.
+		if ( 'posts' === $matches[1] && 'publish' === $post->post_status ) {
+			return null;
+		}
+
+		return new WP_Error(
+			'penalis_rest_forbidden',
+			'Kamu tidak diizinkan mengakses konten ini.',
+			array( 'status' => rest_authorization_required_code() )
+		);
 	}
 
 	/**
@@ -520,6 +637,14 @@ final class Penalis_Access_Control {
 					array( 'status' => 403 )
 				);
 			}
+
+			if ( ! Penalis_Editorial_Workflow::can_writer_edit( $existing, $user->ID ) ) {
+				return new WP_Error(
+					'penalis_editorial_locked',
+					'Karya tulis ini sedang ditinjau atau sudah terbit.',
+					array( 'status' => 403 )
+				);
+			}
 		}
 
 		$requested_author = $request->get_param( 'author' );
@@ -533,6 +658,16 @@ final class Penalis_Access_Control {
 
 		$requested_status = $request->get_param( 'status' );
 		if ( null !== $requested_status && '' !== $requested_status ) {
+			// `publish` is reserved for the administrator approval service. A
+			// writer may save only a draft, including through direct REST calls.
+			if ( 'publish' === $requested_status ) {
+				return new WP_Error(
+					'penalis_publish_forbidden',
+					'Karya tulis harus disetujui admin sebelum diterbitkan.',
+					array( 'status' => 403 )
+				);
+			}
+
 			if ( ! Penalis_Policy::is_allowed_post_status( $requested_status ) ) {
 				return new WP_Error(
 					'penalis_invalid_status',
@@ -595,6 +730,98 @@ final class Penalis_Access_Control {
 		}
 
 		return $prepared_post;
+	}
+
+	/**
+	 * Enforce ownership rules on attachment inserts and updates.
+	 *
+	 * Core checks `edit_post` on the parent when an upload is created, but an
+	 * update can move an existing attachment to another post without that
+	 * check. Writers may only touch their own media and may only attach it to
+	 * their own articles, so the rule is enforced here for both paths.
+	 *
+	 * @param stdClass        $prepared_attachment Prepared attachment object.
+	 * @param WP_REST_Request $request             Request.
+	 * @return stdClass|WP_Error
+	 */
+	public static function enforce_attachment_insert( $prepared_attachment, $request ) {
+		if ( ! is_user_logged_in() ) {
+			return $prepared_attachment;
+		}
+
+		$user = wp_get_current_user();
+		if ( ! self::is_restricted_user( $user ) ) {
+			return $prepared_attachment;
+		}
+
+		if ( ! Penalis_Account_Status::can_write( $user->ID ) ) {
+			return new WP_Error(
+				'penalis_account_inactive',
+				'Akun kamu saat ini tidak diizinkan mengelola media.',
+				array( 'status' => 403 )
+			);
+		}
+
+		$attachment_id = isset( $prepared_attachment->ID ) ? (int) $prepared_attachment->ID : 0;
+
+		if ( $attachment_id > 0 ) {
+			$existing = get_post( $attachment_id );
+
+			if ( ! $existing || 'attachment' !== $existing->post_type ) {
+				return new WP_Error(
+					'penalis_invalid_media',
+					'Media tersebut tidak dapat diubah.',
+					array( 'status' => 403 )
+				);
+			}
+
+			if ( (int) $existing->post_author !== (int) $user->ID ) {
+				// 404-style refusal: another writer's media must not be
+				// confirmed to exist.
+				return new WP_Error(
+					'penalis_not_found',
+					'Media tidak ditemukan.',
+					array( 'status' => 404 )
+				);
+			}
+		}
+
+		$requested_author = $request->get_param( 'author' );
+		$author           = Penalis_Policy::resolve_author( $requested_author, $user->ID );
+
+		if ( isset( $author['error'] ) ) {
+			return new WP_Error( 'penalis_invalid_author', $author['error'], array( 'status' => 403 ) );
+		}
+
+		$prepared_attachment->post_author = (int) $author['author'];
+
+		// Attachments are never published on their own; `inherit` is the only
+		// status the media library uses. Refuse anything else so a writer
+		// cannot create a publicly listed attachment post.
+		$requested_status = $request->get_param( 'status' );
+		if ( null !== $requested_status && '' !== (string) $requested_status && 'inherit' !== $requested_status ) {
+			return new WP_Error(
+				'penalis_invalid_status',
+				'Status media tersebut tidak diizinkan.',
+				array( 'status' => 403 )
+			);
+		}
+
+		// A writer may attach media only to their own article.
+		$parent_id = (int) $request->get_param( 'post' );
+		if ( $parent_id > 0 ) {
+			$parent = get_post( $parent_id );
+
+			if ( ! $parent || 'post' !== $parent->post_type || (int) $parent->post_author !== (int) $user->ID ) {
+				return new WP_Error(
+					'penalis_invalid_media_parent',
+					'Kamu hanya dapat melampirkan media ke karya tulismu sendiri.',
+					array( 'status' => 403 )
+				);
+			}
+		}
+
+		return $prepared_attachment;
 	}
 
 	/**
@@ -798,6 +1025,52 @@ final class Penalis_Access_Control {
 	}
 
 	/**
+	 * Last-resort guard against a writer publishing through any write path.
+	 *
+	 * Capability mapping and the REST insert filter already refuse this, but
+	 * `wp_insert_post()` is reachable from plugins, wp-admin screens and future
+	 * code. This filter runs on every insert and update, so a writer request
+	 * that somehow carries `publish`, `future` or `private` is downgraded to a
+	 * draft instead of going live. An article that is already published keeps
+	 * its status: this guard must never unpublish content as a side effect.
+	 *
+	 * Administrators, editors and other unrestricted accounts are untouched.
+	 *
+	 * @param array<string,mixed> $data    Slashed post data.
+	 * @param array<string,mixed> $postarr Raw post array.
+	 * @return array<string,mixed>
+	 */
+	public static function guard_writer_publish_status( $data, $postarr ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- Hook signature.
+		if ( ! is_user_logged_in() ) {
+			return $data;
+		}
+
+		$user = wp_get_current_user();
+		if ( ! self::is_restricted_user( $user ) ) {
+			return $data;
+		}
+
+		$status = isset( $data['post_status'] ) ? (string) $data['post_status'] : '';
+
+		if ( ! in_array( $status, array( 'publish', 'future', 'private' ), true ) ) {
+			return $data;
+		}
+
+		$post_id = isset( $postarr['ID'] ) ? (int) $postarr['ID'] : 0;
+		$current = $post_id > 0 ? get_post( $post_id ) : null;
+
+		// Never take a live article down; the edit guard is what stops a writer
+		// from touching it in the first place.
+		if ( $current && 'publish' === $current->post_status ) {
+			return $data;
+		}
+
+		$data['post_status'] = 'draft';
+
+		return $data;
+	}
+
+	/**
 	 * Map meta capabilities for writer-owned posts.
 	 *
 	 * @param string[] $caps    Primitive caps.
@@ -826,12 +1099,44 @@ final class Penalis_Access_Control {
 			return $caps;
 		}
 
+		// Writers only work on articles and their own media. Any other post
+		// type reached through a meta capability is outside the workflow.
+		if ( ! in_array( $post->post_type, array( 'post', 'attachment' ), true ) ) {
+			$caps[] = 'do_not_allow';
+			return $caps;
+		}
+
 		if ( (int) $post->post_author !== (int) $user_id ) {
 			$caps[] = 'do_not_allow';
 			return $caps;
 		}
 
 		if ( ! Penalis_Account_Status::can_write( $user_id ) ) {
+			$caps[] = 'do_not_allow';
+			return $caps;
+		}
+
+		// Attachments are owned media, not articles: they have the `inherit`
+		// status, so the editorial state rules must not be applied to them.
+		// Ownership and the write gate above are the whole rule, and no writer
+		// path may publish an attachment.
+		if ( 'attachment' === $post->post_type ) {
+			if ( 'publish_post' === $cap ) {
+				$caps[] = 'do_not_allow';
+			}
+
+			return $caps;
+		}
+
+		// Deleting is a content takedown, not an edit: a writer may still
+		// remove their own article, including a published one, which is the
+		// existing dashboard behaviour. Only editing and publishing are locked
+		// by the editorial state.
+		if ( 'delete_post' === $cap ) {
+			return $caps;
+		}
+
+		if ( 'publish_post' === $cap || ! Penalis_Editorial_Workflow::can_writer_edit( $post, $user_id ) ) {
 			$caps[] = 'do_not_allow';
 		}
 

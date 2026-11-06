@@ -536,7 +536,7 @@ These are **not** verified against the live site:
 | Registration/verification | Implemented |
 | Admin approval UI for account lifecycle | Implemented |
 | Editorial review workflow | Planned — see `EDITORIAL-WORKFLOW-ROADMAP.md` |
-| REST hardening for editorial workflow | Partially implemented for direct publishing; V2 changes planned |
+| REST hardening for editorial workflow | Implemented for writer publish and published-article editing (Phase 3); submit/review routes planned |
 | React dashboard | Implemented; editorial workflow changes planned |
 | Build pipeline | Implemented |
 | Repository tests | Implemented |
@@ -563,10 +563,11 @@ These are **not** verified against the live site:
 Run these in your local WordPress installation after activating the plugin and
 building the frontend. Each test states setup, action, and expected result.
 
-The items below describe the **current** direct-publishing implementation. The
-equivalent checklist for the V2 editorial workflow is produced in Phase 7 of
-`EDITORIAL-WORKFLOW-ROADMAP.md` and replaces the publish-related items here once
-that phase is complete.
+The items below describe the **current** dashboard and account behavior. Writer
+publishing is already refused server-side (Phase 3), so items that expect a
+writer to publish now expect a refusal instead. The equivalent checklist for the
+complete V2 editorial workflow is produced in Phase 7 of
+`EDITORIAL-WORKFLOW-ROADMAP.md`.
 
 ### Setup
 
@@ -613,15 +614,18 @@ disabled. The direct API request is rejected with `403`. No post is created.
 
 ---
 
-### 4. An approved writer can create and publish their own article
+### 4. An approved writer can create draft articles but cannot publish
 
 **Setup:** As an administrator, open **Users → Penalis Writers**, approve the
 account.
 **Action:** Sign in as the writer, create an article with a title, content,
-category, tag, and featured image. Save as draft, then publish.
-**Expected:** The draft appears in **My Articles**. Publishing succeeds. The
-article appears on the public site with the writer as author. The featured image
-renders if the theme supports it.
+category, tag, and featured image. Save as draft, then attempt to publish both
+from the dashboard and with
+`POST /wp-json/wp/v2/posts/<id>` sending `"status": "publish"`.
+**Expected:** The draft appears in **My Articles**. Publishing is refused with
+`penalis_publish_forbidden`, and no article appears on the public site. The
+dashboard shows the refusal message until the review workflow screen lands in
+Phase 5.
 
 ---
 
