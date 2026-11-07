@@ -1,0 +1,1186 @@
+/**
+ * Penalis Platform — WordPress Admin Stylesheet
+ *
+ * Loaded on:
+ * - Penalis Platform -> Ringkasan (.penalis-overview)
+ * - Penalis Platform -> Tinjauan Karya (.penalis-review)
+ * - Penalis Platform -> Penulis Penalis (.penalis-writers)
+ * - Users -> All Users status column (.penalis-status)
+ */
+
+/* ==========================================================================
+   1. Shared Account Status Pill (.penalis-status)
+   ========================================================================== */
+
+.penalis-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 9px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	line-height: 1.7;
+	white-space: nowrap;
+}
+
+.penalis-status__dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+	flex: 0 0 6px;
+}
+
+.penalis-status--active {
+	background: #edfaef;
+	color: #007017;
+}
+
+.penalis-status--pending_verification,
+.penalis-status--pending_approval {
+	background: #fcf9e8;
+	color: #8a6116;
+}
+
+.penalis-status--rejected,
+.penalis-status--suspended {
+	background: #fcf0f1;
+	color: #8a2424;
+}
+
+.penalis-status--legacy {
+	background: #f0f0f1;
+	color: #50575e;
+}
+
+/* ==========================================================================
+   2. Overview Screen: Penalis Platform -> Ringkasan (.penalis-overview)
+   ========================================================================== */
+
+.penalis-overview .penalis-intro {
+	margin: 4px 0 18px;
+	max-width: 72ch;
+	color: #50575e;
+	font-size: 13px;
+}
+
+.penalis-overview__section {
+	margin: 0 0 22px;
+}
+
+.penalis-overview .penalis-overview__section-title {
+	margin: 0 0 10px;
+	padding: 0;
+	font-size: 12px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: #50575e;
+}
+
+.penalis-overview__stats {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 14px;
+}
+
+.penalis-overview__stat {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	padding: 16px 18px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	text-decoration: none;
+	color: inherit;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.penalis-overview__stat:hover,
+.penalis-overview__stat:focus {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+	color: inherit;
+}
+
+.penalis-overview__stat--attention {
+	border-color: #dba617;
+	background: #fffdf5;
+}
+
+.penalis-overview__stat-label {
+	font-size: 12.5px;
+	font-weight: 600;
+	color: #50575e;
+	margin-bottom: 6px;
+}
+
+.penalis-overview__stat-value {
+	font-size: 26px;
+	font-weight: 700;
+	line-height: 1.15;
+	color: #1d2327;
+}
+
+.penalis-overview__stat--attention .penalis-overview__stat-value {
+	color: #8a6116;
+}
+
+.penalis-overview__stat-hint {
+	margin-top: 6px;
+	font-size: 11.5px;
+	color: #2271b1;
+	font-weight: 500;
+}
+
+.penalis-overview__panels {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 20px;
+	margin-top: 8px;
+	align-items: start;
+}
+
+.penalis-overview__card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	overflow: hidden;
+}
+
+.penalis-overview__card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 14px 18px;
+	border-bottom: 1px solid #f0f0f1;
+	background: #fafafa;
+}
+
+.penalis-overview .penalis-overview__card-header h2 {
+	margin: 0;
+	padding: 0;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.4;
+	color: #1d2327;
+}
+
+.penalis-overview__card-link {
+	font-size: 12.5px;
+	font-weight: 500;
+	text-decoration: none;
+	color: #2271b1;
+}
+
+.penalis-overview__card-link:hover {
+	color: #135e96;
+	text-decoration: underline;
+}
+
+.penalis-overview__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.penalis-overview__item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+	padding: 12px 18px;
+	margin: 0;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.penalis-overview__item:last-child {
+	border-bottom: 0;
+}
+
+.penalis-overview__item-main {
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.penalis-overview__item-title {
+	display: block;
+	font-size: 13.5px;
+	font-weight: 600;
+	color: #1d2327;
+	text-decoration: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.penalis-overview__item-title:hover {
+	color: #2271b1;
+}
+
+.penalis-overview__item-meta {
+	display: block;
+	margin-top: 2px;
+	font-size: 12px;
+	color: #646970;
+	line-height: 1.45;
+}
+
+.penalis-overview__user {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.penalis-overview__avatar,
+.penalis-overview__user img.avatar {
+	display: block;
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	object-fit: cover;
+	background: #f0f0f1;
+	flex: 0 0 34px;
+}
+
+.penalis-overview__empty {
+	margin: 0;
+	padding: 28px 18px;
+	text-align: center;
+	color: #646970;
+	font-size: 13px;
+}
+
+/* ==========================================================================
+   3. Writers Screen: Penalis Platform -> Penulis Penalis (.penalis-writers)
+   ========================================================================== */
+
+.penalis-writers .penalis-intro {
+	margin: 4px 0 18px;
+	max-width: 72ch;
+	color: #50575e;
+	font-size: 13px;
+}
+
+.penalis-writers .subsubsub {
+	float: none;
+	clear: both;
+	margin: 0 0 14px;
+	font-size: 13px;
+}
+
+.penalis-writers .subsubsub li:not(:last-child)::after {
+	content: "|";
+	margin: 0 6px;
+	color: #c3c4c7;
+}
+
+.penalis-writers .penalis-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	clear: both;
+	margin: 0 0 12px;
+	padding: 10px 12px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.penalis-writers .penalis-toolbar input[type="search"] {
+	flex: 1 1 240px;
+	max-width: 340px;
+	margin: 0;
+}
+
+.penalis-writers .penalis-toolbar .button {
+	margin: 0;
+}
+
+.penalis-writers .penalis-toolbar__count {
+	margin-left: auto;
+	color: #646970;
+	font-size: 12px;
+}
+
+.penalis-writers .penalis-table {
+	margin: 0;
+}
+
+.penalis-writers .penalis-table-wrap {
+	overflow-x: auto;
+}
+
+.penalis-writers .penalis-table thead th {
+	padding: 10px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.penalis-writers .penalis-table tbody td {
+	padding: 14px 10px;
+	vertical-align: top;
+}
+
+.penalis-writers .penalis-col-writer {
+	width: 22%;
+}
+
+.penalis-writers .penalis-col-email {
+	width: 18%;
+}
+
+.penalis-writers .penalis-col-status {
+	width: 17%;
+}
+
+.penalis-writers .penalis-col-date {
+	width: 12%;
+}
+
+.penalis-writers .penalis-col-actions {
+	width: 31%;
+}
+
+.penalis-writers .penalis-writer {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.penalis-writers .penalis-writer__avatar,
+.penalis-writers .penalis-writer img.avatar {
+	display: block;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	object-fit: cover;
+	flex: 0 0 36px;
+	background: #f0f0f1;
+}
+
+.penalis-writers .penalis-writer__name {
+	display: block;
+	color: #1d2327;
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.penalis-writers .penalis-writer__login {
+	display: block;
+	color: #646970;
+	font-size: 12px;
+	line-height: 1.4;
+	word-break: break-word;
+}
+
+.penalis-writers .penalis-flags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-top: 8px;
+}
+
+.penalis-writers .penalis-flag {
+	display: inline-block;
+	padding: 1px 7px;
+	border-radius: 3px;
+	background: #f0f0f1;
+	color: #50575e;
+	font-size: 11px;
+	line-height: 1.7;
+}
+
+.penalis-writers .penalis-flag--warn {
+	background: #fcf0f1;
+	color: #8a2424;
+}
+
+.penalis-writers .penalis-flag--ok {
+	background: #edfaef;
+	color: #007017;
+}
+
+.penalis-writers .penalis-date {
+	display: block;
+	color: #1d2327;
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.penalis-writers .penalis-muted {
+	display: block;
+	color: #646970;
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.penalis-writers .penalis-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0 0 8px;
+}
+
+.penalis-writers .penalis-actions form {
+	margin: 0;
+}
+
+.penalis-writers .penalis-actions .button {
+	margin: 0;
+}
+
+.penalis-writers .penalis-button--danger {
+	color: #b32d2e;
+	border-color: #b32d2e;
+}
+
+.penalis-writers .button.penalis-button--danger:hover {
+	background: #b32d2e;
+	border-color: #b32d2e;
+	color: #fff;
+}
+
+.penalis-writers .button.penalis-button--danger:focus {
+	border-color: #b32d2e;
+	color: #b32d2e;
+	box-shadow: 0 0 0 1px #b32d2e;
+}
+
+.penalis-writers .penalis-hint {
+	margin: 0;
+	color: #646970;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.penalis-writers .penalis-history {
+	margin-top: 4px;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.penalis-writers .penalis-history summary {
+	cursor: pointer;
+	color: #2271b1;
+	font-weight: 500;
+	padding: 2px 0;
+}
+
+.penalis-writers .penalis-history summary:hover {
+	color: #135e96;
+}
+
+.penalis-writers .penalis-history summary:focus {
+	outline: 2px solid #2271b1;
+	outline-offset: 1px;
+}
+
+.penalis-writers .penalis-history__list {
+	margin: 8px 0 0;
+	padding: 0 0 0 10px;
+	list-style: none;
+	border-left: 2px solid #f0f0f1;
+}
+
+.penalis-writers .penalis-history__item {
+	padding: 3px 0;
+	margin: 0;
+	line-height: 1.5;
+}
+
+.penalis-writers .penalis-history__time {
+	display: block;
+	color: #8c8f94;
+	font-size: 11px;
+}
+
+.penalis-writers .penalis-history__flow {
+	display: block;
+	color: #1d2327;
+}
+
+.penalis-writers .penalis-history__reason {
+	display: block;
+	color: #646970;
+}
+
+.penalis-writers .penalis-empty__inner {
+	padding: 36px 16px;
+	text-align: center;
+}
+
+.penalis-writers .penalis-empty__title {
+	margin: 0 0 4px;
+	font-size: 14px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.penalis-writers .penalis-empty__text {
+	margin: 0;
+	color: #646970;
+}
+
+.penalis-writers .penalis-panel {
+	max-width: 760px;
+	margin: 24px 0 0;
+	padding: 16px 20px;
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.penalis-writers .penalis-panel h2 {
+	margin: 0 0 4px;
+	padding: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.penalis-writers .penalis-panel__body {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 16px;
+	margin-top: 14px;
+}
+
+.penalis-writers .penalis-panel__preview {
+	width: 72px;
+	height: 72px;
+	border-radius: 50%;
+	object-fit: cover;
+	background: #f0f0f1;
+	flex: 0 0 72px;
+}
+
+.penalis-writers .penalis-panel__controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.penalis-writers .penalis-panel__controls .button {
+	margin: 0;
+}
+
+/* ==========================================================================
+   4. Review Screen: Penalis Platform -> Tinjauan Karya (.penalis-review)
+   ========================================================================== */
+
+.penalis-review .penalis-review__intro {
+	margin: 4px 0 18px;
+	max-width: 72ch;
+	color: #50575e;
+	font-size: 13px;
+}
+
+.penalis-review .subsubsub {
+	float: none;
+	clear: both;
+	margin: 0 0 14px;
+	font-size: 13px;
+}
+
+.penalis-review .subsubsub li:not(:last-child)::after {
+	content: "|";
+	margin: 0 6px;
+	color: #c3c4c7;
+}
+
+.penalis-review .penalis-review__table {
+	margin: 0;
+}
+
+.penalis-review .penalis-review__table td {
+	vertical-align: top;
+	padding: 12px 10px;
+}
+
+.penalis-review .penalis-review__title {
+	display: block;
+	font-size: 14px;
+	font-weight: 600;
+	color: #1d2327;
+	margin-bottom: 2px;
+	text-decoration: none;
+}
+
+.penalis-review .penalis-review__title:hover {
+	color: #2271b1;
+}
+
+.penalis-review .penalis-review__meta {
+	display: block;
+	color: #646970;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.penalis-review .penalis-review__state {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 10px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.7;
+	white-space: nowrap;
+}
+
+.penalis-review .penalis-review__state-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+	flex: 0 0 6px;
+}
+
+.penalis-review .penalis-review__state--pending_review {
+	background: #fcf9e8;
+	color: #8a6116;
+}
+
+.penalis-review .penalis-review__state--changes_requested {
+	background: #f0f6fc;
+	color: #0a4b78;
+}
+
+.penalis-review .penalis-review__state--rejected {
+	background: #fcf0f1;
+	color: #8a2424;
+}
+
+.penalis-review .penalis-review__state--published {
+	background: #edfaef;
+	color: #007017;
+}
+
+.penalis-review .penalis-review__state--draft {
+	background: #f0f0f1;
+	color: #50575e;
+}
+
+.penalis-review .penalis-review__empty {
+	padding: 28px 16px;
+	text-align: center;
+	color: #646970;
+}
+
+/* Detail Workspace Header */
+.penalis-review .penalis-review__back {
+	margin: 8px 0 14px;
+	font-size: 13px;
+}
+
+.penalis-review .penalis-review__back a {
+	text-decoration: none;
+	color: #2271b1;
+	font-weight: 500;
+}
+
+.penalis-review .penalis-review__back a:hover {
+	color: #135e96;
+	text-decoration: underline;
+}
+
+.penalis-review .penalis-review__header-card {
+	margin: 12px 0 20px;
+	padding: 20px 24px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.penalis-review .penalis-review__header-top {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 12px;
+}
+
+.penalis-review .penalis-review__badges {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.penalis-review .penalis-review__cycle-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 2px 10px;
+	border-radius: 999px;
+	background: #f0f0f1;
+	color: #3c434a;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1.7;
+}
+
+.penalis-review .penalis-review__header-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.penalis-review .penalis-review__header-actions .button {
+	margin: 0;
+}
+
+.penalis-review h2.penalis-review__article-title {
+	margin: 0 0 14px;
+	padding: 0;
+	font-size: 22px;
+	font-weight: 700;
+	line-height: 1.35;
+	color: #1d2327;
+}
+
+.penalis-review .penalis-review__meta-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 16px;
+	padding-top: 14px;
+	border-top: 1px solid #f0f0f1;
+	font-size: 12.5px;
+	color: #50575e;
+}
+
+.penalis-review .penalis-review__author {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.penalis-review .penalis-review__author-avatar,
+.penalis-review .penalis-review__author img.avatar {
+	display: block;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	object-fit: cover;
+	background: #f0f0f1;
+	flex: 0 0 24px;
+}
+
+.penalis-review .penalis-review__author-name {
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.penalis-review .penalis-review__author-login {
+	color: #646970;
+}
+
+.penalis-review .penalis-review__terms {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+
+.penalis-review .penalis-review__term {
+	display: inline-block;
+	padding: 1px 8px;
+	border-radius: 4px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	color: #3c434a;
+	font-size: 11px;
+	line-height: 1.6;
+}
+
+/* 2-Column Editorial Workspace */
+.penalis-review .penalis-review__workspace {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 360px;
+	gap: 20px;
+	align-items: start;
+}
+
+.penalis-review .penalis-review__main {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.penalis-review .penalis-review__sidebar {
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	position: sticky;
+	top: 46px;
+}
+
+.penalis-review .penalis-review__feedback {
+	padding: 14px 16px;
+	border: 1px solid #f0d878;
+	border-left: 4px solid #dba617;
+	border-radius: 6px;
+	background: #fcf9e8;
+	color: #3c434a;
+}
+
+.penalis-review .penalis-review__feedback strong {
+	display: block;
+	margin-bottom: 4px;
+	font-size: 11.5px;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: #8a6116;
+}
+
+.penalis-review .penalis-review__feedback p {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.6;
+	white-space: pre-line;
+}
+
+.penalis-review .penalis-review__card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	overflow: hidden;
+}
+
+.penalis-review .penalis-review__card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 14px 20px;
+	border-bottom: 1px solid #f0f0f1;
+	background: #fafafa;
+}
+
+.penalis-review .penalis-review__card-header h2 {
+	margin: 0;
+	padding: 0;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 1.4;
+	color: #1d2327;
+}
+
+.penalis-review .penalis-review__word-count {
+	font-size: 12px;
+	color: #646970;
+}
+
+.penalis-review .penalis-review__featured {
+	margin: 0;
+	padding: 20px 24px 0;
+	text-align: center;
+}
+
+.penalis-review .penalis-review__featured img {
+	display: block;
+	max-width: 100%;
+	max-height: 360px;
+	width: auto;
+	height: auto;
+	margin: 0 auto;
+	border-radius: 6px;
+	border: 1px solid #e5e5e5;
+}
+
+.penalis-review .penalis-review__featured figcaption {
+	margin-top: 6px;
+	font-size: 11.5px;
+	color: #646970;
+}
+
+.penalis-review .penalis-review__content {
+	padding: 24px 28px;
+	font-size: 15px;
+	line-height: 1.8;
+	color: #1d2327;
+	overflow-wrap: break-word;
+}
+
+.penalis-review .penalis-review__content p {
+	margin: 0 0 1.2em;
+	font-size: 15px;
+	line-height: 1.8;
+}
+
+.penalis-review .penalis-review__content p:last-child {
+	margin-bottom: 0;
+}
+
+.penalis-review .penalis-review__content h1,
+.penalis-review .penalis-review__content h2,
+.penalis-review .penalis-review__content h3,
+.penalis-review .penalis-review__content h4 {
+	margin: 1.4em 0 0.6em;
+	padding: 0;
+	color: #1d2327;
+	line-height: 1.35;
+}
+
+.penalis-review .penalis-review__content blockquote {
+	margin: 1.2em 0;
+	padding: 10px 16px;
+	border-left: 3px solid #c3c4c7;
+	background: #f6f7f7;
+	color: #3c434a;
+	font-style: italic;
+}
+
+.penalis-review .penalis-review__content img {
+	max-width: 100%;
+	height: auto;
+	border-radius: 4px;
+}
+
+/* Decision Card & Unified Form */
+.penalis-review .penalis-review__card-body {
+	padding: 18px 20px;
+}
+
+.penalis-review .penalis-review__decision-help {
+	margin: 0 0 14px;
+	font-size: 12.5px;
+	line-height: 1.55;
+	color: #50575e;
+}
+
+.penalis-review .penalis-review__field {
+	margin: 0 0 14px;
+}
+
+.penalis-review .penalis-review__field label {
+	display: block;
+	font-size: 13px;
+	font-weight: 600;
+	color: #1d2327;
+	margin-bottom: 6px;
+}
+
+.penalis-review .penalis-review__field textarea {
+	display: block;
+	width: 100%;
+	min-height: 110px;
+	padding: 8px 10px;
+	font-size: 13px;
+	line-height: 1.5;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	resize: vertical;
+	box-sizing: border-box;
+}
+
+.penalis-review .penalis-review__field .description {
+	margin: 6px 0 0;
+	font-size: 12px;
+	color: #646970;
+	line-height: 1.45;
+}
+
+.penalis-review .penalis-review__decision-buttons {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.penalis-review .penalis-review__btn-approve.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	min-height: 36px;
+	margin: 0;
+	padding: 4px 12px;
+	font-weight: 600;
+	text-align: center;
+}
+
+.penalis-review .penalis-review__decision-secondary {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+
+.penalis-review .penalis-review__decision-secondary .button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 34px;
+	margin: 0;
+	text-align: center;
+}
+
+.penalis-review .button.penalis-review__danger {
+	color: #b32d2e;
+	border-color: #b32d2e;
+}
+
+.penalis-review .button.penalis-review__danger:hover {
+	background: #b32d2e;
+	border-color: #b32d2e;
+	color: #fff;
+}
+
+.penalis-review .button.penalis-review__danger:focus {
+	border-color: #b32d2e;
+	color: #b32d2e;
+	box-shadow: 0 0 0 1px #b32d2e;
+}
+
+.penalis-review .penalis-review__state-note {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #50575e;
+}
+
+/* Review Timeline */
+.penalis-review .penalis-review__timeline {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.penalis-review .penalis-review__timeline-item {
+	position: relative;
+	padding: 0 0 14px 18px;
+	margin: 0 0 0 5px;
+	border-left: 2px solid #e5e5e5;
+}
+
+.penalis-review .penalis-review__timeline-item:last-child {
+	padding-bottom: 0;
+	border-left-color: transparent;
+}
+
+.penalis-review .penalis-review__timeline-dot {
+	position: absolute;
+	left: -6px;
+	top: 4px;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #c3c4c7;
+	border: 2px solid #fff;
+	box-sizing: border-box;
+}
+
+.penalis-review .penalis-review__timeline-item--approve .penalis-review__timeline-dot {
+	background: #007017;
+}
+
+.penalis-review .penalis-review__timeline-item--request_changes .penalis-review__timeline-dot {
+	background: #dba617;
+}
+
+.penalis-review .penalis-review__timeline-item--reject .penalis-review__timeline-dot {
+	background: #b32d2e;
+}
+
+.penalis-review .penalis-review__timeline-item--submit .penalis-review__timeline-dot,
+.penalis-review .penalis-review__timeline-item--resubmit .penalis-review__timeline-dot {
+	background: #2271b1;
+}
+
+.penalis-review .penalis-review__timeline-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 2px;
+}
+
+.penalis-review .penalis-review__timeline-action {
+	font-size: 12.5px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.penalis-review .penalis-review__timeline-cycle {
+	font-size: 11px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: #f0f0f1;
+	color: #50575e;
+}
+
+.penalis-review .penalis-review__timeline-meta {
+	display: block;
+	font-size: 11.5px;
+	color: #646970;
+	line-height: 1.4;
+}
+
+.penalis-review .penalis-review__timeline-note {
+	margin: 6px 0 0;
+	padding: 8px 10px;
+	border-radius: 4px;
+	background: #f6f7f7;
+	border-left: 3px solid #c3c4c7;
+	font-size: 12px;
+	line-height: 1.5;
+	color: #3c434a;
+	white-space: pre-line;
+}
+
+/* ==========================================================================
+   5. Responsive Adjustments
+   ========================================================================== */
+
+@media screen and (max-width: 960px) {
+	.penalis-overview__stats {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.penalis-overview__panels {
+		grid-template-columns: 1fr;
+	}
+
+	.penalis-review .penalis-review__workspace {
+		grid-template-columns: 1fr;
+	}
+
+	.penalis-review .penalis-review__sidebar {
+		position: static;
+	}
+}
+
+@media screen and (max-width: 782px) {
+	.penalis-writers .penalis-table {
+		min-width: 720px;
+	}
+
+	.penalis-writers .penalis-toolbar__count {
+		margin-left: 0;
+	}
+}
+@media screen and (max-width: 600px) {
+	.penalis-overview__stats {
+		grid-template-columns: 1fr;
+	}
+}
+

@@ -2686,6 +2686,22 @@ penalis_same(
 	Penalis_Editorial_Admin::detail_url( 600 ),
 	'Editorial review detail URL points to the Tinjauan Karya submenu under admin.php.'
 );
+penalis_assert(
+	Penalis_Admin::is_penalis_screen( 'toplevel_page_penalis-platform' ),
+	'Overview hook is recognized as a Penalis screen.'
+);
+penalis_assert(
+	Penalis_Admin::is_penalis_screen( 'penalis-platform-1_page_penalis-review' ),
+	'Review submenu hook with badge suffix is still recognized as a Penalis screen.'
+);
+penalis_assert(
+	Penalis_Admin::is_penalis_screen( 'penalis-platform-3_page_penalis-writers' ),
+	'Writers submenu hook with badge suffix is still recognized as a Penalis screen.'
+);
+penalis_assert(
+	! Penalis_Admin::is_penalis_screen( 'plugins.php' ),
+	'Unrelated admin hooks are not treated as Penalis screens.'
+);
 
 $editor_mail = Penalis_Email_Template::render(
 	"Silakan perbaiki.\n\nhttps://example.com/dashboard/?view=editor&id=600",

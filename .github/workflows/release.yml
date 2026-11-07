@@ -106,7 +106,7 @@ jobs:
           PLUGIN_SLUG="penalis-platform"
           ZIP_NAME="${PLUGIN_SLUG}-${VERSION}.zip"
 
-          for path in penalis-platform.php uninstall.php readme.txt license.txt includes templates build; do
+          for path in penalis-platform.php uninstall.php readme.txt license.txt assets includes templates build; do
             [ -e "$path" ] || { echo "::error::Missing required path: $path"; exit 1; }
           done
 
@@ -114,7 +114,7 @@ jobs:
           mkdir -p "/tmp/${PLUGIN_SLUG}"
 
           cp penalis-platform.php uninstall.php readme.txt license.txt "/tmp/${PLUGIN_SLUG}/"
-          cp -r includes templates build "/tmp/${PLUGIN_SLUG}/"
+          cp -r assets includes templates build "/tmp/${PLUGIN_SLUG}/"
 
           # Ship translations when the directory exists.
           if [ -d languages ]; then cp -r languages "/tmp/${PLUGIN_SLUG}/"; fi

@@ -508,6 +508,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-avatar.php` | Avatar storage and provider, One User Avatar coexistence |
 | `includes/class-rate-limiter.php` | Transient-based limiter |
 | `uninstall.php` | Opt-in cleanup only |
+| `assets/css/admin.css` | Shared wp-admin stylesheet for Ringkasan, Tinjauan Karya, Penulis Penalis, and Users status pill |
 | `templates/dashboard.php` | Dashboard page template |
 | `tests/run-tests.php`, `tests/wp-stubs.php` | Plain-PHP unit tests and WordPress stubs |
 

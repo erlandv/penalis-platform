@@ -201,6 +201,8 @@ penalis-platform/
 │   ├── class-email-template.php Branded responsive HTML email layout
 │   ├── class-rate-limiter.php  Transient-based abuse controls
 │   └── class-admin.php         Penalis Platform menu, Ringkasan overview, and Penulis Penalis screen
+├── assets/
+│   └── css/admin.css           WordPress admin stylesheet (Ringkasan, Tinjauan Karya, Penulis Penalis)
 ├── templates/
 │   └── dashboard.php           Minimal theme-independent wrapper
 ├── src/

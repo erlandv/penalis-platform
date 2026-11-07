@@ -48,7 +48,7 @@ final class Penalis_Editorial_Admin {
 
 		if ( $pending > 0 ) {
 			$menu_title .= sprintf(
-				' <span class="awaiting-mod count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
+				' <span class="awaiting-mod update-plugins count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
 				$pending,
 				number_format_i18n( $pending )
 			);
@@ -65,117 +65,17 @@ final class Penalis_Editorial_Admin {
 	}
 
 	/**
-	 * Enqueue the review screen stylesheet.
+	 * Enqueue the review screen stylesheet (`assets/css/admin.css`).
 	 *
 	 * @param string $hook Current admin page.
 	 * @return void
 	 */
 	public static function admin_styles( $hook ) {
-		$allowed_hooks = array(
-			Penalis_Admin::MENU_SLUG . '_page_' . self::PAGE_SLUG,
-			'posts_page_' . self::PAGE_SLUG,
-		);
-
-		if ( ! in_array( $hook, $allowed_hooks, true ) ) {
+		if ( ! Penalis_Admin::is_penalis_screen( $hook ) ) {
 			return;
 		}
 
-		wp_register_style( 'penalis-review', false, array(), PENALIS_PLATFORM_VERSION );
-		wp_enqueue_style( 'penalis-review' );
-		wp_add_inline_style( 'penalis-review', self::admin_css() );
-	}
-
-	/**
-	 * Stylesheet contents.
-	 *
-	 * @return string
-	 */
-	private static function admin_css() {
-		return <<<'CSS'
-.penalis-review .penalis-review__intro{margin:2px 0 18px;max-width:72ch;color:#50575e;font-size:13px}
-.penalis-review .subsubsub{float:none;clear:both;margin:0 0 14px;font-size:13px}
-.penalis-review .subsubsub li:not(:last-child)::after{content:"|";margin:0 6px;color:#c3c4c7}
-.penalis-review .penalis-review__table{margin:0}
-.penalis-review .penalis-review__table td{vertical-align:top;padding:12px 10px}
-.penalis-review .penalis-review__title{display:block;font-size:14px;font-weight:600;color:#1d2327;margin-bottom:2px;text-decoration:none}
-.penalis-review .penalis-review__title:hover{color:#2271b1}
-.penalis-review .penalis-review__meta{display:block;color:#646970;font-size:12px;line-height:1.5}
-.penalis-review .penalis-review__state{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;line-height:1.7;white-space:nowrap}
-.penalis-review .penalis-review__state-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 6px}
-.penalis-review .penalis-review__state--pending_review{background:#fcf9e8;color:#8a6116}
-.penalis-review .penalis-review__state--changes_requested{background:#f0f6fc;color:#0a4b78}
-.penalis-review .penalis-review__state--rejected{background:#fcf0f1;color:#8a2424}
-.penalis-review .penalis-review__state--published{background:#edfaef;color:#007017}
-.penalis-review .penalis-review__state--draft{background:#f0f0f1;color:#50575e}
-.penalis-review .penalis-review__empty{padding:28px 16px;text-align:center;color:#646970}
-.penalis-review .penalis-review__back{margin:10px 0 14px;font-size:13px}
-.penalis-review .penalis-review__back a{text-decoration:none;color:#2271b1;font-weight:500}
-.penalis-review .penalis-review__back a:hover{color:#135e96;text-decoration:underline}
-.penalis-review .penalis-review__header-card{margin:0 0 20px;padding:20px 24px;background:#fff;border:1px solid #dcdcde;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.penalis-review .penalis-review__header-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-.penalis-review .penalis-review__badges{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.penalis-review .penalis-review__cycle-badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:999px;background:#f0f0f1;color:#3c434a;font-size:11px;font-weight:600;line-height:1.7}
-.penalis-review .penalis-review__header-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.penalis-review .penalis-review__header-actions .button{margin:0}
-.penalis-review .penalis-review__article-title{margin:0 0 14px;padding:0;font-size:22px;font-weight:700;line-height:1.35;color:#1d2327}
-.penalis-review .penalis-review__meta-bar{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding-top:14px;border-top:1px solid #f0f0f1;font-size:12px;color:#50575e}
-.penalis-review .penalis-review__author{display:inline-flex;align-items:center;gap:8px}
-.penalis-review .penalis-review__author-avatar{width:24px;height:24px;border-radius:50%;object-fit:cover;background:#f0f0f1;flex:0 0 24px}
-.penalis-review .penalis-review__author-name{font-weight:600;color:#1d2327}
-.penalis-review .penalis-review__author-login{color:#646970}
-.penalis-review .penalis-review__terms{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px}
-.penalis-review .penalis-review__term{display:inline-block;padding:1px 8px;border-radius:4px;background:#f6f7f7;border:1px solid #dcdcde;color:#3c434a;font-size:11px;line-height:1.6}
-.penalis-review .penalis-review__workspace{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
-.penalis-review .penalis-review__main{min-width:0;display:flex;flex-direction:column;gap:16px}
-.penalis-review .penalis-review__sidebar{min-width:0;display:flex;flex-direction:column;gap:16px;position:sticky;top:46px}
-.penalis-review .penalis-review__feedback{padding:14px 16px;border:1px solid #f0d878;border-left:4px solid #dba617;border-radius:6px;background:#fcf9e8;color:#3c434a}
-.penalis-review .penalis-review__feedback strong{display:block;margin-bottom:4px;font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:#8a6116}
-.penalis-review .penalis-review__feedback p{margin:0;font-size:13px;line-height:1.6;white-space:pre-line}
-.penalis-review .penalis-review__card{background:#fff;border:1px solid #dcdcde;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden}
-.penalis-review .penalis-review__card-header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px 20px;border-bottom:1px solid #f0f0f1;background:#fafafa}
-.penalis-review .penalis-review__card-header h2{margin:0;font-size:14px;font-weight:600;color:#1d2327}
-.penalis-review .penalis-review__word-count{font-size:12px;color:#646970}
-.penalis-review .penalis-review__featured{margin:0;padding:20px 24px 0;text-align:center}
-.penalis-review .penalis-review__featured img{display:block;max-width:100%;max-height:360px;width:auto;height:auto;margin:0 auto;border-radius:6px;border:1px solid #e5e5e5}
-.penalis-review .penalis-review__featured figcaption{margin-top:6px;font-size:11px;color:#646970}
-.penalis-review .penalis-review__content{padding:24px 28px;font-size:15px;line-height:1.8;color:#1d2327;overflow-wrap:break-word}
-.penalis-review .penalis-review__content p{margin:0 0 1.2em;font-size:15px;line-height:1.8}
-.penalis-review .penalis-review__content p:last-child{margin-bottom:0}
-.penalis-review .penalis-review__content h1,.penalis-review .penalis-review__content h2,.penalis-review .penalis-review__content h3,.penalis-review .penalis-review__content h4{margin:1.4em 0 .6em;color:#1d2327;line-height:1.35}
-.penalis-review .penalis-review__content blockquote{margin:1.2em 0;padding:10px 16px;border-left:3px solid #c3c4c7;background:#f6f7f7;color:#3c434a;font-style:italic}
-.penalis-review .penalis-review__content img{max-width:100%;height:auto;border-radius:4px}
-.penalis-review .penalis-review__card-body{padding:18px 20px}
-.penalis-review .penalis-review__decision-help{margin:0 0 14px;font-size:12.5px;line-height:1.55;color:#50575e}
-.penalis-review .penalis-review__field{margin:0 0 14px}
-.penalis-review .penalis-review__field label{display:block;font-size:13px;font-weight:600;color:#1d2327;margin-bottom:6px}
-.penalis-review .penalis-review__field textarea{width:100%;min-height:110px;padding:8px 10px;font-size:13px;line-height:1.5;border:1px solid #8c8f94;border-radius:4px;resize:vertical}
-.penalis-review .penalis-review__field .description{margin:5px 0 0;font-size:12px;color:#646970;line-height:1.45}
-.penalis-review .penalis-review__decision-buttons{display:flex;flex-direction:column;gap:8px}
-.penalis-review .penalis-review__btn-approve{width:100%;justify-content:center;text-align:center;padding:4px 12px;font-weight:600}
-.penalis-review .penalis-review__decision-secondary{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.penalis-review .penalis-review__decision-secondary .button{margin:0;text-align:center;justify-content:center}
-.penalis-review .button.penalis-review__danger{color:#b32d2e;border-color:#b32d2e}
-.penalis-review .button.penalis-review__danger:hover{background:#b32d2e;border-color:#b32d2e;color:#fff}
-.penalis-review .button.penalis-review__danger:focus{border-color:#b32d2e;color:#b32d2e;box-shadow:0 0 0 1px #b32d2e}
-.penalis-review .penalis-review__state-note{margin:0;font-size:13px;line-height:1.6;color:#50575e}
-.penalis-review .penalis-review__timeline{margin:0;padding:0;list-style:none}
-.penalis-review .penalis-review__timeline-item{position:relative;padding:0 0 14px 18px;border-left:2px solid #e5e5e5;margin-left:5px}
-.penalis-review .penalis-review__timeline-item:last-child{padding-bottom:0;border-left-color:transparent}
-.penalis-review .penalis-review__timeline-dot{position:absolute;left:-6px;top:3px;width:10px;height:10px;border-radius:50%;background:#c3c4c7;border:2px solid #fff;box-sizing:border-box}
-.penalis-review .penalis-review__timeline-item--approve .penalis-review__timeline-dot{background:#007017}
-.penalis-review .penalis-review__timeline-item--request_changes .penalis-review__timeline-dot{background:#dba617}
-.penalis-review .penalis-review__timeline-item--reject .penalis-review__timeline-dot{background:#b32d2e}
-.penalis-review .penalis-review__timeline-item--submit .penalis-review__timeline-dot,.penalis-review .penalis-review__timeline-item--resubmit .penalis-review__timeline-dot{background:#2271b1}
-.penalis-review .penalis-review__timeline-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:2px}
-.penalis-review .penalis-review__timeline-action{font-size:12.5px;font-weight:600;color:#1d2327}
-.penalis-review .penalis-review__timeline-cycle{font-size:11px;padding:0 6px;border-radius:999px;background:#f0f0f1;color:#50575e}
-.penalis-review .penalis-review__timeline-meta{display:block;font-size:11.5px;color:#646970;line-height:1.4}
-.penalis-review .penalis-review__timeline-note{margin:6px 0 0;padding:8px 10px;border-radius:4px;background:#f6f7f7;border-left:3px solid #c3c4c7;font-size:12px;line-height:1.5;color:#3c434a;white-space:pre-line}
-@media screen and (max-width:960px){
-.penalis-review .penalis-review__workspace{grid-template-columns:1fr}
-.penalis-review .penalis-review__sidebar{position:static}
-}
-CSS;
+		Penalis_Admin::enqueue_stylesheet();
 	}
 
 	/**
@@ -402,9 +302,11 @@ CSS;
 		$word_count = '' === $plain_text ? 0 : count( (array) preg_split( '/\s+/u', $plain_text ) );
 		?>
 		<div class="wrap penalis-review">
-			<p class="penalis-review__back">
-				<a href="<?php echo esc_url( self::list_url( $state ) ); ?>">&larr; Kembali ke daftar tinjauan</a>
-			</p>
+			<h1 class="wp-heading-inline">Tinjauan Karya</h1>
+			<a class="page-title-action" href="<?php echo esc_url( self::list_url( $state ) ); ?>">
+				&larr; Kembali ke daftar tinjauan
+			</a>
+			<hr class="wp-header-end">
 
 			<?php self::render_notices(); ?>
 
@@ -437,9 +339,9 @@ CSS;
 					</div>
 				</div>
 
-				<h1 class="penalis-review__article-title">
+				<h2 class="penalis-review__article-title">
 					<?php echo esc_html( '' !== $post->post_title ? $post->post_title : '(tanpa judul)' ); ?>
-				</h1>
+				</h2>
 
 				<div class="penalis-review__meta-bar">
 					<span class="penalis-review__author">
@@ -802,14 +704,10 @@ CSS;
 			return;
 		}
 
-		$screen  = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		$blocked = array(
-			'toplevel_page_' . Penalis_Admin::MENU_SLUG,
-			Penalis_Admin::MENU_SLUG . '_page_' . self::PAGE_SLUG,
-			'posts_page_' . self::PAGE_SLUG,
-		);
+		$screen    = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		$screen_id = $screen ? (string) $screen->id : '';
 
-		if ( $screen && in_array( $screen->id, $blocked, true ) ) {
+		if ( Penalis_Admin::is_penalis_screen( $screen_id ) ) {
 			return;
 		}
 

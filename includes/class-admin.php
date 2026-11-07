@@ -45,10 +45,10 @@ final class Penalis_Admin {
 		$pending_reviews = class_exists( 'Penalis_Editorial_Admin' ) ? Penalis_Editorial_Admin::pending_review_count() : 0;
 		$total_pending   = $pending_writers + $pending_reviews;
 
-		$menu_title = 'Penalis Platform';
+		$menu_title = 'Penalis';
 		if ( $total_pending > 0 ) {
 			$menu_title .= sprintf(
-				' <span class="awaiting-mod count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
+				' <span class="awaiting-mod update-plugins count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
 				$total_pending,
 				number_format_i18n( $total_pending )
 			);
@@ -90,7 +90,7 @@ final class Penalis_Admin {
 
 		if ( $pending > 0 ) {
 			$menu_title .= sprintf(
-				' <span class="awaiting-mod count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
+				' <span class="awaiting-mod update-plugins count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
 				$pending,
 				number_format_i18n( $pending )
 			);
@@ -107,134 +107,69 @@ final class Penalis_Admin {
 	}
 
 	/**
-	 * Render the admin stylesheet.
+	 * Whether the current admin request belongs to a Penalis Platform screen.
+	 *
+	 * Checks both the `$hook` suffix and the `page` query parameter so the
+	 * check stays reliable even if a plugin or translation alters menu titles.
+	 *
+	 * @param string $hook Current admin page hook.
+	 * @return bool
+	 */
+	public static function is_penalis_screen( $hook = '' ) {
+		$hook  = (string) $hook;
+		$slugs = array(
+			self::MENU_SLUG,
+			self::PAGE_SLUG,
+			Penalis_Editorial_Admin::PAGE_SLUG,
+		);
+
+		foreach ( $slugs as $slug ) {
+			if ( false !== strpos( $hook, $slug ) ) {
+				return true;
+			}
+		}
+
+		if ( isset( $_GET['page'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$page = sanitize_key( wp_unslash( $_GET['page'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( in_array( $page, $slugs, true ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Enqueue the shared wp-admin stylesheet (`assets/css/admin.css`).
 	 *
 	 * The status pill is also used by the Users list column, so the stylesheet
-	 * loads on the Users screen as well as the Penalis Platform screens.
+	 * loads on `users.php` as well as all Penalis Platform screens.
 	 *
 	 * @param string $hook Current admin page.
 	 * @return void
 	 */
 	public static function admin_styles( $hook ) {
-		$allowed_hooks = array(
-			'users.php',
-			'toplevel_page_' . self::MENU_SLUG,
-			self::MENU_SLUG . '_page_' . self::PAGE_SLUG,
-			'users_page_' . self::PAGE_SLUG,
-		);
-
-		if ( ! in_array( $hook, $allowed_hooks, true ) ) {
+		if ( 'users.php' !== $hook && ! self::is_penalis_screen( $hook ) ) {
 			return;
 		}
 
-		wp_register_style( 'penalis-admin', false, array(), PENALIS_PLATFORM_VERSION );
-		wp_enqueue_style( 'penalis-admin' );
-		wp_add_inline_style( 'penalis-admin', self::admin_css() );
+		self::enqueue_stylesheet();
 	}
 
 	/**
-	 * Stylesheet contents.
+	 * Register and enqueue `assets/css/admin.css`.
 	 *
-	 * Kept in one place so the status pill, the overview cards, the table, and
-	 * the panels stay visually consistent. Colours come from the WordPress admin
-	 * palette.
-	 *
-	 * @return string
+	 * @return void
 	 */
-	private static function admin_css() {
-		return <<<'CSS'
-.penalis-status{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.02em;line-height:1.7;white-space:nowrap}
-.penalis-status__dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 6px}
-.penalis-status--active{background:#edfaef;color:#007017}
-.penalis-status--pending_verification,.penalis-status--pending_approval{background:#fcf9e8;color:#8a6116}
-.penalis-status--rejected,.penalis-status--suspended{background:#fcf0f1;color:#8a2424}
-.penalis-status--legacy{background:#f0f0f1;color:#50575e}
-.penalis-overview .penalis-intro,.penalis-writers .penalis-intro{margin:2px 0 18px;max-width:72ch;color:#50575e;font-size:13px}
-.penalis-overview__section{margin:0 0 22px}
-.penalis-overview__section-title{margin:0 0 10px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#50575e}
-.penalis-overview__stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.penalis-overview__stat{display:flex;flex-direction:column;justify-content:space-between;padding:16px 18px;background:#fff;border:1px solid #dcdcde;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.04);text-decoration:none;color:inherit;transition:border-color .15s ease,box-shadow .15s ease}
-.penalis-overview__stat:hover,.penalis-overview__stat:focus{border-color:#2271b1;box-shadow:0 0 0 1px #2271b1;color:inherit}
-.penalis-overview__stat--attention{border-color:#dba617;background:#fffdf5}
-.penalis-overview__stat-label{font-size:12.5px;font-weight:600;color:#50575e;margin-bottom:6px}
-.penalis-overview__stat-value{font-size:26px;font-weight:700;line-height:1.15;color:#1d2327}
-.penalis-overview__stat--attention .penalis-overview__stat-value{color:#8a6116}
-.penalis-overview__stat-hint{margin-top:6px;font-size:11.5px;color:#2271b1;font-weight:500}
-.penalis-overview__panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:8px;align-items:start}
-.penalis-overview__card{background:#fff;border:1px solid #dcdcde;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden}
-.penalis-overview__card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #f0f0f1;background:#fafafa}
-.penalis-overview__card-header h2{margin:0;font-size:14px;font-weight:600;color:#1d2327}
-.penalis-overview__card-link{font-size:12.5px;font-weight:500;text-decoration:none;color:#2271b1}
-.penalis-overview__card-link:hover{color:#135e96;text-decoration:underline}
-.penalis-overview__list{margin:0;padding:0;list-style:none}
-.penalis-overview__item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 18px;border-bottom:1px solid #f0f0f1}
-.penalis-overview__item:last-child{border-bottom:0}
-.penalis-overview__item-main{min-width:0;flex:1 1 auto}
-.penalis-overview__item-title{display:block;font-size:13.5px;font-weight:600;color:#1d2327;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.penalis-overview__item-title:hover{color:#2271b1}
-.penalis-overview__item-meta{display:block;margin-top:2px;font-size:12px;color:#646970;line-height:1.45}
-.penalis-overview__user{display:flex;align-items:center;gap:10px;min-width:0}
-.penalis-overview__avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;background:#f0f0f1;flex:0 0 34px}
-.penalis-overview__empty{margin:0;padding:28px 18px;text-align:center;color:#646970;font-size:13px}
-.penalis-writers .subsubsub{float:none;clear:both;margin:0 0 14px;font-size:13px}
-.penalis-writers .subsubsub li:not(:last-child)::after{content:"|";margin:0 6px;color:#c3c4c7}
-.penalis-writers .penalis-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;clear:both;margin:0 0 12px;padding:10px 12px;background:#fff;border:1px solid #c3c4c7;border-radius:4px;box-shadow:0 1px 1px rgba(0,0,0,.04)}
-.penalis-writers .penalis-toolbar input[type="search"]{flex:1 1 240px;max-width:340px;margin:0}
-.penalis-writers .penalis-toolbar .button{margin:0}
-.penalis-writers .penalis-toolbar__count{margin-left:auto;color:#646970;font-size:12px}
-.penalis-writers .penalis-table{margin:0}
-.penalis-writers .penalis-table-wrap{overflow-x:auto}
-.penalis-writers .penalis-table thead th{padding:10px;font-weight:600;color:#1d2327}
-.penalis-writers .penalis-table tbody td{padding:14px 10px;vertical-align:top}
-.penalis-writers .penalis-col-writer{width:22%}
-.penalis-writers .penalis-col-email{width:18%}
-.penalis-writers .penalis-col-status{width:17%}
-.penalis-writers .penalis-col-date{width:12%}
-.penalis-writers .penalis-col-actions{width:31%}
-.penalis-writers .penalis-writer{display:flex;align-items:center;gap:10px}
-.penalis-writers .penalis-writer__avatar{display:block;width:36px;height:36px;border-radius:50%;flex:0 0 36px;background:#f0f0f1}
-.penalis-writers .penalis-writer__name{display:block;color:#1d2327;font-size:13px;line-height:1.4}
-.penalis-writers .penalis-writer__login{display:block;color:#646970;font-size:12px;line-height:1.4;word-break:break-word}
-.penalis-writers .penalis-flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
-.penalis-writers .penalis-flag{display:inline-block;padding:1px 7px;border-radius:3px;background:#f0f0f1;color:#50575e;font-size:11px;line-height:1.7}
-.penalis-writers .penalis-flag--warn{background:#fcf0f1;color:#8a2424}
-.penalis-writers .penalis-flag--ok{background:#edfaef;color:#007017}
-.penalis-writers .penalis-date{display:block;color:#1d2327;font-size:13px;line-height:1.4}
-.penalis-writers .penalis-muted{display:block;color:#646970;font-size:12px;line-height:1.4}
-.penalis-writers .penalis-actions{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
-.penalis-writers .penalis-actions form{margin:0}
-.penalis-writers .penalis-actions .button{margin:0}
-.penalis-writers .penalis-button--danger{color:#b32d2e;border-color:#b32d2e}
-.penalis-writers .button.penalis-button--danger:hover{background:#b32d2e;border-color:#b32d2e;color:#fff}
-.penalis-writers .button.penalis-button--danger:focus{border-color:#b32d2e;color:#b32d2e;box-shadow:0 0 0 1px #b32d2e}
-.penalis-writers .penalis-hint{margin:0;color:#646970;font-size:12px;line-height:1.5}
-.penalis-writers .penalis-history{margin-top:4px;font-size:12px;color:#50575e}
-.penalis-writers .penalis-history summary{cursor:pointer;color:#2271b1;font-weight:500;padding:2px 0}
-.penalis-writers .penalis-history summary:hover{color:#135e96}
-.penalis-writers .penalis-history summary:focus{outline:2px solid #2271b1;outline-offset:1px}
-.penalis-writers .penalis-history__list{margin:8px 0 0;padding:0 0 0 10px;list-style:none;border-left:2px solid #f0f0f1}
-.penalis-writers .penalis-history__item{padding:3px 0;line-height:1.5}
-.penalis-writers .penalis-history__time{display:block;color:#8c8f94;font-size:11px}
-.penalis-writers .penalis-history__flow{display:block;color:#1d2327}
-.penalis-writers .penalis-history__reason{display:block;color:#646970}
-.penalis-writers .penalis-empty__inner{padding:36px 16px;text-align:center}
-.penalis-writers .penalis-empty__title{margin:0 0 4px;font-size:14px;font-weight:600;color:#1d2327}
-.penalis-writers .penalis-empty__text{margin:0;color:#646970}
-.penalis-writers .penalis-panel{max-width:760px;margin:24px 0 0;padding:16px 20px;background:#fff;border:1px solid #c3c4c7;border-radius:4px;box-shadow:0 1px 1px rgba(0,0,0,.04)}
-.penalis-writers .penalis-panel h2{margin:0 0 4px;font-size:14px}
-.penalis-writers .penalis-panel__body{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:14px}
-.penalis-writers .penalis-panel__preview{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#f0f0f1;flex:0 0 72px}
-.penalis-writers .penalis-panel__controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
-.penalis-writers .penalis-panel__controls .button{margin:0}
-@media screen and (max-width:960px){
-.penalis-overview__stats{grid-template-columns:repeat(2,minmax(0,1fr))}
-.penalis-overview__panels{grid-template-columns:1fr}
-}
-@media screen and (max-width:782px){
-.penalis-writers .penalis-table{min-width:720px}
-.penalis-writers .penalis-toolbar__count{margin-left:0}
-}
-CSS;
+	public static function enqueue_stylesheet() {
+		$rel_path = 'assets/css/admin.css';
+		$abs_path = defined( 'PENALIS_PLATFORM_DIR' ) ? PENALIS_PLATFORM_DIR . $rel_path : '';
+		$url      = defined( 'PENALIS_PLATFORM_URL' ) ? PENALIS_PLATFORM_URL . $rel_path : '';
+		$version  = ( '' !== $abs_path && file_exists( $abs_path ) )
+			? (string) filemtime( $abs_path )
+			: ( defined( 'PENALIS_PLATFORM_VERSION' ) ? PENALIS_PLATFORM_VERSION : '1.0.0' );
+
+		wp_enqueue_style( 'penalis-admin', $url, array(), $version );
 	}
 
 	/**
@@ -244,12 +179,10 @@ CSS;
 	 * @return void
 	 */
 	public static function admin_scripts( $hook ) {
-		$allowed_hooks = array(
-			self::MENU_SLUG . '_page_' . self::PAGE_SLUG,
-			'users_page_' . self::PAGE_SLUG,
-		);
+		$page      = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$is_writer = false !== strpos( (string) $hook, self::PAGE_SLUG ) || self::PAGE_SLUG === $page;
 
-		if ( ! in_array( $hook, $allowed_hooks, true ) ) {
+		if ( ! $is_writer ) {
 			return;
 		}
 
