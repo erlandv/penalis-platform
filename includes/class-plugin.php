@@ -120,7 +120,7 @@ final class Penalis_Plugin {
 
 		printf(
 			'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
-			'Penalis Platform aktif. Tinjau halaman dasbor dan pendaftaran penulis di Pengguna → Penulis Penalis.'
+			'Penalis Platform aktif. Tinjau halaman dasbor, pengajuan karya tulis, dan pendaftaran penulis melalui menu Penalis Platform.'
 		);
 	}
 }

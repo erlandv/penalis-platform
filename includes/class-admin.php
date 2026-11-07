@@ -10,9 +10,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Adds a Penalis Writers screen under Users.
+ * Registers the unified Penalis Platform menu, the overview dashboard, and the
+ * Penalis Writers management screen.
  */
 final class Penalis_Admin {
+
+	public const MENU_SLUG = 'penalis-platform';
+	public const PAGE_SLUG = 'penalis-writers';
 
 	/**
 	 * Register hooks.
@@ -20,7 +24,8 @@ final class Penalis_Admin {
 	 * @return void
 	 */
 	public static function init() {
-		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ) );
+		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 10 );
+		add_action( 'admin_menu', array( __CLASS__, 'register_writers_submenu' ), 12 );
 		add_action( 'admin_post_penalis_account_action', array( __CLASS__, 'handle_account_action' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'admin_notices' ) );
 		add_filter( 'manage_users_columns', array( __CLASS__, 'add_status_column' ) );
@@ -31,16 +36,72 @@ final class Penalis_Admin {
 	}
 
 	/**
-	 * Register the menu.
+	 * Register the top-level Penalis Platform menu and its Ringkasan submenu.
 	 *
 	 * @return void
 	 */
 	public static function register_menu() {
-		add_users_page(
-			'Penulis Penalis',
-			'Penulis Penalis',
+		$pending_writers = self::pending_approval_count();
+		$pending_reviews = class_exists( 'Penalis_Editorial_Admin' ) ? Penalis_Editorial_Admin::pending_review_count() : 0;
+		$total_pending   = $pending_writers + $pending_reviews;
+
+		$menu_title = 'Penalis Platform';
+		if ( $total_pending > 0 ) {
+			$menu_title .= sprintf(
+				' <span class="awaiting-mod count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
+				$total_pending,
+				number_format_i18n( $total_pending )
+			);
+		}
+
+		add_menu_page(
+			'Penalis Platform',
+			$menu_title,
 			'list_users',
-			'penalis-writers',
+			self::MENU_SLUG,
+			array( __CLASS__, 'render_overview_page' ),
+			'dashicons-welcome-write-blog',
+			58
+		);
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			'Ringkasan — Penalis Platform',
+			'Ringkasan',
+			'list_users',
+			self::MENU_SLUG,
+			array( __CLASS__, 'render_overview_page' )
+		);
+	}
+
+	/**
+	 * Register the Penulis Penalis submenu under Penalis Platform.
+	 *
+	 * Registered at priority 12 so the submenu order is:
+	 * 1. Ringkasan (priority 10)
+	 * 2. Tinjauan Karya (priority 11)
+	 * 3. Penulis Penalis (priority 12)
+	 *
+	 * @return void
+	 */
+	public static function register_writers_submenu() {
+		$pending    = self::pending_approval_count();
+		$menu_title = 'Penulis Penalis';
+
+		if ( $pending > 0 ) {
+			$menu_title .= sprintf(
+				' <span class="awaiting-mod count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
+				$pending,
+				number_format_i18n( $pending )
+			);
+		}
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			'Penulis Penalis — Penalis Platform',
+			$menu_title,
+			'list_users',
+			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
 		);
 	}
@@ -49,14 +110,20 @@ final class Penalis_Admin {
 	 * Render the admin stylesheet.
 	 *
 	 * The status pill is also used by the Users list column, so the stylesheet
-	 * loads on both screens. Everything else is scoped to `.penalis-writers` so
-	 * no other admin screen inherits the layout rules.
+	 * loads on the Users screen as well as the Penalis Platform screens.
 	 *
 	 * @param string $hook Current admin page.
 	 * @return void
 	 */
 	public static function admin_styles( $hook ) {
-		if ( ! in_array( $hook, array( 'users.php', 'users_page_penalis-writers' ), true ) ) {
+		$allowed_hooks = array(
+			'users.php',
+			'toplevel_page_' . self::MENU_SLUG,
+			self::MENU_SLUG . '_page_' . self::PAGE_SLUG,
+			'users_page_' . self::PAGE_SLUG,
+		);
+
+		if ( ! in_array( $hook, $allowed_hooks, true ) ) {
 			return;
 		}
 
@@ -68,8 +135,9 @@ final class Penalis_Admin {
 	/**
 	 * Stylesheet contents.
 	 *
-	 * Kept in one place so the status pill, the table, and the panels stay
-	 * visually consistent. Colours come from the WordPress admin palette.
+	 * Kept in one place so the status pill, the overview cards, the table, and
+	 * the panels stay visually consistent. Colours come from the WordPress admin
+	 * palette.
 	 *
 	 * @return string
 	 */
@@ -81,7 +149,33 @@ final class Penalis_Admin {
 .penalis-status--pending_verification,.penalis-status--pending_approval{background:#fcf9e8;color:#8a6116}
 .penalis-status--rejected,.penalis-status--suspended{background:#fcf0f1;color:#8a2424}
 .penalis-status--legacy{background:#f0f0f1;color:#50575e}
-.penalis-writers .penalis-intro{margin:2px 0 18px;max-width:72ch;color:#50575e;font-size:13px}
+.penalis-overview .penalis-intro,.penalis-writers .penalis-intro{margin:2px 0 18px;max-width:72ch;color:#50575e;font-size:13px}
+.penalis-overview__section{margin:0 0 22px}
+.penalis-overview__section-title{margin:0 0 10px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#50575e}
+.penalis-overview__stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.penalis-overview__stat{display:flex;flex-direction:column;justify-content:space-between;padding:16px 18px;background:#fff;border:1px solid #dcdcde;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.04);text-decoration:none;color:inherit;transition:border-color .15s ease,box-shadow .15s ease}
+.penalis-overview__stat:hover,.penalis-overview__stat:focus{border-color:#2271b1;box-shadow:0 0 0 1px #2271b1;color:inherit}
+.penalis-overview__stat--attention{border-color:#dba617;background:#fffdf5}
+.penalis-overview__stat-label{font-size:12.5px;font-weight:600;color:#50575e;margin-bottom:6px}
+.penalis-overview__stat-value{font-size:26px;font-weight:700;line-height:1.15;color:#1d2327}
+.penalis-overview__stat--attention .penalis-overview__stat-value{color:#8a6116}
+.penalis-overview__stat-hint{margin-top:6px;font-size:11.5px;color:#2271b1;font-weight:500}
+.penalis-overview__panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:8px;align-items:start}
+.penalis-overview__card{background:#fff;border:1px solid #dcdcde;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.04);overflow:hidden}
+.penalis-overview__card-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #f0f0f1;background:#fafafa}
+.penalis-overview__card-header h2{margin:0;font-size:14px;font-weight:600;color:#1d2327}
+.penalis-overview__card-link{font-size:12.5px;font-weight:500;text-decoration:none;color:#2271b1}
+.penalis-overview__card-link:hover{color:#135e96;text-decoration:underline}
+.penalis-overview__list{margin:0;padding:0;list-style:none}
+.penalis-overview__item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 18px;border-bottom:1px solid #f0f0f1}
+.penalis-overview__item:last-child{border-bottom:0}
+.penalis-overview__item-main{min-width:0;flex:1 1 auto}
+.penalis-overview__item-title{display:block;font-size:13.5px;font-weight:600;color:#1d2327;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.penalis-overview__item-title:hover{color:#2271b1}
+.penalis-overview__item-meta{display:block;margin-top:2px;font-size:12px;color:#646970;line-height:1.45}
+.penalis-overview__user{display:flex;align-items:center;gap:10px;min-width:0}
+.penalis-overview__avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;background:#f0f0f1;flex:0 0 34px}
+.penalis-overview__empty{margin:0;padding:28px 18px;text-align:center;color:#646970;font-size:13px}
 .penalis-writers .subsubsub{float:none;clear:both;margin:0 0 14px;font-size:13px}
 .penalis-writers .subsubsub li:not(:last-child)::after{content:"|";margin:0 6px;color:#c3c4c7}
 .penalis-writers .penalis-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;clear:both;margin:0 0 12px;padding:10px 12px;background:#fff;border:1px solid #c3c4c7;border-radius:4px;box-shadow:0 1px 1px rgba(0,0,0,.04)}
@@ -132,6 +226,10 @@ final class Penalis_Admin {
 .penalis-writers .penalis-panel__preview{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#f0f0f1;flex:0 0 72px}
 .penalis-writers .penalis-panel__controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .penalis-writers .penalis-panel__controls .button{margin:0}
+@media screen and (max-width:960px){
+.penalis-overview__stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+.penalis-overview__panels{grid-template-columns:1fr}
+}
 @media screen and (max-width:782px){
 .penalis-writers .penalis-table{min-width:720px}
 .penalis-writers .penalis-toolbar__count{margin-left:0}
@@ -146,7 +244,12 @@ CSS;
 	 * @return void
 	 */
 	public static function admin_scripts( $hook ) {
-		if ( 'users_page_penalis-writers' !== $hook ) {
+		$allowed_hooks = array(
+			self::MENU_SLUG . '_page_' . self::PAGE_SLUG,
+			'users_page_' . self::PAGE_SLUG,
+		);
+
+		if ( ! in_array( $hook, $allowed_hooks, true ) ) {
 			return;
 		}
 
@@ -197,7 +300,7 @@ JS;
 
 		check_admin_referer( 'penalis_default_avatar' );
 
-		$redirect = admin_url( 'users.php?page=penalis-writers' );
+		$redirect = self::writers_url();
 		$clear    = isset( $_POST['penalis_clear_default_avatar'] );
 		$avatar   = isset( $_POST['penalis_default_avatar_id'] ) ? absint( wp_unslash( $_POST['penalis_default_avatar_id'] ) ) : 0;
 
@@ -216,6 +319,232 @@ JS;
 
 		wp_safe_redirect( add_query_arg( 'penalis_message', 'avatar_saved', $redirect ) );
 		exit;
+	}
+
+	/**
+	 * Render the unified Penalis Platform overview page.
+	 *
+	 * @return void
+	 */
+	public static function render_overview_page() {
+		if ( ! current_user_can( 'list_users' ) ) {
+			wp_die( 'Kamu tidak memiliki izin untuk melihat halaman ini.' );
+		}
+
+		$user_counts    = self::status_counts();
+		$article_counts = class_exists( 'Penalis_Editorial_Admin' ) ? Penalis_Editorial_Admin::state_counts() : array();
+		$pending_posts  = class_exists( 'Penalis_Editorial_Admin' ) ? Penalis_Editorial_Admin::recent_pending_submissions( 5 ) : array();
+		$pending_users  = self::recent_pending_writers( 5 );
+
+		$pending_review_count    = isset( $article_counts[ Penalis_Editorial_Policy::STATE_PENDING_REVIEW ] ) ? (int) $article_counts[ Penalis_Editorial_Policy::STATE_PENDING_REVIEW ] : 0;
+		$changes_requested_count = isset( $article_counts[ Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ] ) ? (int) $article_counts[ Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ] : 0;
+		$rejected_article_count  = isset( $article_counts[ Penalis_Editorial_Policy::STATE_REJECTED ] ) ? (int) $article_counts[ Penalis_Editorial_Policy::STATE_REJECTED ] : 0;
+		$published_article_count = isset( $article_counts[ Penalis_Editorial_Policy::STATE_PUBLISHED ] ) ? (int) $article_counts[ Penalis_Editorial_Policy::STATE_PUBLISHED ] : 0;
+
+		$pending_approval_count     = isset( $user_counts[ Penalis_Policy::STATUS_PENDING_APPROVAL ] ) ? (int) $user_counts[ Penalis_Policy::STATUS_PENDING_APPROVAL ] : 0;
+		$pending_verification_count = isset( $user_counts[ Penalis_Policy::STATUS_PENDING_VERIFICATION ] ) ? (int) $user_counts[ Penalis_Policy::STATUS_PENDING_VERIFICATION ] : 0;
+		$active_writer_count        = isset( $user_counts[ Penalis_Policy::STATUS_ACTIVE ] ) ? (int) $user_counts[ Penalis_Policy::STATUS_ACTIVE ] : 0;
+		$legacy_writer_count        = isset( $user_counts['legacy'] ) ? (int) $user_counts['legacy'] : 0;
+		?>
+		<div class="wrap penalis-overview">
+			<h1 class="wp-heading-inline">Penalis Platform</h1>
+			<a href="<?php echo esc_url( Penalis_Editorial_Admin::list_url() ); ?>" class="page-title-action">Tinjauan Karya</a>
+			<a href="<?php echo esc_url( self::writers_url() ); ?>" class="page-title-action">Penulis Penalis</a>
+			<a href="<?php echo esc_url( Penalis_Dashboard::dashboard_url() ); ?>" class="page-title-action" target="_blank" rel="noopener noreferrer">Buka Dasbor Penulis &nearr;</a>
+			<hr class="wp-header-end">
+
+			<p class="penalis-intro">
+				Pusat kurasi komunitas Penalis. Pantau antrean karya tulis yang menunggu tinjauan dan
+				pendaftaran akun penulis di satu tempat.
+			</p>
+
+			<div class="penalis-overview__section">
+				<h2 class="penalis-overview__section-title">Antrean Karya Tulis</h2>
+				<div class="penalis-overview__stats">
+					<a
+						href="<?php echo esc_url( Penalis_Editorial_Admin::list_url( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ) ); ?>"
+						class="penalis-overview__stat <?php echo $pending_review_count > 0 ? 'penalis-overview__stat--attention' : ''; ?>"
+					>
+						<span class="penalis-overview__stat-label">Menunggu tinjauan</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $pending_review_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Tinjau pengajuan &rarr;</span>
+					</a>
+
+					<a
+						href="<?php echo esc_url( Penalis_Editorial_Admin::list_url( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ) ); ?>"
+						class="penalis-overview__stat"
+					>
+						<span class="penalis-overview__stat-label">Perlu revisi</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $changes_requested_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Lihat daftar &rarr;</span>
+					</a>
+
+					<a
+						href="<?php echo esc_url( Penalis_Editorial_Admin::list_url( Penalis_Editorial_Policy::STATE_REJECTED ) ); ?>"
+						class="penalis-overview__stat"
+					>
+						<span class="penalis-overview__stat-label">Ditolak</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $rejected_article_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Lihat daftar &rarr;</span>
+					</a>
+
+					<a
+						href="<?php echo esc_url( Penalis_Editorial_Admin::list_url( Penalis_Editorial_Policy::STATE_PUBLISHED ) ); ?>"
+						class="penalis-overview__stat"
+					>
+						<span class="penalis-overview__stat-label">Terbit</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $published_article_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Lihat artikel terbit &rarr;</span>
+					</a>
+				</div>
+			</div>
+
+			<div class="penalis-overview__section">
+				<h2 class="penalis-overview__section-title">Status Akun Penulis</h2>
+				<div class="penalis-overview__stats">
+					<a
+						href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_APPROVAL ) ) ); ?>"
+						class="penalis-overview__stat <?php echo $pending_approval_count > 0 ? 'penalis-overview__stat--attention' : ''; ?>"
+					>
+						<span class="penalis-overview__stat-label">Menunggu persetujuan</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $pending_approval_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Tinjau pendaftar &rarr;</span>
+					</a>
+
+					<a
+						href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_VERIFICATION ) ) ); ?>"
+						class="penalis-overview__stat"
+					>
+						<span class="penalis-overview__stat-label">Menunggu verifikasi email</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $pending_verification_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Lihat akun &rarr;</span>
+					</a>
+
+					<a
+						href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_ACTIVE ) ) ); ?>"
+						class="penalis-overview__stat"
+					>
+						<span class="penalis-overview__stat-label">Penulis aktif</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $active_writer_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Kelola penulis &rarr;</span>
+					</a>
+
+					<a
+						href="<?php echo esc_url( self::writers_url( array( 'status' => 'legacy' ) ) ); ?>"
+						class="penalis-overview__stat"
+					>
+						<span class="penalis-overview__stat-label">Akun lama (belum aktif)</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $legacy_writer_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Lihat akun lama &rarr;</span>
+					</a>
+				</div>
+			</div>
+
+			<div class="penalis-overview__panels">
+				<div class="penalis-overview__card">
+					<div class="penalis-overview__card-header">
+						<h2>Karya Tulis Menunggu Tinjauan</h2>
+						<a class="penalis-overview__card-link" href="<?php echo esc_url( Penalis_Editorial_Admin::list_url() ); ?>">
+							Lihat semua &rarr;
+						</a>
+					</div>
+					<?php if ( empty( $pending_posts ) ) : ?>
+						<p class="penalis-overview__empty">Tidak ada karya tulis yang menunggu tinjauan saat ini.</p>
+					<?php else : ?>
+						<ul class="penalis-overview__list">
+							<?php foreach ( $pending_posts as $post ) : ?>
+								<?php
+								$author     = get_userdata( (int) $post->post_author );
+								$submitted  = Penalis_Editorial_Workflow::get_submitted_at( $post );
+								$cycle      = max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) );
+								$detail_url = Penalis_Editorial_Admin::detail_url( (int) $post->ID );
+								?>
+								<li class="penalis-overview__item">
+									<div class="penalis-overview__item-main">
+										<a class="penalis-overview__item-title" href="<?php echo esc_url( $detail_url ); ?>">
+											<?php echo esc_html( '' !== $post->post_title ? $post->post_title : '(tanpa judul)' ); ?>
+										</a>
+										<span class="penalis-overview__item-meta">
+											<?php
+											echo esc_html(
+												sprintf(
+													'%1$s · Siklus #%2$d · %3$s',
+													$author ? $author->display_name : 'Penulis tidak ditemukan',
+													$cycle,
+													$submitted > 0 ? date_i18n( 'j M Y H:i', $submitted ) : mysql2date( 'j M Y H:i', $post->post_modified )
+												)
+											);
+											?>
+										</span>
+									</div>
+									<a class="button button-small button-primary" href="<?php echo esc_url( $detail_url ); ?>">
+										Tinjau
+									</a>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					<?php endif; ?>
+				</div>
+
+				<div class="penalis-overview__card">
+					<div class="penalis-overview__card-header">
+						<h2>Pendaftar Menunggu Persetujuan</h2>
+						<a class="penalis-overview__card-link" href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_APPROVAL ) ) ); ?>">
+							Kelola semua penulis &rarr;
+						</a>
+					</div>
+					<?php if ( empty( $pending_users ) ) : ?>
+						<p class="penalis-overview__empty">Tidak ada pendaftar penulis yang menunggu persetujuan saat ini.</p>
+					<?php else : ?>
+						<ul class="penalis-overview__list">
+							<?php foreach ( $pending_users as $user ) : ?>
+								<?php
+								$review_user_url = self::writers_url(
+									array(
+										'status' => Penalis_Policy::STATUS_PENDING_APPROVAL,
+										's'      => $user->user_login,
+									)
+								);
+								?>
+								<li class="penalis-overview__item">
+									<div class="penalis-overview__user">
+										<?php
+										$avatar = function_exists( 'get_avatar' ) ? get_avatar( (int) $user->ID, 34, '', '', array( 'class' => 'penalis-overview__avatar' ) ) : '';
+										if ( $avatar ) {
+											echo wp_kses_post( $avatar );
+										} else {
+											echo '<span class="penalis-overview__avatar" aria-hidden="true"></span>';
+										}
+										?>
+										<div class="penalis-overview__item-main">
+											<a class="penalis-overview__item-title" href="<?php echo esc_url( $review_user_url ); ?>">
+												<?php echo esc_html( $user->display_name ); ?>
+											</a>
+											<span class="penalis-overview__item-meta">
+												<?php
+												echo esc_html(
+													sprintf(
+														'%1$s · %2$s · %3$s',
+														$user->user_login,
+														$user->user_email,
+														mysql2date( get_option( 'date_format' ), $user->user_registered )
+													)
+												);
+												?>
+											</span>
+										</div>
+									</div>
+									<a class="button button-small button-primary" href="<?php echo esc_url( $review_user_url ); ?>">
+										Tinjau
+									</a>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					<?php endif; ?>
+				</div>
+			</div>
+		</div>
+		<?php
 	}
 
 	/**
@@ -362,17 +691,12 @@ JS;
 			<ul class="subsubsub">
 				<?php foreach ( $tabs as $value => $label ) : ?>
 					<?php
-					$tab_url    = add_query_arg(
-						array(
-							'page'   => 'penalis-writers',
-							'status' => $value,
-						),
-						admin_url( 'users.php' )
-					);
+					$tab_args   = array( 'status' => $value );
 					$is_current = $status === $value;
 					if ( '' !== $search ) {
-						$tab_url = add_query_arg( 's', $search, $tab_url );
+						$tab_args['s'] = $search;
 					}
+					$tab_url = self::writers_url( $tab_args );
 					?>
 					<li>
 						<a
@@ -388,7 +712,7 @@ JS;
 			</ul>
 
 			<form method="get" class="penalis-toolbar">
-				<input type="hidden" name="page" value="penalis-writers">
+				<input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE_SLUG ); ?>">
 				<input type="hidden" name="status" value="<?php echo esc_attr( $status ); ?>">
 				<label for="penalis-search" class="screen-reader-text">Cari penulis</label>
 				<input
@@ -399,15 +723,7 @@ JS;
 					placeholder="Cari nama, nama pengguna, atau email"
 				>
 				<button type="submit" class="button">Cari</button>
-				<?php
-				$clear_url = add_query_arg(
-					array(
-						'page'   => 'penalis-writers',
-						'status' => $status,
-					),
-					admin_url( 'users.php' )
-				);
-				?>
+				<?php $clear_url = self::writers_url( array( 'status' => $status ) ); ?>
 				<?php if ( '' !== $search ) : ?>
 					<a class="button button-link" href="<?php echo esc_url( $clear_url ); ?>">Hapus pencarian</a>
 				<?php endif; ?>
@@ -930,9 +1246,7 @@ JS;
 	 * @return void
 	 */
 	private static function redirect( $type, $value = '1' ) {
-		$args = array(
-			'page' => 'penalis-writers',
-		);
+		$args = array();
 
 		if ( 'success' === $type ) {
 			$args['penalis_message'] = $value;
@@ -940,7 +1254,7 @@ JS;
 			$args['penalis_error'] = $value;
 		}
 
-		wp_safe_redirect( add_query_arg( $args, admin_url( 'users.php' ) ) );
+		wp_safe_redirect( self::writers_url( $args ) );
 		exit;
 	}
 
@@ -978,23 +1292,17 @@ JS;
 			return;
 		}
 
-		$screen = get_current_screen();
-		if ( ! $screen || ! in_array( $screen->id, array( 'dashboard', 'users', 'users_page_penalis-writers' ), true ) ) {
+		$screen  = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		$allowed = array(
+			'dashboard',
+			'users',
+		);
+
+		if ( ! $screen || ! in_array( $screen->id, $allowed, true ) ) {
 			return;
 		}
 
-		if ( 'users_page_penalis-writers' === $screen->id ) {
-			return;
-		}
-
-		$count = get_transient( 'penalis_pending_approval_count' );
-
-		if ( false === $count ) {
-			$count = Penalis_Account_Status::count_by_status( Penalis_Policy::STATUS_PENDING_APPROVAL );
-			set_transient( 'penalis_pending_approval_count', (int) $count, 5 * MINUTE_IN_SECONDS );
-		}
-
-		$count = (int) $count;
+		$count = self::pending_approval_count();
 
 		if ( $count <= 0 ) {
 			return;
@@ -1008,8 +1316,79 @@ JS;
 					$count
 				)
 			),
-			esc_url( admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) ),
+			esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_APPROVAL ) ) ),
 			'Tinjau pendaftaran'
 		);
+	}
+
+	/**
+	 * URL of the unified Penalis Platform overview page.
+	 *
+	 * @return string
+	 */
+	public static function overview_url() {
+		return add_query_arg(
+			array(
+				'page' => self::MENU_SLUG,
+			),
+			admin_url( 'admin.php' )
+		);
+	}
+
+	/**
+	 * URL of the Penalis Writers management page.
+	 *
+	 * @param array<string,mixed> $args Optional query arguments.
+	 * @return string
+	 */
+	public static function writers_url( $args = array() ) {
+		return add_query_arg(
+			array_merge(
+				array(
+					'page' => self::PAGE_SLUG,
+				),
+				$args
+			),
+			admin_url( 'admin.php' )
+		);
+	}
+
+	/**
+	 * Cached count of writer accounts awaiting administrator approval.
+	 *
+	 * @return int
+	 */
+	public static function pending_approval_count() {
+		$count = get_transient( 'penalis_pending_approval_count' );
+
+		if ( false === $count ) {
+			$count = Penalis_Account_Status::count_by_status( Penalis_Policy::STATUS_PENDING_APPROVAL );
+			set_transient( 'penalis_pending_approval_count', (int) $count, 5 * MINUTE_IN_SECONDS );
+		}
+
+		return (int) $count;
+	}
+
+	/**
+	 * Recent writer accounts awaiting administrator approval.
+	 *
+	 * @param int $limit Max items.
+	 * @return WP_User[]
+	 */
+	private static function recent_pending_writers( $limit = 5 ) {
+		$query = new WP_User_Query(
+			array(
+				'number'     => max( 1, (int) $limit ),
+				'fields'     => 'all',
+				'orderby'    => 'registered',
+				'order'      => 'DESC',
+				'meta_key'   => Penalis_Account_Status::META_STATUS, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value' => Penalis_Policy::STATUS_PENDING_APPROVAL, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+			)
+		);
+
+		$users = $query->get_results();
+
+		return is_array( $users ) ? $users : array();
 	}
 }

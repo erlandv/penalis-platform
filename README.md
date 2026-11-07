@@ -51,7 +51,7 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
   administrator review (`Ajukan Tinjauan`), revise and resubmit when changes are
   requested (`Ajukan Ulang`), and view reviewer feedback and bounded review
   history inside the editor and articles list. Published articles are read-only
-  for writers; only an administrator approval under **Posts → Tinjauan Penalis**
+  for writers; only an administrator approval under **Penalis Platform → Tinjauan Karya**
   may publish a submission.
 - Writer profile with first name, last name, and a public name choice: first +
   last, first only, last only, username, or a custom pen name.
@@ -60,7 +60,7 @@ A React single-page dashboard at the plugin-managed `/dashboard/` page:
   served by the [One User Avatar](https://wordpress.org/plugins/one-user-avatar/)
   plugin while it is active, and by this plugin once that plugin is deactivated.
 - A default profile photo for accounts without one, managed under
-  **Users → Penalis Writers**.
+  **Penalis Platform → Penulis Penalis**.
 - A **View public profile** link to the writer's author archive.
 - Account settings including password change, a re-authenticated username
   change, and a verified email address change.
@@ -153,7 +153,7 @@ their owners cannot sign in. They can activate the account they already have:
 3. The emailed link opens a form to set the first password.
 4. The account moves to `pending_approval`; an administrator still approves it.
 
-Administrators can also act from **Users → Penalis Writers → Akun lama**:
+Administrators can also act from **Penalis Platform → Penulis Penalis → Akun lama**:
 
 - **Kirim tautan aktivasi** emails the same link.
 - **Aktifkan langsung** skips the email step, records the decision in the audit
@@ -187,7 +187,7 @@ penalis-platform/
 │   ├── class-editorial-policy.php Pure V2 editorial rules and state machine
 │   ├── class-editorial-workflow.php V2 editorial persistence and serialized transitions
 │   ├── class-editorial-notifications.php Bounded dashboard notifications and editorial emails
-│   ├── class-editorial-admin.php Posts → Tinjauan Penalis review screen
+│   ├── class-editorial-admin.php Penalis Platform → Tinjauan Karya review screen
 │   ├── class-account-status.php Status persistence and transitions
 │   ├── class-roles.php         Writer role and capabilities
 │   ├── class-access-control.php Login, capability, and REST hardening
@@ -200,7 +200,7 @@ penalis-platform/
 │   ├── class-emails.php        Transactional messages and failure recording
 │   ├── class-email-template.php Branded responsive HTML email layout
 │   ├── class-rate-limiter.php  Transient-based abuse controls
-│   └── class-admin.php         Users → Penalis Writers screen
+│   └── class-admin.php         Penalis Platform menu, Ringkasan overview, and Penulis Penalis screen
 ├── templates/
 │   └── dashboard.php           Minimal theme-independent wrapper
 ├── src/

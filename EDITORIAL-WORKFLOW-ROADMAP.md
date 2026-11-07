@@ -233,19 +233,21 @@ Exit criteria: authorization tests pass for anonymous users, pending writers, ac
 Implemented in `includes/class-editorial-admin.php` (`Penalis_Editorial_Admin`),
 registered from `Penalis_Plugin::run()` only when `is_admin()`:
 
-- **Posts → Tinjauan Penalis** (`edit.php?page=penalis-review`), gated by
+- **Penalis Platform → Tinjauan Karya** (`admin.php?page=penalis-review`), gated by
   `edit_others_posts` and re-checked through
   `Penalis_Editorial_Workflow::can_review()`.
 - Tabs for `pending_review`, `changes_requested`, `rejected`, and `published`
   with live counts. `changes_requested` and `rejected` share the `draft` post
   status, so those tabs filter on `_penalis_editorial_state`.
 - The list shows title, writer, state, submission time, and review cycle.
-- The detail view shows the submitted content through `wp_kses_post()`, the
-  latest feedback, the bounded review history with reviewer names, and a link to
-  the native WordPress editor for corrections before approval.
-- Decision forms are nonce-bound per action and post, carry the review cycle the
-  administrator is looking at, and require feedback for request-changes and
-  reject. The available buttons come from
+- The 2-column detail view shows the submitted content through `wp_kses_post()`,
+  featured image preview, categories and tags, the latest feedback, the bounded
+  review history timeline with reviewer names, and a link to the native
+  WordPress editor for corrections before approval.
+- A single unified decision form is nonce-bound per post (`penalis_review_{id}`),
+  carries the review cycle the administrator is looking at, shares one feedback
+  textarea across actions, and requires feedback for request-changes and reject.
+  The available buttons come from
   `Penalis_Editorial_Admin::actions_for_state()`, which is derived from the same
   state machine the handler enforces.
 - Every decision goes through `Penalis_Editorial_Workflow::apply()`, so the
@@ -369,7 +371,7 @@ dashboard (`Shell`, `Overview`):
   - `send_editorial_submission_notification()` emails `admin_email` on `submit`
     and `resubmit` with the sanitized plain-text title, author identity, review
     cycle, and a **Tinjau Karya Tulis** CTA pointing to
-    `edit.php?page=penalis-review&post_id={id}`.
+    `admin.php?page=penalis-review&post_id={id}`.
   - `send_editorial_decision_notification()` emails `$post->post_author` on
     `request_changes`, `reject`, `reopen`, and `approve` with the sanitized
     title, reviewer feedback note (when present), public permalink (on

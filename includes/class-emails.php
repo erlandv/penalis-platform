@@ -285,7 +285,7 @@ final class Penalis_Emails {
 		$message .= 'Nama Penulis: ' . $user->display_name . "\n";
 		$message .= 'Username Penulis: ' . $user->user_login . "\n";
 		$message .= 'Waktu Terdaftar: ' . $user->user_registered . "\n\n";
-		$message .= 'Tinjau pendaftaran melalui WordPress Admin: ' . admin_url( 'users.php?page=penalis-writers&status=pending_approval' ) . "\n";
+		$message .= 'Tinjau pendaftaran melalui WordPress Admin: ' . admin_url( 'admin.php?page=penalis-writers&status=pending_approval' ) . "\n";
 
 		$sent = self::send_mail( $admin_email, $subject, $message, 'Email ini dikirim otomatis untuk admin Penalis sebagai pemberitahuan bahwa ada pendaftaran penulis yang menunggu peninjauan.' );
 
@@ -379,7 +379,7 @@ final class Penalis_Emails {
 		$site       = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
 		$title      = self::safe_article_title( $post );
 		$cycle      = max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) );
-		$review_url = admin_url( 'edit.php?page=penalis-review&post_id=' . (int) $post->ID );
+		$review_url = admin_url( 'admin.php?page=penalis-review&post_id=' . (int) $post->ID );
 
 		if ( Penalis_Editorial_Policy::ACTION_RESUBMIT === $action ) {
 			$subject = sprintf( '[%s] Revisi Karya Tulis Menunggu Tinjauan', $site );

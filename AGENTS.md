@@ -75,7 +75,8 @@ register -> verify email -> admin approves -> write/publish in /dashboard/
   `penalis_registration_enabled` option).
 - The email address is verified before an admin ever sees the application.
 - An admin approves, rejects, suspends, or reinstates from
-  **Users -> Penalis Writers** in wp-admin. That screen is the curation gate.
+  **Penalis Platform -> Penulis Penalis** in wp-admin. That screen is the
+  account curation gate.
 - Approved writers get a dedicated `penalis_writer` role and use the dashboard:
   overview, own articles, editor, media, profile, settings.
 - Existing contributors (people who already published through the old form) use
@@ -302,7 +303,7 @@ earlier one is marked complete there.
    page — the token is consumed only when the button is pressed, so mail
    scanners cannot burn it.
 5. Status becomes `pending_approval`; admins get a notification email.
-6. An admin approves on **Users -> Penalis Writers**: status `active`, access
+6. An admin approves on **Penalis Platform -> Penulis Penalis**: status `active`, access
    enabled, role promoted, writer notified.
 7. The writer signs in and gets the full dashboard.
 
@@ -388,11 +389,11 @@ and 3 per account per hour.
 
 > **V2 direction (Phases 1–6 implemented).** The server refuses every writer
 > publish path and every writer edit of a published or under-review article
-> (Phase 3, version 0.2.5), administrators review submissions under **Posts ->
-> Tinjauan Penalis** (Phase 4, version 0.2.6), the writer dashboard uses the
-> submit/resubmit/review workflow (Phase 5, version 0.2.7), and editorial email
-> + bounded dashboard notifications are active (Phase 6, version 0.2.8). Track
-> progress in `EDITORIAL-WORKFLOW-ROADMAP.md`.
+> (Phase 3, version 0.2.5), administrators review submissions under **Penalis
+> Platform -> Tinjauan Karya** (Phase 4, version 0.2.6), the writer dashboard
+> uses the submit/resubmit/review workflow (Phase 5, version 0.2.7), and
+> editorial email + bounded dashboard notifications are active (Phase 6,
+> version 0.2.8). Track progress in `EDITORIAL-WORKFLOW-ROADMAP.md`.
 
 - The editor saves drafts through **core** `/wp/v2/posts` (create/update) and
   `/wp/v2/posts/{id}?force=true` (delete). The plugin does not re-implement
@@ -419,21 +420,26 @@ Reinstatement (`suspended` -> `active`) restores access and the role.
 
 ### 5.6 Admin console (wp-admin, not the dashboard)
 
-Two screens carry the curation surface.
+A single top-level menu, **Penalis Platform** (`admin.php?page=penalis-platform`),
+groups all administrator curation surfaces in one place:
 
-**Users -> Penalis Writers** (`add_users_page`, `includes/class-admin.php`) lists
-accounts by status and offers, per account: approve, reject, reopen a rejected
-application, suspend, reactivate, resend the verification email, send a legacy
-activation link, and vouch for a legacy account. It also holds the default
-profile photo setting.
-
-**Posts -> Tinjauan Penalis** (`add_posts_page`,
-`includes/class-editorial-admin.php`) is the article review surface: tabs for
-pending review, requested changes, rejected, and published; a detail view with
-the content, latest feedback, review history, and a link to the native editor;
-and nonce-bound approve / request-changes / reject / reopen forms. Every
-decision goes through `Penalis_Editorial_Workflow::apply()`, which holds a
-per-post advisory lock and re-reads the post before deciding.
+- **Penalis Platform -> Ringkasan** (`admin.php?page=penalis-platform`,
+  `includes/class-admin.php`) is the default overview screen showing summary
+  stat cards and recent pending items for both article submissions and writer
+  applications.
+- **Penalis Platform -> Tinjauan Karya** (`admin.php?page=penalis-review`,
+  `includes/class-editorial-admin.php`) is the article review surface: tabs for
+  pending review, requested changes, rejected, and published; a 2-column detail
+  workspace with the article reader, metadata header, unified decision form
+  (single feedback textarea + approve / request-changes / reject / reopen
+  actions), and vertical review timeline. Every decision goes through
+  `Penalis_Editorial_Workflow::apply()`, which holds a per-post advisory lock
+  and re-reads the post before deciding.
+- **Penalis Platform -> Penulis Penalis** (`admin.php?page=penalis-writers`,
+  `includes/class-admin.php`) lists accounts by status and offers, per account:
+  approve, reject, reopen a rejected application, suspend, reactivate, resend
+  the verification email, send a legacy activation link, and vouch for a legacy
+  account. It also holds the default profile photo setting.
 
 Everything here goes through `Penalis_Account_Status::transition()` (or
 `convert_legacy()`) and `Penalis_Editorial_Workflow::apply()`, so the status
@@ -486,7 +492,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-editorial-policy.php` | Pure V2 editorial rules: states, actions, transitions, feedback and stale-cycle guards, metadata contract, bounded history and notifications |
 | `includes/class-editorial-workflow.php` | V2 editorial persistence: state reads (with legacy inference), apply/transition side effects, bounded history writes |
 | `includes/class-editorial-notifications.php` | V2 editorial notifications: bounded user-scoped dashboard notifications and transactional email dispatch |
-| `includes/class-editorial-admin.php` | V2 review screen under Posts: submission list, detail view, nonce-bound decisions, review history |
+| `includes/class-editorial-admin.php` | V2 review screen under Penalis Platform -> Tinjauan Karya: submission list, 2-column detail view, unified nonce-bound decision form, review history |
 | `includes/class-rest-api.php` | `penalis/v1` routes and their handlers |
 | `includes/class-access-control.php` | Login gate, capability filtering, REST blocking, upload restrictions, post insert enforcement, privilege-escalation guards |
 | `includes/class-registration.php` | Registration, verification, resend |
@@ -498,7 +504,7 @@ WordPress (PHP)                          Browser (React SPA)
 | `includes/class-emails.php` | All outgoing mail (verification, reset, legacy, status, admin notice) |
 | `includes/class-email-template.php` | Self-contained branded HTML layout and safe action links for transactional email |
 | `includes/class-dashboard.php` | Page/shortcode/template, asset enqueue, login POST, logout, cache headers, noindex, legacy slug redirect |
-| `includes/class-admin.php` | Users -> Penalis Writers screen: filters, status actions, legacy activation, default avatar |
+| `includes/class-admin.php` | Unified Penalis Platform menu, Ringkasan overview, and Penulis Penalis screen: filters, status actions, legacy activation, default avatar |
 | `includes/class-avatar.php` | Avatar storage and provider, One User Avatar coexistence |
 | `includes/class-rate-limiter.php` | Transient-based limiter |
 | `uninstall.php` | Opt-in cleanup only |
@@ -575,7 +581,7 @@ profile fields); `require_active_writer` = `active` + access flag.
 | `/tags` | POST | `create_tag` | active writer |
 
 Administrator review decisions run on the nonce-protected wp-admin screen under
-**Posts -> Tinjauan Penalis** (`Penalis_Editorial_Admin`). The legacy writer
+**Penalis Platform -> Tinjauan Karya** (`Penalis_Editorial_Admin`). The legacy writer
 `publish`/`unpublish` routes stay registered so stale bundles or direct API
 callers receive an explicit `penalis_publish_forbidden` refusal.
 

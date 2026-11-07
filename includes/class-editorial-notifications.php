@@ -191,7 +191,7 @@ final class Penalis_Editorial_Notifications {
 				'isRead'       => $read_at > 0,
 				'targetView'   => 'editor',
 				'targetUrl'    => $target_url,
-				'reviewUrl'    => $can_review ? admin_url( 'edit.php?page=penalis-review&post_id=' . $article_id ) : '',
+				'reviewUrl'    => $can_review ? admin_url( 'admin.php?page=penalis-review&post_id=' . $article_id ) : '',
 			);
 		}
 

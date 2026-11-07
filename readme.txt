@@ -156,9 +156,9 @@ author IDs are rejected unless they match the signed-in user.
 = Is there a REST API endpoint for approval? =
 
 Account approvals go through the nonce-protected WordPress admin screen at
-**Users → Penalis Writers**, which only users with `list_users` can access.
+**Penalis Platform → Penulis Penalis**, which only users with `list_users` can access.
 Article review decisions go through the nonce-protected admin screen at
-**Posts → Tinjauan Penalis** (`edit_others_posts` + administrator). Writers
+**Penalis Platform → Tinjauan Karya** (`edit_others_posts` + administrator). Writers
 submit and resubmit articles and read their review status through
 `/penalis/v1/articles/{id}/submit`, `/resubmit`, and `/review`.
 
@@ -184,8 +184,11 @@ Screenshots are not provided yet.
   `POST /notifications/read`, and `POST /notifications/{id}/read`.
 * The dashboard **Ringkasan** view now includes a **Notifikasi Tinjauan** panel
   with read/unread states, unread count badge in navigation, and direct links
-  to the relevant article editor (or **Posts → Tinjauan Penalis** for reviewer
+  to the relevant article editor (or **Penalis Platform → Tinjauan Karya** for reviewer
   administrators).
+* Unified **Penalis Platform** top-level admin menu (`Ringkasan`,
+  `Tinjauan Karya`, `Penulis Penalis`) and redesigned 2-column article review
+  detail workspace with a single unified decision form.
 * Notification emails and dashboard notifications never expose private draft or
   pending article body content, and cross-writer notification access is denied
   both on write and on read.

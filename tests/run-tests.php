@@ -18,6 +18,7 @@ require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
 require_once __DIR__ . '/../includes/class-editorial-workflow.php';
 require_once __DIR__ . '/../includes/class-editorial-notifications.php';
+require_once __DIR__ . '/../includes/class-admin.php';
 require_once __DIR__ . '/../includes/class-editorial-admin.php';
 require_once __DIR__ . '/../includes/class-access-control.php';
 require_once __DIR__ . '/../includes/class-rest-api.php';
@@ -2660,10 +2661,31 @@ penalis_same( 1700000999, $all_read['notifications'][49]['read_at'], 'Already-re
 
 // Email template CTA labels for review and editor links.
 $review_mail = Penalis_Email_Template::render(
-	"Ada kiriman baru.\n\nhttps://example.com/wp-admin/edit.php?page=penalis-review&post_id=600",
+	"Ada kiriman baru.\n\nhttps://example.com/wp-admin/admin.php?page=penalis-review&post_id=600",
 	'Karya Tulis Baru'
 );
 penalis_assert( false !== strpos( $review_mail, 'Tinjau Karya Tulis' ), 'Review email CTA uses the Tinjau Karya Tulis label.' );
+
+penalis_same(
+	'https://example.com/wp-admin/admin.php?page=penalis-platform',
+	Penalis_Admin::overview_url(),
+	'Overview URL points to the unified Penalis Platform admin menu.'
+);
+penalis_same(
+	'https://example.com/wp-admin/admin.php?page=penalis-writers&status=pending_approval',
+	Penalis_Admin::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_APPROVAL ) ),
+	'Writers URL points to the Penulis Penalis submenu under admin.php.'
+);
+penalis_same(
+	'https://example.com/wp-admin/admin.php?page=penalis-review&state=pending_review',
+	Penalis_Editorial_Admin::list_url(),
+	'Editorial review list URL points to the Tinjauan Karya submenu under admin.php.'
+);
+penalis_same(
+	'https://example.com/wp-admin/admin.php?page=penalis-review&post_id=600',
+	Penalis_Editorial_Admin::detail_url( 600 ),
+	'Editorial review detail URL points to the Tinjauan Karya submenu under admin.php.'
+);
 
 $editor_mail = Penalis_Email_Template::render(
 	"Silakan perbaiki.\n\nhttps://example.com/dashboard/?view=editor&id=600",
