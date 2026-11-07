@@ -65,7 +65,8 @@ final class Penalis_Editorial_Admin {
 	}
 
 	/**
-	 * Enqueue the review screen stylesheet (`assets/css/admin.css`).
+	 * Enqueue the review screen stylesheet (`assets/css/admin.css`) and
+	 * confirmation dialog script (`assets/js/admin-review.js`).
 	 *
 	 * @param string $hook Current admin page.
 	 * @return void
@@ -76,6 +77,19 @@ final class Penalis_Editorial_Admin {
 		}
 
 		Penalis_Admin::enqueue_stylesheet();
+
+		if ( Penalis_Admin::is_penalis_screen( $hook, array( self::PAGE_SLUG ) ) && function_exists( 'wp_enqueue_script' ) ) {
+			$js_path = PENALIS_PLATFORM_DIR . 'assets/js/admin-review.js';
+			$version = file_exists( $js_path ) ? (string) filemtime( $js_path ) : PENALIS_PLATFORM_VERSION;
+
+			wp_enqueue_script(
+				'penalis-admin-review',
+				PENALIS_PLATFORM_URL . 'assets/js/admin-review.js',
+				array(),
+				$version,
+				true
+			);
+		}
 	}
 
 	/**
@@ -495,10 +509,11 @@ final class Penalis_Editorial_Admin {
 	private static function render_decision_form( $post, $actions, $cycle ) {
 		$is_reopen_only = array( Penalis_Editorial_Policy::ACTION_REOPEN ) === $actions;
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<form id="penalis-decision-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="penalis_review_action">
 			<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $post->ID ); ?>">
 			<input type="hidden" name="expected_cycle" value="<?php echo esc_attr( (string) $cycle ); ?>">
+			<input type="hidden" name="penalis_action" id="penalis-confirmed-action" value="" disabled>
 			<?php wp_nonce_field( 'penalis_review_' . $post->ID ); ?>
 
 			<?php if ( $is_reopen_only ) : ?>
@@ -511,6 +526,7 @@ final class Penalis_Editorial_Admin {
 						type="submit"
 						name="penalis_action"
 						value="<?php echo esc_attr( Penalis_Editorial_Policy::ACTION_REOPEN ); ?>"
+						data-penalis-decision="<?php echo esc_attr( Penalis_Editorial_Policy::ACTION_REOPEN ); ?>"
 						class="button button-primary penalis-review__btn-approve"
 					>
 						Buka kembali untuk revisi
@@ -528,9 +544,11 @@ final class Penalis_Editorial_Admin {
 						id="penalis-review-feedback"
 						name="feedback"
 						rows="5"
+						aria-describedby="penalis-review-feedback-desc penalis-review-feedback-error"
 						placeholder="Tulis catatan tinjauan atau masukan perbaikan untuk penulis..."
 					></textarea>
-					<p class="description">
+					<p id="penalis-review-feedback-error" class="penalis-review__field-error" role="alert" hidden></p>
+					<p id="penalis-review-feedback-desc" class="description">
 						Opsional saat menyetujui; wajib diisi saat meminta revisi atau menolak.
 					</p>
 				</div>
@@ -541,8 +559,8 @@ final class Penalis_Editorial_Admin {
 							type="submit"
 							name="penalis_action"
 							value="<?php echo esc_attr( Penalis_Editorial_Policy::ACTION_APPROVE ); ?>"
+							data-penalis-decision="<?php echo esc_attr( Penalis_Editorial_Policy::ACTION_APPROVE ); ?>"
 							class="button button-primary penalis-review__btn-approve"
-							onclick="var f=document.getElementById('penalis-review-feedback');if(f){f.required=false;}"
 						>
 							Setujui dan terbitkan
 						</button>
@@ -554,8 +572,8 @@ final class Penalis_Editorial_Admin {
 								type="submit"
 								name="penalis_action"
 								value="<?php echo esc_attr( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ); ?>"
+								data-penalis-decision="<?php echo esc_attr( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ); ?>"
 								class="button"
-								onclick="var f=document.getElementById('penalis-review-feedback');if(f){f.required=true;}"
 							>
 								Minta revisi
 							</button>
@@ -566,8 +584,8 @@ final class Penalis_Editorial_Admin {
 								type="submit"
 								name="penalis_action"
 								value="<?php echo esc_attr( Penalis_Editorial_Policy::ACTION_REJECT ); ?>"
+								data-penalis-decision="<?php echo esc_attr( Penalis_Editorial_Policy::ACTION_REJECT ); ?>"
 								class="button penalis-review__danger"
-								onclick="var f=document.getElementById('penalis-review-feedback');if(f){f.required=true;}"
 							>
 								Tolak
 							</button>
@@ -575,6 +593,35 @@ final class Penalis_Editorial_Admin {
 					</div>
 				</div>
 			<?php endif; ?>
+
+			<div id="penalis-confirm-modal" class="penalis-confirm-modal" hidden>
+				<div class="penalis-confirm-modal__backdrop" data-penalis-confirm-close></div>
+				<div
+					class="penalis-confirm-modal__dialog"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="penalis-confirm-title"
+					aria-describedby="penalis-confirm-desc"
+				>
+					<div class="penalis-confirm-modal__head">
+						<span id="penalis-confirm-badge" class="penalis-badge">Konfirmasi</span>
+						<h4 id="penalis-confirm-title" class="penalis-confirm-modal__title">Konfirmasi Keputusan Tinjauan</h4>
+					</div>
+					<p id="penalis-confirm-desc" class="penalis-confirm-modal__desc"></p>
+					<div id="penalis-confirm-feedback-box" class="penalis-confirm-modal__feedback">
+						<span class="penalis-confirm-modal__feedback-label">Catatan untuk penulis:</span>
+						<div id="penalis-confirm-feedback-text" class="penalis-confirm-modal__feedback-text"></div>
+					</div>
+					<div class="penalis-confirm-modal__actions">
+						<button type="button" id="penalis-confirm-cancel" class="button">
+							Batal
+						</button>
+						<button type="button" id="penalis-confirm-submit" class="button button-primary">
+							Ya, Lanjutkan
+						</button>
+					</div>
+				</div>
+			</div>
 		</form>
 		<?php
 	}
