@@ -1,8 +1,8 @@
 {
   "name": "penalis-platform",
-  "version": "0.2.8",
+  "version": "1.0.0",
   "private": true,
-  "description": "React writing dashboard and controlled UGC workflow for the Penalis WordPress plugin.",
+  "description": "Curated publishing workflow and React writing dashboard for the Penalis literary community on WordPress.",
   "type": "module",
   "scripts": {
     "dev": "vite",

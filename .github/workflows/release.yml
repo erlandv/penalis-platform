@@ -140,7 +140,7 @@ jobs:
             exit 1
           fi
 
-          if unzip -Z1 "$ZIP_NAME" | grep -qE '^penalis-platform/(src|tests|vendor|node_modules|\.github)/'; then
+          if unzip -Z1 "$ZIP_NAME" | grep -qE '^penalis-platform/(src|tests|docs|vendor|node_modules|\.github)/'; then
             echo "::error::Development files leaked into the ZIP."
             exit 1
           fi

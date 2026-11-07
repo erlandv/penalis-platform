@@ -1,345 +1,130 @@
 === Penalis Platform ===
 Contributors: penalis
-Tags: writing, dashboard, registration, publishing, community
+Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 0.2.8
+Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-A controlled user-generated content workflow and React writing dashboard for Penalis.
+Curated publishing workflow and React writing dashboard for the Penalis literary community on WordPress.
 
 == Description ==
 
-Penalis Platform adds a modern frontend writing dashboard and a controlled
-account lifecycle to a WordPress site. It is designed for communities where
-new writers must be approved by an administrator before they can publish.
-
-Note: "Requires at least" and "Requires PHP" describe the minimum versions
-supported by the APIs and syntax this plugin uses. They are derived from the
-implementation and repository checks, not from live testing. A "Tested up to"
-value is intentionally not claimed until the plugin has been verified against
-a running WordPress installation; see PROJECT-SPECIFICATION.md for the manual
-integration test checklist.
+Penalis Platform adds a self-service writer account lifecycle, an editorial
+submission and review workflow, and a frontend React writing dashboard
+(`/dashboard/`) to WordPress. It is built for the Penalis literary community
+(penalis.com), where member-submitted essays, prose, and poetry are curated by
+administrators before publication.
 
 Key features:
 
-* **Account workflow.** Visitors register through the dashboard, confirm their
-  email address with an expiring single-use link, and are then reviewed by an
-  administrator. Approval grants writing access; rejection and suspension
-  remove it. Every transition is audited.
-* **React writing dashboard.** A responsive single-page application with an
-  overview, a paginated article list, an article editor (title, content,
-  categories, tags, featured image, image upload and insertion, preview), a
-  media library, a profile screen, and account settings.
-* **Native WordPress integration.** Authentication uses WordPress cookies and
-  the REST API nonce. Articles are stored as standard posts, media uses the
-  WordPress Media Library, and no custom database tables are created.
-* **Legacy account safety.** Existing contributor profiles are treated as
-  author profiles: they are never promoted, never given the writer role, and
-  cannot sign in, reset passwords, or write until an administrator explicitly
-  enables access for the account.
-* **Server-side authorization.** Writing requires an active writer status
-  *and* explicit access. Authors are always derived from the authenticated
-  session, article ownership is enforced on every request, and privileged
-  REST routes are blocked for writers.
-* **Editorial review (V2).** Writers submit draft articles for administrator
-  review instead of publishing directly. Approval under **Posts → Tinjauan
-  Penalis** publishes the article; requested changes and rejections carry
-  feedback that appears in the writer dashboard. Submissions and review
-  decisions send branded email notifications and bounded in-dashboard
-  notifications. Published articles are read-only to writers, while
-  administrators retain direct editing access. See
-  EDITORIAL-WORKFLOW-ROADMAP.md for the phased plan (Phases 0–6 complete).
-
-This version targets WordPress 6.0 and PHP 7.4 as the minimums supported by
-the APIs and syntax used. Compatibility has been verified through repository
-checks and unit tests; it has **not yet** been tested against a live WordPress
-installation, a specific theme, or Elementor. See the included
-PROJECT-SPECIFICATION.md for the manual integration test checklist.
-
-**Editor scope.** The dashboard editor is a WYSIWYG surface built on TipTap, not
-a Gutenberg block editor. It covers text formatting, headings, lists, quotes,
-links, and images, and stores standard WordPress post content, so articles
-render with the existing theme like any other post. A raw HTML toggle is
-available for markup the toolbar cannot express.
-
-**Email delivery.** Verification and notification emails are sent with
-`wp_mail()`. Delivery depends on the host's mail configuration; an SMTP plugin
-and a test send are strongly recommended. Delivery failures are recorded and
-never silently advance an account's verification state.
-
-= Why does registration create a subscriber? =
-
-New accounts are created as subscribers with status "pending verification".
-They cannot write at all until an administrator approves them, at which point
-the Penalis Writer role is granted. This keeps publishing capability strictly
-tied to the approval workflow rather than to the act of registering.
-
-= Are existing contributor accounts affected? =
-
-No. Existing contributor profiles keep their role, password, posts, author
-relationships, and metadata. They are not promoted to the writer role and
-cannot sign in, use password reset to gain access, or write while access is
-disabled. An administrator may explicitly enable access for a single legacy
-account, which restores that account's native WordPress behavior.
-
-= Why does the plugin use a button to confirm email addresses? =
-
-Verification links include a single-use token. Confirming requires an explicit
-click on the dashboard, so automated email link scanners cannot consume the
-token before the real user uses it.
-
-= Does the plugin replace the public website or theme? =
-
-No. It runs entirely on its own page (a plugin-created Writing Dashboard page)
-and the REST API. The existing site, theme, Elementor templates, and content
-are untouched.
-
-= Where do writers manage articles? =
-
-Writers use the frontend writing dashboard, not the WordPress admin. The
-dashboard loads only on its own page, so no assets are served site-wide.
-Administrators manage applications under **Users → Penalis Writers**.
-
-= What file types can writers upload? =
-
-Only JPEG, PNG, GIF, and WebP images. Files are validated by MIME type and by
-inspecting the file contents, so renamed executables and SVG files are
-rejected.
+* **Curated writer account workflow.** Visitors register through `/dashboard/`,
+  confirm their email address with an expiring single-use link, and wait for
+  administrator approval under **Penalis → Penulis Penalis**. Approval grants
+  the `penalis_writer` role; rejection and suspension immediately revoke access
+  and end active sessions. Every transition is recorded in a bounded audit log.
+* **Legacy contributor activation.** Pre-plugin contributor accounts (created
+  without passwords for past submissions) stay protected from unauthorized login
+  or password resets until activated through self-service email verification or
+  administrator vouching. Existing user IDs, authored posts, and author archives
+  are preserved.
+* **Editorial submission and review workflow.** Writers save drafts and submit
+  them for review (`Ajukan Tinjauan` / `Ajukan Ulang`). Writers cannot publish
+  directly and cannot edit published articles. Administrators review submissions
+  in a 2-column workspace under **Penalis → Tinjauan Karya**, where they can
+  approve and publish, request revisions with required feedback, reject with
+  required feedback, or reopen a rejected submission.
+* **Email and in-dashboard notifications.** Submissions and review decisions
+  dispatch branded responsive HTML emails and record bounded in-dashboard
+  notifications on the **Ringkasan** screen.
+* **React writing dashboard (`/dashboard/`).** Includes an overview with
+  editorial status counters and notifications, a filterable article list, a
+  lazy-loaded TipTap WYSIWYG editor with raw HTML mode, a media library, a
+  writer profile with One User Avatar-compatible profile photos, and account
+  settings (password change, verified email change, and re-authenticated
+  username change with 301 author-archive redirects).
+* **Unified WordPress admin console (`Penalis`).** Groups **Ringkasan**,
+  **Tinjauan Karya**, and **Penulis Penalis** under one top-level menu with
+  pending notification badges and confirmation dialogs on all administrative
+  actions.
 
 == Installation ==
 
-1. From the repository: run `npm ci && npm run build`, then confirm the
-   `build/` folder exists. The production plugin does not require Node.js.
-2. Copy or symlink the plugin directory to `wp-content/plugins/penalis-platform/`.
-3. Activate **Penalis Platform** under **Plugins**.
-4. Save **Settings → Permalinks** once if the dashboard page or REST routes
-   return 404.
-5. Visit **Users → Penalis Writers** to confirm the review screen loads.
+1. Upload the `penalis-platform` plugin folder (including the compiled `build/`
+   and `assets/` directories) to `wp-content/plugins/penalis-platform/`, or
+   install the release ZIP via **Plugins → Add New → Upload Plugin**.
+2. Activate **Penalis Platform** in **Plugins**.
+3. Visit **Settings → Permalinks** and save once so the `/dashboard/` page and
+   REST routes resolve cleanly.
+4. Open **Penalis → Ringkasan** in `wp-admin` to access the admin overview,
+   article review queue, and writer curation screen.
 
-Activation is non-destructive: it registers the writer role, stores the plugin
-version, and creates the Writing Dashboard page when one does not already
-exist. It never deletes or migrates users, posts, comments, media, or terms.
+Activation is non-destructive: it registers the `penalis_writer` role, records
+the plugin version, and creates the `/dashboard/` page if needed. It never
+deletes or modifies existing users, posts, media, comments, or taxonomy terms.
 
-Deactivation only clears short-lived transients. Uninstall preserves all data
-unless the site owner explicitly opts in via the `PENALIS_PLATFORM_REMOVE_DATA`
-constant or the `penalis_remove_data_on_uninstall` option.
+Recommended site configuration:
 
-Recommended configuration:
-
-* Configure a working outgoing mail setup (SMTP plugin) and send a test email.
-* Exclude `/penalis-dashboard/` and `/wp-json/penalis/*` from full-page and CDN
-  caches. The plugin sends private, no-store headers; host caches must honor
-  them.
-* Confirm the dashboard page slug does not conflict with an existing page. If
-  it does, the plugin uses a suffixed slug and stores the page ID.
+* Configure reliable outgoing email delivery (SMTP plugin) so verification,
+  password reset, and editorial notification emails are delivered.
+* Exclude `/dashboard/*` and `/wp-json/penalis/*` from full-page and CDN caches.
 
 == Frequently Asked Questions ==
 
-= Do writers need a separate server or database? =
+= Do writers use wp-admin to write articles? =
 
-No. The plugin runs inside WordPress and uses WordPress users, roles, posts,
-media, metadata, and the REST API.
+No. Approved writers use the frontend dashboard at `/dashboard/`. Only
+administrators use `wp-admin` (under the **Penalis** menu) to review article
+submissions and manage writer accounts.
 
-= Can a suspended writer keep publishing through direct API requests? =
+= Can a writer publish an article directly or edit an already published article? =
 
-No. Suspension immediately revokes write capability server-side, removes the
-writer role, and destroys the account's sessions. Every protected operation
-checks account status and ownership on the server.
+No. Writers can only save drafts and submit or resubmit them for review. Only an
+administrator approval action under **Penalis → Tinjauan Karya** can publish an
+article, and published articles are strictly read-only for writers both in the
+dashboard UI and at the REST API level.
 
-= Can writers assign their articles to other authors? =
+= Are existing contributor accounts and posts affected on activation? =
 
-No. The author is always derived from the authenticated session. Client-supplied
-author IDs are rejected unless they match the signed-in user.
+No. Existing posts, author archives, and contributor accounts remain untouched.
+Dormant legacy contributor accounts cannot sign in or reset passwords until they
+complete the legacy activation flow and are approved by an administrator.
 
-= Is there a REST API endpoint for approval? =
+= What happens when a writer changes their username? =
 
-Account approvals go through the nonce-protected WordPress admin screen at
-**Penalis Platform → Penulis Penalis**, which only users with `list_users` can access.
-Article review decisions go through the nonce-protected admin screen at
-**Penalis Platform → Tinjauan Karya** (`edit_others_posts` + administrator). Writers
-submit and resubmit articles and read their review status through
-`/penalis/v1/articles/{id}/submit`, `/resubmit`, and `/review`.
+The writer must re-authenticate with their current password. Their user ID is
+preserved, their author archive moves to the new slug, and their previous author
+slug is reserved and 301-redirected so existing public links keep working.
 
-= How are rate limits applied? =
+= What file types can writers upload? =
 
-Transient-based limits cover registration, verification, resend, password
-changes, and tag creation per IP or per account. Host-level protection is still
-recommended.
-
-== Screenshots ==
-
-Screenshots are not provided yet.
+Writers may upload JPEG, PNG, GIF, and WebP images. Uploads are validated both
+by MIME type and by inspecting the image header (`getimagesize()`), so SVG and
+renamed executable files are rejected.
 
 == Changelog ==
 
-= 0.2.8 =
-* Editorial workflow notifications (Phase 6). Submitting or resubmitting an
-  article emails the site administrator and records bounded dashboard
-  notifications; administrator review decisions (request changes, reject,
-  reopen, approve/publish) email the article owner and record a writer
-  dashboard notification.
-* New `penalis/v1` notification endpoints: `GET /notifications`,
-  `POST /notifications/read`, and `POST /notifications/{id}/read`.
-* The dashboard **Ringkasan** view now includes a **Notifikasi Tinjauan** panel
-  with read/unread states, unread count badge in navigation, and direct links
-  to the relevant article editor (or **Penalis Platform → Tinjauan Karya** for reviewer
-  administrators).
-* Unified **Penalis Platform** top-level admin menu (`Ringkasan`,
-  `Tinjauan Karya`, `Penulis Penalis`) and redesigned 2-column article review
-  detail workspace with a single unified decision form.
-* Notification emails and dashboard notifications never expose private draft or
-  pending article body content, and cross-writer notification access is denied
-  both on write and on read.
-* Mail delivery failures during editorial transitions are recorded on the
-  author's account (`_penalis_last_email_failed_at` / `..._context`) without
-  rolling back the completed editorial decision.
-
-= 0.2.7 =
-* The writer dashboard now uses the V2 editorial review workflow. Direct publish
-  and unpublish buttons are replaced by **Simpan Draf**, **Ajukan Tinjauan**
-  (for drafts), and **Ajukan Ulang** (after requested changes).
-* New `penalis/v1` endpoints for writers: `POST /articles/{id}/submit`,
-  `POST /articles/{id}/resubmit`, and `GET /articles/{id}/review`. Submissions
-  require a non-empty title and content, and review state/history is visible
-  only to the article owner and reviewer administrators.
-* The editor displays explanatory banners for every editorial state, the latest
-  administrator feedback (**Catatan Tinjauan Admin**), a **Status Tinjauan** and
-  **Riwayat Tinjauan** panel, and a stale-state banner when an administrator
-  updates the review while the editor is open.
-* Published, under-review, and rejected articles open in read-only mode for
-  writers, with a clear notice that published articles can only be changed by
-  contacting an administrator.
-* The articles list and overview now filter and count `Draf`, `Menunggu
-  tinjauan`, `Perlu revisi`, `Ditolak`, and `Terbit`, and surface inline review
-  feedback notes.
-
-= 0.2.6 =
-* New **Posts → Tinjauan Penalis** screen for administrators. It lists
-  submissions waiting for review, submissions that need revision, rejected
-  submissions, and published articles, with the writer, submission time, and
-  review cycle.
-* Each submission opens a detail view with the article content, the latest
-  feedback, the review history, and a link to the native WordPress editor for
-  corrections before approval.
-* Administrators can approve and publish, request changes, reject, and reopen.
-  Requesting changes and rejecting require a note for the writer; approval does
-  not.
-* Reviewer decisions are serialized per article with a database lock, so two
-  administrators cannot both decide the same round of review. A decision that
-  cannot be locked is refused instead of applied.
-* An admin notice reports how many articles are waiting for review.
-
-= 0.2.5 =
-* **Writers can no longer publish.** Publication is an administrator-only
-  action in the V2 editorial workflow. The writer publish/unpublish endpoints,
-  a direct `status: publish` request, and a writer edit of an already published
-  article are all refused server-side with a clear message.
-* Writers may save drafts only. Updates are limited to their own `draft` posts
-  whose editorial state still allows editing, so a submission under review, a
-  rejected submission, and any published article are closed to its writer.
-* Single-post and single-media reads now enforce ownership, so a draft or
-  pending submission cannot be fetched by ID from another account. Uploads may
-  only be attached to the writer's own articles.
-* Editorial metadata is reconciled against the WordPress post status, so stale
-  or hand-edited meta can no longer make a live article editable.
-* The workflow service re-checks account status and ownership itself, so a
-  direct call cannot bypass the REST layer.
-* The dashboard still shows the previous publish UI. It now receives the
-  refusal message below until the writer workflow screen lands.
-
-= 0.2.4 =
-* The **Users -> Penulis Penalis** screen has been reorganised: status tabs with
-  live counts replace the dropdown filter, the search bar sits in its own
-  toolbar, each row shows the writer's avatar and a single-line status pill, and
-  the audit trail moved into a collapsible "Riwayat" panel so the action column
-  stays readable.
-* Destructive actions (Tolak, Tangguhkan) are outlined in red instead of using
-  the plain link style, so they read as buttons without looking like the primary
-  action. Approve and reactivate are the only primary buttons in a row.
-* The default profile photo panel moved below the list, and the copy is now
-  Indonesian like the rest of the plugin.
-
-= 0.2.3 =
-* Every password field now has an eye button that reveals the typed password,
-  so a typo is caught before the form is submitted. The toggle is a real
-  button with an accessible name, not a clickable icon decoration.
-* The password reset request now accepts an email address only. Usernames are
-  public on author archives, so they are no longer usable as a reset handle.
-  A username in the email field still gets the generic answer and is never
-  looked up.
-
-= 0.2.2 =
-* The media library page can now upload images directly; new uploads appear in
-  the grid immediately instead of only being reachable from the editor.
-* The profile photo picker now matches the editor's media picker: select a card,
-  then confirm with "Pilih". Uploading no longer applies the photo before the
-  writer confirms.
-* The media picker is one shared component, so the editor and the profile use
-  the same selection, footer, and keyboard behaviour.
-
-= 0.2.1 =
-* Removed the "Menunggu tinjauan" (pending review) stat card and filter from
-  the dashboard. The dashboard has no submit-for-review step, so the card
-  always read zero and promised a workflow that does not exist.
-* Writers can no longer set the `pending` post status through the editor or the
-  REST API; only `draft` and `publish` are accepted. Existing pending posts
-  remain readable and can still be published.
-
-= 0.2.0 =
-* Dashboard page moved from `/penalis-dashboard/` to `/dashboard/`; existing
-  plugin-managed pages are renamed on upgrade and the old URL redirects.
-* Writer profile: first and last name with a public name choice, and profile
-  photo management.
-* Avatars are served by this plugin when One User Avatar is inactive, with a
-  default photo setting under Users -> Penalis Writers.
-* Taxonomy names containing HTML entities are decoded before display.
-* Action rows keep their alignment when the active theme styles buttons.
-* Editor toolbar uses inline SVG icons, and links are added through a dialog
-  with URL validation instead of the browser prompt.
-* Media and preview dialogs keep keyboard focus inside, close with Escape, and
-  return focus to the control that opened them.
-
-= 0.1.0 =
-* Initial release.
-* Account lifecycle: registration, email verification, administrator approval,
-  rejection, suspension, reactivation, and reopen-for-review.
-* React writing dashboard with articles, editor, media, profile, and settings.
-* Penalis Writer role with minimal capabilities.
-* Server-side authorization for ownership, status, author assignment, and
-  privileged REST routes.
-* Legacy contributor login and password-reset protection.
-* Repository-contained PHP and frontend tests, coding standards checks, and a
-  production build pipeline.
+= 1.0.0 =
+* Initial production release of Penalis Platform.
+* Curated writer account lifecycle: registration, scanner-safe email
+  verification, administrator approval/rejection/suspension, legacy contributor
+  activation, and bounded audit logging.
+* Editorial submission and review workflow: draft submission, resubmission,
+  serialized administrator review decisions (`Setujui dan terbitkan`,
+  `Minta revisi`, `Tolak`, `Buka kembali`), review cycle locking, and read-only
+  protection for published articles.
+* Branded HTML transactional emails and compact, bounded in-dashboard editorial
+  notifications.
+* React writing dashboard (`/dashboard/`) with lazy-loaded TipTap WYSIWYG
+  editor, raw HTML mode, media library, profile & avatar management, verified
+  email change, and re-authenticated username change with 301 author redirects.
+* Unified **Penalis** WordPress admin console (**Ringkasan**, **Tinjauan Karya**,
+  and **Penulis Penalis**) with externalized admin assets (`assets/css/admin.css`,
+  `assets/js/admin-review.js`) and confirmation dialogs for all reviewer and
+  account actions.
 
 == Upgrade Notice ==
 
-= 0.2.8 =
-Adds email and bounded dashboard notifications for article submissions,
-resubmissions, requested changes, rejections, reopenings, and publications. No
-content or user data is migrated.
-
-= 0.2.7 =
-Replaces the writer dashboard publish buttons with the V2 editorial submission
-and revision workflow, review feedback, and read-only view for published
-articles. No content or user data is migrated.
-
-= 0.2.6 =
-Adds the administrator review screen under Posts → Tinjauan Penalis. No content
-or user data is migrated. The writer dashboard still shows the previous publish
-buttons until the writer review workflow lands.
-
-= 0.2.5 =
-Writers can no longer publish. Direct publish requests, edits to published
-articles, and edits to submissions under review are refused server-side. The
-dashboard still shows the previous publish buttons until the writer review
-workflow lands, so writers will see a refusal message instead of a published
-article. No content or user data is migrated.
-
-= 0.2.0 =
-Renames the plugin-managed dashboard page to `/dashboard/`. No content or user
-data is migrated; the previous URL redirects to the new one.
-
-= 0.1.0 =
-Initial release; no upgrade path required.
+= 1.0.0 =
+Initial production release. Activation and upgrades are non-destructive.
