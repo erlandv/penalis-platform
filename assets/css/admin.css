@@ -1186,20 +1186,20 @@ body.penalis-modal-open {
 	font-weight: 500;
 }
 
-.penalis-review .button.penalis-confirm-modal__btn-reject {
+.penalis-confirm-modal .button.penalis-confirm-modal__btn-reject {
 	background: #b32d2e;
 	border-color: #b32d2e;
 	color: #fff;
 }
 
-.penalis-review .button.penalis-confirm-modal__btn-reject:hover,
-.penalis-review .button.penalis-confirm-modal__btn-reject:focus {
+.penalis-confirm-modal .button.penalis-confirm-modal__btn-reject:hover,
+.penalis-confirm-modal .button.penalis-confirm-modal__btn-reject:focus {
 	background: #8a2424;
 	border-color: #8a2424;
 	color: #fff;
 }
 
-.penalis-review .button.penalis-confirm-modal__btn-reject:focus {
+.penalis-confirm-modal .button.penalis-confirm-modal__btn-reject:focus {
 	box-shadow: 0 0 0 1px #fff, 0 0 0 3px #b32d2e;
 }
 

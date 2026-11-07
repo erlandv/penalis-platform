@@ -173,7 +173,27 @@ final class Penalis_Admin {
 	}
 
 	/**
-	 * Enqueue the media picker used for the default profile photo.
+	 * Register and enqueue `assets/js/admin-review.js` for confirmation modals.
+	 *
+	 * @return void
+	 */
+	public static function enqueue_confirmation_script() {
+		if ( ! function_exists( 'wp_enqueue_script' ) ) {
+			return;
+		}
+
+		$rel_path = 'assets/js/admin-review.js';
+		$abs_path = defined( 'PENALIS_PLATFORM_DIR' ) ? PENALIS_PLATFORM_DIR . $rel_path : '';
+		$url      = defined( 'PENALIS_PLATFORM_URL' ) ? PENALIS_PLATFORM_URL . $rel_path : '';
+		$version  = ( '' !== $abs_path && file_exists( $abs_path ) )
+			? (string) filemtime( $abs_path )
+			: ( defined( 'PENALIS_PLATFORM_VERSION' ) ? PENALIS_PLATFORM_VERSION : '1.0.0' );
+
+		wp_enqueue_script( 'penalis-admin-review', $url, array(), $version, true );
+	}
+
+	/**
+	 * Enqueue the media picker and confirmation dialog on the writers screen.
 	 *
 	 * @param string $hook Current admin page.
 	 * @return void
@@ -186,6 +206,7 @@ final class Penalis_Admin {
 			return;
 		}
 
+		self::enqueue_confirmation_script();
 		wp_enqueue_media();
 
 		wp_register_script( 'penalis-admin-avatar', '', array( 'jquery' ), PENALIS_PLATFORM_VERSION, true );
@@ -886,6 +907,35 @@ JS;
 					</div>
 				</form>
 			</div>
+
+			<div id="penalis-writer-confirm-modal" class="penalis-confirm-modal" hidden>
+				<div class="penalis-confirm-modal__backdrop" data-penalis-writer-confirm-close></div>
+				<div
+					class="penalis-confirm-modal__dialog"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="penalis-writer-confirm-title"
+					aria-describedby="penalis-writer-confirm-desc"
+				>
+					<div class="penalis-confirm-modal__head">
+						<span id="penalis-writer-confirm-badge" class="penalis-badge">Konfirmasi</span>
+						<h4 id="penalis-writer-confirm-title" class="penalis-confirm-modal__title">Konfirmasi Tindakan Akun</h4>
+					</div>
+					<p id="penalis-writer-confirm-desc" class="penalis-confirm-modal__desc"></p>
+					<div id="penalis-writer-confirm-account" class="penalis-confirm-modal__feedback">
+						<span class="penalis-confirm-modal__feedback-label">Akun penulis:</span>
+						<div id="penalis-writer-confirm-account-text" class="penalis-confirm-modal__feedback-text"></div>
+					</div>
+					<div class="penalis-confirm-modal__actions">
+						<button type="button" id="penalis-writer-confirm-cancel" class="button">
+							Batal
+						</button>
+						<button type="button" id="penalis-writer-confirm-submit" class="button button-primary">
+							Ya, Lanjutkan
+						</button>
+					</div>
+				</div>
+			</div>
 		</div>
 		<?php
 	}
@@ -996,13 +1046,25 @@ JS;
 		} else {
 			$classes .= ' button-secondary';
 		}
+
+		$user         = get_userdata( (int) $user_id );
+		$display_name = $user ? (string) $user->display_name : '';
+		$user_login   = $user ? (string) $user->user_login : '';
+		$user_email   = $user ? (string) $user->user_email : '';
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="penalis_account_action">
 			<input type="hidden" name="user_id" value="<?php echo esc_attr( (string) $user_id ); ?>">
 			<input type="hidden" name="penalis_action" value="<?php echo esc_attr( $action ); ?>">
 			<?php wp_nonce_field( 'penalis_account_' . $action . '_' . $user_id ); ?>
-			<button type="submit" class="<?php echo esc_attr( $classes ); ?>">
+			<button
+				type="submit"
+				class="<?php echo esc_attr( $classes ); ?>"
+				data-penalis-writer-action="<?php echo esc_attr( $action ); ?>"
+				data-penalis-writer-name="<?php echo esc_attr( $display_name ); ?>"
+				data-penalis-writer-login="<?php echo esc_attr( $user_login ); ?>"
+				data-penalis-writer-email="<?php echo esc_attr( $user_email ); ?>"
+			>
 				<?php echo esc_html( $label ); ?>
 			</button>
 		</form>

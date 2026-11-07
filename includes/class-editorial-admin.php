@@ -77,19 +77,7 @@ final class Penalis_Editorial_Admin {
 		}
 
 		Penalis_Admin::enqueue_stylesheet();
-
-		if ( Penalis_Admin::is_penalis_screen( $hook, array( self::PAGE_SLUG ) ) && function_exists( 'wp_enqueue_script' ) ) {
-			$js_path = PENALIS_PLATFORM_DIR . 'assets/js/admin-review.js';
-			$version = file_exists( $js_path ) ? (string) filemtime( $js_path ) : PENALIS_PLATFORM_VERSION;
-
-			wp_enqueue_script(
-				'penalis-admin-review',
-				PENALIS_PLATFORM_URL . 'assets/js/admin-review.js',
-				array(),
-				$version,
-				true
-			);
-		}
+		Penalis_Admin::enqueue_confirmation_script();
 	}
 
 	/**

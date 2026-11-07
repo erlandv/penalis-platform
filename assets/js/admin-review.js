@@ -1,14 +1,13 @@
 /**
- * Penalis Platform — Administrator Review Confirmation Dialog
+ * Penalis Platform — Administrator Confirmation Dialogs
  *
- * Intercepts decision button clicks on the article review detail screen,
- * validates required feedback inline, and presents an accessible confirmation
- * dialog before submitting the review form.
+ * 1. Article review decisions on Tinjauan Karya (`?page=penalis-review&post_id=...`)
+ * 2. Writer account actions on Penulis Penalis (`?page=penalis-writers`)
  */
 ( function () {
 	'use strict';
 
-	var ACTION_CONFIG = {
+	var REVIEW_ACTION_CONFIG = {
 		approve: {
 			badge: 'Setujui & Terbitkan',
 			badgeClass: 'penalis-badge penalis-badge--active',
@@ -52,6 +51,98 @@
 			showFeedbackBox: false
 		}
 	};
+
+	var WRITER_ACTION_CONFIG = {
+		approve: {
+			badge: 'Setujui Penulis',
+			badgeClass: 'penalis-badge penalis-badge--active',
+			title: 'Setujui pendaftaran penulis ini?',
+			description: 'Akun akan diaktifkan sebagai Penulis Penalis, diberikan akses ke dasbor, dan dikirimi email pemberitahuan persetujuan.',
+			confirmLabel: 'Ya, Setujui Penulis',
+			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
+		},
+		reject: {
+			badge: 'Tolak Pendaftaran',
+			badgeClass: 'penalis-badge penalis-badge--rejected',
+			title: 'Tolak pendaftaran akun ini?',
+			description: 'Status akun akan diubah menjadi Ditolak, sesi aktif dihentikan, dan akses dasbor ditutup.',
+			confirmLabel: 'Ya, Tolak Akun',
+			confirmClass: 'button penalis-confirm-modal__btn-reject'
+		},
+		suspend: {
+			badge: 'Tangguhkan Akun',
+			badgeClass: 'penalis-badge penalis-badge--suspended',
+			title: 'Tangguhkan akun penulis ini?',
+			description: 'Peran penulis dan akses dasbor akan dicabut serta seluruh sesi login dihentikan. Karya tulis yang sudah terbit tetap tayang.',
+			confirmLabel: 'Ya, Tangguhkan Akun',
+			confirmClass: 'button penalis-confirm-modal__btn-reject'
+		},
+		reactivate: {
+			badge: 'Aktifkan Kembali',
+			badgeClass: 'penalis-badge penalis-badge--active',
+			title: 'Aktifkan kembali akun penulis ini?',
+			description: 'Peran Penulis Penalis dan akses ke dasbor akan dipulihkan kembali untuk akun ini.',
+			confirmLabel: 'Ya, Aktifkan Kembali',
+			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
+		},
+		reopen: {
+			badge: 'Buka Kembali',
+			badgeClass: 'penalis-badge penalis-badge--pending_approval',
+			title: 'Buka kembali pendaftaran akun ini?',
+			description: 'Status akun akan dikembalikan menjadi Menunggu persetujuan admin sehingga dapat ditinjau ulang.',
+			confirmLabel: 'Ya, Buka Kembali',
+			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
+		},
+		resend_verification: {
+			badge: 'Verifikasi Email',
+			badgeClass: 'penalis-badge penalis-badge--pending_verification',
+			title: 'Kirim ulang email verifikasi?',
+			description: 'Tautan verifikasi baru akan dikirimkan ke alamat email pendaftar (dibatasi maksimal 1 kali setiap 10 menit).',
+			confirmLabel: 'Ya, Kirim Ulang',
+			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
+		},
+		legacy_send_activation: {
+			badge: 'Aktivasi Akun Lama',
+			badgeClass: 'penalis-badge penalis-badge--pending_verification',
+			title: 'Kirim tautan aktivasi ke akun lama ini?',
+			description: 'Email berisi tautan aktivasi dan pembuatan kata sandi pertama akan dikirim ke alamat email kontributor lama ini.',
+			confirmLabel: 'Ya, Kirim Tautan',
+			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
+		},
+		legacy_vouch: {
+			badge: 'Konversi Langsung',
+			badgeClass: 'penalis-badge penalis-badge--rejected',
+			title: 'Aktifkan langsung akun penulis lama ini?',
+			description: 'Verifikasi email akan dilewati, status akun diubah ke Menunggu persetujuan admin, dan tautan atur kata sandi dikirim ke email pemilik akun.',
+			confirmLabel: 'Ya, Aktifkan Langsung',
+			confirmClass: 'button penalis-confirm-modal__btn-reject'
+		}
+	};
+
+	function trapModalKeys( modal, cancelBtn, submitBtn, onClose ) {
+		document.addEventListener( 'keydown', function ( event ) {
+			if ( modal.hidden ) {
+				return;
+			}
+			if ( event.key === 'Escape' ) {
+				event.preventDefault();
+				onClose();
+				return;
+			}
+			if ( event.key === 'Tab' && cancelBtn && submitBtn ) {
+				var first = cancelBtn;
+				var last = submitBtn;
+
+				if ( event.shiftKey && document.activeElement === first ) {
+					event.preventDefault();
+					last.focus();
+				} else if ( ! event.shiftKey && document.activeElement === last ) {
+					event.preventDefault();
+					first.focus();
+				}
+			}
+		} );
+	}
 
 	function initReviewConfirmation() {
 		var form = document.getElementById( 'penalis-decision-form' );
@@ -107,7 +198,7 @@
 		}
 
 		function openModal( actionKey, triggerEl ) {
-			var config = ACTION_CONFIG[ actionKey ];
+			var config = REVIEW_ACTION_CONFIG[ actionKey ];
 			if ( ! config ) {
 				return;
 			}
@@ -182,7 +273,7 @@
 		for ( var i = 0; i < decisionButtons.length; i++ ) {
 			decisionButtons[ i ].addEventListener( 'click', function ( event ) {
 				var actionKey = this.getAttribute( 'data-penalis-decision' );
-				if ( ! actionKey || ! ACTION_CONFIG[ actionKey ] ) {
+				if ( ! actionKey || ! REVIEW_ACTION_CONFIG[ actionKey ] ) {
 					return;
 				}
 				event.preventDefault();
@@ -191,16 +282,12 @@
 		}
 
 		if ( cancelBtn ) {
-			cancelBtn.addEventListener( 'click', function () {
-				closeModal();
-			} );
+			cancelBtn.addEventListener( 'click', closeModal );
 		}
 
 		var closeTargets = modal.querySelectorAll( '[data-penalis-confirm-close]' );
 		for ( var j = 0; j < closeTargets.length; j++ ) {
-			closeTargets[ j ].addEventListener( 'click', function () {
-				closeModal();
-			} );
+			closeTargets[ j ].addEventListener( 'click', closeModal );
 		}
 
 		if ( submitBtn ) {
@@ -222,35 +309,144 @@
 			} );
 		}
 
-		document.addEventListener( 'keydown', function ( event ) {
-			if ( modal.hidden ) {
-				return;
-			}
-			if ( event.key === 'Escape' ) {
-				event.preventDefault();
-				closeModal();
-				return;
-			}
-			if ( event.key === 'Tab' && cancelBtn && submitBtn ) {
-				var focusable = [ cancelBtn, submitBtn ];
-				var first = focusable[ 0 ];
-				var last = focusable[ focusable.length - 1 ];
+		trapModalKeys( modal, cancelBtn, submitBtn, closeModal );
+	}
 
-				if ( event.shiftKey && document.activeElement === first ) {
-					event.preventDefault();
-					last.focus();
-				} else if ( ! event.shiftKey && document.activeElement === last ) {
-					event.preventDefault();
-					first.focus();
-				}
+	function initWriterConfirmation() {
+		var modal = document.getElementById( 'penalis-writer-confirm-modal' );
+		if ( ! modal ) {
+			return;
+		}
+
+		var badgeEl = document.getElementById( 'penalis-writer-confirm-badge' );
+		var titleEl = document.getElementById( 'penalis-writer-confirm-title' );
+		var descEl = document.getElementById( 'penalis-writer-confirm-desc' );
+		var accountText = document.getElementById( 'penalis-writer-confirm-account-text' );
+		var cancelBtn = document.getElementById( 'penalis-writer-confirm-cancel' );
+		var submitBtn = document.getElementById( 'penalis-writer-confirm-submit' );
+
+		var pendingForm = null;
+		var lastTrigger = null;
+		var isSubmitting = false;
+
+		function formatAccountSummary( triggerEl ) {
+			var name = triggerEl.getAttribute( 'data-penalis-writer-name' ) || '';
+			var login = triggerEl.getAttribute( 'data-penalis-writer-login' ) || '';
+			var email = triggerEl.getAttribute( 'data-penalis-writer-email' ) || '';
+
+			var identity = name;
+			if ( login && login !== name ) {
+				identity = identity ? identity + ' (@' + login + ')' : '@' + login;
+			} else if ( login && ! identity ) {
+				identity = login;
 			}
-		} );
+
+			if ( email ) {
+				return identity ? identity + ' — ' + email : email;
+			}
+			return identity || 'Akun terpilih';
+		}
+
+		function openModal( actionKey, triggerEl ) {
+			var config = WRITER_ACTION_CONFIG[ actionKey ];
+			var targetForm = triggerEl ? triggerEl.form : null;
+			if ( ! config || ! targetForm ) {
+				return;
+			}
+
+			pendingForm = targetForm;
+			lastTrigger = triggerEl;
+
+			if ( badgeEl ) {
+				badgeEl.textContent = config.badge;
+				badgeEl.className = config.badgeClass;
+			}
+			if ( titleEl ) {
+				titleEl.textContent = config.title;
+			}
+			if ( descEl ) {
+				descEl.textContent = config.description;
+			}
+			if ( accountText ) {
+				accountText.textContent = formatAccountSummary( triggerEl );
+			}
+			if ( submitBtn ) {
+				submitBtn.textContent = config.confirmLabel;
+				submitBtn.className = config.confirmClass;
+				submitBtn.disabled = false;
+			}
+			if ( cancelBtn ) {
+				cancelBtn.disabled = false;
+			}
+
+			modal.hidden = false;
+			document.body.classList.add( 'penalis-modal-open' );
+
+			if ( cancelBtn ) {
+				cancelBtn.focus();
+			}
+		}
+
+		function closeModal() {
+			if ( isSubmitting ) {
+				return;
+			}
+			modal.hidden = true;
+			document.body.classList.remove( 'penalis-modal-open' );
+			pendingForm = null;
+
+			if ( lastTrigger && typeof lastTrigger.focus === 'function' ) {
+				lastTrigger.focus();
+			}
+		}
+
+		var writerButtons = document.querySelectorAll( '[data-penalis-writer-action]' );
+		for ( var i = 0; i < writerButtons.length; i++ ) {
+			writerButtons[ i ].addEventListener( 'click', function ( event ) {
+				var actionKey = this.getAttribute( 'data-penalis-writer-action' );
+				if ( ! actionKey || ! WRITER_ACTION_CONFIG[ actionKey ] ) {
+					return;
+				}
+				event.preventDefault();
+				openModal( actionKey, this );
+			} );
+		}
+
+		if ( cancelBtn ) {
+			cancelBtn.addEventListener( 'click', closeModal );
+		}
+
+		var closeTargets = modal.querySelectorAll( '[data-penalis-writer-confirm-close]' );
+		for ( var j = 0; j < closeTargets.length; j++ ) {
+			closeTargets[ j ].addEventListener( 'click', closeModal );
+		}
+
+		if ( submitBtn ) {
+			submitBtn.addEventListener( 'click', function () {
+				if ( ! pendingForm || isSubmitting ) {
+					return;
+				}
+				isSubmitting = true;
+				submitBtn.disabled = true;
+				submitBtn.textContent = 'Memproses...';
+				if ( cancelBtn ) {
+					cancelBtn.disabled = true;
+				}
+				pendingForm.submit();
+			} );
+		}
+
+		trapModalKeys( modal, cancelBtn, submitBtn, closeModal );
+	}
+
+	function initAll() {
+		initReviewConfirmation();
+		initWriterConfirmation();
 	}
 
 	if ( document.readyState === 'loading' ) {
-		document.addEventListener( 'DOMContentLoaded', initReviewConfirmation );
+		document.addEventListener( 'DOMContentLoaded', initAll );
 	} else {
-		initReviewConfirmation();
+		initAll();
 	}
 }() );
-
