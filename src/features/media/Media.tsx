@@ -95,15 +95,19 @@ export function Media() {
         />
       ) : (
         <div className="penalis-media-grid">
-          {data?.items.map((item) => (
-            <figure key={item.id} className="penalis-media-card">
-              {item.thumbnail ? <img src={item.thumbnail} alt={item.title} /> : null}
-              <figcaption>
-                <strong>{item.title}</strong>
-                <span className="penalis-muted">{formatDate(item.date)}</span>
-              </figcaption>
-            </figure>
-          ))}
+          {data?.items.map((item) => {
+            const title = item.title || 'Tanpa judul';
+
+            return (
+              <figure key={item.id} className="penalis-media-card" title={title}>
+                {item.thumbnail ? <img src={item.thumbnail} alt={title} /> : null}
+                <figcaption>
+                  <strong className="penalis-media-card__title">{title}</strong>
+                  <span className="penalis-media-card__date">{formatDate(item.date)}</span>
+                </figcaption>
+              </figure>
+            );
+          })}
         </div>
       )}
 

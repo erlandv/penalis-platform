@@ -1752,7 +1752,29 @@
 .penalis-media-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 1rem;
+  gap: 0.85rem;
+}
+
+.penalis-dashboard-root .penalis-media-card {
+  margin: 0;
+  padding: 0;
+  background: var(--penalis-surface);
+  border: 1px solid var(--penalis-border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.penalis-dashboard-root .penalis-media-card img {
+  width: 100%;
+  height: 124px;
+  object-fit: cover;
+  display: block;
+  margin: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--penalis-border);
+  background: var(--penalis-surface-alt);
 }
 
 /*
@@ -1766,35 +1788,44 @@
     gap: 0.75rem;
   }
 
-  .penalis-media-card img {
+  .penalis-dashboard-root .penalis-media-card img {
     height: 100px;
   }
 }
 
-.penalis-media-card {
+.penalis-dashboard-root .penalis-media-card figcaption {
   margin: 0;
-  background: var(--penalis-surface);
-  border: 1px solid var(--penalis-border);
-  border-radius: 12px;
-  overflow: hidden;
+  padding: 0.45rem 0.65rem 0.5rem;
+  text-align: left;
+  font-style: normal;
+  font-size: 0.8rem;
+  line-height: 1.35;
   display: flex;
   flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
 }
 
-.penalis-media-card img {
-  width: 100%;
-  height: 130px;
-  object-fit: cover;
+.penalis-dashboard-root .penalis-media-card__title,
+.penalis-dashboard-root .penalis-media-card figcaption strong {
   display: block;
-  background: #eee;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--penalis-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.penalis-media-card figcaption {
-  padding: 0.6rem 0.7rem;
-  font-size: 0.82rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+.penalis-dashboard-root .penalis-media-card__date,
+.penalis-dashboard-root .penalis-media-card figcaption span {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--penalis-muted);
+  white-space: nowrap;
 }
 
 /*
@@ -1857,11 +1888,17 @@
 
 /* Caption inside a selectable card. A `<span>` rather than `<figcaption>`
    because the card is a `<label>`, which cannot contain figure content. */
-.penalis-media-card__caption {
+.penalis-dashboard-root .penalis-media-card__caption {
   display: block;
-  padding: 0.6rem 0.7rem;
-  font-size: 0.82rem;
-  overflow-wrap: anywhere;
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--penalis-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* A check mark on the selected card, so the state is not colour-only. */

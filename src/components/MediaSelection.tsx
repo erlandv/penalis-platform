@@ -45,11 +45,13 @@ export function MediaSelection({
         <div className="penalis-media-grid" role="radiogroup" aria-label="Pilih gambar">
           {items.map((item) => {
             const isSelected = item.id === selectedId;
+            const title = item.title || 'Tanpa judul';
 
             return (
               <label
                 key={item.id}
                 className={`penalis-media-card penalis-media-card--selectable ${isSelected ? 'is-selected' : ''}`}
+                title={title}
               >
                 <input
                   type="radio"
@@ -60,7 +62,7 @@ export function MediaSelection({
                   onChange={() => onSelect(item.id)}
                 />
                 <img src={item.thumbnail || item.url} alt="" />
-                <span className="penalis-media-card__caption">{item.title || 'Tanpa judul'}</span>
+                <span className="penalis-media-card__caption">{title}</span>
               </label>
             );
           })}
