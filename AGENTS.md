@@ -23,7 +23,7 @@ community publishes member-submitted work on its blog, **penalis.com**.
 The product is not "a generic WordPress site". It is a **curated publishing
 pipeline for a literary community**: people who write want to be read, and the
 site's job is to get their work from draft to published without friction while
-keeping both writer accounts and article submissions curated by human
+keeping writer accounts verified and article submissions curated by human
 administrators.
 
 Everything in this repository exists to serve that pipeline. When a change makes
@@ -51,20 +51,26 @@ dashboard (**`/dashboard/`**, a React SPA — deliberately *not* `wp-admin`) pai
 with a centralized administrator curation console in `wp-admin` (**Penalis**):
 
 ```text
-register -> verify email -> admin approves account -> write draft in /dashboard/ -> submit for review -> admin approves & publishes
+register -> verify email -> active writer -> write draft in /dashboard/ -> submit for review -> admin approves & publishes
 ```
 
 - Anyone can register (or registration can be toggled via the
   `penalis_registration_enabled` option).
-- The email address is verified before an administrator reviews the account.
-- Administrators manage writer accounts under **Penalis → Penulis Penalis** and
-  review submitted articles under **Penalis → Tinjauan Karya** (with a unified
+- Once the writer verifies their email address, their account immediately
+  becomes `active` (`penalis_writer` role, `_penalis_access_enabled = 1`) —
+  no administrator account approval is required.
+- Registration and `/dashboard/?view=profile` include an optional **Username
+  Instagram** field (`_penalis_instagram`, normalized bare handle) for internal
+  administrator visibility in `wp-admin`.
+- Administrators manage writer accounts (including suspending/reactivating and
+  viewing Instagram handles) under **Penalis → Penulis Penalis** and review
+  submitted articles under **Penalis → Tinjauan Karya** (with a unified
   overview at **Penalis → Ringkasan**).
-- Approved writers receive the `penalis_writer` role and use `/dashboard/` for
+- Active writers receive the `penalis_writer` role and use `/dashboard/` for
   overview, notifications, own articles, editor, media, profile, and settings.
 - Pre-plugin contributors use **"Aktifkan akun penulis lama"** to verify their
-  stored email, set a first password, and enter `pending_approval` while keeping
-  their existing user ID, authored posts, and author archive URL.
+  stored email, set a first password, and immediately become `active` while
+  keeping their existing user ID, authored posts, and author archive URL.
 
 ---
 
@@ -104,19 +110,15 @@ Full details and storage tables live in
 | Status | Meaning | Can Sign In? | Can Write? |
 | --- | --- | --- | --- |
 | `pending_verification` | Registered, email unconfirmed | Yes (status view) | No |
-| `pending_approval` | Email confirmed, awaiting admin | Yes (status view) | No |
-| `active` (+ access flag `1`) | Approved writer (`penalis_writer`) | Yes | Yes |
-| `rejected` | Application declined | No (sessions destroyed) | No |
-| `suspended` | Access revoked after approval | No (sessions destroyed) | No |
+| `active` (+ access flag `1`) | Verified active writer (`penalis_writer`) | Yes | Yes |
+| `suspended` | Access revoked by administrator | No (sessions destroyed) | No |
 | Legacy (no status meta) | Pre-plugin contributor without password | No (unless access flag `1`) | No |
 
 Allowed transitions:
-- `pending_verification` -> `pending_approval`, `rejected`
-- `pending_approval` -> `active`, `rejected`
+- `pending_verification` -> `active`, `suspended`
 - `active` -> `suspended`
 - `suspended` -> `active`
-- `rejected` -> `pending_approval`
-- Legacy conversion (`convert_legacy()`) -> `pending_verification` or `pending_approval` (never directly to `active`).
+- Legacy conversion (`convert_legacy()`) -> `pending_verification` or `active` (self-service email activation and administrator `legacy_vouch` convert directly to `active`).
 
 ### 4.2 Editorial workflow (`Penalis_Editorial_Policy`, `Penalis_Editorial_Workflow`)
 

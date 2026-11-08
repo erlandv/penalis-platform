@@ -13,6 +13,7 @@ export function validateRegistration(input: {
   user_email: string;
   password: string;
   confirm_password: string;
+  instagram?: string;
   penalis_consent: boolean;
 }): FieldErrors {
   const errors: FieldErrors = {};
@@ -39,11 +40,51 @@ export function validateRegistration(input: {
     errors.confirm_password = 'Kata sandi tidak cocok.';
   }
 
+  if (input.instagram !== undefined && input.instagram.trim() !== '') {
+    const instagramMessage = validateInstagram(input.instagram);
+    if (instagramMessage !== '') {
+      errors.instagram = instagramMessage;
+    }
+  }
+
   if (!input.penalis_consent) {
     errors.penalis_consent = 'Anda harus menyetujui ketentuan untuk mendaftar.';
   }
 
   return errors;
+}
+
+/**
+ * Normalize an optional Instagram username or profile URL into a bare handle.
+ */
+export function normalizeInstagram(value: string): string {
+  let clean = value.trim();
+  if (clean === '') {
+    return '';
+  }
+
+  const match = /^(?:https?:\/\/)?(?:www\.)?instagram\.com\/([^/?#]+)/i.exec(clean);
+  if (match && match[1]) {
+    clean = match[1];
+  }
+
+  return clean.replace(/^[/\s]+|[/\s]+$/g, '').replace(/^@+/, '');
+}
+
+/**
+ * Validate an optional Instagram username.
+ */
+export function validateInstagram(value: string): string {
+  const handle = normalizeInstagram(value);
+  if (handle === '') {
+    return '';
+  }
+
+  if (handle.length > 30 || !/^[A-Za-z0-9._]{1,30}$/.test(handle) || !/[A-Za-z0-9]/.test(handle)) {
+    return 'Masukkan username Instagram yang valid (huruf, angka, titik, atau garis bawah, maksimal 30 karakter).';
+  }
+
+  return '';
 }
 
 /**

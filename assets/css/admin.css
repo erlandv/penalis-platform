@@ -38,13 +38,11 @@
 	color: #007017;
 }
 
-.penalis-status--pending_verification,
-.penalis-status--pending_approval {
+.penalis-status--pending_verification {
 	background: #fcf9e8;
 	color: #8a6116;
 }
 
-.penalis-status--rejected,
 .penalis-status--suspended {
 	background: #fcf0f1;
 	color: #8a2424;
@@ -333,23 +331,32 @@
 }
 
 .penalis-writers .penalis-col-writer {
-	width: 22%;
+	width: 20%;
 }
 
 .penalis-writers .penalis-col-email {
-	width: 18%;
-}
-
-.penalis-writers .penalis-col-status {
 	width: 17%;
 }
 
+.penalis-writers .penalis-col-instagram {
+	width: 13%;
+}
+
+.penalis-writers .penalis-col-status {
+	width: 16%;
+}
+
 .penalis-writers .penalis-col-date {
-	width: 12%;
+	width: 11%;
 }
 
 .penalis-writers .penalis-col-actions {
-	width: 31%;
+	width: 23%;
+}
+
+.penalis-writers .penalis-writer__instagram {
+	font-weight: 500;
+	word-break: break-all;
 }
 
 .penalis-writers .penalis-writer {

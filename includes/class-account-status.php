@@ -28,6 +28,7 @@ final class Penalis_Account_Status {
 	public const META_MAIL_CONTEXT      = '_penalis_last_email_failed_context';
 	public const META_DISPLAY_NAME_MODE = '_penalis_display_name_mode';
 	public const META_NEEDS_PASSWORD    = '_penalis_needs_password';
+	public const META_INSTAGRAM         = '_penalis_instagram';
 
 	public const META_EMAIL_CHANGE_HASH    = '_penalis_email_change_token_hash';
 	public const META_EMAIL_CHANGE_EXPIRES = '_penalis_email_change_token_expires';
@@ -70,6 +71,41 @@ final class Penalis_Account_Status {
 		$mode = get_user_meta( (int) $user_id, self::META_DISPLAY_NAME_MODE, true );
 
 		return Penalis_Policy::is_valid_display_mode( $mode ) ? (string) $mode : 'custom';
+	}
+
+	/**
+	 * Read the normalized Instagram username for a user.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string Instagram handle without `@`, or empty string.
+	 */
+	public static function get_instagram( $user_id ) {
+		$value = get_user_meta( (int) $user_id, self::META_INSTAGRAM, true );
+
+		return is_string( $value ) ? Penalis_Policy::normalize_instagram( $value ) : '';
+	}
+
+	/**
+	 * Store or clear the Instagram username for a user.
+	 *
+	 * @param int    $user_id   User ID.
+	 * @param string $instagram Raw or normalized Instagram value.
+	 * @return void
+	 */
+	public static function set_instagram( $user_id, $instagram ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		$handle = Penalis_Policy::normalize_instagram( (string) $instagram );
+
+		if ( '' === $handle ) {
+			delete_user_meta( $user_id, self::META_INSTAGRAM );
+			return;
+		}
+
+		update_user_meta( $user_id, self::META_INSTAGRAM, sanitize_text_field( $handle ) );
 	}
 
 	/**
@@ -232,26 +268,21 @@ final class Penalis_Account_Status {
 		update_user_meta( $user_id, self::META_STATUS, $to );
 
 		switch ( $to ) {
-			case Penalis_Policy::STATUS_PENDING_APPROVAL:
-				update_user_meta( $user_id, self::META_VERIFIED, '1' );
-				update_user_meta( $user_id, self::META_ACCESS, '0' );
-				self::clear_token( $user_id );
-				break;
-
 			case Penalis_Policy::STATUS_ACTIVE:
 				update_user_meta( $user_id, self::META_VERIFIED, '1' );
 				update_user_meta( $user_id, self::META_ACCESS, '1' );
 				update_user_meta( $user_id, self::META_APPROVED_AT, time() );
 				update_user_meta( $user_id, self::META_APPROVED_BY, (int) $actor );
+				self::clear_token( $user_id );
 				Penalis_Roles::assign_writer( $user_id );
 				break;
 
-			case Penalis_Policy::STATUS_REJECTED:
 			case Penalis_Policy::STATUS_SUSPENDED:
 				update_user_meta( $user_id, self::META_ACCESS, '0' );
+				self::clear_token( $user_id );
 				Penalis_Roles::revoke_writer( $user_id );
-				// End existing sessions so a suspended/rejected account cannot
-				// continue acting on an already-authenticated browser session.
+				// End existing sessions so a suspended account cannot continue
+				// acting on an already-authenticated browser session.
 				if ( class_exists( 'WP_Session_Tokens' ) ) {
 					WP_Session_Tokens::get_instance( $user_id )->destroy_all();
 				}
@@ -265,8 +296,6 @@ final class Penalis_Account_Status {
 		}
 
 		self::append_log( $user_id, $from, $to, $reason, (int) $actor );
-
-		delete_transient( 'penalis_pending_approval_count' );
 
 		/**
 		 * Fires after an account status transition.
@@ -287,13 +316,13 @@ final class Penalis_Account_Status {
 	 *
 	 * Legacy accounts have no status metadata, so `transition()` cannot be used
 	 * (an empty status is not a valid source state). This method performs the
-	 * same bookkeeping for the two supported entry points.
+	 * same bookkeeping for the supported entry points.
 	 *
 	 * The user ID never changes, so existing posts, author archives, and
 	 * metadata stay attached to the same account. Posts are never modified.
 	 *
 	 * @param int    $user_id        User ID.
-	 * @param string $to             Target status: pending_verification or pending_approval.
+	 * @param string $to             Target status: pending_verification or active.
 	 * @param string $reason         Reason for the audit log.
 	 * @param int    $actor          Acting user ID.
 	 * @param bool   $needs_password Whether the owner still has to set a password.
@@ -323,14 +352,30 @@ final class Penalis_Account_Status {
 			);
 		}
 
-		update_user_meta( $user_id, self::META_STATUS, $to );
-		update_user_meta( $user_id, self::META_ACCESS, '0' );
+		$user = get_userdata( $user_id );
+		if ( ! $user ) {
+			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
+		}
 
-		if ( Penalis_Policy::STATUS_PENDING_APPROVAL === $to ) {
-			// The administrator vouched for the identity out of band, so the
-			// email step is skipped. Approval is still required.
+		if ( Penalis_Policy::STATUS_ACTIVE === $to ) {
+			if ( ! Penalis_Policy::can_promote_roles( (array) $user->roles ) ) {
+				return new WP_Error(
+					'penalis_role_conflict',
+					'Akun ini sudah memiliki peran yang tidak dapat disetujui melalui alur kerja penulis.',
+					array( 'status' => 409 )
+				);
+			}
+
+			update_user_meta( $user_id, self::META_STATUS, $to );
 			update_user_meta( $user_id, self::META_VERIFIED, '1' );
+			update_user_meta( $user_id, self::META_ACCESS, '1' );
+			update_user_meta( $user_id, self::META_APPROVED_AT, time() );
+			update_user_meta( $user_id, self::META_APPROVED_BY, (int) $actor );
+			self::clear_token( $user_id );
+			Penalis_Roles::assign_writer( $user_id );
 		} else {
+			update_user_meta( $user_id, self::META_STATUS, $to );
+			update_user_meta( $user_id, self::META_ACCESS, '0' );
 			update_user_meta( $user_id, self::META_VERIFIED, '0' );
 		}
 
@@ -344,16 +389,13 @@ final class Penalis_Account_Status {
 		}
 
 		if ( '' === (string) get_user_meta( $user_id, self::META_REGISTERED_AT, true ) ) {
-			$user       = get_userdata( $user_id );
-			$registered = $user && ! empty( $user->user_registered )
+			$registered = ! empty( $user->user_registered )
 				? (int) strtotime( $user->user_registered . ' UTC' )
 				: time();
 			update_user_meta( $user_id, self::META_REGISTERED_AT, $registered );
 		}
 
 		self::append_log( $user_id, '', $to, $reason, (int) $actor );
-
-		delete_transient( 'penalis_pending_approval_count' );
 
 		/**
 		 * Fires after a legacy account is converted.

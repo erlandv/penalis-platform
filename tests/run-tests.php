@@ -31,6 +31,8 @@ require_once __DIR__ . '/../includes/class-emails.php';
 require_once __DIR__ . '/../includes/class-author-history.php';
 require_once __DIR__ . '/../includes/class-username-change.php';
 require_once __DIR__ . '/../includes/class-password-reset.php';
+require_once __DIR__ . '/../includes/class-registration.php';
+require_once __DIR__ . '/../includes/class-legacy-activation.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -104,18 +106,22 @@ function penalis_reset() {
  * ---------------------------------------------------------------------- */
 
 $statuses = Penalis_Policy::statuses();
-penalis_same( 5, count( $statuses ), 'There are five account statuses.' );
+penalis_same( 3, count( $statuses ), 'There are three account statuses.' );
 penalis_assert( Penalis_Policy::is_valid_status( 'active' ), 'active is valid.' );
+penalis_assert( Penalis_Policy::is_valid_status( 'pending_verification' ), 'pending_verification is valid.' );
+penalis_assert( Penalis_Policy::is_valid_status( 'suspended' ), 'suspended is valid.' );
+penalis_assert( ! Penalis_Policy::is_valid_status( 'pending_approval' ), 'pending_approval is not an account status.' );
+penalis_assert( ! Penalis_Policy::is_valid_status( 'rejected' ), 'rejected is not an account status.' );
 penalis_assert( ! Penalis_Policy::is_valid_status( 'administrator' ), 'administrator is not an account status.' );
 penalis_assert( ! Penalis_Policy::is_valid_status( null ), 'null is not an account status.' );
 
 penalis_assert(
-	Penalis_Policy::can_transition( 'pending_verification', 'pending_approval' ),
-	'Verification advances to pending approval.'
+	Penalis_Policy::can_transition( 'pending_verification', 'active' ),
+	'Verification advances directly to active.'
 );
 penalis_assert(
-	Penalis_Policy::can_transition( 'pending_approval', 'active' ),
-	'Pending approval advances to active.'
+	Penalis_Policy::can_transition( 'pending_verification', 'suspended' ),
+	'Unverified spam accounts can be suspended.'
 );
 penalis_assert(
 	Penalis_Policy::can_transition( 'active', 'suspended' ),
@@ -126,12 +132,12 @@ penalis_assert(
 	'Suspended accounts can be reactivated.'
 );
 penalis_assert(
-	! Penalis_Policy::can_transition( 'pending_verification', 'active' ),
-	'Unverified accounts cannot jump to active.'
+	! Penalis_Policy::can_transition( 'active', 'pending_verification' ),
+	'Active accounts cannot revert to pending verification.'
 );
 penalis_assert(
-	! Penalis_Policy::can_transition( 'rejected', 'active' ),
-	'Rejected accounts cannot be approved directly.'
+	! Penalis_Policy::can_transition( 'suspended', 'pending_verification' ),
+	'Suspended accounts cannot revert to pending verification.'
 );
 penalis_assert(
 	! Penalis_Policy::can_transition( 'active', 'active' ),
@@ -143,25 +149,21 @@ penalis_assert(
  * ---------------------------------------------------------------------- */
 
 penalis_assert( Penalis_Policy::can_login( 'pending_verification', false ), 'Unverified accounts may sign in to view status.' );
-penalis_assert( Penalis_Policy::can_login( 'pending_approval', false ), 'Pending accounts may sign in to view status.' );
 penalis_assert( Penalis_Policy::can_login( 'active', true ), 'Active accounts with access may sign in.' );
 penalis_assert( ! Penalis_Policy::can_login( 'active', false ), 'Active accounts without access may not sign in.' );
 penalis_assert( ! Penalis_Policy::can_login( 'suspended', true ), 'Suspended accounts may never sign in.' );
-penalis_assert( ! Penalis_Policy::can_login( 'rejected', true ), 'Rejected accounts may never sign in.' );
 penalis_assert( Penalis_Policy::can_login( '', true ), 'Legacy account with explicit access may sign in.' );
 penalis_assert( ! Penalis_Policy::can_login( '', false ), 'Legacy account without access may not sign in.' );
 
 penalis_assert( Penalis_Policy::can_write( 'active', true ), 'Active writers may write.' );
-penalis_assert( ! Penalis_Policy::can_write( 'pending_approval', true ), 'Pending writers may not write.' );
+penalis_assert( ! Penalis_Policy::can_write( 'pending_verification', true ), 'Unverified writers may not write.' );
 penalis_assert( ! Penalis_Policy::can_write( 'suspended', true ), 'Suspended writers may not write.' );
 penalis_assert( ! Penalis_Policy::can_write( 'active', false ), 'Writers without access may not write.' );
 
 penalis_assert( Penalis_Policy::can_reset_password( 'pending_verification', false ), 'Unverified accounts may reset their password.' );
-penalis_assert( Penalis_Policy::can_reset_password( 'pending_approval', false ), 'Pending accounts may reset their password.' );
 penalis_assert( Penalis_Policy::can_reset_password( 'active', true ), 'Active accounts with access may reset their password.' );
 penalis_assert( ! Penalis_Policy::can_reset_password( 'active', false ), 'Active accounts without access may not reset their password.' );
 penalis_assert( ! Penalis_Policy::can_reset_password( 'suspended', true ), 'Suspended accounts may not reset their password.' );
-penalis_assert( ! Penalis_Policy::can_reset_password( 'rejected', true ), 'Rejected accounts may not reset their password.' );
 penalis_assert( Penalis_Policy::can_reset_password( '', true ), 'Legacy account with explicit access may reset its password.' );
 penalis_assert( ! Penalis_Policy::can_reset_password( '', false ), 'Legacy account without access may not reset its password.' );
 
@@ -229,6 +231,26 @@ penalis_assert( '' !== Penalis_Policy::validate_password( str_repeat( 'a', 201 )
 penalis_same( array(), Penalis_Policy::validate_profile( array( 'display_name' => 'Ada', 'description' => 'Writer.' ) ), 'Valid profile passes.' );
 $errors = Penalis_Policy::validate_profile( array( 'description' => str_repeat( 'a', 501 ) ) );
 penalis_assert( isset( $errors['description'] ), 'Overlong bio is rejected.' );
+
+penalis_same( 'penalis_id', Penalis_Policy::normalize_instagram( '  @penalis_id  ' ), 'Instagram normalization strips leading @ and trims whitespace.' );
+penalis_same( 'penalis', Penalis_Policy::normalize_instagram( 'https://www.instagram.com/penalis/' ), 'Instagram profile URL normalizes to the bare handle.' );
+penalis_same( '', Penalis_Policy::normalize_instagram( '   ' ), 'Blank Instagram normalizes to empty string.' );
+penalis_same( '', Penalis_Policy::validate_instagram( '' ), 'Empty Instagram is valid because the field is optional.' );
+penalis_same( '', Penalis_Policy::validate_instagram( '@penalis.seni_01' ), 'Instagram with letters, digits, dots, and underscores is valid.' );
+penalis_same( '', Penalis_Policy::validate_instagram( 'https://instagram.com/penalis' ), 'Instagram profile URL with a valid handle passes validation.' );
+penalis_assert( '' !== Penalis_Policy::validate_instagram( str_repeat( 'a', 31 ) ), 'Instagram longer than 30 characters is rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_instagram( 'https://example.com/penalis' ), 'Non-Instagram URL is rejected.' );
+penalis_assert( '' !== Penalis_Policy::validate_instagram( 'penalis-seni' ), 'Instagram with hyphens is rejected.' );
+
+penalis_same(
+	array(),
+	Penalis_Policy::validate_registration( array_merge( $valid_registration, array( 'instagram' => '@penalis.id' ) ) ),
+	'Registration with valid optional Instagram passes.'
+);
+$errors = Penalis_Policy::validate_registration( array_merge( $valid_registration, array( 'instagram' => 'bad handle!' ) ) );
+penalis_assert( isset( $errors['instagram'] ), 'Registration with invalid Instagram is rejected.' );
+$errors = Penalis_Policy::validate_profile( array( 'instagram' => 'bad handle!' ) );
+penalis_assert( isset( $errors['instagram'] ), 'Profile with invalid Instagram is rejected.' );
 
 $tags = Penalis_Policy::validate_tag_names( array( 'Poetry', 'poetry', '  Essays  ' ) );
 penalis_same( array( 'Poetry', 'Essays' ), $tags['names'], 'Tags are trimmed and deduplicated.' );
@@ -303,22 +325,14 @@ penalis_assert( is_string( $token ), 'Verification token is issued.' );
 penalis_same( 1, Penalis_Account_Status::find_user_by_token( $token ), 'Token lookup finds the account.' );
 penalis_same( 0, Penalis_Account_Status::find_user_by_token( 'not-a-token' ), 'Invalid token lookup returns zero.' );
 
-$result = Penalis_Account_Status::transition( 1, 'active', 'skip_verification', 99 );
-penalis_assert( is_wp_error( $result ), 'Unverified account cannot skip to active.' );
-
-$result = Penalis_Account_Status::transition( 1, 'pending_approval', 'email_verified', 0 );
-penalis_assert( true === $result, 'Verification transitions to pending approval.' );
-penalis_same( 'pending_approval', Penalis_Account_Status::get_status( 1 ), 'Status is pending approval.' );
+$result = Penalis_Account_Status::transition( 1, 'active', 'email_verified', 0 );
+penalis_assert( true === $result, 'Verification transitions directly to active.' );
+penalis_same( 'active', Penalis_Account_Status::get_status( 1 ), 'Status is active after email verification.' );
 penalis_same( '', (string) get_user_meta( 1, Penalis_Account_Status::META_TOKEN_HASH, true ), 'Token is cleared after verification.' );
-penalis_assert( ! Penalis_Account_Status::can_write( 1 ), 'Pending approval account cannot write.' );
-
-$result = Penalis_Account_Status::transition( 1, 'active', 'admin_approved', 2 );
-penalis_assert( true === $result, 'Pending approval transitions to active.' );
-penalis_same( 'active', Penalis_Account_Status::get_status( 1 ), 'Status is active.' );
-penalis_assert( Penalis_Account_Status::is_access_enabled( 1 ), 'Approved account has access.' );
-penalis_assert( Penalis_Account_Status::can_write( 1 ), 'Approved account can write.' );
-penalis_assert( in_array( 'penalis_writer', $GLOBALS['penalis_test_users'][1]->roles, true ), 'Approved account receives the writer role.' );
-penalis_same( 2, (int) get_user_meta( 1, Penalis_Account_Status::META_APPROVED_BY, true ), 'Approver is recorded.' );
+penalis_assert( Penalis_Account_Status::is_access_enabled( 1 ), 'Verified account has access.' );
+penalis_assert( Penalis_Account_Status::can_write( 1 ), 'Verified account can write immediately.' );
+penalis_assert( in_array( 'penalis_writer', $GLOBALS['penalis_test_users'][1]->roles, true ), 'Verified account receives the writer role.' );
+penalis_same( 0, (int) get_user_meta( 1, Penalis_Account_Status::META_APPROVED_BY, true ), 'Self-service verification records actor 0.' );
 
 $result = Penalis_Account_Status::transition( 1, 'suspended', 'admin_suspended', 2 );
 penalis_assert( true === $result, 'Active account can be suspended.' );
@@ -330,6 +344,7 @@ penalis_assert( in_array( 'subscriber', $GLOBALS['penalis_test_users'][1]->roles
 $result = Penalis_Account_Status::transition( 1, 'active', 'admin_reactivated', 2 );
 penalis_assert( true === $result, 'Suspended account can be reactivated.' );
 penalis_assert( Penalis_Account_Status::can_write( 1 ), 'Reactivated account can write.' );
+penalis_same( 2, (int) get_user_meta( 1, Penalis_Account_Status::META_APPROVED_BY, true ), 'Reactivation records administrator actor.' );
 
 $result = Penalis_Account_Status::transition( 1, 'pending_verification', 'invalid', 2 );
 penalis_assert( is_wp_error( $result ), 'Active account cannot return to unverified.' );
@@ -337,6 +352,12 @@ penalis_assert( is_wp_error( $result ), 'Active account cannot return to unverif
 $log = Penalis_Account_Status::get_log( 1 );
 penalis_assert( count( $log ) > 0, 'Status changes are audited.' );
 penalis_assert( count( $log ) <= Penalis_Account_Status::LOG_LIMIT, 'Audit log is bounded.' );
+
+// Instagram storage on account status.
+Penalis_Account_Status::set_instagram( 1, '  @penalis.seni  ' );
+penalis_same( 'penalis.seni', Penalis_Account_Status::get_instagram( 1 ), 'Instagram handle is normalized and stored.' );
+Penalis_Account_Status::set_instagram( 1, '' );
+penalis_same( '', Penalis_Account_Status::get_instagram( 1 ), 'Clearing Instagram removes the stored handle.' );
 
 // Legacy account: no metadata, contributor role.
 penalis_reset();
@@ -350,8 +371,7 @@ penalis_assert( Penalis_Account_Status::is_legacy_account( 5 ), 'Contributor wit
 
 // Legacy conversion rules.
 penalis_assert( Penalis_Policy::can_convert_legacy( 'pending_verification' ), 'Legacy accounts may start at email verification.' );
-penalis_assert( Penalis_Policy::can_convert_legacy( 'pending_approval' ), 'Legacy accounts may skip to pending approval when an admin vouches.' );
-penalis_assert( ! Penalis_Policy::can_convert_legacy( 'active' ), 'Legacy accounts can never be converted straight to active.' );
+penalis_assert( Penalis_Policy::can_convert_legacy( 'active' ), 'Legacy accounts may convert directly to active.' );
 penalis_assert( ! Penalis_Policy::can_convert_legacy( 'suspended' ), 'Legacy accounts cannot be converted to suspended.' );
 
 // Role promotion rules.
@@ -364,41 +384,39 @@ penalis_assert( ! Penalis_Policy::can_promote_roles( array( 'administrator' ) ),
 penalis_assert( ! Penalis_Policy::can_promote_roles( array( 'author' ) ), 'Authors are never promoted by the workflow.' );
 
 // Conversion keeps the user ID and never touches posts.
-$result = Penalis_Account_Status::convert_legacy( 5, 'pending_approval', 'admin_vouched', 2, true );
-penalis_assert( true === $result, 'A legacy account can be converted to pending approval.' );
-penalis_same( 'pending_approval', Penalis_Account_Status::get_status( 5 ), 'Converted account is pending approval.' );
-penalis_assert( ! Penalis_Account_Status::is_access_enabled( 5 ), 'Converted account has no access before approval.' );
-penalis_assert( ! Penalis_Account_Status::can_write( 5 ), 'Converted account cannot write before approval.' );
+$result = Penalis_Account_Status::convert_legacy( 5, 'active', 'admin_vouched', 2, true );
+penalis_assert( true === $result, 'A legacy account can be converted directly to active.' );
+penalis_same( 'active', Penalis_Account_Status::get_status( 5 ), 'Converted account is active.' );
+penalis_assert( Penalis_Account_Status::is_access_enabled( 5 ), 'Converted account has dashboard access.' );
+penalis_assert( Penalis_Account_Status::can_write( 5 ), 'Converted account can write immediately.' );
 penalis_assert( Penalis_Account_Status::is_managed_account( 5 ), 'Converted account is now plugin-managed.' );
 penalis_assert( ! Penalis_Account_Status::is_legacy_account( 5 ), 'Converted account is no longer legacy.' );
 penalis_same( '1', (string) get_user_meta( 5, Penalis_Account_Status::META_VERIFIED, true ), 'Vouched conversion marks the email verified.' );
 penalis_assert( Penalis_Account_Status::needs_password( 5 ), 'A vouched legacy account still needs a password.' );
+penalis_assert( in_array( 'penalis_writer', $GLOBALS['penalis_test_users'][5]->roles, true ), 'Converted legacy account receives the writer role.' );
 
 Penalis_Account_Status::clear_needs_password( 5 );
 penalis_assert( ! Penalis_Account_Status::needs_password( 5 ), 'Setting a password clears the flag.' );
 
-$result = Penalis_Account_Status::convert_legacy( 5, 'pending_approval', 'again', 2 );
+$result = Penalis_Account_Status::convert_legacy( 5, 'active', 'again', 2 );
 penalis_assert( is_wp_error( $result ), 'A converted account cannot be converted twice.' );
-
-$result = Penalis_Account_Status::transition( 5, 'active', 'admin_approved', 2 );
-penalis_assert( true === $result, 'A converted legacy account can be approved.' );
-penalis_assert( Penalis_Account_Status::can_write( 5 ), 'Approved legacy account can write.' );
-penalis_assert( in_array( 'penalis_writer', $GLOBALS['penalis_test_users'][5]->roles, true ), 'Approved legacy account receives the writer role.' );
 
 // Regression: self-service activation sets a password before converting, so
 // the account must not be flagged as still needing one.
 penalis_reset();
 $GLOBALS['penalis_test_users'][10] = new WP_User( 10, array( 'contributor' ) );
-$result = Penalis_Account_Status::convert_legacy( 10, 'pending_approval', 'legacy_self_activated', 0, false );
-penalis_assert( true === $result, 'Self-service activation converts to pending approval.' );
+$result = Penalis_Account_Status::convert_legacy( 10, 'active', 'legacy_self_activated', 0, false );
+penalis_assert( true === $result, 'Self-service activation converts directly to active.' );
 penalis_assert( ! Penalis_Account_Status::needs_password( 10 ), 'Self-service activation does not flag the account as needing a password.' );
 penalis_same( '1', (string) get_user_meta( 10, Penalis_Account_Status::META_VERIFIED, true ), 'Self-service activation marks the email verified.' );
+penalis_assert( Penalis_Account_Status::can_write( 10 ), 'Self-service activated legacy account can write immediately.' );
+penalis_assert( in_array( 'penalis_writer', $GLOBALS['penalis_test_users'][10]->roles, true ), 'Self-service activated legacy account receives the writer role.' );
 
 // A stale flag from an earlier state is cleared by a self-service conversion.
 penalis_reset();
 $GLOBALS['penalis_test_users'][11] = new WP_User( 11, array( 'contributor' ) );
 update_user_meta( 11, Penalis_Account_Status::META_NEEDS_PASSWORD, '1' );
-$result = Penalis_Account_Status::convert_legacy( 11, 'pending_approval', 'legacy_self_activated', 0, false );
+$result = Penalis_Account_Status::convert_legacy( 11, 'active', 'legacy_self_activated', 0, false );
 penalis_assert( true === $result, 'Conversion succeeds with a stale flag present.' );
 penalis_assert( ! Penalis_Account_Status::needs_password( 11 ), 'Self-service conversion clears a stale needs-password flag.' );
 
@@ -407,7 +425,7 @@ penalis_reset();
 $GLOBALS['penalis_test_users'][7] = new WP_User( 7, array( 'contributor' ) );
 $result = Penalis_Account_Status::convert_legacy( 7, 'pending_verification', 'legacy_self_activated', 0 );
 penalis_assert( true === $result, 'A legacy account can start at email verification.' );
-penalis_same( '0', (string) get_user_meta( 7, Penalis_Account_Status::META_VERIFIED, true ), 'Self-service conversion leaves the email unverified.' );
+penalis_same( '0', (string) get_user_meta( 7, Penalis_Account_Status::META_VERIFIED, true ), 'Email-verification conversion leaves the email unverified.' );
 penalis_assert( ! Penalis_Account_Status::can_write( 7 ), 'Unverified converted account cannot write.' );
 penalis_assert( ! Penalis_Account_Status::needs_password( 7 ), 'Email-verification conversion does not flag a missing password.' );
 
@@ -415,7 +433,7 @@ penalis_assert( ! Penalis_Account_Status::needs_password( 7 ), 'Email-verificati
 penalis_reset();
 $GLOBALS['penalis_test_users'][8] = new WP_User( 8, array( 'subscriber' ) );
 penalis_assert( ! Penalis_Account_Status::is_legacy_account( 8 ), 'A subscriber is not a legacy account.' );
-$result = Penalis_Account_Status::convert_legacy( 8, 'pending_approval', 'nope', 2 );
+$result = Penalis_Account_Status::convert_legacy( 8, 'active', 'nope', 2 );
 penalis_assert( is_wp_error( $result ), 'A non-legacy account cannot be converted.' );
 
 // Editors and administrators are never treated as legacy accounts.
@@ -423,19 +441,18 @@ penalis_reset();
 $GLOBALS['penalis_test_users'][9] = new WP_User( 9, array( 'editor' ) );
 penalis_assert( ! Penalis_Account_Status::is_legacy_account( 9 ), 'An editor is not a legacy account.' );
 
-// Rejected accounts cannot log in.
+// Unverified spam accounts can be suspended directly by an administrator, clearing verification tokens.
 penalis_reset();
 $GLOBALS['penalis_test_users'][6] = new WP_User( 6, array( 'subscriber' ) );
 Penalis_Account_Status::initialize_pending( 6 );
-Penalis_Account_Status::transition( 6, 'rejected', 'admin_rejected', 2 );
-penalis_assert( ! Penalis_Account_Status::can_login( 6 ), 'Rejected account cannot sign in.' );
-penalis_assert( ! Penalis_Account_Status::can_write( 6 ), 'Rejected account cannot write.' );
-
-// A rejected application can be reopened for review, but not approved directly.
-penalis_assert( Penalis_Policy::can_transition( 'rejected', 'pending_approval' ), 'Rejected applications can be reopened.' );
-penalis_assert( ! Penalis_Policy::can_transition( 'rejected', 'active' ), 'Rejected applications cannot be approved directly.' );
-penalis_assert( true === Penalis_Account_Status::transition( 6, 'pending_approval', 'admin_reopened', 2 ), 'Reopening a rejected application succeeds.' );
-penalis_assert( ! Penalis_Account_Status::can_write( 6 ), 'Reopened application still cannot write.' );
+$spam_token = Penalis_Account_Status::issue_verification_token( 6 );
+penalis_assert( is_string( $spam_token ), 'Unverified account receives a verification token.' );
+penalis_assert( true === Penalis_Account_Status::transition( 6, 'suspended', 'admin_suspended', 2 ), 'Unverified account can be suspended.' );
+penalis_assert( ! Penalis_Account_Status::can_login( 6 ), 'Suspended unverified account cannot sign in.' );
+penalis_assert( ! Penalis_Account_Status::can_write( 6 ), 'Suspended unverified account cannot write.' );
+penalis_same( 0, Penalis_Account_Status::find_user_by_token( $spam_token ), 'Suspending an unverified account invalidates its verification token.' );
+penalis_assert( true === Penalis_Account_Status::transition( 6, 'active', 'admin_reactivated', 2 ), 'Suspended account can be activated by an administrator.' );
+penalis_assert( Penalis_Account_Status::can_write( 6 ), 'Activated account can write.' );
 
 /* -------------------------------------------------------------------------
  * Public display name
@@ -559,10 +576,6 @@ penalis_same( 'custom', Penalis_Account_Status::get_display_name_mode( 7 ), 'Unk
  * ---------------------------------------------------------------------- */
 
 penalis_assert(
-	Penalis_Policy::can_change_email( 'pending_approval', false ),
-	'Pending-approval accounts may change their email address.'
-);
-penalis_assert(
 	Penalis_Policy::can_change_email( 'active', true ),
 	'Active accounts with access may change their email address.'
 );
@@ -573,10 +586,6 @@ penalis_assert(
 penalis_assert(
 	! Penalis_Policy::can_change_email( 'pending_verification', true ),
 	'Unverified accounts may not change their email address.'
-);
-penalis_assert(
-	! Penalis_Policy::can_change_email( 'rejected', true ),
-	'Rejected accounts may not change their email address.'
 );
 penalis_assert(
 	! Penalis_Policy::can_change_email( 'suspended', true ),
@@ -735,12 +744,12 @@ penalis_assert( '' !== Penalis_Policy::validate_username_change( 'USER30', 'user
 penalis_same( '', Penalis_Policy::validate_username_change( 'user31', 'user30' ), 'A different login is accepted.' );
 
 // Eligibility mirrors email changes.
-penalis_assert( Penalis_Policy::can_change_username( Penalis_Policy::STATUS_PENDING_APPROVAL, false ), 'Pending approval accounts may rename.' );
 penalis_assert( Penalis_Policy::can_change_username( Penalis_Policy::STATUS_ACTIVE, true ), 'Active accounts with access may rename.' );
 penalis_assert( ! Penalis_Policy::can_change_username( Penalis_Policy::STATUS_ACTIVE, false ), 'Active accounts without access may not rename.' );
 penalis_assert( ! Penalis_Policy::can_change_username( Penalis_Policy::STATUS_PENDING_VERIFICATION, true ), 'Unverified accounts may not rename.' );
 penalis_assert( ! Penalis_Policy::can_change_username( Penalis_Policy::STATUS_SUSPENDED, true ), 'Suspended accounts may not rename.' );
-penalis_assert( ! Penalis_Policy::can_change_username( Penalis_Policy::STATUS_REJECTED, true ), 'Rejected accounts may not rename.' );
+penalis_assert( Penalis_Policy::can_change_username( '', true ), 'Legacy accounts with access may rename.' );
+penalis_assert( ! Penalis_Policy::can_change_username( '', false ), 'Legacy accounts without access may not rename.' );
 
 /**
  * Build an active writer for the username-change workflow tests.
@@ -851,10 +860,10 @@ penalis_same( 'penalis_username_forbidden', $penalis_forbidden->get_error_code()
 penalis_reset();
 $GLOBALS['penalis_test_users'][35]            = new WP_User( 35 );
 $GLOBALS['penalis_test_users'][35]->user_pass = 'hash:correct';
-update_user_meta( 35, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_PENDING_APPROVAL );
+update_user_meta( 35, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_PENDING_VERIFICATION );
 $GLOBALS['wpdb'] = new Penalis_Test_WPDB();
 $penalis_pending = Penalis_Username_Change::change( 35, 'penulis_pending', 'correct' );
-penalis_assert( ! is_wp_error( $penalis_pending ), 'Pending approval accounts may change their login.' );
+penalis_same( 'penalis_username_forbidden', $penalis_pending->get_error_code(), 'Unverified accounts cannot change their login.' );
 
 // Throttling: the third attempt in the window is still allowed, the fourth is not.
 penalis_reset();
@@ -1866,11 +1875,11 @@ $direct_publish = penalis_guard( 10, '/penalis/v1/articles/100/publish', 'POST' 
 penalis_assert( is_wp_error( $direct_publish ), 'A writer cannot reach the retired publish route.' );
 penalis_same( 'penalis_rest_forbidden', $direct_publish->get_error_code(), 'The retired publish route is outside the write allowlist.' );
 
-// Account self-service routes stay reachable for pending accounts.
-penalis_auth_account( 12, Penalis_Policy::STATUS_PENDING_APPROVAL );
-penalis_assert( null === penalis_guard( 12, '/penalis/v1/account/profile', 'POST' ), 'A pending account may update its own profile.' );
-penalis_assert( null === penalis_guard( 12, '/penalis/v1/account/password', 'POST' ), 'A pending account may change its own password.' );
-penalis_same( 'penalis_account_inactive', penalis_guard( 12, '/wp/v2/posts', 'POST' )->get_error_code(), 'A pending account cannot write posts.' );
+// Account self-service routes stay reachable for pending verification accounts.
+penalis_auth_account( 12, Penalis_Policy::STATUS_PENDING_VERIFICATION );
+penalis_assert( null === penalis_guard( 12, '/penalis/v1/account/profile', 'POST' ), 'An unverified account may update its own profile.' );
+penalis_assert( null === penalis_guard( 12, '/penalis/v1/account/password', 'POST' ), 'An unverified account may change its own password.' );
+penalis_same( 'penalis_account_inactive', penalis_guard( 12, '/wp/v2/posts', 'POST' )->get_error_code(), 'An unverified account cannot write posts.' );
 
 // Anonymous requests are passed through so core can answer unauthenticated.
 penalis_assert( null === penalis_guard( 0, '/wp/v2/posts', 'POST' ), 'The guard leaves anonymous requests to core.' );
@@ -2406,7 +2415,7 @@ penalis_same( 'Perbaiki paragraf pembuka.', Penalis_Editorial_Workflow::get_feed
 penalis_reset();
 penalis_auth_writer( 10 );
 penalis_auth_writer( 11 );
-penalis_auth_account( 12, Penalis_Policy::STATUS_PENDING_APPROVAL );
+penalis_auth_account( 12, Penalis_Policy::STATUS_PENDING_VERIFICATION );
 
 penalis_assert(
 	null === penalis_guard( 10, '/penalis/v1/articles/500/submit', 'POST' ),
@@ -2672,8 +2681,8 @@ penalis_same(
 	'Overview URL points to the unified Penalis Platform admin menu.'
 );
 penalis_same(
-	'https://example.com/wp-admin/admin.php?page=penalis-writers&status=pending_approval',
-	Penalis_Admin::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_APPROVAL ) ),
+	'https://example.com/wp-admin/admin.php?page=penalis-writers&status=pending_verification',
+	Penalis_Admin::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_VERIFICATION ) ),
 	'Writers URL points to the Penulis Penalis submenu under admin.php.'
 );
 penalis_same(
@@ -2914,6 +2923,78 @@ penalis_same(
 );
 penalis_same( 2, Penalis_Editorial_Notifications::count_unread( 10 ), 'Dashboard notifications are still recorded when wp_mail fails.' );
 unset( $GLOBALS['penalis_test_mail_fails'] );
+
+/* -------------------------------------------------------------------------
+ * Self-service registration verification, legacy activation, and Instagram REST profile
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+$GLOBALS['penalis_test_users'][50] = new WP_User( 50, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 50 );
+Penalis_Account_Status::set_instagram( 50, '@penalis.komunitas' );
+$verify_token  = Penalis_Account_Status::issue_verification_token( 50 );
+$verify_result = Penalis_Registration::verify( $verify_token );
+penalis_assert( ! is_wp_error( $verify_result ), 'Email verification succeeds.' );
+penalis_same( Penalis_Policy::STATUS_ACTIVE, $verify_result['status'], 'Email verification response reports active status.' );
+penalis_same( Penalis_Policy::STATUS_ACTIVE, Penalis_Account_Status::get_status( 50 ), 'Verified user account is immediately active.' );
+penalis_assert( Penalis_Account_Status::can_write( 50 ), 'Verified user can write immediately without admin approval.' );
+penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'Verification sends the active writer notification email.' );
+penalis_same( 'user50@example.com', $GLOBALS['penalis_test_mail'][0][0], 'Active notification is sent to the verified writer, not admin.' );
+
+// Self-service legacy activation immediately activates the account.
+penalis_reset();
+$GLOBALS['penalis_test_users'][51] = new WP_User( 51, array( 'contributor' ) );
+$legacy_token  = Penalis_Account_Status::issue_verification_token( 51 );
+$legacy_result = Penalis_Legacy_Activation::activate(
+	array(
+		'token'    => $legacy_token,
+		'password' => 'twelve chars password',
+	)
+);
+penalis_assert( ! is_wp_error( $legacy_result ), 'Legacy self-service activation succeeds.' );
+penalis_same( Penalis_Policy::STATUS_ACTIVE, $legacy_result['status'], 'Legacy activation response reports active status.' );
+penalis_same( Penalis_Policy::STATUS_ACTIVE, Penalis_Account_Status::get_status( 51 ), 'Activated legacy account is immediately active.' );
+penalis_assert( Penalis_Account_Status::can_write( 51 ), 'Activated legacy account can write immediately.' );
+penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'Legacy activation sends the active writer notification email.' );
+
+// REST profile endpoint updates and normalizes Instagram.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+penalis_auth_writer( 52 );
+Penalis_Account_Status::set_instagram( 52, '@awal_ig' );
+penalis_same( 'awal_ig', Penalis_Account_Status::get_instagram( 52 ), 'Initial Instagram handle is stored without leading @.' );
+$GLOBALS['penalis_test_current_user'] = 52;
+
+$account_resp = Penalis_Rest_Api::get_account();
+penalis_assert( $account_resp instanceof WP_REST_Response, 'GET /account returns a response.' );
+penalis_same( 'awal_ig', $account_resp->get_data()['instagram'], 'GET /account includes the normalized Instagram handle.' );
+
+$profile_resp = Penalis_Rest_Api::update_profile(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/account/profile',
+		array(
+			'display_name' => 'Penulis 52',
+			'description'  => 'Menulis puisi.',
+			'instagram'    => '  @penulis.baru_52  ',
+		)
+	)
+);
+penalis_assert( $profile_resp instanceof WP_REST_Response, 'POST /account/profile with Instagram succeeds.' );
+penalis_same( 'penulis.baru_52', $profile_resp->get_data()['instagram'], 'Profile response returns the updated normalized Instagram handle.' );
+penalis_same( 'penulis.baru_52', Penalis_Account_Status::get_instagram( 52 ), 'Instagram handle is persisted in user meta.' );
+
+$invalid_ig_resp = Penalis_Rest_Api::update_profile(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/account/profile',
+		array(
+			'instagram' => 'invalid handle!',
+		)
+	)
+);
+penalis_assert( is_wp_error( $invalid_ig_resp ), 'POST /account/profile with invalid Instagram fails.' );
+penalis_assert( isset( $invalid_ig_resp->get_error_data()['fields']['instagram'] ), 'Field error is attached to instagram.' );
 
 /* -------------------------------------------------------------------------
  * Report

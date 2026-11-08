@@ -262,42 +262,7 @@ final class Penalis_Emails {
 	}
 
 	/**
-	 * Notify an administrator that an account is awaiting approval.
-	 *
-	 * Failures are recorded but do not affect the applicant's state.
-	 *
-	 * @param int $user_id User ID.
-	 * @return bool
-	 */
-	public static function notify_admin_pending( $user_id ) {
-		$user = get_userdata( (int) $user_id );
-		if ( ! $user ) {
-			return false;
-		}
-
-		$admin_email = get_option( 'admin_email' );
-		if ( ! is_email( $admin_email ) ) {
-			return false;
-		}
-
-		$subject  = sprintf( '[%s] Pendaftaran Akun Menunggu Persetujuan', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
-		$message  = "Ada pendaftaran akun %s yang menunggu tinjauan.\n\n";
-		$message .= 'Nama Penulis: ' . $user->display_name . "\n";
-		$message .= 'Username Penulis: ' . $user->user_login . "\n";
-		$message .= 'Waktu Terdaftar: ' . $user->user_registered . "\n\n";
-		$message .= 'Tinjau pendaftaran melalui WordPress Admin: ' . admin_url( 'admin.php?page=penalis-writers&status=pending_approval' ) . "\n";
-
-		$sent = self::send_mail( $admin_email, $subject, $message, 'Email ini dikirim otomatis untuk admin Penalis sebagai pemberitahuan bahwa ada pendaftaran penulis yang menunggu peninjauan.' );
-
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'admin_notification' );
-		}
-
-		return (bool) $sent;
-	}
-
-	/**
-	 * Send an account status notification to the applicant.
+	 * Send an account status notification to the writer.
 	 *
 	 * @param int    $user_id User ID.
 	 * @param string $status  New status.
@@ -317,17 +282,12 @@ final class Penalis_Emails {
 		switch ( $status ) {
 			case Penalis_Policy::STATUS_ACTIVE:
 				$subject = sprintf( '[%s] Akun Kamu Sudah Aktif', $site );
-				$body    = self::greeting( $user ) . "\n\nAkun %s kamu sudah disetujui. Kamu kini dapat mengelola karya tulis.\n\nBuka dashboard Penulis: " . $login . "\n";
-				break;
-
-			case Penalis_Policy::STATUS_REJECTED:
-				$subject = sprintf( '[%s] Pembaruan Pendaftaran Akun Kamu', $site );
-				$body    = self::greeting( $user ) . "\n\nPendaftaran akun %s kamu belum disetujui untuk saat ini. Jika kamu merasa ini keliru, silakan hubungi admin %s.\n";
+				$body    = self::greeting( $user ) . "\n\n" . sprintf( 'Akun %s kamu kini sudah aktif. Kamu sudah dapat menulis dan mengajukan karya tulis melalui dasbor penulis.', $site ) . "\n\nBuka dasbor penulis:\n\n" . $login . "\n";
 				break;
 
 			case Penalis_Policy::STATUS_SUSPENDED:
 				$subject = sprintf( '[%s] Akun Kamu Ditangguhkan', $site );
-				$body    = self::greeting( $user ) . "\n\nAkun %s kamu ditangguhkan, sehingga pengelolaan karya tulis untuk sementara tidak tersedia. Hubungi admin %s jika ada pertanyaan.\n";
+				$body    = self::greeting( $user ) . "\n\n" . sprintf( 'Akun %s kamu ditangguhkan, sehingga pengelolaan karya tulis untuk sementara tidak tersedia. Hubungi admin %s jika ada pertanyaan.', $site, $site ) . "\n";
 				break;
 		}
 

@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   hasErrors,
+  normalizeInstagram,
   normalizeLinkHref,
   validateArticle,
   validateEmail,
+  validateInstagram,
   validateResetEmail,
   validateRegistration,
   validateUsername,
@@ -52,6 +54,39 @@ describe('validateRegistration', () => {
   it('requires consent', () => {
     const errors = validateRegistration({ ...validRegistration, penalis_consent: false });
     expect(errors.penalis_consent).toBeDefined();
+  });
+
+  it('accepts an optional valid Instagram username or empty value', () => {
+    expect(hasErrors(validateRegistration({ ...validRegistration, instagram: '' }))).toBe(false);
+    expect(hasErrors(validateRegistration({ ...validRegistration, instagram: '@penalis.id' }))).toBe(false);
+  });
+
+  it('rejects an invalid Instagram username on registration', () => {
+    const errors = validateRegistration({ ...validRegistration, instagram: 'invalid handle!' });
+    expect(errors.instagram).toBeDefined();
+  });
+});
+
+describe('normalizeInstagram and validateInstagram', () => {
+  it('normalizes handles and profile URLs', () => {
+    expect(normalizeInstagram('  @penalis.id  ')).toBe('penalis.id');
+    expect(normalizeInstagram('https://www.instagram.com/penalis_id/?igsh=123')).toBe('penalis_id');
+    expect(normalizeInstagram('instagram.com/@penalis.id/')).toBe('penalis.id');
+    expect(normalizeInstagram('   ')).toBe('');
+  });
+
+  it('accepts valid handles and empty values', () => {
+    expect(validateInstagram('')).toBe('');
+    expect(validateInstagram('@penalis.id_01')).toBe('');
+    expect(validateInstagram('https://instagram.com/penalis.id')).toBe('');
+  });
+
+  it('rejects invalid handles', () => {
+    expect(validateInstagram('a'.repeat(31))).not.toBe('');
+    expect(validateInstagram('...')).not.toBe('');
+    expect(validateInstagram('___')).not.toBe('');
+    expect(validateInstagram('bad handle')).not.toBe('');
+    expect(validateInstagram('bad-handle')).not.toBe('');
   });
 });
 

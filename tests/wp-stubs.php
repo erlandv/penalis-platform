@@ -718,6 +718,15 @@ if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
 
 			return 1;
 		}
+
+		/**
+		 * Return the table prefix for the current blog.
+		 *
+		 * @return string
+		 */
+		public function get_blog_prefix() {
+			return 'wp_';
+		}
 	}
 }
 
@@ -1448,5 +1457,95 @@ if ( ! function_exists( 'wp_trim_words' ) ) {
 			return trim( (string) $text );
 		}
 		return implode( ' ', array_slice( $words, 0, $num_words ) ) . '…';
+	}
+}
+
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+	/**
+	 * Sanitize textarea stub.
+	 *
+	 * @param string $value Value.
+	 * @return string
+	 */
+	function sanitize_textarea_field( $value ) {
+		return trim( strip_tags( (string) $value ) );
+	}
+}
+
+if ( ! function_exists( 'wp_update_user' ) ) {
+	/**
+	 * Update user stub.
+	 *
+	 * @param array<string,mixed> $userdata User data.
+	 * @return int|WP_Error
+	 */
+	function wp_update_user( $userdata ) {
+		$user_id = isset( $userdata['ID'] ) ? (int) $userdata['ID'] : 0;
+		$user    = get_userdata( $user_id );
+		if ( ! $user ) {
+			return new WP_Error( 'invalid_user_id', 'Invalid user ID.' );
+		}
+		if ( isset( $userdata['display_name'] ) ) {
+			$user->display_name = (string) $userdata['display_name'];
+		}
+		if ( isset( $userdata['first_name'] ) ) {
+			update_user_meta( $user_id, 'first_name', (string) $userdata['first_name'] );
+		}
+		if ( isset( $userdata['last_name'] ) ) {
+			update_user_meta( $user_id, 'last_name', (string) $userdata['last_name'] );
+		}
+		if ( isset( $userdata['description'] ) ) {
+			update_user_meta( $user_id, 'description', (string) $userdata['description'] );
+		}
+		return $user_id;
+	}
+}
+
+if ( ! class_exists( 'WP_Query' ) ) {
+	/**
+	 * Minimal WP_Query stub.
+	 */
+	class WP_Query {
+		/** @var int */
+		public $found_posts = 0;
+		/** @var array */
+		public $posts = array();
+		/** @var int */
+		public $max_num_pages = 0;
+
+		/**
+		 * Constructor.
+		 *
+		 * @param array<string,mixed> $args Query arguments.
+		 */
+		public function __construct( $args = array() ) {
+			unset( $args );
+		}
+	}
+}
+
+if ( ! function_exists( 'get_author_posts_url' ) ) {
+	/**
+	 * Author posts URL stub.
+	 *
+	 * @param int $author_id Author ID.
+	 * @return string
+	 */
+	function get_author_posts_url( $author_id ) {
+		return 'https://example.com/author/user' . (int) $author_id . '/';
+	}
+}
+
+if ( ! function_exists( 'get_avatar_url' ) ) {
+	/**
+	 * Avatar URL stub.
+	 *
+	 * @param mixed $id_or_email User ID or email.
+	 * @param array $args        Arguments.
+	 * @return string
+	 */
+	function get_avatar_url( $id_or_email, $args = array() ) {
+		unset( $id_or_email, $args );
+		return 'https://example.com/avatar.jpg';
 	}
 }

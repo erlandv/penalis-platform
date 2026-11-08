@@ -350,8 +350,8 @@ function ActivationPage({ token }: { token: string }) {
           <>
             <Notice tone="success">{message}</Notice>
             <p className="penalis-muted">
-              Karya tulis yang sudah terbit tetap terhubung ke akun ini. Kamu dapat masuk setelah admin
-              menyetujui akun.
+              Karya tulis yang sudah terbit tetap terhubung ke akun ini. Akun kamu kini sudah aktif dan siap
+              digunakan di dasbor penulis.
             </p>
             <a className="penalis-button penalis-button--primary" href={bootstrap.loginUrl}>
               Lanjut ke halaman masuk

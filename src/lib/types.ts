@@ -4,9 +4,7 @@
 
 export type AccountStatus =
   | 'pending_verification'
-  | 'pending_approval'
   | 'active'
-  | 'rejected'
   | 'suspended'
   | '';
 
@@ -23,6 +21,7 @@ export interface BootstrapUser {
   authorUrl?: string;
   email: string;
   description?: string;
+  instagram?: string;
 }
 
 export interface DashboardBootstrap {
@@ -132,6 +131,7 @@ export interface Account {
   /** Whether this account may change its login (same eligibility as email). */
   canChangeUsername: boolean;
   description: string;
+  instagram: string;
   status: AccountStatus;
   statusLabel: string;
   isAdministrator: boolean;

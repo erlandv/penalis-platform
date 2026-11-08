@@ -58,7 +58,6 @@ foreach ( $penalis_options as $penalis_option ) {
 }
 
 // Delete transients used for operational state.
-delete_transient( 'penalis_pending_approval_count' );
 delete_transient( 'penalis_activation_notice' );
 
 // Remove the dashboard page only if this plugin created it.
@@ -81,6 +80,7 @@ $penalis_meta_keys = array(
 	'_penalis_approved_by',
 	'_penalis_status_log',
 	'_penalis_display_name_mode',
+	'_penalis_instagram',
 	'_penalis_verification_token_hash',
 	'_penalis_verification_token_expires',
 	'_penalis_verification_token_created',

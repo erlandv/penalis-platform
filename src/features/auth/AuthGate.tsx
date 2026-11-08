@@ -203,6 +203,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
     display_name: '',
     user_login: '',
     user_email: '',
+    instagram: '',
     password: '',
     confirm_password: '',
     penalis_consent: false,
@@ -235,6 +236,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
         display_name: values.display_name,
         user_login: values.user_login,
         user_email: values.user_email,
+        instagram: values.instagram,
         password: values.password,
         penalis_consent: '1',
         penalis_website: values.penalis_website,
@@ -245,6 +247,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
         display_name: '',
         user_login: '',
         user_email: '',
+        instagram: '',
         password: '',
         confirm_password: '',
         penalis_consent: false,
@@ -328,6 +331,24 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
         />
         <FieldHint id="user_email-hint">Kami mengirim link verifikasi ke email ini.</FieldHint>
         <FieldError errors={errors} name="user_email" />
+      </div>
+
+      <div className="penalis-field">
+        <label htmlFor="instagram">Username Instagram (opsional)</label>
+        <input
+          id="instagram"
+          type="text"
+          value={values.instagram}
+          onChange={(event) => update('instagram', event.target.value)}
+          maxLength={100}
+          placeholder="@username"
+          aria-invalid={Boolean(errors.instagram)}
+          aria-describedby={describedBy('instagram-hint', errors.instagram && 'instagram-error')}
+        />
+        <FieldHint id="instagram-hint">
+          Opsional, digunakan untuk keperluan internal admin Penalis.
+        </FieldHint>
+        <FieldError errors={errors} name="instagram" />
       </div>
 
       <div className="penalis-field">
@@ -615,8 +636,8 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
       <div className="penalis-form">
         <Notice tone="success">{message}</Notice>
         <p className="penalis-muted">
-          Link berlaku 24 jam dan hanya dapat digunakan sekali. Setelah kamu membuat password, admin akan 
-          meninjau akun sebelum kamu dapat menerbitkan karya tulis.
+          Link berlaku 24 jam dan hanya dapat digunakan sekali. Setelah kamu membuat password, akun penulis kamu
+          akan langsung aktif.
         </p>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
           Kembali ke Halaman Login

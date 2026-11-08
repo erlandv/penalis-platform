@@ -56,6 +56,10 @@ final class Penalis_Rest_Api {
 						'type'     => 'string',
 						'required' => true,
 					),
+					'instagram'       => array(
+						'type'     => 'string',
+						'required' => false,
+					),
 					'penalis_consent' => array(
 						'type'     => 'string',
 						'required' => true,
@@ -491,18 +495,21 @@ final class Penalis_Rest_Api {
 		}
 
 		return true;
-	}   /**
-		 * Handle registration.
-		 *
-		 * @param WP_REST_Request $request Request.
-		 * @return WP_REST_Response|WP_Error
-		 */
+	}
+
+	/**
+	 * Handle registration.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
 	public static function handle_registration( $request ) {
 		$data = array(
 			'display_name'    => $request->get_param( 'display_name' ),
 			'user_login'      => $request->get_param( 'user_login' ),
 			'user_email'      => $request->get_param( 'user_email' ),
 			'password'        => $request->get_param( 'password' ),
+			'instagram'       => $request->get_param( 'instagram' ),
 			'penalis_consent' => $request->get_param( 'penalis_consent' ),
 			'penalis_website' => $request->get_param( 'penalis_website' ),
 		);
@@ -692,6 +699,7 @@ final class Penalis_Rest_Api {
 				'canChangeEmail'      => $is_admin || Penalis_Policy::can_change_email( $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
 				'canChangeUsername'   => $is_admin || Penalis_Policy::can_change_username( $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
 				'description'         => (string) get_user_meta( $user_id, 'description', true ),
+				'instagram'           => Penalis_Account_Status::get_instagram( $user_id ),
 				'authorUrl'           => get_author_posts_url( $user_id ),
 				'status'              => $status,
 				'statusLabel'         => $status_label,
@@ -720,7 +728,7 @@ final class Penalis_Rest_Api {
 		$user_id = get_current_user_id();
 		$input   = array();
 
-		$fields = array( 'display_name', 'display_name_mode', 'first_name', 'last_name', 'description' );
+		$fields = array( 'display_name', 'display_name_mode', 'first_name', 'last_name', 'description', 'instagram' );
 
 		foreach ( $fields as $field ) {
 			$value = $request->get_param( $field );
@@ -805,6 +813,10 @@ final class Penalis_Rest_Api {
 
 		if ( Penalis_Policy::is_valid_display_mode( $mode ) ) {
 			update_user_meta( $user_id, Penalis_Account_Status::META_DISPLAY_NAME_MODE, $mode );
+		}
+
+		if ( array_key_exists( 'instagram', $input ) ) {
+			Penalis_Account_Status::set_instagram( $user_id, (string) $input['instagram'] );
 		}
 
 		return self::get_account();

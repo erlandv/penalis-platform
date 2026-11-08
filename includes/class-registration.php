@@ -122,6 +122,10 @@ final class Penalis_Registration {
 
 		Penalis_Account_Status::initialize_pending( (int) $user_id );
 
+		if ( isset( $data['instagram'] ) && '' !== trim( (string) $data['instagram'] ) ) {
+			Penalis_Account_Status::set_instagram( (int) $user_id, (string) $data['instagram'] );
+		}
+
 		$token = Penalis_Account_Status::issue_verification_token( (int) $user_id );
 		$sent  = false;
 
@@ -269,7 +273,7 @@ final class Penalis_Registration {
 
 		$result = Penalis_Account_Status::transition(
 			$user_id,
-			Penalis_Policy::STATUS_PENDING_APPROVAL,
+			Penalis_Policy::STATUS_ACTIVE,
 			'email_verified',
 			0
 		);
@@ -278,13 +282,13 @@ final class Penalis_Registration {
 			return $result;
 		}
 
-		// The token is cleared by the transition. Send admin notification after
-		// state is committed; a mail failure does not roll back verification.
-		Penalis_Emails::notify_admin_pending( $user_id );
+		// The token is cleared by the transition. Send welcome/active notice
+		// after state is committed; a mail failure does not roll back verification.
+		Penalis_Emails::send_status_notification( $user_id, Penalis_Policy::STATUS_ACTIVE );
 
 		return array(
-			'status'  => Penalis_Policy::STATUS_PENDING_APPROVAL,
-			'message' => 'Alamat email kamu telah dikonfirmasi. Pendaftaran kamu kini menunggu persetujuan administrator.',
+			'status'  => Penalis_Policy::STATUS_ACTIVE,
+			'message' => 'Alamat email kamu telah dikonfirmasi. Akun penulis kamu kini aktif dan siap digunakan untuk menulis.',
 		);
 	}
 

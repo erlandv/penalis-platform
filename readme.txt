@@ -19,16 +19,18 @@ administrators before publication.
 
 Key features:
 
-* **Curated writer account workflow.** Visitors register through `/dashboard/`,
-  confirm their email address with an expiring single-use link, and wait for
-  administrator approval under **Penalis → Penulis Penalis**. Approval grants
-  the `penalis_writer` role; rejection and suspension immediately revoke access
-  and end active sessions. Every transition is recorded in a bounded audit log.
+* **Self-service writer account workflow.** Visitors register through
+  `/dashboard/` (with an optional Instagram username for internal admin
+  curation) and confirm their email address with an expiring single-use link to
+  immediately become active writers (`penalis_writer` role). Administrators can
+  manage accounts, resend verification emails, or suspend/reactivate accounts
+  under **Penalis → Penulis Penalis**. Suspension immediately revokes access and
+  ends active sessions. Every transition is recorded in a bounded audit log.
 * **Legacy contributor activation.** Pre-plugin contributor accounts (created
   without passwords for past submissions) stay protected from unauthorized login
   or password resets until activated through self-service email verification or
-  administrator vouching. Existing user IDs, authored posts, and author archives
-  are preserved.
+  administrator vouching, which immediately activates the account while
+  preserving existing user IDs, authored posts, and author archives.
 * **Editorial submission and review workflow.** Writers save drafts and submit
   them for review (`Ajukan Tinjauan` / `Ajukan Ulang`). Writers cannot publish
   directly and cannot edit published articles. Administrators review submissions
@@ -89,7 +91,7 @@ dashboard UI and at the REST API level.
 
 No. Existing posts, author archives, and contributor accounts remain untouched.
 Dormant legacy contributor accounts cannot sign in or reset passwords until they
-complete the legacy activation flow and are approved by an administrator.
+complete the legacy activation flow to verify their email and set a password.
 
 = What happens when a writer changes their username? =
 
@@ -107,8 +109,9 @@ renamed executable files are rejected.
 
 = 1.0.0 =
 * Initial production release of Penalis Platform.
-* Curated writer account lifecycle: registration, scanner-safe email
-  verification, administrator approval/rejection/suspension, legacy contributor
+* Self-service writer account lifecycle: registration with optional Instagram
+  username, scanner-safe email verification that immediately activates the
+  writer account, administrator suspension/reactivation, legacy contributor
   activation, and bounded audit logging.
 * Editorial submission and review workflow: draft submission, resubmission,
   serialized administrator review decisions (`Setujui dan terbitkan`,

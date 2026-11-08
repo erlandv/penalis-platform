@@ -55,24 +55,6 @@ export function StatusBanner({
     return <ResendBanner email={email} />;
   }
 
-  if (status === 'pending_approval') {
-    return (
-      <Notice tone="warning">
-        Pendaftaran kamu menunggu persetujuan. Admin akan meninjau akun kamu. Pengelolaan karya tulis
-        dinonaktifkan sampai akun kamu disetujui.
-      </Notice>
-    );
-  }
-
-  if (status === 'rejected') {
-    return (
-      <Notice tone="danger">
-        Pendaftaran kamu tidak disetujui. Hubungi Admin Penalis jika kamu merasa ini
-        keliru.
-      </Notice>
-    );
-  }
-
   if (status === 'suspended') {
     return (
       <Notice tone="danger">
@@ -112,7 +94,7 @@ function ResendBanner({ email }: { email: string }) {
     <Notice tone="warning">
       <p>
         Konfirmasi alamat email kamu. Kami mengirim tautan verifikasi ke {email}. Kamu
-        belum dapat menerbitkan karya tulis sampai email kamu dikonfirmasi dan admin menyetujui akun kamu.
+        belum dapat menulis atau mengajukan karya tulis sampai alamat email kamu dikonfirmasi.
       </p>
       {message ? <p>{message}</p> : null}
       <button
@@ -398,7 +380,7 @@ export function Shell({
                 onClick={() => onNavigate(item.view)}
                 aria-current={view === item.view ? 'page' : undefined}
                 disabled={disabled}
-                title={disabled ? 'Tersedia setelah akun kamu disetujui' : undefined}
+                title={disabled ? 'Tersedia setelah email kamu dikonfirmasi' : undefined}
               >
                 <Icon name={item.icon} />
                 <span>{item.label}</span>

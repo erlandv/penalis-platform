@@ -20,24 +20,24 @@ rate limits, and generic responses that prevent account enumeration.
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
-| `/registration` | `POST` | `handle_registration` | Register a new `pending_verification` account and send verification email |
-| `/verification/confirm` | `POST` | `handle_verification` | Consume a 43-char verification token and move account to `pending_approval` |
+| `/registration` | `POST` | `handle_registration` | Register a new `pending_verification` account (with optional `instagram`) and send verification email |
+| `/verification/confirm` | `POST` | `handle_verification` | Consume a 43-char verification token and immediately activate the account (`active`, `penalis_writer`) |
 | `/verification/resend` | `POST` | `handle_resend` | Re-issue a verification email (10-minute per-account cooldown) |
 | `/legacy/activate` | `POST` | `handle_legacy_activate_request` | Request an activation email for a pre-plugin contributor account |
-| `/legacy/activate/confirm` | `POST` | `handle_legacy_activate_confirm` | Consume legacy activation token, set first password, and move to `pending_approval` |
+| `/legacy/activate/confirm` | `POST` | `handle_legacy_activate_confirm` | Consume legacy activation token, set first password, and immediately activate the account (`active`) |
 | `/password/forgot` | `POST` | `handle_password_forgot` | Request a password reset link by **email address only** (`user_email`) |
 | `/password/reset` | `POST` | `handle_password_reset` | Validate core reset key (`key` + `login`), set new password (12+ chars), destroy sessions |
 | `/account/email/confirm` | `POST` | `confirm_email_change` | Consume an email-change token, re-verify availability, and update `user_email` |
 
 ### 1.2 Signed-In Account Routes (`require_logged_in`)
 
-Accessible to any signed-in user (including `pending_verification` and
-`pending_approval` accounts viewing their status or updating their profile).
+Accessible to any signed-in user (including `pending_verification` accounts
+viewing their status or updating their profile).
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
-| `/account` | `GET` | `get_account` | Return account status, capability flags, article counts by editorial state, and `unreadNotifications` count |
-| `/account/profile` | `POST` | `update_profile` | Update `first_name`, `last_name`, `display_name_mode`, custom `display_name`, and `description` |
+| `/account` | `GET` | `get_account` | Return account status, capability flags, `instagram`, article counts by editorial state, and `unreadNotifications` count |
+| `/account/profile` | `POST` | `update_profile` | Update `first_name`, `last_name`, `display_name_mode`, custom `display_name`, `description`, and optional `instagram` |
 | `/account/password` | `POST` | `update_password` | Change own password (requires `current_password`, `new_password` >= 12 chars) |
 | `/account/username` | `POST` | `change_username` | Re-authenticated `user_login` change inside a MySQL advisory lock; records 301 redirect and ends sessions |
 | `/account/email` | `POST` | `request_email_change` | Re-authenticated request to change email; sends confirmation token to the new address |
@@ -112,7 +112,7 @@ before the Vite module executes. The TypeScript contract lives in
 | `canWrite` | `boolean` | Result of `Penalis_Account_Status::can_write()` |
 | `status` | `AccountStatus` | Current account status (`active`, `pending_verification`, etc.) |
 | `statusLabel` | `string` | Indonesian label for the current account status |
-| `user` | `object \| null` | Public profile fields (`id`, `username`, `displayName`, `firstName`, `lastName`, `displayNameMode`, `avatarId`, `avatarUrl`, `email`, `description`, `authorUrl`) |
+| `user` | `object \| null` | Profile fields (`id`, `username`, `displayName`, `firstName`, `lastName`, `displayNameMode`, `avatarId`, `avatarUrl`, `email`, `description`, `instagram`, `authorUrl`) |
 
 ---
 

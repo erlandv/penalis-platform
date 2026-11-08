@@ -111,33 +111,25 @@ Account status is managed by `Penalis_Account_Status` and validated by
 | Status | Meaning | Dashboard UI Label |
 | --- | --- | --- |
 | `pending_verification` | Registered, email not yet confirmed | Menunggu verifikasi email |
-| `pending_approval` | Email confirmed, awaiting administrator curation | Menunggu persetujuan admin |
-| `active` | Approved writer with dashboard write access | Penulis aktif |
-| `rejected` | Application declined by administrator | Pendaftaran ditolak |
-| `suspended` | Previously active writer whose access was revoked | Akun ditangguhkan |
+| `active` | Verified active writer with dashboard write access | Penulis aktif |
+| `suspended` | Writer account whose access was revoked by an administrator | Akun ditangguhkan |
 
 ```text
-pending_verification ──► pending_approval ──► active
-         │                      │               │
-         ▼                      ▼               ▼
-      rejected ◄────────────────┘           suspended
-         │                                      │
-         └──────────► pending_approval          └──► active
+pending_verification ──► active ◄──► suspended
+         │                              ▲
+         └──────────────────────────────┘
 ```
 
 Allowed transitions (`Penalis_Policy::can_transition()`):
 
 | From | Allowed Target(s) |
 | --- | --- |
-| `pending_verification` | `pending_approval`, `rejected` |
-| `pending_approval` | `active`, `rejected` |
+| `pending_verification` | `active`, `suspended` |
 | `active` | `suspended` |
 | `suspended` | `active` |
-| `rejected` | `pending_approval` |
 
 Every transition updates `_penalis_account_status`, appends an entry to the
-bounded audit log (`_penalis_status_log`, max 20 entries), clears the
-`penalis_pending_approval_count` transient, and fires
+bounded audit log (`_penalis_status_log`, max 20 entries), and fires
 `penalis_account_status_changed`.
 
 ### 3.2 Capabilities & Role Management
@@ -145,14 +137,16 @@ bounded audit log (`_penalis_status_log`, max 20 entries), clears the
 - New registrations are created with the WordPress `subscriber` role,
   `_penalis_account_status = pending_verification`, and
   `_penalis_access_enabled = 0`.
-- Approving an account (`active`) sets `_penalis_access_enabled = 1` and
-  promotes the user to `penalis_writer` (`Penalis_Roles::assign_writer()`).
-- Rejecting or suspending an account sets `_penalis_access_enabled = 0`,
+- Verifying the email address (or reactivating a suspended account) transitions
+  the account to `active`, sets `_penalis_access_enabled = 1`, and promotes the
+  user to `penalis_writer` (`Penalis_Roles::assign_writer()`).
+- Suspending an account (`active -> suspended` or `pending_verification -> suspended`)
+  sets `_penalis_access_enabled = 0`, clears any pending verification token,
   demotes `penalis_writer` back to `subscriber`
   (`Penalis_Roles::revoke_writer()`), and destroys all active WordPress session
   tokens for that user.
 - Higher roles (`author`, `editor`, `administrator`) are never promoted or
-  demoted automatically; attempting to approve such an account returns
+  demoted automatically; attempting to promote such an account returns
   `penalis_role_conflict`.
 
 ### 3.3 Legacy Contributor Accounts
@@ -167,13 +161,12 @@ have no `_penalis_account_status` metadata (`Penalis_Account_Status::is_legacy_a
   (`Penalis_Account_Status::convert_legacy()`), which preserves the user ID,
   authored posts, and author archive URL:
   - **Self-service activation:** The writer requests an activation link, proves
-    control of their email address, sets a first password, and lands in
-    `pending_approval`.
+    control of their email address, sets a first password, and immediately
+    becomes `active` (`penalis_writer` role, `_penalis_access_enabled = 1`).
   - **Administrator vouch ("Aktifkan langsung"):** An administrator converts the
-    account directly to `pending_approval`, sets `_penalis_needs_password = 1`,
-    and triggers a password reset email so the writer can set a password.
-- Direct conversion from legacy to `active` is prohibited by policy; every
-  account must pass explicit administrator approval.
+    account directly to `active` (`penalis_writer` role,
+    `_penalis_access_enabled = 1`), sets `_penalis_needs_password = 1`, and
+    triggers a password reset email so the writer can set a password.
 
 ---
 
@@ -238,9 +231,9 @@ All administrator curation surfaces live under a single top-level menu,
 
 1. **Penalis → Ringkasan** (`?page=penalis-platform`, `Penalis_Admin::render_overview_page()`)
    - Summary metric cards for pending article reviews, revisions, published
-     works, pending writer applications, active writers, and unverified
-     registrations, plus quick-action tables for the latest pending submissions
-     and writer applications.
+     works, active writers, unverified registrations, suspended accounts, and
+     legacy accounts, plus quick-action panels for the latest pending article
+     submissions and newly registered writers.
 2. **Penalis → Tinjauan Karya** (`?page=penalis-review`, `Penalis_Editorial_Admin::render_page()`)
    - Filter tabs by editorial state (`Menunggu tinjauan`, `Perlu revisi`,
      `Ditolak`, `Terbit`) and a 2-column detail review workspace with the
@@ -248,11 +241,12 @@ All administrator curation surfaces live under a single top-level menu,
      accessible confirmation modal, link to the native WordPress editor for
      pre-publication corrections, and a vertical review history timeline.
 3. **Penalis → Penulis Penalis** (`?page=penalis-writers`, `Penalis_Admin::render_page()`)
-   - Account curation table with status tabs, search toolbar, collapsible audit
-     history, confirmation modals for all account actions (`Setujui`, `Tolak`,
-     `Tangguhkan`, `Aktifkan kembali`, `Buka kembali`, `Kirim ulang verifikasi`,
-     `Kirim tautan aktivasi`, `Aktifkan langsung`), and the site-wide default
-     profile photo setting.
+   - Account management table with status tabs (`Semua yang dikelola`, `Aktif`,
+     `Menunggu verifikasi`, `Ditangguhkan`, `Akun lama`), search toolbar,
+     Instagram handle column (`@username`), collapsible audit history,
+     confirmation modals for all account actions (`Tangguhkan`,
+     `Aktifkan kembali`, `Kirim ulang verifikasi`, `Kirim tautan aktivasi`,
+     `Aktifkan langsung`), and the site-wide default profile photo setting.
 
 ---
 
@@ -279,6 +273,7 @@ No custom database tables are created.
 | `_penalis_email_change_token_created` | Creation timestamp for pending email change |
 | `_penalis_email_change_new_email` | Candidate email address awaiting confirmation |
 | `_penalis_display_name_mode` | Public name mode (`auto`, `first`, `last`, `username`, `custom`) |
+| `_penalis_instagram` | Normalized optional Instagram handle (without leading `@`, max 30 chars) for internal admin use |
 | `_penalis_author_history` | Historical author slugs for 301 redirects |
 | `_penalis_author_history_reserved` | Indexed reservation rows preventing slug reuse |
 | `_penalis_needs_password` | Flag (`1`) for admin-vouched legacy accounts without a password |
@@ -310,7 +305,6 @@ No custom database tables are created.
 | `penalis_dashboard_page_created_by_plugin` | Option | Guard ensuring uninstall only removes a plugin-created page |
 | `penalis_remove_data_on_uninstall` | Option | Opt-in flag (`1`/`0`) for destructive uninstall |
 | `avatar_default_wp_user_avatar` | Option | Default profile photo attachment ID (shared with One User Avatar) |
-| `penalis_pending_approval_count` | Transient | Cached count of `pending_approval` writer accounts |
 | `penalis_pending_review_count` | Transient | Cached count of `pending_review` article submissions |
 | `penalis_activation_notice` | Transient | Short-lived post-activation admin notice flag |
 | `penalis_rl_<md5>` | Transient | Rate-limiter bucket counters |

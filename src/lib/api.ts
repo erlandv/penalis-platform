@@ -132,6 +132,7 @@ export const accountApi = {
     display_name_mode?: DisplayNameMode;
     display_name?: string;
     description?: string;
+    instagram?: string;
   }) => request<Account>('/account/profile', { method: 'POST', body: payload }),
 
   changePassword: (payload: { current_password: string; new_password: string }) =>
@@ -172,6 +173,7 @@ export const registrationApi = {
     user_login: string;
     user_email: string;
     password: string;
+    instagram?: string;
     penalis_consent: string;
     penalis_website: string;
   }) => request<{ message: string; email_sent: boolean }>('/registration', { method: 'POST', body: payload }),

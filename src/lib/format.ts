@@ -35,7 +35,6 @@ export function statusLabel(status: string): string {
     future: 'Terjadwal',
     private: 'Privat',
     pending_verification: 'Menunggu Verifikasi Email',
-    pending_approval: 'Menunggu Persetujuan',
     active: 'Aktif',
     rejected: 'Ditolak',
     suspended: 'Ditangguhkan',
@@ -73,7 +72,6 @@ export function statusTone(status: string): 'success' | 'warning' | 'danger' | '
     case 'request_changes':
     case 'reopen':
     case 'pending_verification':
-    case 'pending_approval':
     case 'future':
       return 'warning';
     case 'rejected':

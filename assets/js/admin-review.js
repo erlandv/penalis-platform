@@ -20,7 +20,7 @@
 		},
 		request_changes: {
 			badge: 'Minta Revisi',
-			badgeClass: 'penalis-badge penalis-badge--pending_approval',
+			badgeClass: 'penalis-badge penalis-badge--changes_requested',
 			title: 'Minta revisi kepada penulis?',
 			description: 'Karya tulis akan dikembalikan ke penulis dengan status Perlu revisi beserta catatan perbaikan di bawah ini.',
 			confirmLabel: 'Ya, Minta Revisi',
@@ -53,27 +53,11 @@
 	};
 
 	var WRITER_ACTION_CONFIG = {
-		approve: {
-			badge: 'Setujui Penulis',
-			badgeClass: 'penalis-badge penalis-badge--active',
-			title: 'Setujui pendaftaran penulis ini?',
-			description: 'Akun akan diaktifkan sebagai Penulis Penalis, diberikan akses ke dasbor, dan dikirimi email pemberitahuan persetujuan.',
-			confirmLabel: 'Ya, Setujui Penulis',
-			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
-		},
-		reject: {
-			badge: 'Tolak Pendaftaran',
-			badgeClass: 'penalis-badge penalis-badge--rejected',
-			title: 'Tolak pendaftaran akun ini?',
-			description: 'Status akun akan diubah menjadi Ditolak, sesi aktif dihentikan, dan akses dasbor ditutup.',
-			confirmLabel: 'Ya, Tolak Akun',
-			confirmClass: 'button penalis-confirm-modal__btn-reject'
-		},
 		suspend: {
 			badge: 'Tangguhkan Akun',
 			badgeClass: 'penalis-badge penalis-badge--suspended',
 			title: 'Tangguhkan akun penulis ini?',
-			description: 'Peran penulis dan akses dasbor akan dicabut serta seluruh sesi login dihentikan. Karya tulis yang sudah terbit tetap tayang.',
+			description: 'Peran penulis dan akses dasbor akan dicabut serta seluruh sesi login dihentikan. Jika akun masih menunggu verifikasi, tautan verifikasi akan dibatalkan. Karya tulis yang sudah terbit tetap tayang.',
 			confirmLabel: 'Ya, Tangguhkan Akun',
 			confirmClass: 'button penalis-confirm-modal__btn-reject'
 		},
@@ -83,14 +67,6 @@
 			title: 'Aktifkan kembali akun penulis ini?',
 			description: 'Peran Penulis Penalis dan akses ke dasbor akan dipulihkan kembali untuk akun ini.',
 			confirmLabel: 'Ya, Aktifkan Kembali',
-			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
-		},
-		reopen: {
-			badge: 'Buka Kembali',
-			badgeClass: 'penalis-badge penalis-badge--pending_approval',
-			title: 'Buka kembali pendaftaran akun ini?',
-			description: 'Status akun akan dikembalikan menjadi Menunggu persetujuan admin sehingga dapat ditinjau ulang.',
-			confirmLabel: 'Ya, Buka Kembali',
 			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
 		},
 		resend_verification: {
@@ -110,12 +86,12 @@
 			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
 		},
 		legacy_vouch: {
-			badge: 'Konversi Langsung',
-			badgeClass: 'penalis-badge penalis-badge--rejected',
+			badge: 'Aktivasi Langsung',
+			badgeClass: 'penalis-badge penalis-badge--active',
 			title: 'Aktifkan langsung akun penulis lama ini?',
-			description: 'Verifikasi email akan dilewati, status akun diubah ke Menunggu persetujuan admin, dan tautan atur kata sandi dikirim ke email pemilik akun.',
+			description: 'Verifikasi email akan dilewati, akun langsung diaktifkan sebagai Penulis Penalis, dan tautan atur kata sandi dikirim ke email pemilik akun.',
 			confirmLabel: 'Ya, Aktifkan Langsung',
-			confirmClass: 'button penalis-confirm-modal__btn-reject'
+			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
 		}
 	};
 

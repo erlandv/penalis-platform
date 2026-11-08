@@ -282,8 +282,7 @@ export function Overview({
 
         {!account.canWrite ? (
           <p className="penalis-muted">
-            Kamu dapat mengelola karya tulismu setelah email kamu dikonfirmasi
-            dan mengajuan akunmu disetujui admin.
+            Kamu dapat menulis dan mengajukan karya tulismu setelah alamat email kamu dikonfirmasi.
           </p>
         ) : loading ? (
           <Spinner label="Memuat karya tulismu…" />

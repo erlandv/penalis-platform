@@ -27,7 +27,6 @@ final class Penalis_Admin {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 10 );
 		add_action( 'admin_menu', array( __CLASS__, 'register_writers_submenu' ), 12 );
 		add_action( 'admin_post_penalis_account_action', array( __CLASS__, 'handle_account_action' ) );
-		add_action( 'admin_notices', array( __CLASS__, 'admin_notices' ) );
 		add_filter( 'manage_users_columns', array( __CLASS__, 'add_status_column' ) );
 		add_filter( 'manage_users_custom_column', array( __CLASS__, 'render_status_column' ), 10, 3 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_styles' ) );
@@ -41,16 +40,14 @@ final class Penalis_Admin {
 	 * @return void
 	 */
 	public static function register_menu() {
-		$pending_writers = self::pending_approval_count();
 		$pending_reviews = class_exists( 'Penalis_Editorial_Admin' ) ? Penalis_Editorial_Admin::pending_review_count() : 0;
-		$total_pending   = $pending_writers + $pending_reviews;
 
 		$menu_title = 'Penalis';
-		if ( $total_pending > 0 ) {
+		if ( $pending_reviews > 0 ) {
 			$menu_title .= sprintf(
 				' <span class="awaiting-mod update-plugins count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
-				$total_pending,
-				number_format_i18n( $total_pending )
+				$pending_reviews,
+				number_format_i18n( $pending_reviews )
 			);
 		}
 
@@ -85,21 +82,10 @@ final class Penalis_Admin {
 	 * @return void
 	 */
 	public static function register_writers_submenu() {
-		$pending    = self::pending_approval_count();
-		$menu_title = 'Penulis Penalis';
-
-		if ( $pending > 0 ) {
-			$menu_title .= sprintf(
-				' <span class="awaiting-mod update-plugins count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
-				$pending,
-				number_format_i18n( $pending )
-			);
-		}
-
 		add_submenu_page(
 			self::MENU_SLUG,
 			'Penulis Penalis — Penalis Platform',
-			$menu_title,
+			'Penulis Penalis',
 			'list_users',
 			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
@@ -288,16 +274,16 @@ JS;
 		$user_counts    = self::status_counts();
 		$article_counts = class_exists( 'Penalis_Editorial_Admin' ) ? Penalis_Editorial_Admin::state_counts() : array();
 		$pending_posts  = class_exists( 'Penalis_Editorial_Admin' ) ? Penalis_Editorial_Admin::recent_pending_submissions( 5 ) : array();
-		$pending_users  = self::recent_pending_writers( 5 );
+		$recent_users   = self::recent_registered_writers( 5 );
 
 		$pending_review_count    = isset( $article_counts[ Penalis_Editorial_Policy::STATE_PENDING_REVIEW ] ) ? (int) $article_counts[ Penalis_Editorial_Policy::STATE_PENDING_REVIEW ] : 0;
 		$changes_requested_count = isset( $article_counts[ Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ] ) ? (int) $article_counts[ Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ] : 0;
 		$rejected_article_count  = isset( $article_counts[ Penalis_Editorial_Policy::STATE_REJECTED ] ) ? (int) $article_counts[ Penalis_Editorial_Policy::STATE_REJECTED ] : 0;
 		$published_article_count = isset( $article_counts[ Penalis_Editorial_Policy::STATE_PUBLISHED ] ) ? (int) $article_counts[ Penalis_Editorial_Policy::STATE_PUBLISHED ] : 0;
 
-		$pending_approval_count     = isset( $user_counts[ Penalis_Policy::STATUS_PENDING_APPROVAL ] ) ? (int) $user_counts[ Penalis_Policy::STATUS_PENDING_APPROVAL ] : 0;
-		$pending_verification_count = isset( $user_counts[ Penalis_Policy::STATUS_PENDING_VERIFICATION ] ) ? (int) $user_counts[ Penalis_Policy::STATUS_PENDING_VERIFICATION ] : 0;
 		$active_writer_count        = isset( $user_counts[ Penalis_Policy::STATUS_ACTIVE ] ) ? (int) $user_counts[ Penalis_Policy::STATUS_ACTIVE ] : 0;
+		$pending_verification_count = isset( $user_counts[ Penalis_Policy::STATUS_PENDING_VERIFICATION ] ) ? (int) $user_counts[ Penalis_Policy::STATUS_PENDING_VERIFICATION ] : 0;
+		$suspended_writer_count     = isset( $user_counts[ Penalis_Policy::STATUS_SUSPENDED ] ) ? (int) $user_counts[ Penalis_Policy::STATUS_SUSPENDED ] : 0;
 		$legacy_writer_count        = isset( $user_counts['legacy'] ) ? (int) $user_counts['legacy'] : 0;
 		?>
 		<div class="wrap penalis-overview">
@@ -309,7 +295,7 @@ JS;
 
 			<p class="penalis-intro">
 				Pusat kurasi komunitas Penalis. Pantau antrean karya tulis yang menunggu tinjauan dan
-				pendaftaran akun penulis di satu tempat.
+				kelola akun penulis komunitas di satu tempat.
 			</p>
 
 			<div class="penalis-overview__section">
@@ -357,12 +343,12 @@ JS;
 				<h2 class="penalis-overview__section-title">Status Akun Penulis</h2>
 				<div class="penalis-overview__stats">
 					<a
-						href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_APPROVAL ) ) ); ?>"
-						class="penalis-overview__stat <?php echo $pending_approval_count > 0 ? 'penalis-overview__stat--attention' : ''; ?>"
+						href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_ACTIVE ) ) ); ?>"
+						class="penalis-overview__stat"
 					>
-						<span class="penalis-overview__stat-label">Menunggu persetujuan</span>
-						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $pending_approval_count ) ); ?></span>
-						<span class="penalis-overview__stat-hint">Tinjau pendaftar &rarr;</span>
+						<span class="penalis-overview__stat-label">Penulis aktif</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $active_writer_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Kelola penulis &rarr;</span>
 					</a>
 
 					<a
@@ -375,12 +361,12 @@ JS;
 					</a>
 
 					<a
-						href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_ACTIVE ) ) ); ?>"
+						href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_SUSPENDED ) ) ); ?>"
 						class="penalis-overview__stat"
 					>
-						<span class="penalis-overview__stat-label">Penulis aktif</span>
-						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $active_writer_count ) ); ?></span>
-						<span class="penalis-overview__stat-hint">Kelola penulis &rarr;</span>
+						<span class="penalis-overview__stat-label">Akun ditangguhkan</span>
+						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $suspended_writer_count ) ); ?></span>
+						<span class="penalis-overview__stat-hint">Lihat akun &rarr;</span>
 					</a>
 
 					<a
@@ -442,28 +428,30 @@ JS;
 
 				<div class="penalis-overview__card">
 					<div class="penalis-overview__card-header">
-						<h2>Pendaftar Menunggu Persetujuan</h2>
-						<a class="penalis-overview__card-link" href="<?php echo esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_APPROVAL ) ) ); ?>">
+						<h2>Penulis Terdaftar Terbaru</h2>
+						<a class="penalis-overview__card-link" href="<?php echo esc_url( self::writers_url() ); ?>">
 							Kelola semua penulis &rarr;
 						</a>
 					</div>
-					<?php if ( empty( $pending_users ) ) : ?>
-						<p class="penalis-overview__empty">Tidak ada pendaftar penulis yang menunggu persetujuan saat ini.</p>
+					<?php if ( empty( $recent_users ) ) : ?>
+						<p class="penalis-overview__empty">Belum ada penulis terdaftar yang dikelola.</p>
 					<?php else : ?>
 						<ul class="penalis-overview__list">
-							<?php foreach ( $pending_users as $user ) : ?>
+							<?php foreach ( $recent_users as $user ) : ?>
 								<?php
-								$review_user_url = self::writers_url(
+								$user_id         = (int) $user->ID;
+								$user_status     = Penalis_Account_Status::get_status( $user_id );
+								$instagram       = Penalis_Account_Status::get_instagram( $user_id );
+								$manage_user_url = self::writers_url(
 									array(
-										'status' => Penalis_Policy::STATUS_PENDING_APPROVAL,
-										's'      => $user->user_login,
+										's' => $user->user_login,
 									)
 								);
 								?>
 								<li class="penalis-overview__item">
 									<div class="penalis-overview__user">
 										<?php
-										$avatar = function_exists( 'get_avatar' ) ? get_avatar( (int) $user->ID, 34, '', '', array( 'class' => 'penalis-overview__avatar' ) ) : '';
+										$avatar = function_exists( 'get_avatar' ) ? get_avatar( $user_id, 34, '', '', array( 'class' => 'penalis-overview__avatar' ) ) : '';
 										if ( $avatar ) {
 											echo wp_kses_post( $avatar );
 										} else {
@@ -471,26 +459,28 @@ JS;
 										}
 										?>
 										<div class="penalis-overview__item-main">
-											<a class="penalis-overview__item-title" href="<?php echo esc_url( $review_user_url ); ?>">
+											<a class="penalis-overview__item-title" href="<?php echo esc_url( $manage_user_url ); ?>">
 												<?php echo esc_html( $user->display_name ); ?>
 											</a>
 											<span class="penalis-overview__item-meta">
 												<?php
-												echo esc_html(
-													sprintf(
-														'%1$s · %2$s · %3$s',
-														$user->user_login,
-														$user->user_email,
-														mysql2date( get_option( 'date_format' ), $user->user_registered )
-													)
+												$meta_parts = array(
+													$user->user_login,
+													$user->user_email,
 												);
+												if ( '' !== $instagram ) {
+													$meta_parts[] = '@' . $instagram;
+												}
+												$meta_parts[] = mysql2date( get_option( 'date_format' ), $user->user_registered );
+												echo esc_html( implode( ' · ', $meta_parts ) );
 												?>
 											</span>
 										</div>
 									</div>
-									<a class="button button-small button-primary" href="<?php echo esc_url( $review_user_url ); ?>">
-										Tinjau
-									</a>
+									<span class="penalis-status penalis-status--<?php echo esc_attr( '' === $user_status ? 'legacy' : $user_status ); ?>">
+										<span class="penalis-status__dot" aria-hidden="true"></span>
+										<?php echo esc_html( '' === $user_status ? 'Akun lama' : Penalis_Policy::status_label( $user_status ) ); ?>
+									</span>
 								</li>
 							<?php endforeach; ?>
 						</ul>
@@ -612,10 +602,8 @@ JS;
 
 		$tabs = array(
 			''                                          => 'Semua yang dikelola',
-			Penalis_Policy::STATUS_PENDING_APPROVAL     => 'Menunggu persetujuan',
-			Penalis_Policy::STATUS_PENDING_VERIFICATION => 'Menunggu verifikasi',
 			Penalis_Policy::STATUS_ACTIVE               => 'Aktif',
-			Penalis_Policy::STATUS_REJECTED             => 'Ditolak',
+			Penalis_Policy::STATUS_PENDING_VERIFICATION => 'Menunggu verifikasi',
 			Penalis_Policy::STATUS_SUSPENDED            => 'Ditangguhkan',
 			'legacy'                                    => 'Akun lama (belum diaktifkan)',
 		);
@@ -637,9 +625,10 @@ JS;
 			<?php endif; ?>
 
 			<p class="penalis-intro">
-				Tinjau pendaftaran penulis di sini. Menyetujui akun akan mengaktifkan akses dasbor dan
-				peran penulis; menolak atau menangguhkan akan mencabutnya. Setiap perubahan tercatat
-				pada riwayat akun.
+				Kelola akun penulis komunitas Penalis di sini. Pendaftar yang telah memverifikasi alamat
+				email otomatis menjadi penulis aktif; kamu dapat mengirim ulang email verifikasi,
+				mengaktifkan akun kontributor lama, atau menangguhkan akun jika ditemukan pelanggaran
+				atau indikasi spam.
 			</p>
 
 			<ul class="subsubsub">
@@ -692,6 +681,7 @@ JS;
 						<tr>
 							<th scope="col" class="penalis-col-writer">Penulis</th>
 							<th scope="col" class="penalis-col-email">Email</th>
+							<th scope="col" class="penalis-col-instagram">Instagram</th>
 							<th scope="col" class="penalis-col-status">Status</th>
 							<th scope="col" class="penalis-col-date">Terdaftar</th>
 							<th scope="col" class="penalis-col-actions">Tindakan</th>
@@ -700,7 +690,7 @@ JS;
 					<tbody>
 					<?php if ( empty( $users ) ) : ?>
 						<tr>
-							<td colspan="5">
+							<td colspan="6">
 								<div class="penalis-empty__inner">
 									<p class="penalis-empty__title">
 										<?php echo '' !== $search ? 'Tidak ada akun yang cocok' : 'Belum ada akun di tampilan ini'; ?>
@@ -723,11 +713,9 @@ JS;
 							$user_id        = (int) $user->ID;
 							$user_status    = Penalis_Account_Status::get_status( $user_id );
 							$access         = Penalis_Account_Status::is_access_enabled( $user_id );
-							$can_approve    = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_ACTIVE );
-							$can_reject     = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_REJECTED );
+							$instagram      = Penalis_Account_Status::get_instagram( $user_id );
 							$can_suspend    = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_SUSPENDED );
 							$can_reactivate = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_ACTIVE );
-							$can_reopen     = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_PENDING_APPROVAL );
 							$needs_password = Penalis_Account_Status::needs_password( $user_id );
 							$mail_failed    = Penalis_Account_Status::has_recent_email_failure( $user_id );
 							$is_protected   = user_can( $user, 'manage_options' );
@@ -753,6 +741,20 @@ JS;
 								</td>
 								<td>
 									<a href="<?php echo esc_url( 'mailto:' . $user->user_email ); ?>"><?php echo esc_html( $user->user_email ); ?></a>
+								</td>
+								<td>
+									<?php if ( '' !== $instagram ) : ?>
+										<a
+											class="penalis-writer__instagram"
+											href="<?php echo esc_url( 'https://www.instagram.com/' . rawurlencode( $instagram ) . '/' ); ?>"
+											target="_blank"
+											rel="noopener noreferrer"
+										>
+											@<?php echo esc_html( $instagram ); ?>
+										</a>
+									<?php else : ?>
+										<span class="penalis-muted">&mdash;</span>
+									<?php endif; ?>
 								</td>
 								<td>
 									<span class="penalis-status penalis-status--<?php echo esc_attr( '' === $user_status ? 'legacy' : $user_status ); ?>">
@@ -784,27 +786,15 @@ JS;
 										<div class="penalis-actions">
 											<?php if ( $is_legacy_view ) : ?>
 												<?php self::action_button( $user_id, 'legacy_send_activation', 'Kirim tautan aktivasi' ); ?>
-												<?php self::action_button( $user_id, 'legacy_vouch', 'Aktifkan langsung', true ); ?>
+												<?php self::action_button( $user_id, 'legacy_vouch', 'Aktifkan langsung', false, true ); ?>
 											<?php endif; ?>
 
 											<?php if ( Penalis_Policy::STATUS_PENDING_VERIFICATION === $user_status ) : ?>
 												<?php self::action_button( $user_id, 'resend_verification', 'Kirim ulang verifikasi' ); ?>
 											<?php endif; ?>
 
-											<?php if ( $can_approve && Penalis_Policy::STATUS_PENDING_APPROVAL === $user_status ) : ?>
-												<?php self::action_button( $user_id, 'approve', 'Setujui', false, true ); ?>
-											<?php endif; ?>
-
 											<?php if ( $can_reactivate && Penalis_Policy::STATUS_SUSPENDED === $user_status ) : ?>
 												<?php self::action_button( $user_id, 'reactivate', 'Aktifkan kembali', false, true ); ?>
-											<?php endif; ?>
-
-											<?php if ( $can_reopen && Penalis_Policy::STATUS_REJECTED === $user_status ) : ?>
-												<?php self::action_button( $user_id, 'reopen', 'Buka kembali' ); ?>
-											<?php endif; ?>
-
-											<?php if ( $can_reject ) : ?>
-												<?php self::action_button( $user_id, 'reject', 'Tolak', true ); ?>
 											<?php endif; ?>
 
 											<?php if ( $can_suspend ) : ?>
@@ -814,8 +804,8 @@ JS;
 
 										<?php if ( $is_legacy_view ) : ?>
 											<p class="penalis-hint">
-												Akun lama belum punya kata sandi. "Aktifkan langsung" melewati
-												verifikasi email, tetapi tetap perlu persetujuan.
+												Akun lama belum punya kata sandi. &ldquo;Aktifkan langsung&rdquo; melewati
+												verifikasi email, mengaktifkan akun penulis, dan mengirim tautan atur kata sandi.
 											</p>
 										<?php endif; ?>
 
@@ -984,8 +974,8 @@ JS;
 	/**
 	 * Short status label for the audit log.
 	 *
-	 * The full labels are written for writers ("Menunggu persetujuan admin");
-	 * the log needs something that fits on one line.
+	 * The full labels are written for writers; the log needs something that fits
+	 * on one line.
 	 *
 	 * @param string $status Status value.
 	 * @return string
@@ -994,9 +984,7 @@ JS;
 		$labels = array(
 			''                                          => 'Baru',
 			Penalis_Policy::STATUS_PENDING_VERIFICATION => 'Menunggu verifikasi',
-			Penalis_Policy::STATUS_PENDING_APPROVAL     => 'Menunggu persetujuan',
 			Penalis_Policy::STATUS_ACTIVE               => 'Aktif',
-			Penalis_Policy::STATUS_REJECTED             => 'Ditolak',
 			Penalis_Policy::STATUS_SUSPENDED            => 'Ditangguhkan',
 		);
 
@@ -1015,12 +1003,9 @@ JS;
 			'email_verified'        => 'Email diverifikasi',
 			'legacy_self_activated' => 'Aktivasi mandiri akun lama',
 			'legacy_converted'      => 'Konversi akun lama',
-			'admin_approved'        => 'Disetujui admin',
-			'admin_reactivated'     => 'Diaktifkan kembali admin',
-			'admin_rejected'        => 'Ditolak admin',
-			'admin_reopened'        => 'Dibuka kembali admin',
-			'admin_suspended'       => 'Ditangguhkan admin',
 			'admin_vouched'         => 'Diaktifkan langsung admin',
+			'admin_reactivated'     => 'Diaktifkan kembali admin',
+			'admin_suspended'       => 'Ditangguhkan admin',
 		);
 
 		return isset( $labels[ $reason ] ) ? $labels[ $reason ] : ( '' === $reason ? 'Tanpa keterangan' : $reason );
@@ -1091,11 +1076,8 @@ JS;
 		}
 
 		$allowed_actions = array(
-			'approve',
-			'reject',
 			'suspend',
 			'reactivate',
-			'reopen',
 			'resend_verification',
 			'legacy_send_activation',
 			'legacy_vouch',
@@ -1109,7 +1091,7 @@ JS;
 			self::redirect( 'invalid_user' );
 		}
 
-		// Never allow an administrator to be suspended or rejected here.
+		// Never allow an administrator to be suspended here.
 		if ( user_can( $user, 'manage_options' ) ) {
 			self::redirect( 'protected_account' );
 		}
@@ -1117,20 +1099,8 @@ JS;
 		$actor = get_current_user_id();
 
 		switch ( $action ) {
-			case 'approve':
-				$result = Penalis_Account_Status::transition( $user_id, Penalis_Policy::STATUS_ACTIVE, 'admin_approved', $actor );
-				break;
-
 			case 'reactivate':
 				$result = Penalis_Account_Status::transition( $user_id, Penalis_Policy::STATUS_ACTIVE, 'admin_reactivated', $actor );
-				break;
-
-			case 'reject':
-				$result = Penalis_Account_Status::transition( $user_id, Penalis_Policy::STATUS_REJECTED, 'admin_rejected', $actor );
-				break;
-
-			case 'reopen':
-				$result = Penalis_Account_Status::transition( $user_id, Penalis_Policy::STATUS_PENDING_APPROVAL, 'admin_reopened', $actor );
 				break;
 
 			case 'suspend':
@@ -1148,7 +1118,7 @@ JS;
 			case 'legacy_vouch':
 				$result = Penalis_Account_Status::convert_legacy(
 					$user_id,
-					Penalis_Policy::STATUS_PENDING_APPROVAL,
+					Penalis_Policy::STATUS_ACTIVE,
 					'admin_vouched',
 					$actor,
 					true
@@ -1174,7 +1144,7 @@ JS;
 
 		$new_status = Penalis_Account_Status::get_status( $user_id );
 
-		if ( in_array( $action, array( 'approve', 'reactivate', 'reject', 'suspend' ), true ) ) {
+		if ( in_array( $action, array( 'reactivate', 'suspend' ), true ) ) {
 			Penalis_Emails::send_status_notification( $user_id, $new_status );
 		}
 
@@ -1278,45 +1248,6 @@ JS;
 	}
 
 	/**
-	 * Show a notice when writer applications are waiting.
-	 *
-	 * @return void
-	 */
-	public static function admin_notices() {
-		if ( ! current_user_can( 'list_users' ) ) {
-			return;
-		}
-
-		$screen  = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-		$allowed = array(
-			'dashboard',
-			'users',
-		);
-
-		if ( ! $screen || ! in_array( $screen->id, $allowed, true ) ) {
-			return;
-		}
-
-		$count = self::pending_approval_count();
-
-		if ( $count <= 0 ) {
-			return;
-		}
-
-		printf(
-			'<div class="notice notice-info"><p>%s <a href="%s">%s</a></p></div>',
-			esc_html(
-				sprintf(
-					'%d pendaftaran penulis menunggu tinjauan.',
-					$count
-				)
-			),
-			esc_url( self::writers_url( array( 'status' => Penalis_Policy::STATUS_PENDING_APPROVAL ) ) ),
-			'Tinjau pendaftaran'
-		);
-	}
-
-	/**
 	 * URL of the unified Penalis Platform overview page.
 	 *
 	 * @return string
@@ -1349,36 +1280,24 @@ JS;
 	}
 
 	/**
-	 * Cached count of writer accounts awaiting administrator approval.
-	 *
-	 * @return int
-	 */
-	public static function pending_approval_count() {
-		$count = get_transient( 'penalis_pending_approval_count' );
-
-		if ( false === $count ) {
-			$count = Penalis_Account_Status::count_by_status( Penalis_Policy::STATUS_PENDING_APPROVAL );
-			set_transient( 'penalis_pending_approval_count', (int) $count, 5 * MINUTE_IN_SECONDS );
-		}
-
-		return (int) $count;
-	}
-
-	/**
-	 * Recent writer accounts awaiting administrator approval.
+	 * Recent managed writer accounts ordered by registration date.
 	 *
 	 * @param int $limit Max items.
 	 * @return WP_User[]
 	 */
-	private static function recent_pending_writers( $limit = 5 ) {
+	private static function recent_registered_writers( $limit = 5 ) {
 		$query = new WP_User_Query(
 			array(
 				'number'     => max( 1, (int) $limit ),
 				'fields'     => 'all',
 				'orderby'    => 'registered',
 				'order'      => 'DESC',
-				'meta_key'   => Penalis_Account_Status::META_STATUS, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
-				'meta_value' => Penalis_Policy::STATUS_PENDING_APPROVAL, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'meta_query' => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					array(
+						'key'     => Penalis_Account_Status::META_STATUS,
+						'compare' => 'EXISTS',
+					),
+				),
 			)
 		);
 

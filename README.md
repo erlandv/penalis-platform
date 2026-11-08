@@ -14,13 +14,15 @@ authentication store.
 
 ## Key Features
 
-- **Curated Writer Account Workflow** — Self-service registration, scanner-safe
-  single-use email verification, administrator approval/rejection/suspension,
-  and a dedicated `penalis_writer` role with a bounded audit trail.
+- **Self-Service Writer Account Workflow** — Self-service registration,
+  scanner-safe single-use email verification that immediately activates the
+  `penalis_writer` role, optional Instagram username collection for internal
+  admin curation, administrator suspension/reactivation controls, and a bounded
+  audit trail.
 - **Legacy Contributor Activation** — Pre-plugin `contributor` accounts (created
-  without passwords) can be activated via self-service email verification or
-  administrator vouching while preserving existing user IDs, authored posts, and
-  author archive URLs.
+  without passwords) can be activated immediately via self-service email
+  verification or administrator vouching while preserving existing user IDs,
+  authored posts, and author archive URLs.
 - **Editorial Submission & Review Pipeline** — Writers compose drafts and submit
   them for review (`Ajukan Tinjauan` / `Ajukan Ulang`). Only an administrator
   approval action can publish a submission, and published articles remain

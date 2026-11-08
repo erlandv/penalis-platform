@@ -19,9 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Penalis_Policy {
 
 	public const STATUS_PENDING_VERIFICATION = 'pending_verification';
-	public const STATUS_PENDING_APPROVAL     = 'pending_approval';
 	public const STATUS_ACTIVE               = 'active';
-	public const STATUS_REJECTED             = 'rejected';
 	public const STATUS_SUSPENDED            = 'suspended';
 
 	public const TOKEN_TTL         = 86400;
@@ -32,6 +30,7 @@ final class Penalis_Policy {
 	public const MIN_DISPLAY_NAME = 2;
 	public const MAX_DISPLAY_NAME = 80;
 	public const MAX_PERSON_NAME  = 50;
+	public const MAX_INSTAGRAM    = 30;
 	public const AVATAR_MIN_EDGE  = 100;
 
 	/**
@@ -129,9 +128,7 @@ final class Penalis_Policy {
 	public static function statuses() {
 		return array(
 			self::STATUS_PENDING_VERIFICATION,
-			self::STATUS_PENDING_APPROVAL,
 			self::STATUS_ACTIVE,
-			self::STATUS_REJECTED,
 			self::STATUS_SUSPENDED,
 		);
 	}
@@ -155,9 +152,7 @@ final class Penalis_Policy {
 	public static function status_label( $status ) {
 		$labels = array(
 			self::STATUS_PENDING_VERIFICATION => 'Menunggu verifikasi email',
-			self::STATUS_PENDING_APPROVAL     => 'Menunggu persetujuan admin',
 			self::STATUS_ACTIVE               => 'Penulis aktif',
-			self::STATUS_REJECTED             => 'Pendaftaran ditolak',
 			self::STATUS_SUSPENDED            => 'Akun ditangguhkan',
 		);
 
@@ -167,8 +162,8 @@ final class Penalis_Policy {
 	/**
 	 * Whether an account may sign in.
 	 *
-	 * Pending accounts may sign in to see their status. Active accounts must
-	 * also have explicit plugin access enabled. Rejected and suspended accounts
+	 * Pending verification accounts may sign in to see their status. Active
+	 * accounts must also have explicit plugin access enabled. Suspended accounts
 	 * may never sign in through the plugin gate.
 	 *
 	 * An empty status with explicit access enabled is the legacy escape hatch:
@@ -180,7 +175,7 @@ final class Penalis_Policy {
 	 * @return bool
 	 */
 	public static function can_login( $status, $access_enabled ) {
-		if ( self::STATUS_PENDING_VERIFICATION === $status || self::STATUS_PENDING_APPROVAL === $status ) {
+		if ( self::STATUS_PENDING_VERIFICATION === $status ) {
 			return true;
 		}
 
@@ -198,17 +193,17 @@ final class Penalis_Policy {
 	/**
 	 * Whether an account may reset its own password.
 	 *
-	 * Pending accounts may reset: the reset link proves control of the email
-	 * address, and the account still cannot write until it is approved.
-	 * Rejected and suspended accounts may not, so a reset cannot be used to
-	 * regain access that an administrator revoked.
+	 * Pending verification accounts may reset: the reset link proves control of
+	 * the email address, and the account still cannot write until email
+	 * verification is completed. Suspended accounts may not, so a reset cannot
+	 * be used to regain access that an administrator revoked.
 	 *
 	 * @param string $status         Account status.
 	 * @param bool   $access_enabled Explicit access flag.
 	 * @return bool
 	 */
 	public static function can_reset_password( $status, $access_enabled ) {
-		if ( self::STATUS_PENDING_VERIFICATION === $status || self::STATUS_PENDING_APPROVAL === $status ) {
+		if ( self::STATUS_PENDING_VERIFICATION === $status ) {
 			return true;
 		}
 
@@ -226,11 +221,8 @@ final class Penalis_Policy {
 	/**
 	 * Whether an account may request an email address change.
 	 *
-	 * This mirrors `can_reset_password()`: both are credential changes on an
-	 * account the visitor already controls, so they share one authorization
-	 * rule. `pending_approval` accounts may change their address (they can
-	 * already sign in and maintain their profile), `active` accounts need the
-	 * explicit access flag, and legacy accounts follow the same flag.
+	 * `active` accounts need the explicit access flag, and legacy accounts
+	 * follow the same flag.
 	 *
 	 * `pending_verification` is deliberately excluded. That account has not
 	 * proven control of the address on file yet, and the status machine has no
@@ -238,19 +230,14 @@ final class Penalis_Policy {
 	 * would have to advance the status, which an email change must never do.
 	 * Those accounts use the verification resend flow instead.
 	 *
-	 * `rejected` and `suspended` are denied for the same reason password reset
-	 * is denied: a credential change must not restore access an administrator
-	 * revoked.
+	 * `suspended` is denied for the same reason password reset is denied: a
+	 * credential change must not restore access an administrator revoked.
 	 *
 	 * @param string $status         Account status.
 	 * @param bool   $access_enabled Explicit access flag.
 	 * @return bool
 	 */
 	public static function can_change_email( $status, $access_enabled ) {
-		if ( self::STATUS_PENDING_APPROVAL === $status ) {
-			return true;
-		}
-
 		if ( self::STATUS_ACTIVE === $status ) {
 			return (bool) $access_enabled;
 		}
@@ -266,9 +253,8 @@ final class Penalis_Policy {
 	 * Whether an account may change its login.
 	 *
 	 * A login change is a credential change, so it shares the email-change
-	 * rule: `pending_approval` accounts may do it, `active` accounts need the
-	 * explicit access flag, and `rejected` or `suspended` accounts are denied
-	 * so a credential change cannot restore revoked access.
+	 * rule: `active` accounts need the explicit access flag, and `suspended`
+	 * accounts are denied so a credential change cannot restore revoked access.
 	 *
 	 * @param string $status         Account status.
 	 * @param bool   $access_enabled Explicit access flag.
@@ -300,7 +286,6 @@ final class Penalis_Policy {
 			$status,
 			array(
 				self::STATUS_PENDING_VERIFICATION,
-				self::STATUS_PENDING_APPROVAL,
 				self::STATUS_ACTIVE,
 			),
 			true
@@ -325,21 +310,14 @@ final class Penalis_Policy {
 
 		$allowed = array(
 			self::STATUS_PENDING_VERIFICATION => array(
-				self::STATUS_PENDING_APPROVAL,
-				self::STATUS_REJECTED,
-			),
-			self::STATUS_PENDING_APPROVAL     => array(
 				self::STATUS_ACTIVE,
-				self::STATUS_REJECTED,
+				self::STATUS_SUSPENDED,
 			),
 			self::STATUS_ACTIVE               => array(
 				self::STATUS_SUSPENDED,
 			),
 			self::STATUS_SUSPENDED            => array(
 				self::STATUS_ACTIVE,
-			),
-			self::STATUS_REJECTED             => array(
-				self::STATUS_PENDING_APPROVAL,
 			),
 		);
 
@@ -354,15 +332,13 @@ final class Penalis_Policy {
 	 * so they cannot sign in at all. Conversion is the only supported way to
 	 * bring one into the writer workflow.
 	 *
-	 * Only the two entry points are allowed:
+	 * Allowed entry points:
 	 *
 	 * - `pending_verification`: the account owner must prove control of the
-	 *   stored email address before an administrator reviews the application.
-	 * - `pending_approval`: an administrator vouched for the identity out of
-	 *   band, so the email step is skipped but approval is still required.
-	 *
-	 * Direct conversion to `active` is deliberately impossible: every legacy
-	 * account must pass through an administrator decision.
+	 *   stored email address before activation.
+	 * - `active`: either the owner confirmed the self-service activation link
+	 *   and chose a password, or an administrator directly activated the legacy
+	 *   account ("Aktifkan langsung").
 	 *
 	 * @param string $to Target status.
 	 * @return bool
@@ -372,7 +348,7 @@ final class Penalis_Policy {
 			$to,
 			array(
 				self::STATUS_PENDING_VERIFICATION,
-				self::STATUS_PENDING_APPROVAL,
+				self::STATUS_ACTIVE,
 			),
 			true
 		);
@@ -489,6 +465,13 @@ final class Penalis_Policy {
 			$errors['password'] = $pw_error;
 		}
 
+		if ( isset( $data['instagram'] ) && '' !== trim( (string) $data['instagram'] ) ) {
+			$ig_error = self::validate_instagram( (string) $data['instagram'] );
+			if ( '' !== $ig_error ) {
+				$errors['instagram'] = $ig_error;
+			}
+		}
+
 		if ( empty( $data['penalis_consent'] ) || '1' !== (string) $data['penalis_consent'] ) {
 			$errors['penalis_consent'] = 'Kamu harus menyetujui ketentuan untuk mendaftar.';
 		}
@@ -592,6 +575,52 @@ final class Penalis_Policy {
 	}
 
 	/**
+	 * Normalize an optional Instagram username or profile URL into a bare handle.
+	 *
+	 * @param string $value Raw value.
+	 * @return string Normalized handle without leading `@`, or empty string.
+	 */
+	public static function normalize_instagram( $value ) {
+		$value = trim( (string) $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		if ( preg_match( '#\A(?:https?://)?(?:www\.)?instagram\.com/([^/?\#]+)#i', $value, $matches ) ) {
+			$value = $matches[1];
+		}
+
+		$value = ltrim( trim( $value, " \t\n\r\0\x0B/" ), '@' );
+
+		return $value;
+	}
+
+	/**
+	 * Validate an optional Instagram username.
+	 *
+	 * @param string $value Raw value.
+	 * @return string Error message or empty string.
+	 */
+	public static function validate_instagram( $value ) {
+		$handle = self::normalize_instagram( $value );
+
+		if ( '' === $handle ) {
+			return '';
+		}
+
+		if (
+			self::length( $handle ) > self::MAX_INSTAGRAM ||
+			! preg_match( '/\A[A-Za-z0-9._]{1,30}\z/', $handle ) ||
+			! preg_match( '/[A-Za-z0-9]/', $handle )
+		) {
+			return 'Masukkan username Instagram yang valid (huruf, angka, titik, atau garis bawah, maksimal 30 karakter).';
+		}
+
+		return '';
+	}
+
+	/**
 	 * Validate safe profile fields.
 	 *
 	 * @param array $data Raw input.
@@ -650,6 +679,13 @@ final class Penalis_Policy {
 			$description = (string) $data['description'];
 			if ( self::length( $description ) > 500 ) {
 				$errors['description'] = 'Bio maksimal 500 karakter.';
+			}
+		}
+
+		if ( array_key_exists( 'instagram', $data ) ) {
+			$ig_error = self::validate_instagram( (string) $data['instagram'] );
+			if ( '' !== $ig_error ) {
+				$errors['instagram'] = $ig_error;
 			}
 		}
 

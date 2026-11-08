@@ -35,14 +35,12 @@ for an unpatched vulnerability.
   or tokens are stored in `localStorage` or `sessionStorage`.
 - **Login Gate (`Penalis_Access_Control::block_login` on `authenticate`):**
 
-| Account State | Allowed to Sign In? |Allowed to Write? |
+| Account State | Allowed to Sign In? | Allowed to Write? |
 | --- | --- | --- |
 | Administrator | Yes | Yes (unrestricted) |
 | `pending_verification` | Yes (status view only) | No |
-| `pending_approval` | Yes (status view only) | No |
 | `active` with `_penalis_access_enabled = 1` | Yes | Yes |
 | `active` with `_penalis_access_enabled = 0` | No | No |
-| `rejected` | No | No |
 | `suspended` | No | No |
 | Dormant legacy contributor (no status meta) | No | No |
 | Legacy contributor with explicit `_penalis_access_enabled = 1` | Yes (native WP login) | No |
@@ -51,16 +49,15 @@ for an unpatched vulnerability.
 Login failure messages are normalized to a single generic error so attackers
 cannot enumerate account existence or status.
 
-- **Immediate Session Destruction:** Transitioning an account to `rejected` or
-  `suspended`, resetting a password, or changing a username immediately destroys
-  all active `WP_Session_Tokens` for that user.
+- **Immediate Session Destruction:** Transitioning an account to `suspended`,
+  resetting a password, or changing a username immediately destroys all active
+  `WP_Session_Tokens` for that user.
 - **Password Reset Hardening:**
   - `POST /penalis/v1/password/forgot` accepts an **email address only**
     (`user_email`). Because usernames are public on `/author/<username>/`
     archives, usernames are never accepted as a reset handle.
-  - `allow_password_reset` is filtered so dormant legacy contributors,
-    `rejected` accounts, and `suspended` accounts cannot reset passwords to
-    regain access.
+  - `allow_password_reset` is filtered so dormant legacy contributors and
+    `suspended` accounts cannot reset passwords to regain access.
 
 ---
 

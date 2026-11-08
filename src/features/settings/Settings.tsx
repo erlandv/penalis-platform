@@ -249,7 +249,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
             <dd>{account.registeredAt ? formatDate(account.registeredAt) : '—'}</dd>
           </div>
           <div>
-            <dt>Disetujui</dt>
+            <dt>Diaktifkan</dt>
             <dd>{account.approvedAt ? formatDate(account.approvedAt) : '—'}</dd>
           </div>
         </dl>

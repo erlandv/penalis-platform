@@ -10,6 +10,7 @@ import { MediaSelection } from '../../components/MediaSelection';
 import { accountApi, ApiError, mediaApi } from '../../lib/api';
 import { displayNameOptions } from '../../lib/profile';
 import type { Account, DisplayNameMode, FieldErrors, MediaItem } from '../../lib/types';
+import { validateInstagram } from '../../lib/validation';
 import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../components/ui';
 
 export function Profile({
@@ -23,6 +24,7 @@ export function Profile({
   const [lastName, setLastName] = useState(account.lastName);
   const [mode, setMode] = useState<DisplayNameMode>(account.displayNameMode);
   const [customName, setCustomName] = useState(account.displayNameMode === 'custom' ? account.displayName : '');
+  const [instagram, setInstagram] = useState(account.instagram ?? '');
   const [description, setDescription] = useState(account.description);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [error, setError] = useState('');
@@ -53,6 +55,13 @@ export function Profile({
     setError('');
     setNotice('');
     setErrors({});
+
+    const instagramError = validateInstagram(instagram);
+    if (instagramError !== '') {
+      setErrors({ instagram: instagramError });
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -61,10 +70,12 @@ export function Profile({
         last_name: lastName.trim(),
         display_name_mode: selectedMode,
         ...(selectedMode === 'custom' ? { display_name: customName.trim() } : {}),
+        instagram: instagram.trim(),
         description,
       });
       onUpdated(updated);
       setCustomName(updated.displayNameMode === 'custom' ? updated.displayName : customName);
+      setInstagram(updated.instagram ?? '');
       setNotice('Profil kamu telah diperbarui.');
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -248,6 +259,22 @@ export function Profile({
             <FieldError errors={errors} name="display_name" />
           </label>
         ) : null}
+
+        <label className="penalis-field">
+          <span>Username Instagram (opsional)</span>
+          <input
+            type="text"
+            value={instagram}
+            onChange={(event) => setInstagram(event.target.value)}
+            maxLength={100}
+            placeholder="@username"
+            aria-invalid={Boolean(errors.instagram)}
+          />
+          <FieldHint id="instagram-hint">
+            Opsional, digunakan untuk keperluan internal admin Penalis (tidak ditampilkan di profil publik).
+          </FieldHint>
+          <FieldError errors={errors} name="instagram" />
+        </label>
 
         <label className="penalis-field">
           <span>Bio</span>

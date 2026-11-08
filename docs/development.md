@@ -126,15 +126,17 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
      `wp-admin` with submenus **Ringkasan**, **Tinjauan Karya**, and
      **Penulis Penalis**.
 2. **Registration & Email Verification**
-   - Register a new account from `/dashboard/?penalis_register=1`.
+   - Register a new account from `/dashboard/?penalis_register=1` (including an
+     optional **Username Instagram**).
    - Confirm that the account is created as `subscriber` with status
      `pending_verification` and cannot create articles via the UI or REST API.
    - Open the verification link, click the confirmation button, and verify the
-     account moves to `pending_approval`.
-3. **Administrator Account Curation**
-   - In **Penalis → Penulis Penalis**, click **Setujui** on the pending account,
-     confirm the modal dialog, and verify the account becomes `active` with the
-     `penalis_writer` role and receives the approval email.
+     account immediately becomes `active` with the `penalis_writer` role and
+     receives the active writer welcome email.
+3. **Administrator Account Management**
+   - In **Penalis → Penulis Penalis**, verify the writer's **Instagram** handle
+     is displayed and linked, and test the confirmation modal for account
+     actions (`Tangguhkan` and `Aktifkan kembali`).
 4. **Draft Creation & Editorial Submission**
    - Sign in as the approved writer, create a draft with title, content,
      category, tag, and featured image, and click **Simpan Draf**.

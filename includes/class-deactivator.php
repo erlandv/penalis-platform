@@ -24,7 +24,6 @@ final class Penalis_Deactivator {
 	 * @return void
 	 */
 	public static function deactivate() {
-		delete_transient( 'penalis_pending_approval_count' );
 		delete_transient( 'penalis_activation_notice' );
 
 		/**

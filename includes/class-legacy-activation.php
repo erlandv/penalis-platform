@@ -18,8 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  * Activation is the supported way in. It is deliberately modelled on password
  * reset, because it proves exactly the same thing: control of the stored email
- * address. It grants no access by itself — the account lands in
- * `pending_approval` and an administrator still has to approve it.
+ * address. Once confirmed, the account immediately becomes an `active` writer.
  *
  * Security properties:
  *
@@ -176,11 +175,11 @@ final class Penalis_Legacy_Activation {
 
 		// The owner has just chosen a password, so the account must not be
 		// flagged as needing one. The flag is passed explicitly because the
-		// conversion below targets pending_approval, which the administrator
-		// "vouch" path uses for accounts that still have no password.
+		// administrator "vouch" path also targets active for accounts that
+		// still have no password.
 		$result = Penalis_Account_Status::convert_legacy(
 			$user_id,
-			Penalis_Policy::STATUS_PENDING_APPROVAL,
+			Penalis_Policy::STATUS_ACTIVE,
 			'legacy_self_activated',
 			0,
 			false
@@ -190,15 +189,15 @@ final class Penalis_Legacy_Activation {
 			return $result;
 		}
 
-		// The conversion clears the token. Notify the administrator after the
-		// state is committed; a mail failure does not roll back activation.
-		Penalis_Emails::notify_admin_pending( $user_id );
+		// The conversion clears the token. Send active notice after the state
+		// is committed; a mail failure does not roll back activation.
+		Penalis_Emails::send_status_notification( $user_id, Penalis_Policy::STATUS_ACTIVE );
 
 		Penalis_Rate_Limiter::clear( 'legacy_activate_account', $user->user_email );
 
 		return array(
-			'status'  => Penalis_Policy::STATUS_PENDING_APPROVAL,
-			'message' => 'Akun kamu telah diaktifkan. Pendaftaran kamu kini menunggu persetujuan administrator.',
+			'status'  => Penalis_Policy::STATUS_ACTIVE,
+			'message' => 'Akun kamu telah diaktifkan. Kamu kini dapat masuk ke dasbor dan mulai menulis.',
 		);
 	}
 
