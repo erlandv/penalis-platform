@@ -88,14 +88,10 @@ final class Penalis_Registration {
 		if ( $existing_email || $existing_login || Penalis_Author_History::unavailable( $login ) ) {
 			self::handle_duplicate_attempt( $existing_email, $existing_login );
 
-			// Return the same response as a successful registration. This
+			// Return the same challenge shape as a successful registration. This
 			// prevents the endpoint from confirming whether an email address or
 			// username already exists.
-			return array(
-				'status'     => Penalis_Policy::STATUS_PENDING_VERIFICATION,
-				'email_sent' => true,
-				'message'    => 'Periksa email kamu untuk mendapatkan link verifikasi sebelum masuk.',
-			);
+			return Penalis_Otp::response();
 		}
 
 		$user_id = wp_insert_user(
@@ -126,20 +122,16 @@ final class Penalis_Registration {
 			Penalis_Account_Status::set_instagram( (int) $user_id, (string) $data['instagram'] );
 		}
 
-		$token = Penalis_Account_Status::issue_verification_token( (int) $user_id );
-		$sent  = false;
+		$challenge = Penalis_Otp::issue( 'registration', (int) $user_id, $email );
 
-		if ( ! is_wp_error( $token ) ) {
-			$sent = Penalis_Emails::send_verification( (int) $user_id, $token );
+		if ( is_wp_error( $challenge ) ) {
+			// The account exists but no code was delivered. Keep the public
+			// response generic; administrators see the recorded mail failure.
+			return Penalis_Otp::response();
 		}
 
-		return array(
-			'status'     => Penalis_Policy::STATUS_PENDING_VERIFICATION,
-			'email_sent' => (bool) $sent,
-			'message'    => $sent
-				? 'Periksa email kamu untuk mendapatkan link verifikasi sebelum masuk.'
-				: 'Akun kamu telah dibuat, tetapi email verifikasi tidak dapat dikirim. Silakan hubungi admin Penalis.',
-		);  }
+		return $challenge;
+	}
 
 	/**
 	 * Handle a registration attempt that matches an existing account.
@@ -174,10 +166,10 @@ final class Penalis_Registration {
 		set_transient( $throttle_key, '1', HOUR_IN_SECONDS );
 
 		if ( Penalis_Account_Status::is_legacy_account( $user_id ) ) {
-			$token = Penalis_Account_Status::issue_verification_token( $user_id );
+			$user = get_userdata( $user_id );
 
-			if ( ! is_wp_error( $token ) ) {
-				Penalis_Emails::send_legacy_activation( $user_id, $token );
+			if ( $user ) {
+				Penalis_Otp::issue( 'legacy', $user_id, $user->user_email );
 			}
 
 			return;
@@ -212,15 +204,16 @@ final class Penalis_Registration {
 	}
 
 	/**
-	 * Consume a verification token.
+	 * Consume a registration challenge.
 	 *
-	 * @param string $raw_token Raw token.
+	 * @param string $challenge_id Opaque challenge ID.
+	 * @param string $code         Six-digit code.
 	 * @return array|WP_Error
 	 */
-	public static function verify( $raw_token ) {
+	public static function verify( $challenge_id, $code ) {
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'verification_ip', 20, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::is_allowed( 'otp_verify_ip', 20, HOUR_IN_SECONDS, $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak percobaan verifikasi. Silakan coba lagi nanti.',
@@ -228,144 +221,57 @@ final class Penalis_Registration {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'verification_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::hit( 'otp_verify_ip', HOUR_IN_SECONDS, $ip );
 
-		if ( ! Penalis_Policy::is_token_format_valid( $raw_token ) ) {
-			return new WP_Error(
-				'penalis_invalid_token',
-				'Link verifikasi ini tidak valid atau sudah kedaluwarsa.',
-				array( 'status' => 400 )
-			);
-		}
+		return Penalis_Otp::consume(
+			'registration',
+			(string) $challenge_id,
+			(string) $code,
+			static function ( $state ) {
+				$user_id = (int) $state['user_id'];
 
-		$user_id = Penalis_Account_Status::find_user_by_token( $raw_token );
+				if ( Penalis_Policy::STATUS_PENDING_VERIFICATION !== Penalis_Account_Status::get_status( $user_id ) ) {
+					return Penalis_Otp::invalid();
+				}
 
-		if ( $user_id <= 0 ) {
-			return new WP_Error(
-				'penalis_invalid_token',
-				'Link verifikasi ini tidak valid atau sudah kedaluwarsa.',
-				array( 'status' => 400 )
-			);
-		}
+				$result = Penalis_Account_Status::transition( $user_id, Penalis_Policy::STATUS_ACTIVE, 'email_verified', 0 );
 
-		$meta = Penalis_Account_Status::get_token_meta( $user_id );
+				if ( is_wp_error( $result ) ) {
+					return $result;
+				}
 
-		if ( Penalis_Policy::is_token_expired( $meta['expires'], time() ) ) {
-			Penalis_Account_Status::clear_token( $user_id );
-			return new WP_Error(
-				'penalis_expired_token',
-				'Link verifikasi ini sudah kedaluwarsa. Silakan minta yang baru.',
-				array( 'status' => 400 )
-			);
-		}
+				Penalis_Emails::send_status_notification( $user_id, Penalis_Policy::STATUS_ACTIVE );
 
-		$status = Penalis_Account_Status::get_status( $user_id );
-
-		if ( Penalis_Policy::STATUS_PENDING_VERIFICATION !== $status ) {
-			// Token reuse after a successful verification.
-			Penalis_Account_Status::clear_token( $user_id );
-			return new WP_Error(
-				'penalis_invalid_token',
-				'Link verifikasi ini tidak valid atau sudah digunakan.',
-				array( 'status' => 400 )
-			);
-		}
-
-		$result = Penalis_Account_Status::transition(
-			$user_id,
-			Penalis_Policy::STATUS_ACTIVE,
-			'email_verified',
-			0
-		);
-
-		if ( is_wp_error( $result ) ) {
-			return $result;
-		}
-
-		// The token is cleared by the transition. Send welcome/active notice
-		// after state is committed; a mail failure does not roll back verification.
-		Penalis_Emails::send_status_notification( $user_id, Penalis_Policy::STATUS_ACTIVE );
-
-		return array(
-			'status'  => Penalis_Policy::STATUS_ACTIVE,
-			'message' => 'Alamat email kamu telah dikonfirmasi. Akun penulis kamu kini aktif dan siap digunakan untuk menulis.',
+				return array(
+					'status'  => Penalis_Policy::STATUS_ACTIVE,
+					'message' => 'Alamat email kamu telah dikonfirmasi. Akun penulis kamu kini aktif dan siap digunakan untuk menulis.',
+				);
+			}
 		);
 	}
 
 	/**
-	 * Reissue a verification token.
+	 * Reissue a registration challenge.
 	 *
 	 * @param string $email Email address.
-	 * @return array|WP_Error
+	 * @return array
 	 */
 	public static function resend_verification( $email ) {
-		$ip = Penalis_Rate_Limiter::client_ip();
-
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'resend_ip', 5, HOUR_IN_SECONDS, $ip ) ) {
-			return new WP_Error(
-				'penalis_rate_limited',
-				'Terlalu banyak permintaan. Silakan coba lagi nanti.',
-				array( 'status' => 429 )
-			);
-		}
-
-		Penalis_Rate_Limiter::hit( 'resend_ip', HOUR_IN_SECONDS, $ip );
-
 		$email = sanitize_email( (string) $email );
+
 		if ( ! is_email( $email ) ) {
-			return array(
-				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
-			);
+			return Penalis_Otp::response();
 		}
 
 		$user = get_user_by( 'email', $email );
 
-		if ( ! $user ) {
+		if ( ! $user || Penalis_Policy::STATUS_PENDING_VERIFICATION !== Penalis_Account_Status::get_status( $user->ID ) ) {
 			// Generic success to avoid user enumeration.
-			return array(
-				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
-			);
+			return Penalis_Otp::response();
 		}
 
-		$status = Penalis_Account_Status::get_status( $user->ID );
+		$challenge = Penalis_Otp::issue( 'registration', (int) $user->ID, $email );
 
-		if ( Penalis_Policy::STATUS_PENDING_VERIFICATION !== $status ) {
-			return array(
-				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
-			);
-		}
-
-		$meta = Penalis_Account_Status::get_token_meta( $user->ID );
-
-		if ( ! Penalis_Policy::can_resend_verification( $meta['created'], time() ) ) {
-			// Silent no-op with a generic response to avoid revealing that the
-			// account exists and was recently emailed.
-			return array(
-				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
-			);
-		}
-
-		$token = Penalis_Account_Status::issue_verification_token( $user->ID );
-		if ( is_wp_error( $token ) ) {
-			// Generic response: do not reveal that the account exists.
-			return array(
-				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
-			);
-		}
-
-		$sent = Penalis_Emails::send_verification( $user->ID, $token );
-
-		if ( ! $sent ) {
-			// Delivery failure is recorded in user meta and shown to
-			// administrators. The account state does not advance, and the
-			// public response stays generic to avoid enumeration.
-			return array(
-				'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
-			);
-		}
-
-		return array(
-			'message' => 'Jika alamat tersebut milik akun yang menunggu verifikasi, email baru telah dikirim.',
-		);
+		return is_wp_error( $challenge ) ? Penalis_Otp::response() : $challenge;
 	}
 }

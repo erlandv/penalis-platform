@@ -80,7 +80,11 @@ final class Penalis_Rest_Api {
 				'callback'            => array( __CLASS__, 'handle_verification' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'token' => array(
+					'challenge_id' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'code'         => array(
 						'type'     => 'string',
 						'required' => true,
 					),
@@ -132,11 +136,15 @@ final class Penalis_Rest_Api {
 				'callback'            => array( __CLASS__, 'handle_legacy_activate_confirm' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'token'    => array(
+					'challenge_id' => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'password' => array(
+					'code'         => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'password'     => array(
 						'type'     => 'string',
 						'required' => true,
 					),
@@ -266,12 +274,15 @@ final class Penalis_Rest_Api {
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
 				'callback'            => array( __CLASS__, 'confirm_email_change' ),
-				// Public: the confirmation link is opened from an email and may
-				// be used on a browser that is not signed in. The token itself is
-				// the proof, and it is single-use and rate limited.
-				'permission_callback' => '__return_true',
+				// Signed-in only: the challenge is bound to the account that
+				// requested it, so a stolen code cannot move another account.
+				'permission_callback' => array( __CLASS__, 'require_logged_in' ),
 				'args'                => array(
-					'token' => array(
+					'challenge_id' => array(
+						'type'     => 'string',
+						'required' => true,
+					),
+					'code'         => array(
 						'type'     => 'string',
 						'required' => true,
 					),
@@ -530,7 +541,10 @@ final class Penalis_Rest_Api {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function handle_verification( $request ) {
-		$result = Penalis_Registration::verify( (string) $request->get_param( 'token' ) );
+		$result = Penalis_Registration::verify(
+			(string) $request->get_param( 'challenge_id' ),
+			(string) $request->get_param( 'code' )
+		);
 
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -588,8 +602,9 @@ final class Penalis_Rest_Api {
 	public static function handle_legacy_activate_confirm( $request ) {
 		$result = Penalis_Legacy_Activation::activate(
 			array(
-				'token'    => $request->get_param( 'token' ),
-				'password' => $request->get_param( 'password' ),
+				'challenge_id' => $request->get_param( 'challenge_id' ),
+				'code'         => $request->get_param( 'code' ),
+				'password'     => $request->get_param( 'password' ),
 			)
 		);
 
@@ -666,15 +681,9 @@ final class Penalis_Rest_Api {
 		$counts    = self::article_counts( $user_id );
 		$is_admin  = current_user_can( 'manage_options' );
 
-		// A pending change is only meaningful while its token is still valid.
-		$pending_change = Penalis_Account_Status::get_email_change( $user_id );
-		$pending_email  = '';
-		if (
-			'' !== $pending_change['email']
-			&& ! Penalis_Policy::is_token_expired( $pending_change['expires'], time() )
-		) {
-			$pending_email = $pending_change['email'];
-		}
+		// The candidate address is only a display hint; the OTP challenge is
+		// the authority and expires independently.
+		$pending_email = Penalis_Account_Status::get_pending_email( $user_id );
 
 		if ( '' !== $status ) {
 			$status_label = Penalis_Policy::status_label( $status );
@@ -873,7 +882,11 @@ final class Penalis_Rest_Api {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function confirm_email_change( $request ) {
-		$result = Penalis_Email_Change::confirm( (string) $request->get_param( 'token' ) );
+		$result = Penalis_Email_Change::confirm(
+			get_current_user_id(),
+			(string) $request->get_param( 'challenge_id' ),
+			(string) $request->get_param( 'code' )
+		);
 
 		if ( is_wp_error( $result ) ) {
 			return $result;

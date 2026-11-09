@@ -785,12 +785,12 @@ JS;
 									<?php else : ?>
 										<div class="penalis-actions">
 											<?php if ( $is_legacy_view ) : ?>
-												<?php self::action_button( $user_id, 'legacy_send_activation', 'Kirim tautan aktivasi' ); ?>
+												<?php self::action_button( $user_id, 'legacy_send_activation', 'Kirim kode aktivasi' ); ?>
 												<?php self::action_button( $user_id, 'legacy_vouch', 'Aktifkan langsung', false, true ); ?>
 											<?php endif; ?>
 
 											<?php if ( Penalis_Policy::STATUS_PENDING_VERIFICATION === $user_status ) : ?>
-												<?php self::action_button( $user_id, 'resend_verification', 'Kirim ulang verifikasi' ); ?>
+												<?php self::action_button( $user_id, 'resend_verification', 'Kirim ulang kode verifikasi' ); ?>
 											<?php endif; ?>
 
 											<?php if ( $can_reactivate && Penalis_Policy::STATUS_SUSPENDED === $user_status ) : ?>
@@ -1162,15 +1162,16 @@ JS;
 			return new WP_Error( 'penalis_not_legacy', 'Akun ini bukan akun kontributor lama.', array( 'status' => 409 ) );
 		}
 
-		$token = Penalis_Account_Status::issue_verification_token( $user_id );
-		if ( is_wp_error( $token ) ) {
-			return $token;
+		$user = get_userdata( $user_id );
+
+		if ( ! $user ) {
+			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
 		}
 
-		$sent = Penalis_Emails::send_legacy_activation( $user_id, $token );
+		$challenge = Penalis_Otp::issue( 'legacy', $user_id, $user->user_email );
 
-		if ( ! $sent ) {
-			return new WP_Error( 'penalis_email_failed', 'Email aktivasi tidak dapat dikirim.', array( 'status' => 500 ) );
+		if ( is_wp_error( $challenge ) ) {
+			return new WP_Error( 'penalis_email_failed', 'Kode aktivasi tidak dapat dikirim.', array( 'status' => 500 ) );
 		}
 
 		return true;
@@ -1189,15 +1190,16 @@ JS;
 			return new WP_Error( 'penalis_invalid_transition', 'Akun ini tidak sedang menunggu verifikasi.', array( 'status' => 409 ) );
 		}
 
-		$token = Penalis_Account_Status::issue_verification_token( $user_id );
-		if ( is_wp_error( $token ) ) {
-			return $token;
+		$user = get_userdata( $user_id );
+
+		if ( ! $user ) {
+			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
 		}
 
-		$sent = Penalis_Emails::send_verification( $user_id, $token );
+		$challenge = Penalis_Otp::issue( 'registration', $user_id, $user->user_email );
 
-		if ( ! $sent ) {
-			return new WP_Error( 'penalis_email_failed', 'Email verifikasi tidak dapat dikirim.', array( 'status' => 500 ) );
+		if ( is_wp_error( $challenge ) ) {
+			return new WP_Error( 'penalis_email_failed', 'Kode verifikasi tidak dapat dikirim.', array( 'status' => 500 ) );
 		}
 
 		return true;

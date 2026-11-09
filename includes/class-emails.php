@@ -18,42 +18,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Penalis_Emails {
 
 	/**
-	 * Send the verification email.
+	 * Send a purpose-specific verification code, never a bearer link.
 	 *
 	 * @param int    $user_id User ID.
-	 * @param string $token   Raw verification token.
-	 * @return bool Whether wp_mail accepted the message.
+	 * @param string $email   Destination.
+	 * @param string $code    Six-digit string.
+	 * @param string $purpose Challenge purpose.
+	 * @return bool
 	 */
-	public static function send_verification( $user_id, $token ) {
-		$user = get_userdata( (int) $user_id );
-		if ( ! $user || ! is_email( $user->user_email ) ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'invalid_recipient' );
-			return false;
-		}
-
-		$verify_url = add_query_arg(
-			array(
-				'penalis_verify' => rawurlencode( $token ),
-			),
-			Penalis_Dashboard::registration_url()
-		);
-
-		$subject = sprintf( '[%s] Konfirmasi Alamat Email Kamu', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) );
-
-		$message  = self::greeting( $user ) . "\n\n";
-		$message .= sprintf( 'Terima kasih telah mendaftar untuk menulis di %s.', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) ) . "\n\n";
-		$message .= "Konfirmasi alamat email kamu dengan membuka link ini lalu menekan tombol konfirmasi:\n\n";
-		$message .= $verify_url . "\n\n";
-		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali.\n\n";
-		$message .= "Jika kamu tidak membuat akun ini, abaikan email ini.\n";
-
-		$sent = self::send_mail( $user->user_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami menerima permintaan verifikasi alamat email untuk akun Penalis kamu. Jika kamu tidak mendaftar, abaikan email ini. Jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
-
+	public static function send_otp( $user_id, $email, $code, $purpose ) {
+		$labels = array( 'registration' => 'Verifikasi pendaftaran', 'legacy' => 'Aktivasi akun lama', 'email_change' => 'Konfirmasi email baru' );
+		$body   = $labels[ $purpose ] . "\n\nKode verifikasi kamu:\n\n" . $code . "\n\nMasukkan kode ini di dashboard Penalis. Berlaku 10 menit, maksimal lima percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.";
+		$sent   = self::send_mail( $email, '[Penalis] ' . $labels[ $purpose ], $body );
 		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'verification' );
+			Penalis_Account_Status::record_email_failure( $user_id, $purpose );
 		}
-
-		return (bool) $sent;
+		return $sent;
 	}
 
 	/**
@@ -94,95 +74,6 @@ final class Penalis_Emails {
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'password_reset' );
-		}
-
-		return (bool) $sent;
-	}
-
-	/**
-	 * Send the legacy account activation email.
-	 *
-	 * Legacy contributors never received a password, so this email is the only
-	 * way for them to reach their existing profile. The link points at the
-	 * dashboard and the token is never logged.
-	 *
-	 * @param int    $user_id User ID.
-	 * @param string $token   Raw activation token.
-	 * @return bool Whether wp_mail accepted the message.
-	 */
-	public static function send_legacy_activation( $user_id, $token ) {
-		$user = get_userdata( (int) $user_id );
-		if ( ! $user || ! is_email( $user->user_email ) ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'invalid_recipient' );
-			return false;
-		}
-
-		$activate_url = add_query_arg(
-			array(
-				'penalis_activate' => rawurlencode( (string) $token ),
-			),
-			Penalis_Dashboard::registration_url()
-		);
-
-		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Aktifkan Akun Kontributor Kamu', $site );
-
-		$message  = self::greeting( $user ) . "\n\n";
-		$message .= sprintf( 'Kamu pernah menjadi kontributor dan mengirim karya tulis ke %s, dan kami sudah membuatkan akun untukmu.', $site ) . "\n\n";
-		$message .= "Aktifkan akun tersebut dengan membuka link ini lalu membuat password:\n\n";
-		$message .= $activate_url . "\n\n";
-		$message .= "Karya tulis yang sudah publish dari akun kontributor akan tetap terhubung ke akun ini.\n\n";
-		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta aktivasi, abaikan email ini.\n";
-
-		$sent = self::send_mail( $user->user_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami menerima permintaan aktivasi akun Penalis dari akun kontributor lama kamu. Jika kamu tidak meminta aktivasi, abaikan email ini. Jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
-
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'legacy_activation' );
-		}
-
-		return (bool) $sent;
-	}
-
-	/**
-	 * Send the confirmation link for a requested email address change.
-	 *
-	 * The message goes to the *new* address, because that is the address whose
-	 * ownership is being proven. The old address is untouched until the link is
-	 * consumed.
-	 *
-	 * @param int    $user_id   User ID.
-	 * @param string $token     Raw confirmation token.
-	 * @param string $new_email Requested address.
-	 * @return bool Whether wp_mail accepted the message.
-	 */
-	public static function send_email_change_confirmation( $user_id, $token, $new_email ) {
-		$user = get_userdata( (int) $user_id );
-		if ( ! $user || ! is_email( $new_email ) ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'invalid_recipient' );
-			return false;
-		}
-
-		$confirm_url = add_query_arg(
-			array(
-				'penalis_email_change' => rawurlencode( (string) $token ),
-			),
-			Penalis_Dashboard::registration_url()
-		);
-
-		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Konfirmasi Alamat Email Baru Kamu', $site );
-
-		$message  = self::greeting( $user ) . "\n\n";
-		$message .= sprintf( 'Kami menerima permintaan untuk mengganti alamat email akun %s kamu menjadi alamat ini.', $site ) . "\n\n";
-		$message .= "Konfirmasi alamat email baru dengan membuka link ini lalu menekan tombol konfirmasi:\n\n";
-		$message .= $confirm_url . "\n\n";
-		$message .= "Alamat email kamu yang sekarang belum berubah. Alamat baru hanya dipakai setelah kamu mengonfirmasi.\n\n";
-		$message .= "Link berlaku 24 jam dan hanya dapat digunakan sekali. Jika kamu tidak meminta perubahan ini, abaikan email ini.\n";
-
-		$sent = self::send_mail( $new_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami menerima permintaan untuk mengubah email akun Penalis ke alamat ini. Jika kamu tidak meminta perubahan, abaikan email ini. Jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
-
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_confirmation' );
 		}
 
 		return (bool) $sent;

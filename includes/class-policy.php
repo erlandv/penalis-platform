@@ -22,10 +22,18 @@ final class Penalis_Policy {
 	public const STATUS_ACTIVE               = 'active';
 	public const STATUS_SUSPENDED            = 'suspended';
 
+	// Legacy helpers remain for upgrade compatibility, not public OTP verification.
 	public const TOKEN_TTL         = 86400;
 	public const TOKEN_RESEND_WAIT = 600;
-	public const MIN_PASSWORD      = 12;
-	public const MAX_PASSWORD      = 200;
+	public const OTP_TTL          = 600;
+	public const OTP_RESEND_WAIT  = 60;
+	public const OTP_MAX_ATTEMPTS = 5;
+	public const OTP_MAX_ISSUES   = 5;
+	public const OTP_WINDOW       = 3600;
+	public const OTP_CODE_LENGTH  = 6;
+
+	public const MIN_PASSWORD = 12;
+	public const MAX_PASSWORD = 200;
 
 	public const MIN_DISPLAY_NAME = 2;
 	public const MAX_DISPLAY_NAME = 80;

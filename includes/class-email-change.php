@@ -108,57 +108,40 @@ final class Penalis_Email_Change {
 			);
 		}
 
-		// Throttle re-sends to the same candidate address so the form cannot be
-		// used to flood a third party's inbox.
-		$pending = Penalis_Account_Status::get_email_change( $user_id );
-		if (
-			'' !== $pending['email']
-			&& 0 === strcasecmp( $pending['email'], $email )
-			&& ! Penalis_Policy::can_resend_verification( $pending['created'], time() )
-		) {
-			return new WP_Error(
-				'penalis_email_change_throttled',
-				'Tautan konfirmasi baru saja dikirim. Periksa kotak masuk email baru kamu.',
-				array( 'status' => 429 )
-			);
-		}
+		Penalis_Account_Status::set_pending_email( $user_id, $email );
 
-		$token = Penalis_Account_Status::issue_email_change_token( $user_id, $email );
+		$challenge = Penalis_Otp::issue( 'email_change', $user_id, $email );
 
-		if ( is_wp_error( $token ) ) {
-			return $token;
-		}
-
-		$sent = Penalis_Emails::send_email_change_confirmation( $user_id, $token, $email );
-
-		if ( ! $sent ) {
-			// The pending change is useless without the email, so drop it rather
-			// than leaving a token nobody can consume.
+		if ( is_wp_error( $challenge ) ) {
+			// The pending change is useless without the code, so drop it rather
+			// than leaving a candidate nobody can confirm.
 			Penalis_Account_Status::clear_email_change( $user_id );
 
 			return new WP_Error(
 				'penalis_email_failed',
-				'Email konfirmasi tidak dapat dikirim. Silakan coba lagi atau hubungi admin Penalis.',
+				'Kode konfirmasi tidak dapat dikirim. Silakan coba lagi atau hubungi admin Penalis.',
 				array( 'status' => 500 )
 			);
 		}
 
-		return array(
-			'pendingEmail' => $email,
-			'message'      => 'Kami mengirim tautan konfirmasi ke alamat email baru kamu. Alamat email saat ini belum berubah sampai tautan tersebut dikonfirmasi.',
-		);
+		$challenge['pendingEmail'] = $email;
+
+		return $challenge;
 	}
 
 	/**
-	 * Consume a confirmation token and apply the new address.
+	 * Consume an email-change challenge and apply the new address.
 	 *
-	 * @param string $raw_token Raw token from the confirmation link.
+	 * @param int    $user_id      Signed-in owner.
+	 * @param string $challenge_id Opaque challenge ID.
+	 * @param string $code         Six-digit code.
 	 * @return array|WP_Error
 	 */
-	public static function confirm( $raw_token ) {
-		$ip = Penalis_Rate_Limiter::client_ip();
+	public static function confirm( $user_id, $challenge_id, $code ) {
+		$user_id = (int) $user_id;
+		$ip      = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'email_change_confirm_ip', 10, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::is_allowed( 'otp_verify_ip', 20, HOUR_IN_SECONDS, $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak percobaan. Silakan coba lagi nanti.',
@@ -166,110 +149,75 @@ final class Penalis_Email_Change {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'email_change_confirm_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::hit( 'otp_verify_ip', HOUR_IN_SECONDS, $ip );
 
-		if ( ! Penalis_Policy::is_token_format_valid( $raw_token ) ) {
-			return new WP_Error(
-				'penalis_invalid_token',
-				'Tautan konfirmasi ini tidak valid atau sudah kedaluwarsa.',
-				array( 'status' => 400 )
-			);
-		}
+		return Penalis_Otp::consume(
+			'email_change',
+			(string) $challenge_id,
+			(string) $code,
+			static function ( $state ) use ( $user_id ) {
+				// The challenge is bound to the account that requested it. A
+				// signed-in session for another account cannot consume it.
+				if ( (int) $state['user_id'] !== $user_id || ! self::can_change( $user_id ) ) {
+					return Penalis_Otp::invalid();
+				}
 
-		$user_id = Penalis_Account_Status::find_user_by_email_change_token( $raw_token );
+				$user = get_userdata( $user_id );
 
-		if ( $user_id <= 0 ) {
-			return new WP_Error(
-				'penalis_invalid_token',
-				'Tautan konfirmasi ini tidak valid atau sudah kedaluwarsa.',
-				array( 'status' => 400 )
-			);
-		}
+				if ( ! $user ) {
+					return Penalis_Otp::invalid();
+				}
 
-		$pending = Penalis_Account_Status::get_email_change( $user_id );
+				// The candidate address comes from storage, never from the request.
+				$new_email = sanitize_email( (string) $state['email'] );
 
-		if ( Penalis_Policy::is_token_expired( $pending['expires'], time() ) ) {
-			Penalis_Account_Status::clear_email_change( $user_id );
-			return new WP_Error(
-				'penalis_expired_token',
-				'Tautan konfirmasi ini sudah kedaluwarsa. Silakan minta tautan baru dari halaman Pengaturan.',
-				array( 'status' => 400 )
-			);
-		}
+				if ( ! is_email( $new_email ) ) {
+					Penalis_Account_Status::clear_email_change( $user_id );
+					return Penalis_Otp::invalid();
+				}
 
-		$user = get_userdata( $user_id );
+				// Re-check availability: another account may have claimed the
+				// address between the request and the confirmation.
+				$existing = email_exists( $new_email );
+				if ( $existing && (int) $existing !== $user_id ) {
+					Penalis_Account_Status::clear_email_change( $user_id );
+					return new WP_Error(
+						'penalis_email_unavailable',
+						'Alamat email tersebut sudah digunakan akun lain. Silakan minta perubahan dengan alamat lain.',
+						array( 'status' => 409 )
+					);
+				}
 
-		if ( ! $user ) {
-			Penalis_Account_Status::clear_email_change( $user_id );
-			return new WP_Error(
-				'penalis_invalid_token',
-				'Tautan konfirmasi ini tidak valid atau sudah kedaluwarsa.',
-				array( 'status' => 400 )
-			);
-		}
+				$old_email = $user->user_email;
+				$result    = Penalis_Access_Control::apply_verified_email_change( $user_id, $new_email );
 
-		// The candidate address comes from storage, never from the request.
-		$new_email = sanitize_email( $pending['email'] );
+				if ( is_wp_error( $result ) ) {
+					return new WP_Error(
+						'penalis_email_change_failed',
+						'Alamat email kamu tidak dapat diperbarui. Silakan coba lagi.',
+						array( 'status' => 500 )
+					);
+				}
 
-		if ( ! is_email( $new_email ) ) {
-			Penalis_Account_Status::clear_email_change( $user_id );
-			return new WP_Error(
-				'penalis_invalid_token',
-				'Tautan konfirmasi ini tidak valid atau sudah kedaluwarsa.',
-				array( 'status' => 400 )
-			);
-		}
+				Penalis_Account_Status::clear_email_change( $user_id );
 
-		if ( ! self::can_change( $user_id ) ) {
-			Penalis_Account_Status::clear_email_change( $user_id );
-			return new WP_Error(
-				'penalis_email_change_forbidden',
-				'Alamat email akun ini belum dapat diubah. Silakan hubungi admin Penalis.',
-				array( 'status' => 403 )
-			);
-		}
+				// The new address was proven by the code, so the account's email
+				// is verified regardless of what the flag said before. This never
+				// changes the account status itself, and legacy accounts (no
+				// status) are left alone so their metadata stays untouched.
+				if ( '' !== Penalis_Account_Status::get_status( $user_id ) ) {
+					update_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, '1' );
+				}
 
-		// Re-check availability: another account may have claimed the address
-		// between the request and the confirmation.
-		$existing = email_exists( $new_email );
-		if ( $existing && (int) $existing !== $user_id ) {
-			Penalis_Account_Status::clear_email_change( $user_id );
-			return new WP_Error(
-				'penalis_email_unavailable',
-				'Alamat email tersebut sudah digunakan akun lain. Silakan minta perubahan dengan alamat lain.',
-				array( 'status' => 409 )
-			);
-		}
+				// Tell the previous address what happened. This is the only
+				// warning the real owner gets if the change was not theirs.
+				Penalis_Emails::send_email_change_notice( $user_id, $old_email, $new_email );
 
-		$old_email = $user->user_email;
-
-		$result = Penalis_Access_Control::apply_verified_email_change( $user_id, $new_email );
-
-		if ( is_wp_error( $result ) ) {
-			return new WP_Error(
-				'penalis_email_change_failed',
-				'Alamat email kamu tidak dapat diperbarui. Silakan coba lagi.',
-				array( 'status' => 500 )
-			);
-		}
-
-		Penalis_Account_Status::clear_email_change( $user_id );
-
-		// The new address was proven by the token, so the account's email is
-		// verified regardless of what the flag said before. This never changes
-		// the account status itself, and legacy accounts (no status) are left
-		// alone so their metadata stays untouched.
-		if ( '' !== Penalis_Account_Status::get_status( $user_id ) ) {
-			update_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, '1' );
-		}
-
-		// Tell the previous address what happened. This is the only warning the
-		// real owner gets if the change was not theirs.
-		Penalis_Emails::send_email_change_notice( $user_id, $old_email, $new_email );
-
-		return array(
-			'email'   => $new_email,
-			'message' => 'Alamat email kamu telah diperbarui. Gunakan alamat baru ini untuk masuk dan menerima email dari Penalis.',
+				return array(
+					'email'   => $new_email,
+					'message' => 'Alamat email kamu telah diperbarui. Gunakan alamat baru ini untuk masuk dan menerima email dari Penalis.',
+				);
+			}
 		);
 	}
 

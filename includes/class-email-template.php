@@ -53,10 +53,7 @@ final class Penalis_Email_Template {
 	 */
 	private static function get_action_label( $url ) {
 		$labels = array(
-			'penalis_verify'       => 'Konfirmasi Email',
-			'penalis_reset'        => 'Atur Password Baru',
-			'penalis_activate'     => 'Aktifkan Akun',
-			'penalis_email_change' => 'Konfirmasi Email Baru',
+			'penalis_reset' => 'Atur Password Baru',
 		);
 		$query  = wp_parse_url( $url, PHP_URL_QUERY );
 		parse_str( (string) $query, $parameters );
