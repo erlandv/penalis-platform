@@ -1168,6 +1168,7 @@ JS;
 			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
 		}
 
+		Penalis_Otp::unlock( $user_id );
 		$challenge = Penalis_Otp::issue( 'legacy', $user_id, $user->user_email, false );
 
 		if ( is_wp_error( $challenge ) ) {
@@ -1196,6 +1197,7 @@ JS;
 			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
 		}
 
+		Penalis_Otp::unlock( $user_id );
 		$challenge = Penalis_Otp::issue( 'registration', $user_id, $user->user_email, false );
 
 		if ( is_wp_error( $challenge ) ) {

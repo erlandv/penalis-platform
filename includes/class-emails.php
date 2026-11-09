@@ -37,8 +37,9 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$label = $labels[ $purpose ];
-		$body  = $label . "\n\nKode verifikasi kamu:\n\n" . $code . "\n\nMasukkan kode ini di dashboard Penalis. Berlaku 10 menit, maksimal lima percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.";
+		$label   = $labels[ $purpose ];
+		$minutes = (int) round( Penalis_Policy::OTP_TTL / 60 );
+		$body    = $label . "\n\nKode verifikasi kamu:\n\n" . $code . "\n\nMasukkan kode ini di dashboard Penalis. Berlaku " . $minutes . ' menit, maksimal ' . Penalis_Policy::OTP_MAX_ATTEMPTS . ' percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.';
 
 		// The code is the only proof in this flow, so it must not be quoted in
 		// the message someone forwards or in an auto-reply that quotes the

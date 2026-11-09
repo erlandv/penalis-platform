@@ -113,6 +113,10 @@ function penalis_reset() {
 	$GLOBALS['penalis_test_password_resets'] = array();
 	$GLOBALS['penalis_test_posts']           = array();
 	$GLOBALS['penalis_test_post_updates']    = array();
+	$GLOBALS['penalis_test_password_notifications'] = array();
+	$GLOBALS['penalis_test_actions']         = array(
+		'after_password_reset' => array( 10 => array( 'wp_password_change_notification' ) ),
+	);
 	unset(
 		$GLOBALS['penalis_test_sessions_destroyed'],
 		$GLOBALS['penalis_test_auth_cookie_cleared'],
@@ -766,6 +770,85 @@ $restored = Penalis_Otp::consume( 'registration', $delivered['challenge_id'], $d
 	return 'applied';
 } );
 penalis_same( 'applied', $restored, 'The code from the earlier email still works after a failed replacement.' );
+
+// The cumulative failure counter locks the account for every purpose.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][36] = new WP_User( 36, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 36 );
+$locked_challenge = Penalis_Otp::issue( 'registration', 36, 'user36@example.com' );
+$locked_code      = penalis_last_code();
+update_user_meta( 36, '_penalis_otp_failures', Penalis_Policy::OTP_MAX_FAILURES );
+
+$locked_consume = Penalis_Otp::consume( 'registration', $locked_challenge['challenge_id'], $locked_code, static function () {
+	return 'applied';
+} );
+penalis_assert( is_wp_error( $locked_consume ), 'A locked account cannot confirm even the correct code.' );
+
+$GLOBALS['penalis_test_transients'] = array();
+$locked_issue = Penalis_Otp::issue( 'registration', 36, 'user36@example.com' );
+penalis_assert( is_wp_error( $locked_issue ), 'A locked account cannot request a new code.' );
+
+Penalis_Otp::unlock( 36 );
+penalis_same( '', (string) get_user_meta( 36, '_penalis_otp_failures', true ), 'An administrator unlock clears the counter.' );
+$unlocked_issue = Penalis_Otp::issue( 'registration', 36, 'user36@example.com' );
+penalis_assert( ! is_wp_error( $unlocked_issue ), 'An unlocked account can request a code again.' );
+
+// The wrong owner is rejected before any attempt is counted.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][37] = new WP_User( 37, array( 'penalis_writer' ) );
+update_user_meta( 37, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+update_user_meta( 37, Penalis_Account_Status::META_ACCESS, '1' );
+Penalis_Account_Status::set_pending_email( 37, 'baru37@example.com' );
+$owner_challenge = Penalis_Otp::issue( 'email_change', 37, 'baru37@example.com' );
+$owner_state     = get_user_meta( 37, '_penalis_otp_email_change', true );
+
+$other_owner = Penalis_Otp::consume( 'email_change', $owner_challenge['challenge_id'], '000000', static function () {
+	return 'applied';
+}, 999 );
+penalis_assert( is_wp_error( $other_owner ), 'A challenge cannot be consumed by another account.' );
+penalis_same( (int) $owner_state['attempts'], (int) get_user_meta( 37, '_penalis_otp_email_change', true )['attempts'], 'A foreign owner consumes no attempt.' );
+penalis_assert( is_array( get_user_meta( 37, '_penalis_otp_email_change', true ) ), 'A foreign owner leaves the challenge in place.' );
+
+// A lock that cannot be acquired reports a busy server, not a wrong code.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][38] = new WP_User( 38, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 38 );
+$GLOBALS['penalis_test_lock_available'] = false;
+$busy_issue = Penalis_Otp::issue( 'registration', 38, 'user38@example.com' );
+unset( $GLOBALS['penalis_test_lock_available'] );
+penalis_assert( is_wp_error( $busy_issue ), 'A failed lock reports an error.' );
+penalis_same( 'penalis_busy', $busy_issue->get_error_code(), 'A failed lock reports the busy code.' );
+penalis_same( 503, $busy_issue->get_error_data()['status'], 'A failed lock reports HTTP 503.' );
+
+// A daily issuance budget caps cumulative guessing per account.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][39] = new WP_User( 39, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 39 );
+
+$day_key = 'penalis_otp_budget_' . hash_hmac( 'sha256', 'day_user:39', wp_salt( 'auth' ) );
+set_transient(
+	$day_key,
+	array(
+		'count' => Penalis_Policy::OTP_DAILY_ISSUES,
+		'last'  => 0,
+		'until' => time() + DAY_IN_SECONDS,
+	),
+	DAY_IN_SECONDS
+);
+
+$daily_capped = Penalis_Otp::issue( 'registration', 39, 'user39@example.com' );
+penalis_assert( is_wp_error( $daily_capped ), 'The daily issue budget stops further codes.' );
+penalis_same( 'penalis_rate_limited', $daily_capped->get_error_code(), 'The daily cap reports a rate limit.' );
+
+// The daily budget is separate from the hourly one: a fresh hourly window does
+// not reset it.
+$GLOBALS['penalis_test_transients'] = array( $day_key => get_transient( $day_key ) );
+$still_capped = Penalis_Otp::issue( 'registration', 39, 'user39@example.com' );
+penalis_assert( is_wp_error( $still_capped ), 'Clearing hourly budgets does not reset the daily cap.' );
 
 /* -------------------------------------------------------------------------
  * Email change challenge storage

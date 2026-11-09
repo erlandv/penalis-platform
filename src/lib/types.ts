@@ -244,6 +244,7 @@ export interface ChallengeResponse {
   challenge_id: string;
   resend_after: number;
   expires_in: number;
+  max_attempts: number;
   message: string;
 }
 

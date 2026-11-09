@@ -143,10 +143,19 @@ final class Penalis_Legacy_Activation {
 					return Penalis_Otp::invalid();
 				}
 
-				// Set the first password. reset_password() hashes it and fires
-				// the standard core hooks, so other plugins see a normal change.
-				reset_password( $user, $password );
-
+				// Set the first password. reset_password() fires the core
+				// after_password_reset hook, which emails the site admin. That
+				// mail must not run inside the advisory lock, so the callback is
+				// detached here and invoked by the caller after the lock is
+				// released.
+				$notify_admin = remove_action( 'after_password_reset', 'wp_password_change_notification', 10 );
+				try {
+					reset_password( $user, $password );
+				} finally {
+					if ( $notify_admin ) {
+						add_action( 'after_password_reset', 'wp_password_change_notification', 10 );
+					}
+				}
 				$converted = Penalis_Account_Status::convert_legacy(
 					$user_id,
 					Penalis_Policy::STATUS_ACTIVE,
@@ -160,9 +169,10 @@ final class Penalis_Legacy_Activation {
 				}
 
 				return array(
-					'status'  => Penalis_Policy::STATUS_ACTIVE,
-					'message' => 'Akun kontributor kamu telah diaktifkan. Kamu kini dapat login ke dashboard dan mulai menulis.',
-					'user_id' => $user_id,
+					'status'       => Penalis_Policy::STATUS_ACTIVE,
+					'message'      => 'Akun kontributor kamu telah diaktifkan. Kamu kini dapat login ke dashboard dan mulai menulis.',
+					'user_id'      => $user_id,
+					'notify_admin' => $notify_admin,
 				);
 			}
 		);
@@ -173,9 +183,12 @@ final class Penalis_Legacy_Activation {
 
 		// Sent after the lock is released so an SMTP call cannot stall other
 		// writers who are confirming their own codes.
+		if ( ! empty( $result['notify_admin'] ) ) {
+			wp_password_change_notification( get_userdata( (int) $result['user_id'] ) );
+		}
 		Penalis_Emails::send_status_notification( (int) $result['user_id'], Penalis_Policy::STATUS_ACTIVE );
 
-		unset( $result['user_id'] );
+		unset( $result['user_id'], $result['notify_admin'] );
 
 		return $result;
 	}

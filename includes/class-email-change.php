@@ -269,7 +269,8 @@ final class Penalis_Email_Change {
 					'user_id'   => $user_id,
 					'old_email' => $old_email,
 				);
-			}
+			},
+			$user_id
 		);
 
 		if ( is_wp_error( $result ) ) {

@@ -77,7 +77,12 @@ export function StatusBanner({
  * already knows.
  */
 function ResendBanner({ email }: { email: string }) {
-  const [challenge, setChallenge] = useState<{ challengeId: string; resendAfter: number } | null>(null);
+  const [challenge, setChallenge] = useState<{
+    challengeId: string;
+    resendAfter: number;
+    expiresIn: number;
+    maxAttempts: number;
+  } | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -102,10 +107,28 @@ function ResendBanner({ email }: { email: string }) {
 
   const resend = async () => {
     const result = await registrationApi.resend(email);
-    const next = { challengeId: result.challenge_id, resendAfter: result.resend_after };
+    const next = {
+      challengeId: result.challenge_id,
+      resendAfter: result.resend_after,
+      expiresIn: result.expires_in,
+      maxAttempts: result.max_attempts,
+    };
     setChallenge(next);
 
     return { challenge_id: next.challengeId, resend_after: next.resendAfter };
+  };
+
+  const requestInitialCode = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await resend();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Kode tidak dapat dikirim. Silakan coba lagi.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   if (message) {
@@ -125,11 +148,14 @@ function ResendBanner({ email }: { email: string }) {
         Konfirmasi alamat email kamu. Kami mengirim kode verifikasi enam digit ke {email}. Kamu belum dapat
         menulis atau mengajukan karya tulis sampai alamat email kamu dikonfirmasi.
       </p>
+      {!challenge && error ? <p role="alert">{error}</p> : null}
       {challenge ? (
         <OtpForm
           challengeId={challenge.challengeId}
           email={email}
           resendAfter={challenge.resendAfter}
+          expiresIn={challenge.expiresIn}
+          maxAttempts={challenge.maxAttempts}
           onVerify={verify}
           onResend={resend}
           error={error}
@@ -139,9 +165,10 @@ function ResendBanner({ email }: { email: string }) {
         <button
           type="button"
           className="penalis-button penalis-button--ghost"
-          onClick={() => void resend()}
+          onClick={() => void requestInitialCode()}
+          disabled={busy}
         >
-          Kirim kode verifikasi
+          {busy ? 'Mengirim…' : 'Kirim kode verifikasi'}
         </button>
       )}
     </Notice>

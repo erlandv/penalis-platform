@@ -21,8 +21,7 @@ rate limits, and generic responses that prevent account enumeration.
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
 | `/registration` | `POST` | `handle_registration` | Register a new `pending_verification` account (with optional `instagram`) and email a six-digit verification code |
-| `/verification/confirm` | `POST` | `handle_verification` | Consume `challenge_id` + `code` and immediately activate the account (`active`, `penalis_writer`) |
-| `/verification/resend` | `POST` | `handle_resend` | Re-issue a verification code (60-second cooldown, 5 issues/hour) |
+| `/verification/confirm` | `POST` | `handle_verification` | Consume `challenge_id` + `code` and immediately activate the account (`active`, `penalis_writer`) || `/verification/resend` | `POST` | `handle_resend` | Re-issue a verification code (60-second cooldown, 5 issues/hour) |
 | `/legacy/activate` | `POST` | `handle_legacy_activate_request` | Request an activation code for a pre-plugin contributor account |
 | `/legacy/activate/confirm` | `POST` | `handle_legacy_activate_confirm` | Consume `challenge_id` + `code`, set first password, and immediately activate the account (`active`) |
 | `/password/forgot` | `POST` | `handle_password_forgot` | Request a password reset link by **email address only** (`user_email`) |

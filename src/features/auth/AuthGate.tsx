@@ -27,6 +27,8 @@ interface Challenge {
   challengeId: string;
   email: string;
   resendAfter: number;
+  expiresIn: number;
+  maxAttempts: number;
 }
 
 const HEADINGS: Record<Mode, string> = {
@@ -312,6 +314,8 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
         challengeId: result.challenge_id,
         email: values.user_email.trim(),
         resendAfter: result.resend_after,
+        expiresIn: result.expires_in,
+        maxAttempts: result.max_attempts,
       });
     } catch (error) {
       if (error instanceof ApiError) {
@@ -501,6 +505,8 @@ function RegistrationVerifyForm({
       challengeId: result.challenge_id,
       email: challenge.email,
       resendAfter: result.resend_after,
+      expiresIn: result.expires_in,
+      maxAttempts: result.max_attempts,
     };
     onChallenge(next);
 
@@ -523,6 +529,8 @@ function RegistrationVerifyForm({
       challengeId={challenge.challengeId}
       email={challenge.email}
       resendAfter={challenge.resendAfter}
+      expiresIn={challenge.expiresIn}
+      maxAttempts={challenge.maxAttempts}
       onVerify={verify}
       onResend={resend}
       error={error}
@@ -596,6 +604,8 @@ function ActivateVerifyForm({
       challengeId: result.challenge_id,
       email: challenge.email,
       resendAfter: result.resend_after,
+      expiresIn: result.expires_in,
+      maxAttempts: result.max_attempts,
     };
     onChallenge(next);
 
@@ -622,6 +632,8 @@ function ActivateVerifyForm({
       challengeId={challenge.challengeId}
       email={challenge.email}
       resendAfter={challenge.resendAfter}
+      expiresIn={challenge.expiresIn}
+      maxAttempts={challenge.maxAttempts}
       onVerify={verify}
       onResend={resend}
       error={error}
@@ -686,6 +698,8 @@ function ResendForm({ onChallenge }: { onChallenge: (challenge: Challenge) => vo
         challengeId: result.challenge_id,
         email: email.trim(),
         resendAfter: result.resend_after,
+        expiresIn: result.expires_in,
+        maxAttempts: result.max_attempts,
       });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
@@ -873,6 +887,8 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
         challengeId: result.challenge_id,
         email: email.trim(),
         resendAfter: result.resend_after,
+        expiresIn: result.expires_in,
+        maxAttempts: result.max_attempts,
       });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');

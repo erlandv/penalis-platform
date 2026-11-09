@@ -121,6 +121,8 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
     challengeId: string;
     email: string;
     resendAfter: number;
+    expiresIn: number;
+    maxAttempts: number;
   } | null>(null);
   const [emailCodeError, setEmailCodeError] = useState('');
   const [emailVerifying, setEmailVerifying] = useState(false);
@@ -195,6 +197,8 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         challengeId: result.challenge_id,
         email: result.pendingEmail,
         resendAfter: result.resend_after,
+        expiresIn: result.expires_in,
+        maxAttempts: result.max_attempts,
       });
 
       // The server now reports the address as pending. Refresh so the panel
@@ -262,6 +266,8 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
       challengeId: result.challenge_id,
       email: emailChallenge.email,
       resendAfter: result.resend_after,
+      expiresIn: result.expires_in,
+      maxAttempts: result.max_attempts,
     };
     setEmailChallenge(next);
 
@@ -475,6 +481,8 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
                 challengeId={emailChallenge.challengeId}
                 email={emailChallenge.email}
                 resendAfter={emailChallenge.resendAfter}
+                expiresIn={emailChallenge.expiresIn}
+                maxAttempts={emailChallenge.maxAttempts}
                 onVerify={verifyEmailChange}
                 onResend={resendEmailChange}
                 error={emailCodeError}

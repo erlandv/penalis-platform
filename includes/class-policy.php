@@ -29,6 +29,8 @@ final class Penalis_Policy {
 	public const OTP_MAX_ISSUES   = 5;
 	public const OTP_WINDOW       = 3600;
 	public const OTP_CODE_LENGTH  = 6;
+	public const OTP_DAILY_ISSUES = 10;
+	public const OTP_MAX_FAILURES = 30;
 
 	public const MIN_PASSWORD = 12;
 	public const MAX_PASSWORD = 200;

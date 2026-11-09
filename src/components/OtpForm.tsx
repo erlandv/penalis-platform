@@ -18,6 +18,10 @@ export interface OtpFormProps {
   email: string;
   /** Seconds the server asked the client to wait before a resend. */
   resendAfter: number;
+  /** Seconds the code stays valid, as reported by the server. */
+  expiresIn?: number;
+  /** Attempts allowed per code, as reported by the server. */
+  maxAttempts?: number;
   /** Submit the code. Rejections are surfaced by the parent through `error`. */
   onVerify: (code: string) => Promise<void>;
   /** Request a new code. Must resolve with the new challenge metadata. */
@@ -36,6 +40,8 @@ export function OtpForm({
   challengeId,
   email,
   resendAfter,
+  expiresIn = 600,
+  maxAttempts = 5,
   onVerify,
   onResend,
   error = '',
@@ -110,10 +116,13 @@ export function OtpForm({
   return (
     <form className="penalis-form" onSubmit={submit} noValidate>
       <p className="penalis-muted">
-        Kami mengirim kode enam digit ke {email}. Kode berlaku 10 menit dan hanya dapat
-        dicoba lima kali.
+        Kami mengirim kode enam digit ke <strong>{email}</strong>. Kode berlaku {Math.round(expiresIn / 60)}{' '}
+        menit dan hanya dapat dicoba {maxAttempts} kali.
       </p>
 
+      <p className="penalis-muted">
+        Kode tidak masuk dalam beberapa menit? Kirim ulang atau hubungi admin Penalis.
+      </p>
       {error ? <ErrorBanner message={error} /> : null}
       {resendError ? <ErrorBanner message={resendError} /> : null}
       {resendNotice ? <Notice tone="success">{resendNotice}</Notice> : null}

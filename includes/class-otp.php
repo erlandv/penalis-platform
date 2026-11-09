@@ -31,12 +31,12 @@ final class Penalis_Otp {
 	private static function locked( $operation ) {
 		global $wpdb;
 		if ( ! is_object( $wpdb ) ) {
-			return self::invalid();
+			return new WP_Error( 'penalis_busy', 'Server sedang sibuk. Coba sesaat lagi.', array( 'status' => 503 ) );
 		}
 		$name = 'penalis_otp_' . md5( $wpdb->users );
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Advisory locks cannot be cached.
 		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $name ) ) ) {
-			return self::invalid();
+			return new WP_Error( 'penalis_busy', 'Server sedang sibuk. Coba sesaat lagi.', array( 'status' => 503 ) );
 		}
 		try {
 			return $operation();
@@ -69,6 +69,7 @@ final class Penalis_Otp {
 			'challenge_id' => '' !== $id ? $id : Penalis_Policy::generate_token(),
 			'resend_after' => Penalis_Policy::OTP_RESEND_WAIT,
 			'expires_in'   => Penalis_Policy::OTP_TTL,
+			'max_attempts' => Penalis_Policy::OTP_MAX_ATTEMPTS,
 			'message'      => 'Jika permintaan memenuhi syarat, kode verifikasi telah dikirim. Masukkan kode enam digit dari email kamu.',
 		);
 	}
@@ -157,6 +158,21 @@ final class Penalis_Otp {
 
 			delete_user_meta( $user_id, $key );
 		}
+
+		delete_user_meta( $user_id, '_penalis_otp_failures' );
+	}
+
+	/**
+	 * Clear the cumulative failure counter for a user.
+	 *
+	 * An administrator reissuing a code is treated as a deliberate unlock; the
+	 * counter must not keep an account locked after that.
+	 *
+	 * @param int $user_id User ID.
+	 * @return void
+	 */
+	public static function unlock( $user_id ) {
+		delete_user_meta( (int) $user_id, '_penalis_otp_failures' );
 	}
 
 	/**
@@ -196,6 +212,10 @@ final class Penalis_Otp {
 					return self::invalid();
 				}
 
+				if ( (int) get_user_meta( $user_id, '_penalis_otp_failures', true ) >= Penalis_Policy::OTP_MAX_FAILURES ) {
+					return self::invalid();
+				}
+
 				$now      = time();
 				$subjects = array(
 					array( 'user:' . $user_id, Penalis_Policy::OTP_MAX_ISSUES ),
@@ -207,7 +227,9 @@ final class Penalis_Otp {
 					$subjects = array_slice( $subjects, 0, 2 );
 				}
 
-				$rows = array();
+				$subjects[] = array( 'day_user:' . $user_id, Penalis_Policy::OTP_DAILY_ISSUES );
+				$subjects[] = array( 'day_email:' . strtolower( $email ), Penalis_Policy::OTP_DAILY_ISSUES );
+				$rows       = array();
 
 				foreach ( $subjects as $subject ) {
 					$key   = 'penalis_otp_budget_' . hash_hmac( 'sha256', $subject[0], wp_salt( 'auth' ) );
@@ -218,7 +240,7 @@ final class Penalis_Otp {
 						$row = array(
 							'count' => 0,
 							'last'  => 0,
-							'until' => $now + Penalis_Policy::OTP_WINDOW,
+							'until' => $now + ( 0 === strpos( $subject[0], 'day_' ) ? DAY_IN_SECONDS : Penalis_Policy::OTP_WINDOW ),
 						);
 					}
 
@@ -260,9 +282,9 @@ final class Penalis_Otp {
 				$state['hash'] = self::digest( $state, $code );
 				$key           = '_penalis_otp_' . $purpose;
 
-				// The previous challenge is kept until the new code is actually
-				// delivered. If delivery fails, the writer still has the code
-				// from the earlier email instead of being left with nothing.
+				// Replacing the challenge makes the previous code unusable at once.
+				// Its state is retained only so a failed SMTP delivery can restore
+				// it, leaving the writer with the code from the earlier email.
 				$previous = get_user_meta( $user_id, $key, true );
 
 				if ( ! update_user_meta( $user_id, $key, $state ) ) {
@@ -354,11 +376,12 @@ final class Penalis_Otp {
 	 * @param string   $id      Opaque ID.
 	 * @param string   $code    Six-digit string.
 	 * @param callable $apply   Mutation, receiving stored context.
+	 * @param int      $expected_user_id Optional owner the challenge must belong to.
 	 * @return mixed
 	 */
-	public static function consume( $purpose, $id, $code, $apply ) {
+	public static function consume( $purpose, $id, $code, $apply, $expected_user_id = 0 ) {
 		return self::locked(
-			static function () use ( $purpose, $id, $code, $apply ) {
+			static function () use ( $purpose, $id, $code, $apply, $expected_user_id ) {
 				if ( ! in_array( $purpose, self::PURPOSES, true ) || ! Penalis_Policy::is_token_format_valid( $id ) ) {
 					return self::invalid();
 				}
@@ -371,6 +394,9 @@ final class Penalis_Otp {
 				}
 
 				$user_id = (int) $locator[0];
+				if ( $expected_user_id > 0 && $user_id !== (int) $expected_user_id ) {
+					return self::invalid();
+				}
 				wp_cache_delete( $user_id, 'user_meta' );
 
 				$key   = '_penalis_otp_' . $purpose;
@@ -391,6 +417,11 @@ final class Penalis_Otp {
 					return self::invalid();
 				}
 
+				$failures = (int) get_user_meta( $user_id, '_penalis_otp_failures', true );
+				if ( $failures >= Penalis_Policy::OTP_MAX_FAILURES ) {
+					return self::invalid();
+				}
+
 				++$state['attempts'];
 
 				if ( ! update_user_meta( $user_id, $key, $state ) ) {
@@ -400,6 +431,7 @@ final class Penalis_Otp {
 				$pattern = '/\A[0-9]{' . Penalis_Policy::OTP_CODE_LENGTH . '}\z/';
 
 				if ( 1 !== preg_match( $pattern, (string) $code ) || ! hash_equals( (string) $state['hash'], self::digest( $state, (string) $code ) ) ) {
+					update_user_meta( $user_id, '_penalis_otp_failures', $failures + 1 );
 					return self::invalid();
 				}
 
@@ -408,6 +440,7 @@ final class Penalis_Otp {
 				}
 
 				delete_transient( $locator_key );
+				delete_user_meta( $user_id, '_penalis_otp_failures' );
 
 				return $apply( $state );
 			}

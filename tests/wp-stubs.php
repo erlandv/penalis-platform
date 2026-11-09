@@ -843,6 +843,57 @@ if ( ! function_exists( 'do_action' ) ) {
 	function do_action() {}
 }
 
+if ( ! function_exists( 'add_action' ) ) {
+	/**
+	 * Register a hook callback in the test registry.
+	 *
+	 * @param string   $hook     Hook.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Priority.
+	 * @return void
+	 */
+	function add_action( $hook, $callback, $priority = 10 ) {
+		$GLOBALS['penalis_test_actions'][ $hook ][ $priority ][] = $callback;
+	}
+}
+
+if ( ! function_exists( 'remove_action' ) ) {
+	/**
+	 * Remove a hook callback from the test registry.
+	 *
+	 * @param string   $hook     Hook.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Priority.
+	 * @return bool
+	 */
+	function remove_action( $hook, $callback, $priority = 10 ) {
+		if ( empty( $GLOBALS['penalis_test_actions'][ $hook ][ $priority ] ) ) {
+			return false;
+		}
+
+		foreach ( $GLOBALS['penalis_test_actions'][ $hook ][ $priority ] as $index => $registered ) {
+			if ( $registered === $callback ) {
+				unset( $GLOBALS['penalis_test_actions'][ $hook ][ $priority ][ $index ] );
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+
+if ( ! function_exists( 'wp_password_change_notification' ) ) {
+	/**
+	 * Record the core admin password-change notification.
+	 *
+	 * @param WP_User $user User.
+	 * @return void
+	 */
+	function wp_password_change_notification( $user ) {
+		$GLOBALS['penalis_test_password_notifications'][] = (int) $user->ID;
+	}
+}
+
 if ( ! function_exists( 'apply_filters' ) ) {
 	/**
 	 * Filter passthrough.

@@ -151,9 +151,19 @@ changes:
 - **Concurrency:** Issuance, attempt counting, and consumption run inside a
   MySQL advisory lock (`GET_LOCK`), so parallel requests cannot exceed the
   attempt budget or consume a code twice.
-- **Issuance Budgets:** 60-second resend cooldown plus 5 issues/hour per account
-  and per address, and 20 issues/hour per IP. Budgets survive replacement
-  challenges, so resending cannot reset the limit.
+- **Issuance Budgets:** 60-second resend cooldown plus 5 issues/hour and 10
+  issues/day per account and per address, and 20 issues/hour per IP. Budgets
+  survive replacement challenges, so resending cannot reset the limit.
+- **Cumulative Failure Lock:** After 30 failed codes for an account (across all
+  purposes) the account is locked: no code is accepted and no new code is
+  issued until an administrator resends from **Penulis Penalis**, which clears
+  the counter. The counter is also cleared by a successful verification.
+- **Busy Server:** If the serialization lock cannot be acquired within the
+  timeout the endpoint answers `503 penalis_busy` rather than "invalid code", so
+  a busy server is never mistaken for a wrong code.
+- **Owner Binding Before Counting:** Email-change challenges accept an expected
+  owner ID and reject a mismatch before the attempt counter is touched, so a
+  foreign session cannot burn another account's attempt budget.
 - **State Clearing:** Any account status transition clears pending challenges,
   so a code issued before a suspension cannot be replayed afterwards.
 - **No Bearer Links:** Verification emails contain only the code. There is no
@@ -193,7 +203,8 @@ Transient-based rate limits (`Penalis_Rate_Limiter`):
 | --- | --- | --- |
 | Registration | Per IP | 5 / hour |
 | Verification code confirm | Per IP | 20 / hour |
-| Verification code issue | Per account / Per address / Per IP | 5 / hour, 5 / hour, 20 / hour, with a 60-second cooldown |
+| Verification code issue | Per account / Per address / Per IP | 5 / hour, 10 / day, 5 / hour, 20 / hour, with a 60-second cooldown |
+| Verification code failures | Per account (cumulative) | Locked after 30 failed codes until administrator unlock |
 | Legacy activation request | Per IP / Per email | 5 / hour per IP, 3 / hour per email |
 | Legacy activation confirm | Per IP | 10 / hour |
 | Password forgot request | Per IP / Per account | 5 / hour per IP, 3 / hour per account |
