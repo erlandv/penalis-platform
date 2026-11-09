@@ -2,26 +2,15 @@
  * Deep-link parameters understood by the dashboard.
  *
  * These let the public site link straight to a specific form, for example from
- * the retired `/submit-karya-tulis` page. Two shapes exist:
+ * the retired `/submit-karya-tulis` page. Most parameters are **flags** (`=1`)
+ * that only open a form and never carry a secret. Email verification uses a
+ * six-digit code typed into the dashboard, so no confirmation link exists.
  *
- * - **Flag** (`=1`): opens a form. Nothing is consumed, so the link is safe to
- *   bookmark and share.
- * - **Token**: opens a confirmation page that consumes a single-use token.
- *
- * `penalis_activate` accepts both, which is why the value has to be inspected
- * rather than just checked for presence.
+ * The one exception is the password reset pair (`reset` + `resetLogin`), which
+ * carries a WordPress core reset key.
  */
 
 export const DEEPLINK = {
-  /** Token: confirm an email address. Plugin token, 43 characters. */
-  verify: 'penalis_verify',
-  /**
-   * Token: confirm a requested email address change.
-   *
-   * Separate from `verify` on purpose: a registration token advances the
-   * account status machine, while an email change must never do that.
-   */
-  emailChange: 'penalis_email_change',
   /**
    * Key: set a new password from a reset email.
    *
@@ -33,13 +22,13 @@ export const DEEPLINK = {
   reset: 'penalis_reset',
   /** Companion to `reset`: the username the key belongs to. */
   resetLogin: 'penalis_login',
-  /** Token or flag: activate a legacy account, or open the request form. */
+  /** Flag: open the legacy account activation form. */
   activate: 'penalis_activate',
   /** Flag: open the password reset request form. */
   forgot: 'penalis_forgot',
   /** Flag: open the registration form. */
   register: 'penalis_register',
-  /** Flag: open the verification resend form. */
+  /** Flag: open the verification code resend form. */
   resend: 'penalis_resend',
   /** Flag: open the login form. Login is also the default. */
   signin: 'penalis_signin',
@@ -52,11 +41,9 @@ export const DEEPLINK = {
  *
  * Mirrors `Penalis_Policy::is_token_format_valid()` on the server: 32 random
  * bytes encoded as URL-safe base64 without padding, which is 43 characters.
- * The accepted range is deliberately wide so this stays a shape test rather
- * than a guess at the exact length.
  *
- * This is what separates `?penalis_activate=1` (open the form) from
- * `?penalis_activate=<token>` (consume the token).
+ * Verification codes are six digits and are never accepted by this check, so a
+ * code can never be mistaken for a bearer token.
  *
  * Do NOT use this for the password reset key: that comes from WordPress core
  * and is only 20 characters.

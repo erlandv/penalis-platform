@@ -33,6 +33,8 @@ require_once __DIR__ . '/../includes/class-username-change.php';
 require_once __DIR__ . '/../includes/class-password-reset.php';
 require_once __DIR__ . '/../includes/class-registration.php';
 require_once __DIR__ . '/../includes/class-legacy-activation.php';
+require_once __DIR__ . '/../includes/class-otp.php';
+require_once __DIR__ . '/../includes/class-email-change.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -68,6 +70,30 @@ function penalis_same( $expected, $actual, $message ) {
 		$expected === $actual,
 		$message . ' (expected ' . var_export( $expected, true ) . ', got ' . var_export( $actual, true ) . ')'
 	);
+}
+
+/**
+ * Extract the six-digit code from the most recently captured email.
+ *
+ * The code is never stored, so tests read it from the delivered message the
+ * same way a writer would. The email also contains six-digit CSS colours, so
+ * the code is matched by its position after the "Kode verifikasi kamu:" line.
+ *
+ * @return string
+ */
+function penalis_last_code() {
+	$mail = $GLOBALS['penalis_test_mail'];
+	$last = end( $mail );
+
+	if ( ! is_array( $last ) || ! isset( $last[2] ) ) {
+		return '';
+	}
+
+	if ( 1 !== preg_match( '/Kode verifikasi kamu:<\/p><p[^>]*>([0-9]{6})<\/p>/', (string) $last[2], $matches ) ) {
+		return '';
+	}
+
+	return $matches[1];
 }
 
 /**
@@ -274,21 +300,16 @@ penalis_assert( ! Penalis_Policy::is_allowed_post_status( 'future' ), 'Future is
  * ---------------------------------------------------------------------- */
 
 $token = Penalis_Policy::generate_token();
-penalis_assert( Penalis_Policy::is_token_format_valid( $token ), 'Generated token format is valid.' );
-penalis_assert( strlen( $token ) >= 40 && strlen( $token ) <= 64, 'Generated token length is in range.' );
-penalis_assert( $token !== Penalis_Policy::generate_token(), 'Tokens are unique.' );
-penalis_assert( ! Penalis_Policy::is_token_format_valid( 'short' ), 'Short token is rejected.' );
+penalis_assert( Penalis_Policy::is_token_format_valid( $token ), 'Generated challenge ID format is valid.' );
+penalis_assert( strlen( $token ) >= 40 && strlen( $token ) <= 64, 'Generated challenge ID length is in range.' );
+penalis_assert( $token !== Penalis_Policy::generate_token(), 'Challenge IDs are unique.' );
+penalis_assert( ! Penalis_Policy::is_token_format_valid( 'short' ), 'Short challenge ID is rejected.' );
 penalis_assert( ! Penalis_Policy::is_token_format_valid( str_repeat( '!', 50 ) ), 'Invalid characters are rejected.' );
+penalis_assert( ! Penalis_Policy::is_token_format_valid( '123456' ), 'A six-digit code is never a valid challenge ID.' );
 
-$hash = Penalis_Policy::hash_token( $token );
-penalis_same( 64, strlen( $hash ), 'Token hash is SHA-256 hex.' );
-penalis_assert( $hash !== $token, 'Raw token is not stored as the hash.' );
-
-penalis_assert( Penalis_Policy::is_token_expired( 100, 101 ), 'Past expiry is expired.' );
-penalis_assert( ! Penalis_Policy::is_token_expired( 101, 100 ), 'Future expiry is valid.' );
-penalis_assert( Penalis_Policy::can_resend_verification( 0, 100 ), 'First issue may resend.' );
-penalis_assert( ! Penalis_Policy::can_resend_verification( 100, 200 ), 'Resend within the window is throttled.' );
-penalis_assert( Penalis_Policy::can_resend_verification( 100, 100 + Penalis_Policy::TOKEN_RESEND_WAIT ), 'Resend after the window is allowed.' );
+penalis_same( 600, Penalis_Policy::OTP_TTL, 'Verification codes expire after ten minutes.' );
+penalis_same( 5, Penalis_Policy::OTP_MAX_ATTEMPTS, 'A challenge allows five attempts.' );
+penalis_same( 6, Penalis_Policy::OTP_CODE_LENGTH, 'Verification codes are six digits.' );
 
 /* -------------------------------------------------------------------------
  * Roles
@@ -320,20 +341,43 @@ penalis_assert( ! Penalis_Account_Status::can_write( 1 ), 'New account cannot wr
 penalis_assert( Penalis_Account_Status::is_managed_account( 1 ), 'New account is plugin-managed.' );
 penalis_assert( Penalis_Account_Status::can_login( 1 ), 'Unverified account may sign in to view status.' );
 
-$token = Penalis_Account_Status::issue_verification_token( 1 );
-penalis_assert( is_string( $token ), 'Verification token is issued.' );
-penalis_same( 1, Penalis_Account_Status::find_user_by_token( $token ), 'Token lookup finds the account.' );
-penalis_same( 0, Penalis_Account_Status::find_user_by_token( 'not-a-token' ), 'Invalid token lookup returns zero.' );
+// Verification now uses a six-digit code bound to the account, not a bearer
+// token. The code itself is never stored; only an HMAC digest is.
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$challenge       = Penalis_Otp::issue( 'registration', 1, 'user1@example.com' );
+penalis_assert( ! is_wp_error( $challenge ), 'A registration challenge is issued.' );
+penalis_assert( Penalis_Policy::is_token_format_valid( $challenge['challenge_id'] ), 'The challenge ID has the opaque token shape.' );
+penalis_same( Penalis_Policy::OTP_RESEND_WAIT, $challenge['resend_after'], 'The response advertises the resend cooldown.' );
+penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'Issuing a challenge sends exactly one email.' );
+penalis_assert( 1 === preg_match( '/Kode verifikasi kamu:<\/p><p[^>]*>[0-9]{6}<\/p>/', $GLOBALS['penalis_test_mail'][0][2] ), 'The email contains a six-digit code.' );
+
+$stored = get_user_meta( 1, '_penalis_otp_registration', true );
+penalis_assert( is_array( $stored ), 'The challenge state is stored in user meta.' );
+penalis_assert( ! isset( $stored['code'] ), 'The raw code is never stored.' );
+penalis_same( 64, strlen( (string) $stored['hash'] ), 'Only a SHA-256 HMAC digest is stored.' );
+penalis_same( 0, (int) $stored['attempts'], 'A new challenge starts with zero attempts.' );
+
+// A wrong code is rejected and consumes an attempt.
+$wrong = Penalis_Otp::consume( 'registration', $challenge['challenge_id'], '000000', static function () {
+	return 'applied';
+} );
+penalis_assert( is_wp_error( $wrong ), 'A wrong code is rejected.' );
+$stored = get_user_meta( 1, '_penalis_otp_registration', true );
+penalis_same( 1, (int) $stored['attempts'], 'A failed attempt is counted.' );
+
+// A code issued for another purpose cannot be consumed here.
+$cross = Penalis_Otp::consume( 'email_change', $challenge['challenge_id'], '000000', static function () {
+	return 'applied';
+} );
+penalis_assert( is_wp_error( $cross ), 'A challenge cannot be consumed under another purpose.' );
 
 $result = Penalis_Account_Status::transition( 1, 'active', 'email_verified', 0 );
 penalis_assert( true === $result, 'Verification transitions directly to active.' );
 penalis_same( 'active', Penalis_Account_Status::get_status( 1 ), 'Status is active after email verification.' );
-penalis_same( '', (string) get_user_meta( 1, Penalis_Account_Status::META_TOKEN_HASH, true ), 'Token is cleared after verification.' );
+penalis_same( '', (string) get_user_meta( 1, '_penalis_otp_registration', true ), 'The challenge is cleared after the status change.' );
 penalis_assert( Penalis_Account_Status::is_access_enabled( 1 ), 'Verified account has access.' );
-penalis_assert( Penalis_Account_Status::can_write( 1 ), 'Verified account can write immediately.' );
 penalis_assert( in_array( 'penalis_writer', $GLOBALS['penalis_test_users'][1]->roles, true ), 'Verified account receives the writer role.' );
 penalis_same( 0, (int) get_user_meta( 1, Penalis_Account_Status::META_APPROVED_BY, true ), 'Self-service verification records actor 0.' );
-
 $result = Penalis_Account_Status::transition( 1, 'suspended', 'admin_suspended', 2 );
 penalis_assert( true === $result, 'Active account can be suspended.' );
 penalis_assert( ! Penalis_Account_Status::is_access_enabled( 1 ), 'Suspended account loses access.' );
@@ -441,16 +485,18 @@ penalis_reset();
 $GLOBALS['penalis_test_users'][9] = new WP_User( 9, array( 'editor' ) );
 penalis_assert( ! Penalis_Account_Status::is_legacy_account( 9 ), 'An editor is not a legacy account.' );
 
-// Unverified spam accounts can be suspended directly by an administrator, clearing verification tokens.
+// Unverified spam accounts can be suspended directly by an administrator, which
+// also invalidates any pending verification code.
 penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
 $GLOBALS['penalis_test_users'][6] = new WP_User( 6, array( 'subscriber' ) );
 Penalis_Account_Status::initialize_pending( 6 );
-$spam_token = Penalis_Account_Status::issue_verification_token( 6 );
-penalis_assert( is_string( $spam_token ), 'Unverified account receives a verification token.' );
+$spam_challenge = Penalis_Otp::issue( 'registration', 6, 'user6@example.com' );
+penalis_assert( ! is_wp_error( $spam_challenge ), 'Unverified account receives a verification challenge.' );
 penalis_assert( true === Penalis_Account_Status::transition( 6, 'suspended', 'admin_suspended', 2 ), 'Unverified account can be suspended.' );
 penalis_assert( ! Penalis_Account_Status::can_login( 6 ), 'Suspended unverified account cannot sign in.' );
 penalis_assert( ! Penalis_Account_Status::can_write( 6 ), 'Suspended unverified account cannot write.' );
-penalis_same( 0, Penalis_Account_Status::find_user_by_token( $spam_token ), 'Suspending an unverified account invalidates its verification token.' );
+penalis_same( '', (string) get_user_meta( 6, '_penalis_otp_registration', true ), 'Suspending an unverified account invalidates its verification code.' );
 penalis_assert( true === Penalis_Account_Status::transition( 6, 'active', 'admin_reactivated', 2 ), 'Suspended account can be activated by an administrator.' );
 penalis_assert( Penalis_Account_Status::can_write( 6 ), 'Activated account can write.' );
 
@@ -610,41 +656,181 @@ penalis_assert(
 );
 
 /* -------------------------------------------------------------------------
- * Email change token storage
+ * Verification code hardening
+ * ---------------------------------------------------------------------- */
+
+// Five wrong attempts exhaust the challenge, even if the real code follows.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][30] = new WP_User( 30, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 30 );
+$exhaust = Penalis_Otp::issue( 'registration', 30, 'user30@example.com' );
+$real    = penalis_last_code();
+
+for ( $i = 0; $i < Penalis_Policy::OTP_MAX_ATTEMPTS; $i++ ) {
+	$attempt = Penalis_Otp::consume( 'registration', $exhaust['challenge_id'], '000000', static function () {
+		return 'applied';
+	} );
+	penalis_assert( is_wp_error( $attempt ), 'A wrong code is rejected on attempt ' . ( $i + 1 ) . '.' );
+}
+
+$after_exhaust = Penalis_Otp::consume( 'registration', $exhaust['challenge_id'], $real, static function () {
+	return 'applied';
+} );
+penalis_assert( is_wp_error( $after_exhaust ), 'The real code is refused after the attempt budget is spent.' );
+
+// An expired challenge is refused even with the correct code.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][31] = new WP_User( 31, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 31 );
+$expiring = Penalis_Otp::issue( 'registration', 31, 'user31@example.com' );
+$expired  = get_user_meta( 31, '_penalis_otp_registration', true );
+$expired['expires'] = time() - 1;
+update_user_meta( 31, '_penalis_otp_registration', $expired );
+
+$expired_result = Penalis_Otp::consume( 'registration', $expiring['challenge_id'], penalis_last_code(), static function () {
+	return 'applied';
+} );
+penalis_assert( is_wp_error( $expired_result ), 'An expired challenge is refused.' );
+
+// A second issue inside the cooldown is rate limited.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][32] = new WP_User( 32, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 32 );
+$first_issue  = Penalis_Otp::issue( 'registration', 32, 'user32@example.com' );
+$second_issue = Penalis_Otp::issue( 'registration', 32, 'user32@example.com' );
+penalis_assert( ! is_wp_error( $first_issue ), 'The first issue succeeds.' );
+penalis_assert( is_wp_error( $second_issue ), 'A resend inside the cooldown is rate limited.' );
+penalis_same( 'penalis_rate_limited', $second_issue->get_error_code(), 'The cooldown reports a rate limit.' );
+
+// A throttled resend keeps the code the writer already received usable.
+$throttled_resend = Penalis_Registration::resend_verification( 'user32@example.com' );
+penalis_same( $first_issue['challenge_id'], $throttled_resend['challenge_id'], 'A throttled resend returns the existing challenge ID.' );
+penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'A throttled resend sends no additional email.' );
+
+// A replacement challenge invalidates the previous code.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][33] = new WP_User( 33, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 33 );
+$old_challenge = Penalis_Otp::issue( 'registration', 33, 'user33@example.com' );
+$old_code      = penalis_last_code();
+
+// Clear the cooldown budget so a replacement can be issued immediately.
+$GLOBALS['penalis_test_transients'] = array();
+$new_challenge = Penalis_Otp::issue( 'registration', 33, 'user33@example.com' );
+penalis_assert( ! is_wp_error( $new_challenge ), 'A replacement challenge is issued after the cooldown.' );
+
+$old_result = Penalis_Otp::consume( 'registration', $old_challenge['challenge_id'], $old_code, static function () {
+	return 'applied';
+} );
+penalis_assert( is_wp_error( $old_result ), 'The previous code stops working after a replacement is issued.' );
+
+// A failed delivery discards the challenge instead of leaving a usable code.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][34] = new WP_User( 34, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 34 );
+$GLOBALS['penalis_test_mail_fails'] = true;
+$failed_issue = Penalis_Otp::issue( 'registration', 34, 'user34@example.com' );
+unset( $GLOBALS['penalis_test_mail_fails'] );
+penalis_assert( is_wp_error( $failed_issue ), 'A failed delivery reports an error.' );
+penalis_same( 'penalis_email_failed', $failed_issue->get_error_code(), 'The failure is reported as a mail failure.' );
+penalis_same( '', (string) get_user_meta( 34, '_penalis_otp_registration', true ), 'A failed delivery leaves no usable challenge.' );
+
+// A failed replacement restores the challenge from the earlier email.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][35] = new WP_User( 35, array( 'subscriber' ) );
+Penalis_Account_Status::initialize_pending( 35 );
+$delivered = Penalis_Otp::issue( 'registration', 35, 'user35@example.com' );
+$delivered_code = penalis_last_code();
+
+// Clear only the issuance budgets so a replacement can be attempted at once;
+// the locator for the delivered challenge must survive.
+foreach ( array_keys( $GLOBALS['penalis_test_transients'] ) as $transient_key ) {
+	if ( 0 === strpos( (string) $transient_key, 'penalis_otp_budget_' ) ) {
+		unset( $GLOBALS['penalis_test_transients'][ $transient_key ] );
+	}
+}
+
+$GLOBALS['penalis_test_mail_fails'] = true;
+$failed_replacement = Penalis_Otp::issue( 'registration', 35, 'user35@example.com' );
+unset( $GLOBALS['penalis_test_mail_fails'] );
+penalis_assert( is_wp_error( $failed_replacement ), 'A failed replacement reports an error.' );
+penalis_same( $delivered['challenge_id'], (string) get_user_meta( 35, '_penalis_otp_registration', true )['id'], 'The earlier challenge is restored.' );
+
+$restored = Penalis_Otp::consume( 'registration', $delivered['challenge_id'], $delivered_code, static function () {
+	return 'applied';
+} );
+penalis_same( 'applied', $restored, 'The code from the earlier email still works after a failed replacement.' );
+
+/* -------------------------------------------------------------------------
+ * Email change challenge storage
  * ---------------------------------------------------------------------- */
 
 penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
 $GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'penalis_writer' ) );
+update_user_meta( 21, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+update_user_meta( 21, Penalis_Account_Status::META_ACCESS, '1' );
 
-$penalis_email_token = Penalis_Account_Status::issue_email_change_token( 21, 'baru@example.com' );
-penalis_assert( is_string( $penalis_email_token ), 'An email change token is issued.' );
-penalis_assert( Penalis_Policy::is_token_format_valid( $penalis_email_token ), 'The issued token has the plugin token shape.' );
-penalis_same( 21, Penalis_Account_Status::find_user_by_email_change_token( $penalis_email_token ), 'The token resolves to its owner.' );
-penalis_same( 0, Penalis_Account_Status::find_user_by_email_change_token( 'x' ), 'Malformed tokens resolve to nobody.' );
+Penalis_Account_Status::set_pending_email( 21, 'baru@example.com' );
+penalis_same( 'baru@example.com', Penalis_Account_Status::get_pending_email( 21 ), 'The pending address is stored.' );
 
-$penalis_pending = Penalis_Account_Status::get_email_change( 21 );
-penalis_same( 'baru@example.com', $penalis_pending['email'], 'The pending address is stored.' );
-penalis_assert( $penalis_pending['expires'] > time(), 'The pending change has a future expiry.' );
+$penalis_email_challenge = Penalis_Otp::issue( 'email_change', 21, 'baru@example.com' );
+penalis_assert( ! is_wp_error( $penalis_email_challenge ), 'An email change challenge is issued.' );
+penalis_assert( Penalis_Policy::is_token_format_valid( $penalis_email_challenge['challenge_id'] ), 'The challenge ID has the opaque token shape.' );
+penalis_same( 'baru@example.com', $GLOBALS['penalis_test_mail'][0][0], 'The code is sent to the candidate address, not the current one.' );
 
-// The raw token must never be stored; only its hash is.
-penalis_assert(
-	Penalis_Policy::hash_token( $penalis_email_token ) !== $penalis_email_token,
-	'The stored value is a hash, not the raw token.'
+$penalis_email_state = get_user_meta( 21, '_penalis_otp_email_change', true );
+penalis_assert( is_array( $penalis_email_state ), 'The email change challenge is stored.' );
+penalis_same( 'baru@example.com', $penalis_email_state['email'], 'The challenge stores the candidate address.' );
+penalis_assert( ! isset( $penalis_email_state['code'] ), 'The raw email change code is never stored.' );
+
+// A registration challenge cannot confirm an email change.
+$penalis_registration_challenge = Penalis_Otp::issue( 'registration', 21, 'user21@example.com' );
+penalis_assert( is_wp_error( $penalis_registration_challenge ), 'A registration challenge is refused for an active account.' );
+
+// Confirming the emailed code applies the new address.
+$penalis_change_result = Penalis_Email_Change::confirm(
+	21,
+	$penalis_email_challenge['challenge_id'],
+	penalis_last_code()
 );
-penalis_same(
-	Penalis_Policy::hash_token( $penalis_email_token ),
-	(string) get_user_meta( 21, Penalis_Account_Status::META_EMAIL_CHANGE_HASH, true ),
-	'Only the token hash is persisted.'
+penalis_assert( ! is_wp_error( $penalis_change_result ), 'A correct email change code is accepted.' );
+penalis_same( 'baru@example.com', $GLOBALS['penalis_test_users'][21]->user_email, 'The account address is updated only after confirmation.' );
+penalis_same( '', Penalis_Account_Status::get_pending_email( 21 ), 'The pending address is cleared after confirmation.' );
+penalis_same( 'user21@example.com', $GLOBALS['penalis_test_mail'][1][0], 'The previous address receives the security notice.' );
+
+// The consumed code cannot be replayed.
+$penalis_replay = Penalis_Email_Change::confirm(
+	21,
+	$penalis_email_challenge['challenge_id'],
+	penalis_last_code()
 );
+penalis_assert( is_wp_error( $penalis_replay ), 'A consumed email change code cannot be reused.' );
+
+// A resend reissues for the stored candidate, not a browser-supplied address.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][22] = new WP_User( 22, array( 'penalis_writer' ) );
+update_user_meta( 22, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+update_user_meta( 22, Penalis_Account_Status::META_ACCESS, '1' );
+
+$penalis_missing_resend = Penalis_Email_Change::resend( 22 );
+penalis_assert( is_wp_error( $penalis_missing_resend ), 'A resend without a pending change is refused.' );
+
+Penalis_Account_Status::set_pending_email( 22, 'calon@example.com' );
+$penalis_resend_result = Penalis_Email_Change::resend( 22 );
+penalis_assert( ! is_wp_error( $penalis_resend_result ), 'A resend reissues the challenge.' );
+penalis_same( 'calon@example.com', $penalis_resend_result['pendingEmail'], 'The resend uses the stored candidate address.' );
+penalis_same( 'calon@example.com', $GLOBALS['penalis_test_mail'][0][0], 'The resent code goes to the stored candidate address.' );
 
 Penalis_Account_Status::clear_email_change( 21 );
-penalis_same( '', Penalis_Account_Status::get_email_change( 21 )['email'], 'Clearing removes the pending address.' );
-penalis_same( 0, Penalis_Account_Status::find_user_by_email_change_token( $penalis_email_token ), 'A cleared token no longer resolves.' );
-
-// An email change token must not be usable as a registration token.
-$penalis_registration_token = Penalis_Account_Status::issue_verification_token( 21 );
-penalis_same( 0, Penalis_Account_Status::find_user_by_email_change_token( $penalis_registration_token ), 'Registration tokens cannot confirm an email change.' );
-penalis_same( 21, Penalis_Account_Status::find_user_by_token( $penalis_registration_token ), 'Registration tokens still resolve through their own lookup.' );
+penalis_same( '', Penalis_Account_Status::get_pending_email( 21 ), 'Clearing removes the pending address.' );
 
 /* -------------------------------------------------------------------------
  * Avatar validation
@@ -996,14 +1182,14 @@ penalis_reset();
 $GLOBALS['penalis_test_users'][90] = new WP_User( 90 );
 $GLOBALS['penalis_test_users'][90]->user_email = 'writer@example.com';
 $GLOBALS['penalis_test_users'][90]->display_name = 'Penulis Uji';
-penalis_assert( Penalis_Emails::send_verification( 90, 'safe-test-token' ), 'Verification email is accepted.' );
+penalis_assert( Penalis_Emails::send_otp( 90, 'writer@example.com', '123456', 'registration' ), 'Verification code email is accepted.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], '<table' ), 'Transactional email uses the branded HTML layout.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'logo-penalis.png' ), 'Transactional email includes the Penalis logo.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'safe-test-token' ), 'Verification link is present in the rendered email.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], '>Konfirmasi Email</a>' ), 'Verification action has a descriptive button label.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'https://example.com/dashboard/?penalis_verify=safe-test-token' ), 'Verification action points to the full original URL.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'permintaan verifikasi alamat email' ), 'Verification email has verification-specific footer copy.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Jika kamu tidak mendaftar, abaikan email ini. Jangan bagikan isi email ini kepada siapapun.' ), 'Verification footer uses the approved request-denial and confidentiality copy.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], '123456' ), 'The verification code is present in the rendered email.' );
+penalis_assert( false === strpos( $GLOBALS['penalis_test_mail'][0][2], 'penalis_verify=' ), 'The verification email contains no bearer link.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Berlaku 10 menit' ), 'The email states the code lifetime.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Jangan bagikan kode ini kepada siapa pun' ), 'The email warns against sharing the code.' );
+penalis_assert( false === Penalis_Emails::send_otp( 90, 'writer@example.com', '123456', 'unknown' ), 'An unknown purpose is refused.' );
 penalis_assert( false === strpos( Penalis_Email_Template::render( '<script>alert(1)</script>' ), '<script>' ), 'Message content is escaped before HTML output.' );
 penalis_assert( false !== strpos( Penalis_Email_Template::render( 'A & B' ), 'A &amp; B' ), 'HTML special characters are escaped.' );
 penalis_assert( false !== strpos( Penalis_Email_Template::render( 'Visit https://example.com/?a=1&b=2' ), 'href="https://example.com/?a=1&b=2"' ), 'Inline links retain their URL query string.' );
@@ -1021,9 +1207,9 @@ penalis_reset();
 $GLOBALS['penalis_test_users'][92] = new WP_User( 92 );
 $GLOBALS['penalis_test_users'][92]->user_email = 'writer@example.com';
 $GLOBALS['penalis_test_users'][92]->display_name = 'Penulis Uji';
-penalis_assert( Penalis_Emails::send_email_change_confirmation( 92, 'email-token', 'new@example.com' ), 'Email change confirmation is accepted.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Alamat baru hanya dipakai setelah kamu mengonfirmasi.' ), 'Email body explains that the new address is pending confirmation.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'mengubah email akun Penalis ke alamat ini' ), 'Email change confirmation has the approved contextual footer.' );
+penalis_assert( Penalis_Emails::send_otp( 92, 'new@example.com', '654321', 'email_change' ), 'Email change code email is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], '654321' ), 'The email change code is present in the rendered email.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Konfirmasi email baru' ), 'Email change code email uses the purpose-specific subject.' );
 
 penalis_reset();
 $GLOBALS['penalis_test_users'][93] = new WP_User( 93 );
@@ -1037,8 +1223,9 @@ penalis_reset();
 $GLOBALS['penalis_test_users'][94] = new WP_User( 94 );
 $GLOBALS['penalis_test_users'][94]->user_email = 'writer@example.com';
 $GLOBALS['penalis_test_users'][94]->display_name = 'Penulis Uji';
-penalis_assert( Penalis_Emails::send_legacy_activation( 94, 'legacy-token' ), 'Legacy activation email is accepted.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'permintaan aktivasi akun Penalis dari akun kontributor lama kamu' ), 'Legacy activation email uses the approved reason copy.' );
+penalis_assert( Penalis_Emails::send_otp( 94, 'writer@example.com', '111222', 'legacy' ), 'Legacy activation code email is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], '111222' ), 'The legacy activation code is present in the rendered email.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Aktivasi akun lama' ), 'Legacy activation email uses the purpose-specific subject.' );
 
 penalis_reset();
 $GLOBALS['penalis_test_users'][95] = new WP_User( 95 );
@@ -2932,30 +3119,55 @@ penalis_reset();
 $GLOBALS['penalis_test_users'][50] = new WP_User( 50, array( 'subscriber' ) );
 Penalis_Account_Status::initialize_pending( 50 );
 Penalis_Account_Status::set_instagram( 50, '@penalis.komunitas' );
-$verify_token  = Penalis_Account_Status::issue_verification_token( 50 );
-$verify_result = Penalis_Registration::verify( $verify_token );
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$verify_challenge = Penalis_Otp::issue( 'registration', 50, 'user50@example.com' );
+penalis_assert( ! is_wp_error( $verify_challenge ), 'A registration challenge is issued for the new account.' );
+$verify_code   = penalis_last_code();
+$verify_result = Penalis_Registration::verify( $verify_challenge['challenge_id'], $verify_code );
 penalis_assert( ! is_wp_error( $verify_result ), 'Email verification succeeds.' );
 penalis_same( Penalis_Policy::STATUS_ACTIVE, $verify_result['status'], 'Email verification response reports active status.' );
 penalis_same( Penalis_Policy::STATUS_ACTIVE, Penalis_Account_Status::get_status( 50 ), 'Verified user account is immediately active.' );
 penalis_assert( Penalis_Account_Status::can_write( 50 ), 'Verified user can write immediately without admin approval.' );
-penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'Verification sends the active writer notification email.' );
-penalis_same( 'user50@example.com', $GLOBALS['penalis_test_mail'][0][0], 'Active notification is sent to the verified writer, not admin.' );
+penalis_same( 2, count( $GLOBALS['penalis_test_mail'] ), 'Verification sends the code and the active writer notification email.' );
+penalis_same( 'user50@example.com', $GLOBALS['penalis_test_mail'][1][0], 'Active notification is sent to the verified writer, not admin.' );
+
+// A consumed code cannot be replayed.
+$replay = Penalis_Registration::verify( $verify_challenge['challenge_id'], $verify_code );
+penalis_assert( is_wp_error( $replay ), 'A consumed verification code cannot be replayed.' );
 
 // Self-service legacy activation immediately activates the account.
 penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
 $GLOBALS['penalis_test_users'][51] = new WP_User( 51, array( 'contributor' ) );
-$legacy_token  = Penalis_Account_Status::issue_verification_token( 51 );
+$legacy_challenge = Penalis_Otp::issue( 'legacy', 51, 'user51@example.com' );
+penalis_assert( ! is_wp_error( $legacy_challenge ), 'A legacy activation challenge is issued.' );
 $legacy_result = Penalis_Legacy_Activation::activate(
 	array(
-		'token'    => $legacy_token,
-		'password' => 'twelve chars password',
+		'challenge_id' => $legacy_challenge['challenge_id'],
+		'code'         => penalis_last_code(),
+		'password'     => 'twelve chars password',
 	)
 );
 penalis_assert( ! is_wp_error( $legacy_result ), 'Legacy self-service activation succeeds.' );
 penalis_same( Penalis_Policy::STATUS_ACTIVE, $legacy_result['status'], 'Legacy activation response reports active status.' );
 penalis_same( Penalis_Policy::STATUS_ACTIVE, Penalis_Account_Status::get_status( 51 ), 'Activated legacy account is immediately active.' );
 penalis_assert( Penalis_Account_Status::can_write( 51 ), 'Activated legacy account can write immediately.' );
-penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'Legacy activation sends the active writer notification email.' );
+penalis_same( 2, count( $GLOBALS['penalis_test_mail'] ), 'Legacy activation sends the code and the active writer notification email.' );
+
+// A weak password is rejected before the code is consumed.
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+$GLOBALS['penalis_test_users'][53] = new WP_User( 53, array( 'contributor' ) );
+$weak_challenge = Penalis_Otp::issue( 'legacy', 53, 'user53@example.com' );
+$weak_result    = Penalis_Legacy_Activation::activate(
+	array(
+		'challenge_id' => $weak_challenge['challenge_id'],
+		'code'         => penalis_last_code(),
+		'password'     => 'short',
+	)
+);
+penalis_assert( is_wp_error( $weak_result ), 'A weak password is rejected.' );
+penalis_assert( is_array( get_user_meta( 53, '_penalis_otp_legacy', true ) ), 'A rejected password does not consume the code.' );
 
 // REST profile endpoint updates and normalizes Instagram.
 penalis_reset();

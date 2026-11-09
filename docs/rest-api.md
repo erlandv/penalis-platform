@@ -12,7 +12,7 @@ the `X-WP-Nonce` header.
 
 ## 1. Custom Namespace: `penalis/v1`
 
-### 1.1 Public Auth & Token Routes
+### 1.1 Public Auth & Verification Routes
 
 Public routes use `__return_true` as their permission callback and enforce
 strict input validation, a honeypot field (`penalis_website`), per-IP/per-account
@@ -20,14 +20,15 @@ rate limits, and generic responses that prevent account enumeration.
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
-| `/registration` | `POST` | `handle_registration` | Register a new `pending_verification` account (with optional `instagram`) and send verification email |
-| `/verification/confirm` | `POST` | `handle_verification` | Consume a 43-char verification token and immediately activate the account (`active`, `penalis_writer`) |
-| `/verification/resend` | `POST` | `handle_resend` | Re-issue a verification email (10-minute per-account cooldown) |
-| `/legacy/activate` | `POST` | `handle_legacy_activate_request` | Request an activation email for a pre-plugin contributor account |
-| `/legacy/activate/confirm` | `POST` | `handle_legacy_activate_confirm` | Consume legacy activation token, set first password, and immediately activate the account (`active`) |
+| `/registration` | `POST` | `handle_registration` | Register a new `pending_verification` account (with optional `instagram`) and email a six-digit verification code |
+| `/verification/confirm` | `POST` | `handle_verification` | Consume `challenge_id` + `code` and immediately activate the account (`active`, `penalis_writer`) |
+| `/verification/resend` | `POST` | `handle_resend` | Re-issue a verification code (60-second cooldown, 5 issues/hour) |
+| `/legacy/activate` | `POST` | `handle_legacy_activate_request` | Request an activation code for a pre-plugin contributor account |
+| `/legacy/activate/confirm` | `POST` | `handle_legacy_activate_confirm` | Consume `challenge_id` + `code`, set first password, and immediately activate the account (`active`) |
 | `/password/forgot` | `POST` | `handle_password_forgot` | Request a password reset link by **email address only** (`user_email`) |
 | `/password/reset` | `POST` | `handle_password_reset` | Validate core reset key (`key` + `login`), set new password (12+ chars), destroy sessions |
-| `/account/email/confirm` | `POST` | `confirm_email_change` | Consume an email-change token, re-verify availability, and update `user_email` |
+| `/account/email/confirm` | `POST` | `confirm_email_change` | Consume `challenge_id` + `code`, re-verify availability, and update `user_email` |
+| `/account/email/resend` | `POST` | `resend_email_change` | Re-issue the code for the pending address without repeating the password |
 
 ### 1.2 Signed-In Account Routes (`require_logged_in`)
 
@@ -40,7 +41,7 @@ viewing their status or updating their profile).
 | `/account/profile` | `POST` | `update_profile` | Update `first_name`, `last_name`, `display_name_mode`, custom `display_name`, `description`, and optional `instagram` |
 | `/account/password` | `POST` | `update_password` | Change own password (requires `current_password`, `new_password` >= 12 chars) |
 | `/account/username` | `POST` | `change_username` | Re-authenticated `user_login` change inside a MySQL advisory lock; records 301 redirect and ends sessions |
-| `/account/email` | `POST` | `request_email_change` | Re-authenticated request to change email; sends confirmation token to the new address |
+| `/account/email` | `POST` | `request_email_change` | Re-authenticated request to change email; emails a six-digit code to the new address |
 | `/account/avatar` | `POST` | `set_avatar` | Set profile photo from an attachment owned by the current user (minimum 100x100px) |
 | `/account/avatar` | `DELETE` | `remove_avatar` | Remove the current user's profile photo |
 | `/notifications` | `GET` | `list_notifications` | Return the signed-in user's bounded editorial notifications (up to 50) and `unreadCount` |
@@ -126,12 +127,14 @@ directly from transactional emails and public links:
 | `penalis_signin=1` | Flag | Sign-in form (default for guests) |
 | `penalis_register=1` | Flag | New writer registration form |
 | `penalis_forgot=1` | Flag | Forgot-password request form |
-| `penalis_resend=1` | Flag | Resend email verification form |
-| `penalis_verify=<token>` | 43-char base64url token | Email verification confirmation button |
+| `penalis_resend=1` | Flag | Resend verification code form |
 | `penalis_activate=1` | Flag | Legacy contributor activation request form |
-| `penalis_activate=<token>` | 43-char base64url token | Legacy contributor password setup & confirmation |
-| `penalis_email_change=<token>` | 43-char base64url token | Email address change confirmation button |
 | `penalis_reset=<key>&penalis_login=<login>` | Core reset key + login | Set new password form |
 | `penalis_login_error=<code>` | Error code | Sign-in form with localized error banner |
 | `view=editor&id=<post_id>` | Signed-in view route | Opens a specific article in the dashboard editor |
+
+> **No bearer links for verification.** Registration, legacy activation, and
+> email changes are confirmed with a six-digit code typed into the dashboard, so
+> no deep link carries a single-use secret. The only remaining link-based flow
+> is the WordPress core password reset key, which is deliberately separate.
 

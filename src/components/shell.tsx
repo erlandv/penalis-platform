@@ -17,6 +17,7 @@ import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
 import type { Account, AccountStatus, ViewName } from '../lib/types';
 import { Icon, type IconName } from './icons';
+import { OtpForm } from './OtpForm';
 import { Notice } from './ui';
 
 /**
@@ -67,44 +68,82 @@ export function StatusBanner({
 }
 
 /**
- * Verification-pending banner with a resend action.
+ * Verification-pending banner with an inline code form.
  *
- * The resend endpoint is intentionally generic, so the UI does not reveal
- * whether the address exists beyond what the signed-in user already knows.
+ * A writer who signed in before confirming can finish verification without
+ * leaving the dashboard: the code is entered here and the account becomes
+ * active immediately. The resend endpoint is intentionally generic, so the UI
+ * does not reveal whether the address exists beyond what the signed-in user
+ * already knows.
  */
 function ResendBanner({ email }: { email: string }) {
-  const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [challenge, setChallenge] = useState<{ challengeId: string; resendAfter: number } | null>(null);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
-  const resend = async () => {
-    setState('sending');
-    setMessage('');
+  const verify = async (code: string) => {
+    if (!challenge) {
+      return;
+    }
+
+    setError('');
+    setBusy(true);
 
     try {
-      const result = await registrationApi.resend(email);
+      const result = await registrationApi.confirm({ challenge_id: challenge.challengeId, code });
       setMessage(result.message);
-      setState('sent');
     } catch (caught) {
-      setMessage(caught instanceof ApiError ? caught.message : 'Email tidak dapat dikirim saat ini.');
-      setState('error');
+      setError(caught instanceof ApiError ? caught.message : 'Kode verifikasi tidak dapat diproses.');
+    } finally {
+      setBusy(false);
     }
   };
+
+  const resend = async () => {
+    const result = await registrationApi.resend(email);
+    const next = { challengeId: result.challenge_id, resendAfter: result.resend_after };
+    setChallenge(next);
+
+    return { challenge_id: next.challengeId, resend_after: next.resendAfter };
+  };
+
+  if (message) {
+    return (
+      <Notice tone="success">
+        <p>{message}</p>
+        <a className="penalis-button penalis-button--ghost" href={getBootstrap().dashboardUrl}>
+          Muat ulang dasbor
+        </a>
+      </Notice>
+    );
+  }
 
   return (
     <Notice tone="warning">
       <p>
-        Konfirmasi alamat email kamu. Kami mengirim tautan verifikasi ke {email}. Kamu
-        belum dapat menulis atau mengajukan karya tulis sampai alamat email kamu dikonfirmasi.
+        Konfirmasi alamat email kamu. Kami mengirim kode verifikasi enam digit ke {email}. Kamu belum dapat
+        menulis atau mengajukan karya tulis sampai alamat email kamu dikonfirmasi.
       </p>
-      {message ? <p>{message}</p> : null}
-      <button
-        type="button"
-        className="penalis-button penalis-button--ghost"
-        onClick={() => void resend()}
-        disabled={state === 'sending'}
-      >
-        {state === 'sending' ? 'Mengirim…' : 'Kirim ulang email verifikasi'}
-      </button>
+      {challenge ? (
+        <OtpForm
+          challengeId={challenge.challengeId}
+          email={email}
+          resendAfter={challenge.resendAfter}
+          onVerify={verify}
+          onResend={resend}
+          error={error}
+          busy={busy}
+        />
+      ) : (
+        <button
+          type="button"
+          className="penalis-button penalis-button--ghost"
+          onClick={() => void resend()}
+        >
+          Kirim kode verifikasi
+        </button>
+      )}
     </Notice>
   );
 }

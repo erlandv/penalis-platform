@@ -61,10 +61,14 @@ describe('isTokenShaped', () => {
 });
 
 describe('DEEPLINK', () => {
-  it('keeps the email-change token separate from the verification token', () => {
-    // A registration token advances the account status machine; an email
-    // change must never do that, so the two parameters cannot be shared.
-    expect(DEEPLINK.emailChange).not.toBe(DEEPLINK.verify);
-    expect(DEEPLINK.emailChange).toBe('penalis_email_change');
+  it('no longer exposes bearer-token parameters', () => {
+    // Verification moved to six-digit codes typed into the dashboard, so no
+    // deep link may carry a single-use secret any more.
+    expect(Object.values(DEEPLINK)).not.toContain('penalis_verify');
+    expect(Object.values(DEEPLINK)).not.toContain('penalis_email_change');
+  });
+
+  it('keeps the legacy activation parameter as a flag only', () => {
+    expect(DEEPLINK.activate).toBe('penalis_activate');
   });
 });

@@ -158,6 +158,12 @@ export const accountApi = {
       body: payload,
     }),
 
+  /** Reissue the code for the pending address without repeating the password. */
+  resendEmailChange: () =>
+    request<ChallengeResponse & { pendingEmail: string }>('/account/email/resend', {
+      method: 'POST',
+    }),
+
   /** Assign an existing media attachment as the profile photo. */
   setAvatar: (attachmentId: number) =>
     request<Account>('/account/avatar', { method: 'POST', body: { attachment_id: attachmentId } }),
@@ -196,7 +202,7 @@ export const registrationApi = {
 
 export const legacyApi = {
   /**
-   * Request an activation link for a legacy contributor account.
+   * Request an activation code for a legacy contributor account.
    *
    * The server always answers generically, so the UI must not imply that the
    * address belongs to a legacy account.

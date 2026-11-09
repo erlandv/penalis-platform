@@ -91,8 +91,8 @@ final class Penalis_Dashboard {
 			return;
 		}
 
-		// Verification links sent before the rename carry a single-use token in
-		// the query string, so the arguments have to survive the redirect.
+		// Legacy links sent before the rename may still carry query arguments,
+		// so they have to survive the redirect.
 		$args = array();
 
 		foreach ( wp_unslash( $_GET ) as $key => $value ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -149,8 +149,9 @@ final class Penalis_Dashboard {
 		nocache_headers();
 		header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0' );
 		header( 'X-Robots-Tag: noindex, nofollow' );
-		// Verification links carry a single-use token in the query string.
-		// Avoid leaking it to third-party resources loaded by the theme.
+		// The dashboard may be reached with query arguments (for example a
+		// password reset key). Avoid leaking them to third-party resources
+		// loaded by the theme.
 		header( 'Referrer-Policy: no-referrer' );
 	}
 

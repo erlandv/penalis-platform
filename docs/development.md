@@ -79,7 +79,8 @@ composer check           # Run composer lint + php tests/run-tests.php
 ### 3.2 Frontend Unit Tests (`src/lib/*.test.ts`)
 - Runs via Vitest in the `node` environment.
 - Tests pure logic in `src/lib/`: validation rules (`validation.test.ts`),
-  deeplink parsing and token shape checks (`deeplink.test.ts`), HTML
+  deeplink parsing and token shape checks (`deeplink.test.ts`), verification
+  code normalization and countdown formatting (`otp.test.ts`), HTML
   normalization (`html.test.ts`), formatting (`format.test.ts`), and public
   display name derivation (`profile.test.ts`).
 
@@ -130,9 +131,12 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
      optional **Username Instagram**).
    - Confirm that the account is created as `subscriber` with status
      `pending_verification` and cannot create articles via the UI or REST API.
-   - Open the verification link, click the confirmation button, and verify the
-     account immediately becomes `active` with the `penalis_writer` role and
-     receives the active writer welcome email.
+   - Confirm the dashboard immediately shows the **Masukkan Kode Verifikasi**
+     screen, and that the email contains a six-digit code and no link.
+   - Enter the code and verify the account immediately becomes `active` with the
+     `penalis_writer` role and receives the active writer welcome email.
+   - Confirm a wrong code is rejected, that five wrong codes invalidate the
+     challenge, and that **Kirim ulang kode** is throttled by a countdown.
 3. **Administrator Account Management**
    - In **Penalis → Penulis Penalis**, verify the writer's **Instagram** handle
      is displayed and linked, and test the confirmation modal for account

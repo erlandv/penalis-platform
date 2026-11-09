@@ -21,9 +21,9 @@ Key features:
 
 * **Self-service writer account workflow.** Visitors register through
   `/dashboard/` (with an optional Instagram username for internal admin
-  curation) and confirm their email address with an expiring single-use link to
+  curation) and confirm their email address with a six-digit code to
   immediately become active writers (`penalis_writer` role). Administrators can
-  manage accounts, resend verification emails, or suspend/reactivate accounts
+  manage accounts, resend verification codes, or suspend/reactivate accounts
   under **Penalis → Penulis Penalis**. Suspension immediately revokes access and
   ends active sessions. Every transition is recorded in a bounded audit log.
 * **Legacy contributor activation.** Pre-plugin contributor accounts (created
@@ -110,7 +110,7 @@ renamed executable files are rejected.
 = 1.0.0 =
 * Initial production release of Penalis Platform.
 * Self-service writer account lifecycle: registration with optional Instagram
-  username, scanner-safe email verification that immediately activates the
+  username, six-digit email verification codes that immediately activate the
   writer account, administrator suspension/reactivation, legacy contributor
   activation, and bounded audit logging.
 * Editorial submission and review workflow: draft submission, resubmission,

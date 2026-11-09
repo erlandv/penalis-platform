@@ -292,6 +292,16 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/account/email/resend',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'resend_email_change' ),
+				'permission_callback' => array( __CLASS__, 'require_logged_in' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/account/avatar',
 			array(
 				array(
@@ -570,7 +580,7 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
-	 * Request a legacy account activation link.
+	 * Request a legacy account activation code.
 	 *
 	 * Always answers generically so the endpoint cannot be used to discover
 	 * which addresses belong to legacy accounts.
@@ -876,7 +886,7 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
-	 * Consume an email-change confirmation token.
+	 * Consume an email-change confirmation code.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response|WP_Error
@@ -887,6 +897,21 @@ final class Penalis_Rest_Api {
 			(string) $request->get_param( 'challenge_id' ),
 			(string) $request->get_param( 'code' )
 		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Reissue the code for a pending email change.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function resend_email_change() {
+		$result = Penalis_Email_Change::resend( get_current_user_id() );
 
 		if ( is_wp_error( $result ) ) {
 			return $result;

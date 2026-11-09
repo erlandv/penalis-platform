@@ -261,6 +261,11 @@ final class Penalis_Account_Status {
 
 		update_user_meta( $user_id, self::META_STATUS, $to );
 
+		// Any pending verification code belongs to the previous state. Clearing
+		// it here means a suspended account cannot be reactivated by replaying
+		// a code that was issued before the suspension.
+		Penalis_Otp::clear( $user_id );
+
 		switch ( $to ) {
 			case Penalis_Policy::STATUS_ACTIVE:
 				update_user_meta( $user_id, self::META_VERIFIED, '1' );
@@ -378,6 +383,9 @@ final class Penalis_Account_Status {
 		} else {
 			delete_user_meta( $user_id, self::META_NEEDS_PASSWORD );
 		}
+
+		// The conversion consumed the activation code; nothing may remain.
+		Penalis_Otp::clear( $user_id );
 
 		if ( '' === (string) get_user_meta( $user_id, self::META_REGISTERED_AT, true ) ) {
 			$registered = ! empty( $user->user_registered )

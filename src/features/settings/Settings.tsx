@@ -13,6 +13,7 @@ import { describedBy } from '../../lib/a11y';
 import { previewAuthorUrl } from '../../lib/profile';
 import { validateEmail, validateUsername } from '../../lib/validation';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
 import { ErrorBanner, FieldError, FieldHint, Notice, StatusBadge } from '../../components/ui';
 
@@ -114,6 +115,15 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
   const [emailError, setEmailError] = useState('');
   const [emailNotice, setEmailNotice] = useState('');
   const [emailSaving, setEmailSaving] = useState(false);
+  // The pending code challenge. It lives in component state only, so leaving
+  // the page discards the flow and the code must be requested again.
+  const [emailChallenge, setEmailChallenge] = useState<{
+    challengeId: string;
+    email: string;
+    resendAfter: number;
+  } | null>(null);
+  const [emailCodeError, setEmailCodeError] = useState('');
+  const [emailVerifying, setEmailVerifying] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -181,6 +191,11 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
       setEmailNotice(result.message);
       setEmailPassword('');
       setNewEmail('');
+      setEmailChallenge({
+        challengeId: result.challenge_id,
+        email: result.pendingEmail,
+        resendAfter: result.resend_after,
+      });
 
       // The server now reports the address as pending. Refresh so the panel
       // shows it without a manual reload; a failed refresh must not turn a
@@ -200,6 +215,57 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
     } finally {
       setEmailSaving(false);
     }
+  };
+
+  const verifyEmailChange = async (code: string) => {
+    if (!emailChallenge) {
+      return;
+    }
+
+    setEmailCodeError('');
+    setEmailVerifying(true);
+
+    try {
+      const result = await accountApi.confirmEmailChange({
+        challenge_id: emailChallenge.challengeId,
+        code,
+      });
+      setEmailChallenge(null);
+      setEmailNotice(result.message);
+
+      // The account now reports the new address. A failed refresh must not
+      // turn a successful confirmation into an error message.
+      try {
+        onUpdated(await accountApi.get());
+      } catch {
+        // The confirmation itself succeeded, so the notice stays accurate.
+      }
+    } catch (caught) {
+      setEmailCodeError(
+        caught instanceof ApiError ? caught.message : 'Kode konfirmasi tidak dapat diproses.',
+      );
+    } finally {
+      setEmailVerifying(false);
+    }
+  };
+
+  const resendEmailChange = async () => {
+    if (!emailChallenge) {
+      throw new Error('no challenge');
+    }
+
+    // The pending address is stored server-side, so a resend never needs the
+    // browser to repeat it (or the password).
+    const result = await accountApi.resendEmailChange();
+
+    const next = {
+      challengeId: result.challenge_id,
+      email: emailChallenge.email,
+      resendAfter: result.resend_after,
+    };
+    setEmailChallenge(next);
+
+    return { challenge_id: next.challengeId, resend_after: next.resendAfter };
   };
 
   return (
@@ -397,55 +463,68 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         {account.canChangeEmail ? (
           <>
             <p className="penalis-muted">
-              Jika kamu mengubah email, kami akan mengirim link konfirmasi ke alamat email baru kamu. 
+              Jika kamu mengubah email, kami akan mengirim kode konfirmasi enam digit ke alamat email baru kamu.
               Alamat email baru tersebut tidak akan aktif sebelum dikonfirmasi.
             </p>
 
             {emailError ? <ErrorBanner message={emailError} /> : null}
             {emailNotice ? <Notice tone="success">{emailNotice}</Notice> : null}
 
-            <form className="penalis-form penalis-form--narrow" onSubmit={submitEmail} noValidate>
-              <label className="penalis-field">
-                <span>Email Baru</span>
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(event) => setNewEmail(event.target.value)}
-                  autoComplete="email"
-                  maxLength={254}
-                  aria-invalid={Boolean(emailErrors.new_email)}
-                  aria-describedby={describedBy(
-                    'new_email-hint',
-                    emailErrors.new_email && 'new_email-error',
-                  )}
-                />
-                <FieldHint id="new_email-hint">Gunakan email yang benar-benar kamu miliki.</FieldHint>
-                <FieldError errors={emailErrors} name="new_email" />
-              </label>
+            {emailChallenge ? (
+              <OtpForm
+                challengeId={emailChallenge.challengeId}
+                email={emailChallenge.email}
+                resendAfter={emailChallenge.resendAfter}
+                onVerify={verifyEmailChange}
+                onResend={resendEmailChange}
+                error={emailCodeError}
+                busy={emailVerifying}
+                verifyLabel="Konfirmasi email baru"
+              />
+            ) : (
+              <form className="penalis-form penalis-form--narrow" onSubmit={submitEmail} noValidate>
+                <label className="penalis-field">
+                  <span>Email Baru</span>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(event) => setNewEmail(event.target.value)}
+                    autoComplete="email"
+                    maxLength={254}
+                    aria-invalid={Boolean(emailErrors.new_email)}
+                    aria-describedby={describedBy(
+                      'new_email-hint',
+                      emailErrors.new_email && 'new_email-error',
+                    )}
+                  />
+                  <FieldHint id="new_email-hint">Gunakan email yang benar-benar kamu miliki.</FieldHint>
+                  <FieldError errors={emailErrors} name="new_email" />
+                </label>
 
-              <div className="penalis-field">
-                <label htmlFor="email_password">Password Saat Ini</label>
-                <PasswordInput
-                  id="email_password"
-                  value={emailPassword}
-                  onChange={(event) => setEmailPassword(event.target.value)}
-                  autoComplete="current-password"
-                  aria-invalid={Boolean(emailErrors.current_password)}
-                  aria-describedby={describedBy(
-                    'email_password-hint',
-                    emailErrors.current_password && 'current_password-error',
-                  )}
-                />
-                <FieldHint id="email_password-hint">
-                  Kami meminta password untuk memastikan perubahan ini benar-benar dari kamu.
-                </FieldHint>
-                <FieldError errors={emailErrors} name="current_password" />
-              </div>
+                <div className="penalis-field">
+                  <label htmlFor="email_password">Password Saat Ini</label>
+                  <PasswordInput
+                    id="email_password"
+                    value={emailPassword}
+                    onChange={(event) => setEmailPassword(event.target.value)}
+                    autoComplete="current-password"
+                    aria-invalid={Boolean(emailErrors.current_password)}
+                    aria-describedby={describedBy(
+                      'email_password-hint',
+                      emailErrors.current_password && 'current_password-error',
+                    )}
+                  />
+                  <FieldHint id="email_password-hint">
+                    Kami meminta password untuk memastikan perubahan ini benar-benar dari kamu.
+                  </FieldHint>
+                  <FieldError errors={emailErrors} name="current_password" />
+                </div>
 
-              <button type="submit" className="penalis-button penalis-button--primary" disabled={emailSaving}>
-                {emailSaving ? 'Mengirim Link Konfirmasi…' : 'Kirim Link Konfirmasi'}
-              </button>
-            </form>
+                <button type="submit" className="penalis-button penalis-button--primary" disabled={emailSaving}>
+                  {emailSaving ? 'Mengirim Kode Konfirmasi…' : 'Kirim Kode Konfirmasi'}
+                </button>
+              </form>
+            )}
           </>
         ) : (
           <p className="penalis-muted">

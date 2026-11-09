@@ -13,14 +13,14 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Changes an account's email address only after the new address is proven.
  *
  * The address on file is never replaced on request. A request stores the
- * candidate address next to a hashed single-use token and emails the
- * confirmation link to that candidate. Until the link is consumed, the old
- * address keeps receiving password resets and notifications, so a mistyped or
- * hostile address cannot take over the account.
+ * candidate address and emails a six-digit verification code to that candidate.
+ * Until the code is consumed, the old address keeps receiving password resets
+ * and notifications, so a mistyped or hostile address cannot take over the
+ * account.
  *
- * This is deliberately separate from the registration verification token: an
- * email change must never advance the account status machine, and a
- * registration token must never be able to rewrite an address.
+ * This is deliberately separate from the registration verification challenge:
+ * an email change must never advance the account status machine, and a
+ * registration code must never be able to rewrite an address.
  */
 final class Penalis_Email_Change {
 
@@ -113,15 +113,69 @@ final class Penalis_Email_Change {
 		$challenge = Penalis_Otp::issue( 'email_change', $user_id, $email );
 
 		if ( is_wp_error( $challenge ) ) {
-			// The pending change is useless without the code, so drop it rather
-			// than leaving a candidate nobody can confirm.
-			Penalis_Account_Status::clear_email_change( $user_id );
+			// A rate-limited request keeps the pending address so the writer can
+			// retry later without repeating the password. Any other failure
+			// leaves a candidate nobody can confirm, so it is dropped.
+			if ( 'penalis_rate_limited' !== $challenge->get_error_code() ) {
+				Penalis_Account_Status::clear_email_change( $user_id );
+			}
 
+			return $challenge;
+		}
+
+		$challenge['pendingEmail'] = $email;
+
+		return $challenge;
+	}
+
+	/**
+	 * Reissue the code for the pending address.
+	 *
+	 * The candidate address comes from storage, so a resend can never move the
+	 * change to a different address. Re-authentication is not repeated: the
+	 * request that created the pending change already proved the password, and
+	 * the challenge is bound to the signed-in account.
+	 *
+	 * @param int $user_id Signed-in owner.
+	 * @return array|WP_Error
+	 */
+	public static function resend( $user_id ) {
+		$user_id = (int) $user_id;
+
+		if ( ! self::can_change( $user_id ) ) {
 			return new WP_Error(
-				'penalis_email_failed',
-				'Kode konfirmasi tidak dapat dikirim. Silakan coba lagi atau hubungi admin Penalis.',
-				array( 'status' => 500 )
+				'penalis_email_change_forbidden',
+				'Alamat email akun ini belum dapat diubah. Silakan hubungi admin Penalis.',
+				array( 'status' => 403 )
 			);
+		}
+
+		$email = Penalis_Account_Status::get_pending_email( $user_id );
+
+		if ( ! is_email( $email ) ) {
+			return new WP_Error(
+				'penalis_email_change_missing',
+				'Tidak ada perubahan email yang menunggu konfirmasi. Silakan ajukan perubahan baru.',
+				array( 'status' => 409 )
+			);
+		}
+
+		$challenge = Penalis_Otp::issue( 'email_change', $user_id, $email );
+
+		if ( is_wp_error( $challenge ) ) {
+			// A throttled resend must not invalidate the code already sent.
+			if ( 'penalis_rate_limited' === $challenge->get_error_code() ) {
+				$current = Penalis_Otp::current( 'email_change', $user_id );
+
+				if ( '' !== $current ) {
+					$response                 = Penalis_Otp::response( $current );
+					$response['pendingEmail'] = $email;
+
+					return $response;
+				}
+			}
+
+			return $challenge;
 		}
 
 		$challenge['pendingEmail'] = $email;
@@ -151,7 +205,7 @@ final class Penalis_Email_Change {
 
 		Penalis_Rate_Limiter::hit( 'otp_verify_ip', HOUR_IN_SECONDS, $ip );
 
-		return Penalis_Otp::consume(
+		$result = Penalis_Otp::consume(
 			'email_change',
 			(string) $challenge_id,
 			(string) $code,
@@ -189,9 +243,9 @@ final class Penalis_Email_Change {
 				}
 
 				$old_email = $user->user_email;
-				$result    = Penalis_Access_Control::apply_verified_email_change( $user_id, $new_email );
+				$applied   = Penalis_Access_Control::apply_verified_email_change( $user_id, $new_email );
 
-				if ( is_wp_error( $result ) ) {
+				if ( is_wp_error( $applied ) ) {
 					return new WP_Error(
 						'penalis_email_change_failed',
 						'Alamat email kamu tidak dapat diperbarui. Silakan coba lagi.',
@@ -209,16 +263,27 @@ final class Penalis_Email_Change {
 					update_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, '1' );
 				}
 
-				// Tell the previous address what happened. This is the only
-				// warning the real owner gets if the change was not theirs.
-				Penalis_Emails::send_email_change_notice( $user_id, $old_email, $new_email );
-
 				return array(
-					'email'   => $new_email,
-					'message' => 'Alamat email kamu telah diperbarui. Gunakan alamat baru ini untuk masuk dan menerima email dari Penalis.',
+					'email'     => $new_email,
+					'message'   => 'Alamat email kamu telah diperbarui. Gunakan alamat baru ini untuk masuk dan menerima email dari Penalis.',
+					'user_id'   => $user_id,
+					'old_email' => $old_email,
 				);
 			}
 		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		// Tell the previous address what happened. This is the only warning the
+		// real owner gets if the change was not theirs. Sent after the lock is
+		// released so an SMTP call cannot stall other verifications.
+		Penalis_Emails::send_email_change_notice( (int) $result['user_id'], (string) $result['old_email'], (string) $result['email'] );
+
+		unset( $result['user_id'], $result['old_email'] );
+
+		return $result;
 	}
 
 	/**

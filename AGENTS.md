@@ -174,11 +174,15 @@ readme.txt                  WordPress plugin readme and changelog
 - **Password inputs:** Always use `src/components/PasswordInput.tsx` in the
   React dashboard so the accessible show/hide toggle stays consistent.
 - **Two token worlds (never mix them):**
-  - Plugin tokens (verification, legacy activation, email change): 32 random
-    bytes, 43-char base64url (`isTokenShaped()` in `src/lib/deeplink.ts`),
-    stored as SHA-256 hashes in user meta.
+  - Email verification codes (`Penalis_Otp`): six digits from `random_int()`,
+    bound to a purpose (`registration`, `legacy`, `email_change`) and an opaque
+    43-char challenge ID. Only an HMAC-SHA-256 digest keyed with
+    `wp_salt( 'auth' )` is stored in user meta. Codes expire after 10 minutes,
+    allow 5 attempts, and are single use.
   - WordPress core password reset keys: 20-char alphanumeric from
     `get_password_reset_key()`. Never pass a reset key through `isTokenShaped()`.
+  - `isTokenShaped()` in `src/lib/deeplink.ts` only describes the opaque
+    challenge ID shape; it must never be used to validate a six-digit code.
 
 ---
 
@@ -196,8 +200,11 @@ Summary of rules that must always hold:
   account existence.
 - Password reset requests (`POST /penalis/v1/password/forgot`) accept an **email
   address only**, never a username.
-- Single-use tokens in email links must only be consumed on an explicit `POST`
-  action after the user clicks a confirmation button in the UI.
+- Verification codes are consumed only through an explicit `POST` with the
+  opaque `challenge_id` and the six-digit `code`. Never accept a code without
+  its challenge ID, and never accept a challenge ID under a different purpose.
+- Password reset keys in email links must only be consumed on an explicit
+  `POST` action after the user submits a new password in the UI.
 
 ---
 

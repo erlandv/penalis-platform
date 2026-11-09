@@ -1152,7 +1152,7 @@ JS;
 	}
 
 	/**
-	 * Send an activation link for a legacy account.
+	 * Send an activation code for a legacy account.
 	 *
 	 * @param int $user_id User ID.
 	 * @return true|WP_Error
@@ -1168,10 +1168,10 @@ JS;
 			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
 		}
 
-		$challenge = Penalis_Otp::issue( 'legacy', $user_id, $user->user_email );
+		$challenge = Penalis_Otp::issue( 'legacy', $user_id, $user->user_email, false );
 
 		if ( is_wp_error( $challenge ) ) {
-			return new WP_Error( 'penalis_email_failed', 'Kode aktivasi tidak dapat dikirim.', array( 'status' => 500 ) );
+			return $challenge;
 		}
 
 		return true;
@@ -1196,10 +1196,10 @@ JS;
 			return new WP_Error( 'penalis_user_not_found', 'Akun tidak ditemukan.', array( 'status' => 404 ) );
 		}
 
-		$challenge = Penalis_Otp::issue( 'registration', $user_id, $user->user_email );
+		$challenge = Penalis_Otp::issue( 'registration', $user_id, $user->user_email, false );
 
 		if ( is_wp_error( $challenge ) ) {
-			return new WP_Error( 'penalis_email_failed', 'Kode verifikasi tidak dapat dikirim.', array( 'status' => 500 ) );
+			return $challenge;
 		}
 
 		return true;
@@ -1240,6 +1240,7 @@ JS;
 			'protected_account'          => 'Akun administrator tidak dapat diubah di sini.',
 			'penalis_invalid_transition' => 'Perubahan status tersebut tidak diizinkan untuk akun ini.',
 			'penalis_email_failed'       => 'Email verifikasi tidak dapat dikirim. Status akun tidak diubah.',
+			'penalis_rate_limited'       => 'Terlalu banyak permintaan kode. Silakan coba lagi nanti.',
 			'penalis_not_legacy'         => 'Akun ini bukan akun kontributor lama yang dapat diaktifkan.',
 			'penalis_role_conflict'      => 'Akun ini memiliki peran yang tidak dapat disetujui melalui alur kerja penulis.',
 			'avatar_saved'               => 'Foto profil bawaan telah diperbarui.',

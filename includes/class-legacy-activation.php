@@ -43,7 +43,7 @@ final class Penalis_Legacy_Activation {
 	public const GENERIC_MESSAGE = 'Jika alamat tersebut terdaftar sebagai penulis lama, kami telah mengirim kode verifikasi.';
 
 	/**
-	 * Request an activation link.
+	 * Request an activation code.
 	 *
 	 * @param array $data Raw request data.
 	 * @return array|WP_Error
@@ -81,7 +81,13 @@ final class Penalis_Legacy_Activation {
 
 		$challenge = Penalis_Otp::issue( 'legacy', (int) $user->ID, $user->user_email );
 
-		return is_wp_error( $challenge ) ? Penalis_Otp::response() : $challenge;
+		if ( is_wp_error( $challenge ) ) {
+			// Keep the code the writer already received usable when the resend
+			// is merely throttled.
+			return Penalis_Otp::response( Penalis_Otp::current( 'legacy', (int) $user->ID ) );
+		}
+
+		return $challenge;
 	}
 
 	/**
@@ -117,7 +123,7 @@ final class Penalis_Legacy_Activation {
 			);
 		}
 
-		return Penalis_Otp::consume(
+		$result = Penalis_Otp::consume(
 			'legacy',
 			isset( $data['challenge_id'] ) ? (string) $data['challenge_id'] : '',
 			isset( $data['code'] ) ? (string) $data['code'] : '',
@@ -141,7 +147,7 @@ final class Penalis_Legacy_Activation {
 				// the standard core hooks, so other plugins see a normal change.
 				reset_password( $user, $password );
 
-				$result = Penalis_Account_Status::convert_legacy(
+				$converted = Penalis_Account_Status::convert_legacy(
 					$user_id,
 					Penalis_Policy::STATUS_ACTIVE,
 					'legacy_self_activated',
@@ -149,17 +155,28 @@ final class Penalis_Legacy_Activation {
 					false
 				);
 
-				if ( is_wp_error( $result ) ) {
-					return $result;
+				if ( is_wp_error( $converted ) ) {
+					return $converted;
 				}
-
-				Penalis_Emails::send_status_notification( $user_id, Penalis_Policy::STATUS_ACTIVE );
 
 				return array(
 					'status'  => Penalis_Policy::STATUS_ACTIVE,
 					'message' => 'Akun kamu telah diaktifkan. Kamu kini dapat masuk ke dasbor dan mulai menulis.',
+					'user_id' => $user_id,
 				);
 			}
 		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		// Sent after the lock is released so an SMTP call cannot stall other
+		// writers who are confirming their own codes.
+		Penalis_Emails::send_status_notification( (int) $result['user_id'], Penalis_Policy::STATUS_ACTIVE );
+
+		unset( $result['user_id'] );
+
+		return $result;
 	}
 }

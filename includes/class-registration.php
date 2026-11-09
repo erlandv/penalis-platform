@@ -139,7 +139,7 @@ final class Penalis_Registration {
 	 * The response to the requester is always the same generic success, so this
 	 * method only decides what to send to the account owner:
 	 *
-	 * - Legacy contributor: send an activation link. These accounts have no
+	 * - Legacy contributor: send an activation code. These accounts have no
 	 *   password and cannot sign in, so telling them to "sign in or reset the
 	 *   password" would be a dead end.
 	 * - Any other account: send a neutral notice.
@@ -223,7 +223,7 @@ final class Penalis_Registration {
 
 		Penalis_Rate_Limiter::hit( 'otp_verify_ip', HOUR_IN_SECONDS, $ip );
 
-		return Penalis_Otp::consume(
+		$result = Penalis_Otp::consume(
 			'registration',
 			(string) $challenge_id,
 			(string) $code,
@@ -234,20 +234,31 @@ final class Penalis_Registration {
 					return Penalis_Otp::invalid();
 				}
 
-				$result = Penalis_Account_Status::transition( $user_id, Penalis_Policy::STATUS_ACTIVE, 'email_verified', 0 );
+				$transition = Penalis_Account_Status::transition( $user_id, Penalis_Policy::STATUS_ACTIVE, 'email_verified', 0 );
 
-				if ( is_wp_error( $result ) ) {
-					return $result;
+				if ( is_wp_error( $transition ) ) {
+					return $transition;
 				}
-
-				Penalis_Emails::send_status_notification( $user_id, Penalis_Policy::STATUS_ACTIVE );
 
 				return array(
 					'status'  => Penalis_Policy::STATUS_ACTIVE,
 					'message' => 'Alamat email kamu telah dikonfirmasi. Akun penulis kamu kini aktif dan siap digunakan untuk menulis.',
+					'user_id' => $user_id,
 				);
 			}
 		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		// Sent after the lock is released: an SMTP call must not stall other
+		// writers who are confirming their own codes.
+		Penalis_Emails::send_status_notification( (int) $result['user_id'], Penalis_Policy::STATUS_ACTIVE );
+
+		unset( $result['user_id'] );
+
+		return $result;
 	}
 
 	/**
@@ -272,6 +283,10 @@ final class Penalis_Registration {
 
 		$challenge = Penalis_Otp::issue( 'registration', (int) $user->ID, $email );
 
-		return is_wp_error( $challenge ) ? Penalis_Otp::response() : $challenge;
+		if ( is_wp_error( $challenge ) ) {
+			return Penalis_Otp::response( Penalis_Otp::current( 'registration', (int) $user->ID ) );
+		}
+
+		return $challenge;
 	}
 }

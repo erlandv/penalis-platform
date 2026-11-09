@@ -1207,6 +1207,34 @@ if ( ! function_exists( 'get_user_by' ) ) {
 $GLOBALS['penalis_test_options']    = array();
 $GLOBALS['penalis_test_transients'] = array();
 
+if ( ! function_exists( 'email_exists' ) ) {
+	/**
+	 * Email lookup stub.
+	 *
+	 * @param string $email Email.
+	 * @return int|false
+	 */
+	function email_exists( $email ) {
+		$user = get_user_by( 'email', $email );
+
+		return $user ? (int) $user->ID : false;
+	}
+}
+
+if ( ! function_exists( 'username_exists' ) ) {
+	/**
+	 * Login lookup stub.
+	 *
+	 * @param string $login Login.
+	 * @return int|false
+	 */
+	function username_exists( $login ) {
+		$user = get_user_by( 'login', $login );
+
+		return $user ? (int) $user->ID : false;
+	}
+}
+
 if ( ! function_exists( 'wp_get_current_user' ) ) {
 	/**
 	 * Current user double.
@@ -1496,6 +1524,9 @@ if ( ! function_exists( 'wp_update_user' ) ) {
 		$user    = get_userdata( $user_id );
 		if ( ! $user ) {
 			return new WP_Error( 'invalid_user_id', 'Invalid user ID.' );
+		}
+		if ( isset( $userdata['user_email'] ) ) {
+			$user->user_email = (string) $userdata['user_email'];
 		}
 		if ( isset( $userdata['display_name'] ) ) {
 			$user->display_name = (string) $userdata['display_name'];

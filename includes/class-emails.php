@@ -27,12 +27,33 @@ final class Penalis_Emails {
 	 * @return bool
 	 */
 	public static function send_otp( $user_id, $email, $code, $purpose ) {
-		$labels = array( 'registration' => 'Verifikasi pendaftaran', 'legacy' => 'Aktivasi akun lama', 'email_change' => 'Konfirmasi email baru' );
-		$body   = $labels[ $purpose ] . "\n\nKode verifikasi kamu:\n\n" . $code . "\n\nMasukkan kode ini di dashboard Penalis. Berlaku 10 menit, maksimal lima percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.";
-		$sent   = self::send_mail( $email, '[Penalis] ' . $labels[ $purpose ], $body );
+		$labels = array(
+			'registration' => 'Verifikasi pendaftaran',
+			'legacy'       => 'Aktivasi akun lama',
+			'email_change' => 'Konfirmasi email baru',
+		);
+
+		if ( ! isset( $labels[ $purpose ] ) ) {
+			return false;
+		}
+
+		$label = $labels[ $purpose ];
+		$body  = $label . "\n\nKode verifikasi kamu:\n\n" . $code . "\n\nMasukkan kode ini di dashboard Penalis. Berlaku 10 menit, maksimal lima percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.";
+
+		// The code is the only proof in this flow, so it must not be quoted in
+		// the message someone forwards or in an auto-reply that quotes the
+		// original message. The footer is set explicitly for that reason.
+		$sent = self::send_mail(
+			$email,
+			'[Penalis] ' . $label,
+			$body,
+			'Email ini dikirim otomatis. Kamu menerima email ini karena ada permintaan verifikasi pada akun Penalis yang terhubung ke alamat ini. Jangan bagikan kode verifikasi kepada siapa pun, termasuk yang mengaku sebagai admin Penalis. Jika kamu tidak meminta kode ini, abaikan email ini dan kode akan kedaluwarsa dengan sendirinya. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.'
+		);
+
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, $purpose );
 		}
+
 		return $sent;
 	}
 

@@ -130,25 +130,41 @@ unauthorized publishing:
 
 ---
 
-## 6. Cryptographic Tokens & Credential Changes
+## 6. Verification Codes & Credential Changes
 
-### 6.1 Plugin-Managed Tokens
+### 6.1 Purpose-Bound Email Codes (`Penalis_Otp`)
 Used for email verification, legacy contributor activation, and email address
 changes:
-- **Entropy & Format:** 32 bytes from `random_bytes()`, encoded as 43-character
-  URL-safe base64 (`Penalis_Policy::is_token_format_valid()`).
-- **Storage:** Only the ` hash('sha256', $token) ` value is stored in user meta;
-  raw tokens exist only in the outgoing email link.
-- **Scanner-Safe Consumption:** Visiting a `/dashboard/?penalis_verify=...` or
-  `?penalis_email_change=...` link renders an explicit confirmation button; the
-  token is consumed only via `POST` when the user clicks confirm, preventing
-  automated mail scanners from burning single-use links.
-- **Expiry:** 24-hour TTL (`86400` seconds), single use.
+- **Entropy & Format:** Six digits from `random_int()`, including leading zeros.
+  The code space is only one million values, so it is never treated as a bearer
+  secret.
+- **Storage:** Only an HMAC-SHA-256 digest is stored in user meta. The digest
+  binds the challenge ID, purpose, user ID, destination address, source address,
+  expiry, and code, and is keyed with `wp_salt( 'auth' )` so a database leak
+  cannot be brute-forced offline.
+- **Opaque Locator:** The `challenge_id` is a 43-character random string. It is
+  an index, not a secret: the code is the proof.
+- **Expiry & Attempts:** 10-minute TTL, maximum 5 attempts per challenge, single
+  use. A new challenge invalidates the previous one.
+- **Purpose Binding:** A registration code cannot confirm an email change, and
+  an email-change code cannot activate an account.
+- **Concurrency:** Issuance, attempt counting, and consumption run inside a
+  MySQL advisory lock (`GET_LOCK`), so parallel requests cannot exceed the
+  attempt budget or consume a code twice.
+- **Issuance Budgets:** 60-second resend cooldown plus 5 issues/hour per account
+  and per address, and 20 issues/hour per IP. Budgets survive replacement
+  challenges, so resending cannot reset the limit.
+- **State Clearing:** Any account status transition clears pending challenges,
+  so a code issued before a suspension cannot be replayed afterwards.
+- **No Bearer Links:** Verification emails contain only the code. There is no
+  confirmation URL, so mail scanners cannot consume anything.
 
 ### 6.2 Verified Email Address Change
 - Requires current password re-authentication (`POST /penalis/v1/account/email`).
 - Stores candidate email in `_penalis_email_change_new_email` and sends the
-  confirmation link exclusively to the **new** email address.
+  six-digit code exclusively to the **new** email address.
+- Confirmation is signed-in only and bound to the requesting account, so a
+  stolen code cannot move another account.
 - Re-checks email uniqueness upon confirmation (`POST /penalis/v1/account/email/confirm`),
   updates `user_email`, and sends a security alert to the **previous** email
   address.
@@ -176,8 +192,8 @@ Transient-based rate limits (`Penalis_Rate_Limiter`):
 | Operation | Scope | Limit |
 | --- | --- | --- |
 | Registration | Per IP | 5 / hour |
-| Email verification confirm | Per IP | 20 / hour |
-| Verification resend | Per IP / Per account | 5 / hour per IP, 1 / 10 min per account |
+| Verification code confirm | Per IP | 20 / hour |
+| Verification code issue | Per account / Per address / Per IP | 5 / hour, 5 / hour, 20 / hour, with a 60-second cooldown |
 | Legacy activation request | Per IP / Per email | 5 / hour per IP, 3 / hour per email |
 | Legacy activation confirm | Per IP | 10 / hour |
 | Password forgot request | Per IP / Per account | 5 / hour per IP, 3 / hour per account |

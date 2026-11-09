@@ -22,9 +22,7 @@ final class Penalis_Policy {
 	public const STATUS_ACTIVE               = 'active';
 	public const STATUS_SUSPENDED            = 'suspended';
 
-	// Legacy helpers remain for upgrade compatibility, not public OTP verification.
-	public const TOKEN_TTL         = 86400;
-	public const TOKEN_RESEND_WAIT = 600;
+	// Email verification codes (OTP).
 	public const OTP_TTL          = 600;
 	public const OTP_RESEND_WAIT  = 60;
 	public const OTP_MAX_ATTEMPTS = 5;
@@ -344,7 +342,7 @@ final class Penalis_Policy {
 	 *
 	 * - `pending_verification`: the account owner must prove control of the
 	 *   stored email address before activation.
-	 * - `active`: either the owner confirmed the self-service activation link
+	 * - `active`: either the owner confirmed the self-service activation code
 	 *   and chose a password, or an administrator directly activated the legacy
 	 *   account ("Aktifkan langsung").
 	 *
@@ -778,10 +776,11 @@ final class Penalis_Policy {
 	}
 
 	/**
-	 * Generate a URL-safe verification token.
+	 * Generate an opaque, URL-safe challenge identifier.
 	 *
 	 * Uses a cryptographic random source. Base64url encoding is only used to
-	 * make the token URL-safe; it is not obfuscation.
+	 * make the value URL-safe; it is not obfuscation. The identifier is a
+	 * locator, not a secret: the six-digit code is the proof.
 	 *
 	 * @return string
 	 */
@@ -790,45 +789,13 @@ final class Penalis_Policy {
 	}
 
 	/**
-	 * Hash a verification token for storage.
-	 *
-	 * @param string $token Raw token.
-	 * @return string
-	 */
-	public static function hash_token( $token ) {
-		return hash( 'sha256', (string) $token );
-	}
-
-	/**
-	 * Validate the shape of a raw token before querying storage.
+	 * Validate the shape of a challenge identifier before querying storage.
 	 *
 	 * @param mixed $token Token.
 	 * @return bool
 	 */
 	public static function is_token_format_valid( $token ) {
 		return is_string( $token ) && 1 === preg_match( '/^[A-Za-z0-9_-]{40,64}$/', $token );
-	}
-
-	/**
-	 * Whether a stored token has expired.
-	 *
-	 * @param int $expires Expiry timestamp.
-	 * @param int $now     Current timestamp.
-	 * @return bool
-	 */
-	public static function is_token_expired( $expires, $now ) {
-		return (int) $expires <= (int) $now;
-	}
-
-	/**
-	 * Whether a verification resend is allowed by the per-account throttle.
-	 *
-	 * @param int $created_at Last issue timestamp.
-	 * @param int $now        Current timestamp.
-	 * @return bool
-	 */
-	public static function can_resend_verification( $created_at, $now ) {
-		return (int) $created_at <= 0 || ( (int) $now - (int) $created_at ) >= self::TOKEN_RESEND_WAIT;
 	}
 
 	/**

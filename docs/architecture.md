@@ -44,8 +44,9 @@ penalis-platform/
 │   ├── class-activator.php               Role registration, dashboard page setup, legacy slug rename
 │   ├── class-deactivator.php             Transient cleanup on deactivation
 │   ├── class-roles.php                   penalis_writer role definition and promotion/demotion
-│   ├── class-policy.php                  Pure account lifecycle, validation, and token rules
-│   ├── class-account-status.php          Account status persistence, transitions, tokens, audit log
+│   ├── class-policy.php                  Pure account lifecycle, validation, and challenge rules
+│   ├── class-account-status.php          Account status persistence, transitions, audit log
+│   ├── class-otp.php                     Purpose-bound six-digit verification challenges
 │   ├── class-editorial-policy.php        Pure editorial state machine, review cycle, notification rules
 │   ├── class-editorial-workflow.php      Serialized editorial transitions and post meta persistence
 │   ├── class-editorial-notifications.php Bounded dashboard notifications and editorial email dispatch
@@ -141,7 +142,7 @@ bounded audit log (`_penalis_status_log`, max 20 entries), and fires
   the account to `active`, sets `_penalis_access_enabled = 1`, and promotes the
   user to `penalis_writer` (`Penalis_Roles::assign_writer()`).
 - Suspending an account (`active -> suspended` or `pending_verification -> suspended`)
-  sets `_penalis_access_enabled = 0`, clears any pending verification token,
+  sets `_penalis_access_enabled = 0`, clears any pending verification challenge,
   demotes `penalis_writer` back to `subscriber`
   (`Penalis_Roles::revoke_writer()`), and destroys all active WordPress session
   tokens for that user.
@@ -160,7 +161,7 @@ have no `_penalis_account_status` metadata (`Penalis_Account_Status::is_legacy_a
 - Legacy accounts can only enter the active workflow through conversion
   (`Penalis_Account_Status::convert_legacy()`), which preserves the user ID,
   authored posts, and author archive URL:
-  - **Self-service activation:** The writer requests an activation link, proves
+  - **Self-service activation:** The writer requests an activation code, proves
     control of their email address, sets a first password, and immediately
     becomes `active` (`penalis_writer` role, `_penalis_access_enabled = 1`).
   - **Administrator vouch ("Aktifkan langsung"):** An administrator converts the
@@ -265,12 +266,9 @@ No custom database tables are created.
 | `_penalis_approved_at` | Unix timestamp of administrator approval |
 | `_penalis_approved_by` | User ID of the approving administrator |
 | `_penalis_status_log` | Bounded array of status transitions (max 20) |
-| `_penalis_verification_token_hash` | SHA-256 hash of verification/legacy token |
-| `_penalis_verification_token_expires` | Token expiration timestamp (24h TTL) |
-| `_penalis_verification_token_created` | Token creation timestamp (for 10m resend cooldown) |
-| `_penalis_email_change_token_hash` | SHA-256 hash of pending email-change token |
-| `_penalis_email_change_token_expires` | Expiration timestamp for pending email change |
-| `_penalis_email_change_token_created` | Creation timestamp for pending email change |
+| `_penalis_otp_registration` | Pending registration verification challenge (opaque ID, HMAC digest, expiry, attempts) |
+| `_penalis_otp_legacy` | Pending legacy activation challenge |
+| `_penalis_otp_email_change` | Pending email-change challenge |
 | `_penalis_email_change_new_email` | Candidate email address awaiting confirmation |
 | `_penalis_display_name_mode` | Public name mode (`auto`, `first`, `last`, `username`, `custom`) |
 | `_penalis_instagram` | Normalized optional Instagram handle (without leading `@`, max 30 chars) for internal admin use |

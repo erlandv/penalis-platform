@@ -9,7 +9,7 @@ import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'reac
 
 import { describedBy } from '../lib/a11y';
 import { formatCountdown, isOtpCodeComplete, normalizeOtpCode, secondsUntil } from '../lib/otp';
-import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from './ui';
+import { ErrorBanner, FieldHint, Notice, Spinner } from './ui';
 
 export interface OtpFormProps {
   /** Opaque challenge locator returned by the issuing endpoint. */
@@ -58,16 +58,19 @@ export function OtpForm({
   }, [challengeId, resendAfter]);
 
   const remaining = secondsUntil(deadline, now);
+  const coolingDown = remaining > 0;
 
+  // One interval for the lifetime of the cooldown. Re-creating it on every tick
+  // would reset the timer roughly once a second.
   useEffect(() => {
-    if (remaining <= 0) {
+    if (!coolingDown) {
       return;
     }
 
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
 
     return () => window.clearInterval(timer);
-  }, [remaining]);
+  }, [coolingDown]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -89,8 +92,14 @@ export function OtpForm({
     setResendNotice('');
 
     try {
-      await onResend();
-      setResendNotice('Kode baru telah dikirim jika permintaan memenuhi syarat.');
+      const result = await onResend();
+
+      // The server may answer with the existing challenge when the request is
+      // throttled, so the cooldown is restarted from its answer rather than
+      // from a challenge change.
+      setDeadline(Date.now() + result.resend_after * 1000);
+      setNow(Date.now());
+      setResendNotice('Jika permintaan memenuhi syarat, kode verifikasi telah dikirim.');
     } catch {
       setResendError('Kode baru tidak dapat dikirim. Silakan coba lagi nanti.');
     } finally {
@@ -129,7 +138,11 @@ export function OtpForm({
         <FieldHint id={`${fieldId}-hint`}>
           Tempel atau ketik kode dari email. Jangan bagikan kode ini kepada siapa pun.
         </FieldHint>
-        <FieldError errors={error ? { code: error } : {}} name="code" />
+        {error ? (
+          <p className="penalis-field-error" id={`${fieldId}-error`}>
+            {error}
+          </p>
+        ) : null}
       </div>
 
       {children}

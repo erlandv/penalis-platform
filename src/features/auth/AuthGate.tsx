@@ -6,29 +6,47 @@ import { useState, type FormEvent } from 'react';
 
 import { ApiError, legacyApi, passwordApi, registrationApi } from '../../lib/api';
 import { getBootstrap } from '../../lib/bootstrap';
-import { DEEPLINK, hasParam, isTokenShaped, readParam } from '../../lib/deeplink';
+import { DEEPLINK, hasParam } from '../../lib/deeplink';
 import type { FieldErrors } from '../../lib/types';
 import { hasErrors, validateEmail, validateRegistration, validateResetEmail } from '../../lib/validation';
+import { PASSWORD_MIN_LENGTH } from '../../lib/validation';
 import { describedBy } from '../../lib/a11y';
 import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../components/ui';
+import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
 
-type Mode = 'login' | 'register' | 'resend' | 'forgot' | 'activate';
+type Mode = 'login' | 'register' | 'verify' | 'resend' | 'forgot' | 'activate' | 'activateVerify';
+
+/**
+ * A verification code that was just issued.
+ *
+ * The challenge ID is an opaque locator, not a secret. It lives in component
+ * state only, so closing the tab discards the flow.
+ */
+interface Challenge {
+  challengeId: string;
+  email: string;
+  resendAfter: number;
+}
 
 const HEADINGS: Record<Mode, string> = {
   login: 'Login ke Dashboard',
   register: 'Buat Akun Penalis',
-  resend: 'Kirim Ulang Email Verifikasi',
+  verify: 'Masukkan Kode Verifikasi',
+  resend: 'Kirim Ulang Kode Verifikasi',
   forgot: 'Lupa Password',
   activate: 'Aktifkan Akun Kontributor',
+  activateVerify: 'Verifikasi Akun Kontributor',
 };
 
 const DESCRIPTIONS: Record<Mode, string> = {
   login: 'Login ke dashboard dengan akun Penalis untuk mengelola karya tulis.',
   register: 'Buat akun Penalis untuk mengakses dashboard dan mulai menulis di Penalis.',
-  resend: 'Minta link verifikasi baru untuk akun yang belum dikonfirmasi.',
+  verify: 'Masukkan kode enam digit yang kami kirim ke email kamu untuk mengaktifkan akun.',
+  resend: 'Minta kode verifikasi baru untuk akun yang belum dikonfirmasi.',
   forgot: 'Masukkan email kamu. Kami akan mengirim link untuk reset password.',
   activate: 'Sudah pernah mengirim karya tulis dan menjadi kontributor Penalis sebelumnya?',
+  activateVerify: 'Masukkan kode dari email kamu, lalu buat kata sandi untuk akun tersebut.',
 };
 
 /**
@@ -42,17 +60,14 @@ const DESCRIPTIONS: Record<Mode, string> = {
  * | `penalis_register=1` | Registration |
  * | `penalis_activate=1` | Legacy account activation |
  * | `penalis_forgot=1` | Password reset request |
- * | `penalis_resend=1` | Verification resend |
- *
- * `penalis_activate` is special: a token-shaped value is handled earlier by
- * `App` as a confirmation link, so only the flag form reaches this function.
+ * | `penalis_resend=1` | Verification code resend |
  */
 function initialMode(): Mode {
   if (hasParam(DEEPLINK.register)) {
     return 'register';
   }
 
-  if (hasParam(DEEPLINK.activate) && !isTokenShaped(readParam(DEEPLINK.activate))) {
+  if (hasParam(DEEPLINK.activate)) {
     return 'activate';
   }
 
@@ -70,6 +85,7 @@ function initialMode(): Mode {
 export function AuthGate() {
   const bootstrap = getBootstrap();
   const [mode, setMode] = useState<Mode>(initialMode);
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
 
   // A failed dashboard login redirects back here with a flag instead of
   // rendering the WordPress login screen. The flag is read once and removed
@@ -87,10 +103,19 @@ export function AuthGate() {
     return true;
   });
 
+  const startChallenge = (next: Challenge, nextMode: Mode) => {
+    setChallenge(next);
+    setMode(nextMode);
+  };
+
+  const backToLogin = () => {
+    setChallenge(null);
+    setMode('login');
+  };
+
   return (
     <div className="penalis-auth">
       <div className="penalis-auth__panel">
-        
         <h1>{HEADINGS[mode]}</h1>
         <p className="penalis-muted">{DESCRIPTIONS[mode]}</p>
 
@@ -99,10 +124,40 @@ export function AuthGate() {
         ) : null}
 
         {mode === 'login' ? <LoginForm /> : null}
-        {mode === 'register' ? <RegistrationForm onDone={() => setMode('login')} /> : null}
-        {mode === 'resend' ? <ResendForm /> : null}
-        {mode === 'forgot' ? <ForgotForm onDone={() => setMode('login')} /> : null}
-        {mode === 'activate' ? <ActivateForm onDone={() => setMode('login')} /> : null}
+        {mode === 'register' ? (
+          <RegistrationForm onChallenge={(next) => startChallenge(next, 'verify')} />
+        ) : null}
+        {mode === 'verify' && challenge ? (
+          <RegistrationVerifyForm
+            challenge={challenge}
+            onChallenge={(next) => setChallenge(next)}
+            onDone={backToLogin}
+          />
+        ) : null}
+        {mode === 'verify' && !challenge ? (
+          <p className="penalis-muted">
+            Sesi verifikasi tidak ditemukan. Silakan masuk, atau minta kode verifikasi baru.
+          </p>
+        ) : null}
+        {mode === 'resend' ? (
+          <ResendForm onChallenge={(next) => startChallenge(next, 'verify')} />
+        ) : null}
+        {mode === 'forgot' ? <ForgotForm onDone={backToLogin} /> : null}
+        {mode === 'activate' ? (
+          <ActivateForm onChallenge={(next) => startChallenge(next, 'activateVerify')} />
+        ) : null}
+        {mode === 'activateVerify' && challenge ? (
+          <ActivateVerifyForm
+            challenge={challenge}
+            onChallenge={(next) => setChallenge(next)}
+            onDone={backToLogin}
+          />
+        ) : null}
+        {mode === 'activateVerify' && !challenge ? (
+          <p className="penalis-muted">
+            Sesi aktivasi tidak ditemukan. Silakan masuk, atau minta kode aktivasi baru.
+          </p>
+        ) : null}
 
         <div className="penalis-auth__alt">
           {mode === 'login' && bootstrap.registration ? (
@@ -126,7 +181,7 @@ export function AuthGate() {
           ) : null}
 
           {mode !== 'login' ? (
-            <button type="button" className="penalis-auth__back" onClick={() => setMode('login')}>
+            <button type="button" className="penalis-auth__back" onClick={backToLogin}>
               Kembali ke Halaman Login
             </button>
           ) : null}
@@ -141,7 +196,7 @@ export function AuthGate() {
 
           {mode !== 'resend' ? (
             <button type="button" className="penalis-link-button" onClick={() => setMode('resend')}>
-              Kirim Ulang Email Verifikasi
+              Kirim Ulang Kode Verifikasi
             </button>
           ) : null}
         </div>
@@ -198,7 +253,7 @@ function LoginForm() {
   );
 }
 
-function RegistrationForm({ onDone }: { onDone: () => void }) {
+function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge) => void }) {
   const [values, setValues] = useState({
     display_name: '',
     user_login: '',
@@ -211,7 +266,6 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
-  const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const update = (key: keyof typeof values, value: string | boolean) => {
@@ -221,7 +275,6 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setFormError('');
-    setSuccess('');
 
     const clientErrors = validateRegistration(values);
     if (hasErrors(clientErrors)) {
@@ -242,7 +295,8 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
         penalis_website: values.penalis_website,
       });
 
-      setSuccess(result.message);
+      // The password is no longer needed: the account exists and only the
+      // emailed code can activate it.
       setValues({
         display_name: '',
         user_login: '',
@@ -252,6 +306,12 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
         confirm_password: '',
         penalis_consent: false,
         penalis_website: '',
+      });
+
+      onChallenge({
+        challengeId: result.challenge_id,
+        email: values.user_email.trim(),
+        resendAfter: result.resend_after,
       });
     } catch (error) {
       if (error instanceof ApiError) {
@@ -264,17 +324,6 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
       setSubmitting(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="penalis-form">
-        <Notice tone="success">{success}</Notice>
-        <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Lanjutkan untuk Login
-        </button>
-      </div>
-    );
-  }
 
   return (
     <form className="penalis-form" onSubmit={submit} noValidate>
@@ -329,7 +378,7 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
           aria-invalid={Boolean(errors.user_email)}
           aria-describedby={describedBy('user_email-hint', errors.user_email && 'user_email-error')}
         />
-        <FieldHint id="user_email-hint">Kami mengirim link verifikasi ke email ini.</FieldHint>
+        <FieldHint id="user_email-hint">Kami mengirim kode verifikasi enam digit ke email ini.</FieldHint>
         <FieldError errors={errors} name="user_email" />
       </div>
 
@@ -413,17 +462,213 @@ function RegistrationForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-function ResendForm() {
+/**
+ * Registration code entry.
+ *
+ * The account already exists in `pending_verification`; only the emailed code
+ * can activate it. The code and challenge ID stay in component state.
+ */
+function RegistrationVerifyForm({
+  challenge,
+  onChallenge,
+  onDone,
+}: {
+  challenge: Challenge;
+  onChallenge: (challenge: Challenge) => void;
+  onDone: () => void;
+}) {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const verify = async (code: string) => {
+    setError('');
+    setBusy(true);
+
+    try {
+      const result = await registrationApi.confirm({ challenge_id: challenge.challengeId, code });
+      setMessage(result.message);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Kode verifikasi tidak dapat diproses.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    const result = await registrationApi.resend(challenge.email);
+    const next = {
+      challengeId: result.challenge_id,
+      email: challenge.email,
+      resendAfter: result.resend_after,
+    };
+    onChallenge(next);
+
+    return { challenge_id: next.challengeId, resend_after: next.resendAfter };
+  };
+
+  if (message) {
+    return (
+      <div className="penalis-form">
+        <Notice tone="success">{message}</Notice>
+        <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
+          Lanjut ke halaman masuk
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <OtpForm
+      challengeId={challenge.challengeId}
+      email={challenge.email}
+      resendAfter={challenge.resendAfter}
+      onVerify={verify}
+      onResend={resend}
+      error={error}
+      busy={busy}
+    />
+  );
+}
+
+/**
+ * Legacy activation code entry plus first password.
+ *
+ * The code proves control of the stored address; the password is set in the
+ * same request so the account is usable immediately afterwards.
+ */
+function ActivateVerifyForm({
+  challenge,
+  onChallenge,
+  onDone,
+}: {
+  challenge: Challenge;
+  onChallenge: (challenge: Challenge) => void;
+  onDone: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const verify = async (code: string) => {
+    setError('');
+    setErrors({});
+
+    const clientErrors: FieldErrors = {};
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      clientErrors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
+    }
+    if (password !== confirm) {
+      clientErrors.confirm_password = 'Kata sandi tidak cocok.';
+    }
+    if (Object.keys(clientErrors).length > 0) {
+      setErrors(clientErrors);
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const result = await legacyApi.confirm({
+        challenge_id: challenge.challengeId,
+        code,
+        password,
+      });
+      setMessage(result.message);
+    } catch (caught) {
+      if (caught instanceof ApiError) {
+        setErrors(caught.fields);
+        setError(caught.message);
+      } else {
+        setError('Akun tidak dapat diaktifkan. Silakan coba lagi.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    const result = await legacyApi.request(challenge.email);
+    const next = {
+      challengeId: result.challenge_id,
+      email: challenge.email,
+      resendAfter: result.resend_after,
+    };
+    onChallenge(next);
+
+    return { challenge_id: next.challengeId, resend_after: next.resendAfter };
+  };
+
+  if (message) {
+    return (
+      <div className="penalis-form">
+        <Notice tone="success">{message}</Notice>
+        <p className="penalis-muted">
+          Karya tulis yang sudah terbit tetap terhubung ke akun ini. Akun kamu kini sudah aktif dan siap
+          digunakan di dasbor penulis.
+        </p>
+        <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
+          Lanjut ke halaman masuk
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <OtpForm
+      challengeId={challenge.challengeId}
+      email={challenge.email}
+      resendAfter={challenge.resendAfter}
+      onVerify={verify}
+      onResend={resend}
+      error={error}
+      busy={busy}
+      verifyLabel="Verifikasi dan aktifkan akun"
+    >
+      <div className="penalis-field">
+        <label htmlFor="activate_password">Kata sandi baru</label>
+        <PasswordInput
+          id="activate_password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          autoComplete="new-password"
+          placeholder={`Minimal ${PASSWORD_MIN_LENGTH} karakter`}
+          aria-invalid={Boolean(errors.password)}
+          aria-describedby={describedBy('activate_password-hint', errors.password && 'password-error')}
+        />
+        <FieldHint id="activate_password-hint">Minimal {PASSWORD_MIN_LENGTH} karakter.</FieldHint>
+        <FieldError errors={errors} name="password" />
+      </div>
+
+      <div className="penalis-field">
+        <label htmlFor="activate_confirm_password">Konfirmasi kata sandi</label>
+        <PasswordInput
+          id="activate_confirm_password"
+          value={confirm}
+          onChange={(event) => setConfirm(event.target.value)}
+          autoComplete="new-password"
+          placeholder="Ulangi kata sandi"
+          aria-invalid={Boolean(errors.confirm_password)}
+          aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
+        />
+        <FieldError errors={errors} name="confirm_password" />
+      </div>
+    </OtpForm>
+  );
+}
+
+function ResendForm({ onChallenge }: { onChallenge: (challenge: Challenge) => void }) {
   const [email, setEmail] = useState('');
   const [fieldError, setFieldError] = useState('');
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
-    setMessage('');
 
     // The server answers generically for every outcome, so an empty or
     // malformed address would otherwise look like a successful request.
@@ -437,7 +682,11 @@ function ResendForm() {
 
     try {
       const result = await registrationApi.resend(email.trim());
-      setMessage(result.message);
+      onChallenge({
+        challengeId: result.challenge_id,
+        email: email.trim(),
+        resendAfter: result.resend_after,
+      });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
     } finally {
@@ -449,11 +698,10 @@ function ResendForm() {
     <form className="penalis-form" onSubmit={submit} noValidate>
       <p className="penalis-muted">
         Masukkan email yang kamu gunakan saat membuat akun. Jika akun sedang menunggu verifikasi, kami akan
-        mengirim link verifikasi baru.
+        mengirim kode verifikasi baru.
       </p>
 
       {error ? <ErrorBanner message={error} /> : null}
-      {message ? <Notice tone="success">{message}</Notice> : null}
 
       <div className="penalis-field">
         <label htmlFor="resend_email">Email</label>
@@ -477,7 +725,7 @@ function ResendForm() {
       </div>
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Link Verifikasi'}
+        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Kode Verifikasi'}
       </button>
     </form>
   );
@@ -591,25 +839,23 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
  * Legacy account activation request.
  *
  * Legacy contributors were created by an administrator and never received a
- * password, so they cannot sign in or reset a password. This form sends an
- * activation link that lets them set a password for the account they already
- * have, keeping their existing articles attached.
+ * password, so they cannot sign in or reset a password. This form sends a
+ * verification code that lets them prove control of the stored address and set
+ * a first password, keeping their existing articles attached.
  *
- * The server response is deliberately generic, so the success notice repeats
- * the same conditional wording.
+ * The server response is deliberately generic, so the next screen never
+ * confirms whether the address belongs to a legacy account.
  */
-function ActivateForm({ onDone }: { onDone: () => void }) {
+function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => void }) {
   const [email, setEmail] = useState('');
   const [honeypot, setHoneypot] = useState('');
   const [fieldError, setFieldError] = useState('');
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
-    setMessage('');
 
     // The server answers generically for every outcome, so an empty or
     // malformed address would otherwise look like a successful request.
@@ -623,7 +869,11 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
 
     try {
       const result = await legacyApi.request(email.trim(), honeypot);
-      setMessage(result.message);
+      onChallenge({
+        challengeId: result.challenge_id,
+        email: email.trim(),
+        resendAfter: result.resend_after,
+      });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
     } finally {
@@ -631,26 +881,11 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
     }
   };
 
-  if (message) {
-    return (
-      <div className="penalis-form">
-        <Notice tone="success">{message}</Notice>
-        <p className="penalis-muted">
-          Link berlaku 24 jam dan hanya dapat digunakan sekali. Setelah kamu membuat password, akun penulis kamu
-          akan langsung aktif.
-        </p>
-        <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Kembali ke Halaman Login
-        </button>
-      </div>
-    );
-  }
-
   return (
     <form className="penalis-form" onSubmit={submit} noValidate>
-      <p className="penalis-muted">Kami sudah membuatkan akun untukmu. 
-        Aktifkan dengan cara verifikasi email yang kamu pakai saat mengirim karya 
-        lalu buat password untuk akun tersebut.
+      <p className="penalis-muted">
+        Kami sudah membuatkan akun untukmu. Aktifkan dengan cara memverifikasi email yang kamu pakai saat
+        mengirim karya, lalu buat password untuk akun tersebut.
       </p>
 
       {error ? <ErrorBanner message={error} /> : null}
@@ -693,7 +928,7 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
       </div>
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Link Aktivasi'}
+        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Kode Aktivasi'}
       </button>
     </form>
   );
