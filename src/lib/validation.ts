@@ -37,7 +37,7 @@ export function validateRegistration(input: {
   }
 
   if (input.password !== input.confirm_password) {
-    errors.confirm_password = 'Kata sandi tidak cocok.';
+    errors.confirm_password = 'Password tidak cocok.';
   }
 
   if (input.instagram !== undefined && input.instagram.trim() !== '') {
@@ -48,7 +48,7 @@ export function validateRegistration(input: {
   }
 
   if (!input.penalis_consent) {
-    errors.penalis_consent = 'Anda harus menyetujui ketentuan untuk mendaftar.';
+    errors.penalis_consent = 'Kamu harus menyetujui ketentuan untuk mendaftar.';
   }
 
   return errors;
@@ -134,7 +134,7 @@ export function validateUsername(value: string, current = ''): string {
   }
 
   if (value.length < 3 || value.length > 50) {
-    return 'Username harus 3–50 karakter.';
+    return 'Username harus 3-50 karakter.';
   }
 
   if (!/^[a-z0-9][a-z0-9_-]{1,48}[a-z0-9]$/.test(value)) {

@@ -507,7 +507,7 @@ final class Penalis_Policy {
 		}
 
 		if ( trim( $password ) === '' ) {
-			return 'Pilih kata sandi yang lebih kuat.';
+			return 'Pilih password yang lebih kuat.';
 		}
 
 		return '';

@@ -189,7 +189,7 @@ final class Penalis_Access_Control {
 			if ( ! Penalis_Policy::can_login( $status, Penalis_Account_Status::is_access_enabled( $user->ID ) ) ) {
 				return new WP_Error(
 					'penalis_login_blocked',
-					'Akun ini tidak dapat masuk. Silakan hubungi admin Penalis.'
+					'Akun ini tidak dapat login. Silakan hubungi admin Penalis.'
 				);
 			}
 
@@ -206,7 +206,7 @@ final class Penalis_Access_Control {
 
 			return new WP_Error(
 				'penalis_login_blocked',
-				'Akun ini tidak dapat masuk. Silakan hubungi admin Penalis.'
+				'Akun ini tidak dapat login. Silakan hubungi admin Penalis.'
 			);
 		}
 
@@ -214,7 +214,7 @@ final class Penalis_Access_Control {
 		if ( in_array( Penalis_Roles::ROLE, (array) $user->roles, true ) ) {
 			return new WP_Error(
 				'penalis_login_blocked',
-				'Akun ini tidak dapat masuk. Silakan hubungi admin Penalis.'
+				'Akun ini tidak dapat login. Silakan hubungi admin Penalis.'
 			);
 		}
 
@@ -267,7 +267,7 @@ final class Penalis_Access_Control {
 			return $message;
 		}
 
-		return 'Nama pengguna atau kata sandi salah.';
+		return 'Username atau password salah.';
 	}
 
 	/**

@@ -161,7 +161,7 @@ final class Penalis_Legacy_Activation {
 
 				return array(
 					'status'  => Penalis_Policy::STATUS_ACTIVE,
-					'message' => 'Akun kamu telah diaktifkan. Kamu kini dapat masuk ke dasbor dan mulai menulis.',
+					'message' => 'Akun kontributor kamu telah diaktifkan. Kamu kini dapat login ke dashboard dan mulai menulis.',
 					'user_id' => $user_id,
 				);
 			}

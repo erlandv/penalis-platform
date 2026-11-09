@@ -464,7 +464,7 @@ final class Penalis_Rest_Api {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'penalis_not_authenticated',
-				'Kamu harus masuk terlebih dahulu.',
+				'Kamu harus login terlebih dahulu.',
 				array( 'status' => 401 )
 			);
 		}
@@ -683,7 +683,7 @@ final class Penalis_Rest_Api {
 		$user    = get_userdata( $user_id );
 
 		if ( ! $user ) {
-			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus masuk terlebih dahulu.', array( 'status' => 401 ) );
+			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus login terlebih dahulu.', array( 'status' => 401 ) );
 		}
 
 		$status    = Penalis_Account_Status::get_status( $user_id );
@@ -787,7 +787,7 @@ final class Penalis_Rest_Api {
 
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
-			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus masuk terlebih dahulu.', array( 'status' => 401 ) );
+			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus login terlebih dahulu.', array( 'status' => 401 ) );
 		}
 
 		$update = array( 'ID' => $user_id );
@@ -972,7 +972,7 @@ final class Penalis_Rest_Api {
 		if ( ! $user || ! wp_check_password( $current, $user->user_pass, $user_id ) ) {
 			return new WP_Error(
 				'penalis_password_invalid',
-				'Kata sandi kamu saat ini salah.',
+				'Password kamu saat ini salah.',
 				array( 'status' => 400 )
 			);
 		}
@@ -996,7 +996,7 @@ final class Penalis_Rest_Api {
 
 		return new WP_REST_Response(
 			array(
-				'message' => 'Kata sandi kamu telah diubah. Silakan masuk kembali.',
+				'message' => 'Password kamu berhasil diubah. Silakan login kembali.',
 			),
 			200
 		);
@@ -1287,7 +1287,7 @@ final class Penalis_Rest_Api {
 		if ( $user_id <= 0 ) {
 			return new WP_Error(
 				'penalis_not_authenticated',
-				'Kamu harus masuk terlebih dahulu.',
+				'Kamu harus login terlebih dahulu.',
 				array( 'status' => 401 )
 			);
 		}
@@ -1314,7 +1314,7 @@ final class Penalis_Rest_Api {
 		if ( $user_id <= 0 ) {
 			return new WP_Error(
 				'penalis_not_authenticated',
-				'Kamu harus masuk terlebih dahulu.',
+				'Kamu harus login terlebih dahulu.',
 				array( 'status' => 401 )
 			);
 		}

@@ -46,7 +46,7 @@ const DESCRIPTIONS: Record<Mode, string> = {
   resend: 'Minta kode verifikasi baru untuk akun yang belum dikonfirmasi.',
   forgot: 'Masukkan email kamu. Kami akan mengirim link untuk reset password.',
   activate: 'Sudah pernah mengirim karya tulis dan menjadi kontributor Penalis sebelumnya?',
-  activateVerify: 'Masukkan kode dari email kamu, lalu buat kata sandi untuk akun tersebut.',
+  activateVerify: 'Masukkan kode dari email kamu, lalu buat password untuk akun tersebut.',
 };
 
 /**
@@ -512,7 +512,7 @@ function RegistrationVerifyForm({
       <div className="penalis-form">
         <Notice tone="success">{message}</Notice>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Lanjut ke halaman masuk
+          Lanjut login ke Dashboard
         </button>
       </div>
     );
@@ -562,7 +562,7 @@ function ActivateVerifyForm({
       clientErrors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
     }
     if (password !== confirm) {
-      clientErrors.confirm_password = 'Kata sandi tidak cocok.';
+      clientErrors.confirm_password = 'Password tidak cocok.';
     }
     if (Object.keys(clientErrors).length > 0) {
       setErrors(clientErrors);
@@ -611,7 +611,7 @@ function ActivateVerifyForm({
           digunakan di dasbor penulis.
         </p>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Lanjut ke halaman masuk
+          Lanjut login ke Dashboard
         </button>
       </div>
     );
@@ -629,7 +629,7 @@ function ActivateVerifyForm({
       verifyLabel="Verifikasi dan aktifkan akun"
     >
       <div className="penalis-field">
-        <label htmlFor="activate_password">Kata sandi baru</label>
+        <label htmlFor="activate_password">Password Baru</label>
         <PasswordInput
           id="activate_password"
           value={password}
@@ -644,13 +644,13 @@ function ActivateVerifyForm({
       </div>
 
       <div className="penalis-field">
-        <label htmlFor="activate_confirm_password">Konfirmasi kata sandi</label>
+        <label htmlFor="activate_confirm_password">Konfirmasi Password</label>
         <PasswordInput
           id="activate_confirm_password"
           value={confirm}
           onChange={(event) => setConfirm(event.target.value)}
           autoComplete="new-password"
-          placeholder="Ulangi kata sandi"
+          placeholder="Ulangi password"
           aria-invalid={Boolean(errors.confirm_password)}
           aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
         />

@@ -193,10 +193,10 @@ final class Penalis_Registration {
 		}
 
 		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Percobaan pendaftaran', $site );
+		$subject = sprintf( '[%s] Percobaan Pendaftaran', $site );
 
-		$message  = "Seseorang mencoba mendaftar menggunakan alamat email atau nama pengguna kamu.\n\n";
-		$message .= "Jika ini adalah kamu, silakan masuk ke dasbor penulis atau atur ulang kata sandi kamu.\n";
+		$message  = "Seseorang mencoba mendaftar menggunakan alamat email atau username kamu.\n\n";
+		$message .= "Jika ini adalah kamu, silakan masuk ke dashboard penulis atau reset password kamu.\n";
 		$message .= Penalis_Dashboard::dashboard_url() . "\n\n";
 		$message .= "Jika bukan kamu, tidak ada tindakan yang perlu dilakukan.\n";
 

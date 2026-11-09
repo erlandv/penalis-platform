@@ -193,7 +193,7 @@ final class Penalis_Editorial_Workflow {
 		if ( $actor <= 0 ) {
 			return new WP_Error(
 				'penalis_not_authenticated',
-				'Kamu harus masuk terlebih dahulu.',
+				'Kamu harus login terlebih dahulu.',
 				array( 'status' => 401 )
 			);
 		}

@@ -110,7 +110,7 @@ export function OtpForm({
   return (
     <form className="penalis-form" onSubmit={submit} noValidate>
       <p className="penalis-muted">
-        Kami mengirim kode enam digit ke <strong>{email}</strong>. Kode berlaku 10 menit dan hanya dapat
+        Kami mengirim kode enam digit ke {email}. Kode berlaku 10 menit dan hanya dapat
         dicoba lima kali.
       </p>
 
@@ -119,7 +119,7 @@ export function OtpForm({
       {resendNotice ? <Notice tone="success">{resendNotice}</Notice> : null}
 
       <div className="penalis-field">
-        <label htmlFor={fieldId}>Kode verifikasi</label>
+        <label htmlFor={fieldId}>Kode Verifikasi</label>
         <input
           id={fieldId}
           type="text"

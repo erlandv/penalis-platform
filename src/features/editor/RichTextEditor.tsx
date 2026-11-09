@@ -275,7 +275,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
 
     const href = normalizeLinkHref(typed);
     if (href === null) {
-      setLinkError('Gunakan tautan lengkap https://…, alamat email mailto:, atau jalur yang diawali /.');
+      setLinkError('Gunakan link lengkap https://…, alamat email mailto:, atau jalur yang diawali /.');
       return;
     }
 
@@ -454,8 +454,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         </ToolbarButton>
 
         <ToolbarButton
-          label="Tautan"
-          title="Tambah atau ubah tautan"
+          label="Link"
+          title="Tambah atau ubah link"
           toggle
           active={state?.link}
           onClick={openLinkDialog}
@@ -504,7 +504,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       {linkOpen ? (
         <div className="penalis-editor-linkpop">
           <label className="penalis-editor-linkpop__label" htmlFor="penalis-link-href">
-            URL tautan
+            URL
           </label>
           <div className="penalis-editor-linkpop__row">
             <input
@@ -536,7 +536,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             </button>
             {state?.link ? (
               <button type="button" className="penalis-button penalis-button--ghost" onClick={removeLink}>
-                Hapus tautan
+                Hapus link
               </button>
             ) : null}
             <button type="button" className="penalis-button penalis-button--ghost" onClick={closeLinkDialog}>
@@ -549,7 +549,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             </p>
           ) : (
             <p className="penalis-editor-linkpop__hint">
-              Kosongkan kolom untuk menghapus tautan. Enter memasang, Esc membatalkan.
+              Kosongkan kolom untuk menghapus link. Enter memasang, Esc membatalkan.
             </p>
           )}
         </div>

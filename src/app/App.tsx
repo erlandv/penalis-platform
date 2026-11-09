@@ -46,7 +46,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
       clientErrors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
     }
     if (password !== confirm) {
-      clientErrors.confirm_password = 'Kata sandi tidak cocok.';
+      clientErrors.confirm_password = 'Password tidak cocok.';
     }
     if (Object.keys(clientErrors).length > 0) {
       setErrors(clientErrors);
@@ -69,7 +69,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
         setErrors(caught.fields);
         setFormError(caught.message);
       } else {
-        setFormError('Kata sandi tidak dapat diperbarui. Silakan coba lagi.');
+        setFormError('Password tidak dapat diperbarui. Silakan coba lagi.');
       }
     } finally {
       setSubmitting(false);
@@ -80,26 +80,26 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
     <div className="penalis-auth">
       <div className="penalis-auth__panel">
         <p className="penalis-eyebrow">{bootstrap.siteName}</p>
-        <h1>Atur ulang kata sandi</h1>
+        <h1>Atur Ulang Password</h1>
 
         {message ? (
           <>
             <Notice tone="success">{message}</Notice>
             <a className="penalis-button penalis-button--primary" href={bootstrap.loginUrl}>
-              Lanjut ke halaman masuk
+              Lanjut login ke Dashboard
             </a>
           </>
         ) : (
           <>
             <p className="penalis-muted">
-              Masukkan kata sandi baru untuk akun <strong>{login}</strong>.
+              Masukkan password baru untuk akun {login}.
             </p>
 
             {formError ? <ErrorBanner message={formError} /> : null}
 
             <form className="penalis-form" onSubmit={submit} noValidate>
               <div className="penalis-field">
-                <label htmlFor="reset_password">Kata sandi baru</label>
+                <label htmlFor="reset_password">Password Baru</label>
                 <PasswordInput
                   id="reset_password"
                   value={password}
@@ -114,13 +114,13 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
               </div>
 
               <div className="penalis-field">
-                <label htmlFor="reset_confirm_password">Konfirmasi kata sandi baru</label>
+                <label htmlFor="reset_confirm_password">Konfirmasi Password Baru</label>
                 <PasswordInput
                   id="reset_confirm_password"
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
-                  placeholder="Ulangi kata sandi baru"
+                  placeholder="Ulangi password baru"
                   aria-invalid={Boolean(errors.confirm_password)}
                   aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
                 />
@@ -128,12 +128,12 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
               </div>
 
               <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-                {submitting ? 'Menyimpan…' : 'Simpan kata sandi baru'}
+                {submitting ? 'Menyimpan…' : 'Simpan password baru'}
               </button>
             </form>
 
             <p className="penalis-fineprint">
-              <a href={bootstrap.lostPassword}>Minta tautan baru</a>
+              <a href={bootstrap.lostPassword}>Minta link baru</a>
             </p>
           </>
         )}
@@ -258,7 +258,7 @@ export function App() {
         <div className="penalis-auth__panel">
           <ErrorBanner message={error || 'Akun kamu tidak dapat dimuat.'} onRetry={() => void loadAccount()} />
           <a className="penalis-button penalis-button--ghost" href={bootstrap.loginUrl}>
-            Masuk lagi
+            Login lagi
           </a>
         </div>
       </div>

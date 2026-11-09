@@ -23,7 +23,7 @@
   --penalis-shadow: 0 10px 30px rgba(36, 31, 26, 0.08);
 
   color: var(--penalis-text);
-  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: inherit;
   font-size: 16px;
   line-height: 1.55;
   background: var(--penalis-bg);
@@ -41,7 +41,7 @@
 .penalis-dashboard-root h1,
 .penalis-dashboard-root h2,
 .penalis-dashboard-root h3 {
-  font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  font-family: inherit;
   line-height: 1.2;
   margin: 0 0 0.35em;
   color: var(--penalis-text);
@@ -559,7 +559,7 @@
 .penalis-card__value {
   font-size: 1.8rem;
   font-weight: 700;
-  font-family: 'Iowan Old Style', Georgia, serif;
+  font-family: inherit;
 }
 
 .penalis-card__label {
@@ -700,22 +700,33 @@
 .penalis-button:active:not(:disabled) { transform: translateY(1px); }
 
 .penalis-button:disabled {
-  opacity: 0.55;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
 /**
- * Reset inherited theme button defaults.
+ * Reset inherited theme button defaults & disabled leakage.
  *
- * The active theme applies `margin-bottom: 35px` to every `button` element and
- * clears it only on `:last-child`. In a flex row that lifts every button except
- * the last one by half that margin, so any row with more than one button renders
- * out of alignment. The theme also pins `height: 45px` and a computed
- * `line-height`, which clips labels that wrap on narrow screens.
+ * 1. The active theme applies `margin-bottom: 35px` to every `button` element and
+ *    clears it only on `:last-child`. In a flex row that lifts every button except
+ *    the last one by half that margin, so any row with more than one button renders
+ *    out of alignment. The theme also pins `height: 45px` and a computed
+ *    `line-height`, which clips labels that wrap on narrow screens.
+ * 2. The active theme styles `button[disabled]` with `background-color: #fff`,
+ *    a linear-gradient `background-image`, and dark text color. That element-level
+ *    rule (0,1,1) overrode unqualified `.penalis-button--primary` background (0,1,0)
+ *    while `.penalis-dashboard-root .penalis-button--primary` (0,2,0) kept text white,
+ *    causing white text on an almost-white background during form submissions.
  *
- * Two classes give this rule enough specificity to win over the theme's
+ * Two classes give these rules enough specificity to win over the theme's
  * element-level selectors without changing global theme styles.
  */
+.penalis-dashboard-root button:disabled,
+.penalis-dashboard-root button[disabled] {
+  cursor: not-allowed;
+  background-image: none;
+}
+
 .penalis-dashboard-root .penalis-button {
   box-sizing: border-box;
   margin: 0;
@@ -723,39 +734,50 @@
   min-height: 45px;
   line-height: 1.25;
   vertical-align: middle;
+  background-image: none;
+}
+
+.penalis-dashboard-root .penalis-button:disabled,
+.penalis-dashboard-root .penalis-button[disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background-image: none;
 }
 
 /**
- * Anchor-styled buttons.
+ * Button variants.
  *
- * The plugin's own `.penalis-dashboard-root a` rule (specificity 0,1,1)
- * outranks the button variant color classes (0,1,0), so a `.penalis-button`
- * rendered as an `<a>` — "Lanjut ke halaman masuk", "Keluar", etc. — shows the
- * link color on the button background instead of the variant's label color.
- *
- * Re-declare the label colors scoped to the root so they always win whatever
- * element the class is applied to. These stay `<a>` because they navigate;
- * `<button>` would drop open-in-new-tab and middle-click behaviour.
+ * All variant backgrounds, borders, and label colors are scoped to
+ * `.penalis-dashboard-root` including disabled states so they consistently
+ * outrank theme rules and link styling (`.penalis-dashboard-root a`).
  */
-.penalis-dashboard-root .penalis-button--primary { color: #ffffff; }
-.penalis-dashboard-root .penalis-button--ghost { color: var(--penalis-text); }
-.penalis-dashboard-root .penalis-button--danger { color: var(--penalis-danger); }
-.penalis-dashboard-root .penalis-button--soft { color: var(--penalis-accent-strong); }
-
-.penalis-button--primary {
-  background: var(--penalis-accent);
+.penalis-dashboard-root .penalis-button--primary,
+.penalis-dashboard-root .penalis-button--primary:disabled,
+.penalis-dashboard-root .penalis-button--primary[disabled] {
+  background-color: var(--penalis-accent);
+  background-image: none;
+  border-color: var(--penalis-accent);
   color: #ffffff;
 }
 
-.penalis-button--primary:hover:not(:disabled) { background: var(--penalis-accent-strong); }
+.penalis-dashboard-root .penalis-button--primary:hover:not(:disabled) {
+  background-color: var(--penalis-accent-strong);
+  border-color: var(--penalis-accent-strong);
+  color: #ffffff;
+}
 
-.penalis-button--ghost {
-  background: var(--penalis-surface);
+.penalis-dashboard-root .penalis-button--ghost,
+.penalis-dashboard-root .penalis-button--ghost:disabled,
+.penalis-dashboard-root .penalis-button--ghost[disabled] {
+  background-color: var(--penalis-surface);
+  background-image: none;
   border-color: var(--penalis-border);
   color: var(--penalis-text);
 }
 
-.penalis-button--ghost:hover:not(:disabled) { border-color: #c9bfb3; }
+.penalis-dashboard-root .penalis-button--ghost:hover:not(:disabled) {
+  border-color: #c9bfb3;
+}
 
 /**
  * Secondary-but-important action.
@@ -764,24 +786,32 @@
  * like "Pratinjau" and "Batal". This variant gives it weight without competing
  * with the single primary action ("Terbitkan").
  */
-.penalis-button--soft {
-  background: var(--penalis-accent-soft);
+.penalis-dashboard-root .penalis-button--soft,
+.penalis-dashboard-root .penalis-button--soft:disabled,
+.penalis-dashboard-root .penalis-button--soft[disabled] {
+  background-color: var(--penalis-accent-soft);
+  background-image: none;
   border-color: #ddc9ff;
   color: var(--penalis-accent-strong);
 }
 
-.penalis-button--soft:hover:not(:disabled) {
-  background: #e6d9ff;
+.penalis-dashboard-root .penalis-button--soft:hover:not(:disabled) {
+  background-color: #e6d9ff;
   border-color: var(--penalis-accent);
 }
 
-.penalis-button--danger {
-  background: transparent;
+.penalis-dashboard-root .penalis-button--danger,
+.penalis-dashboard-root .penalis-button--danger:disabled,
+.penalis-dashboard-root .penalis-button--danger[disabled] {
+  background-color: transparent;
+  background-image: none;
   border-color: #f3c4c4;
   color: var(--penalis-danger);
 }
 
-.penalis-button--danger:hover:not(:disabled) { background: var(--penalis-danger-soft); }
+.penalis-dashboard-root .penalis-button--danger:hover:not(:disabled) {
+  background-color: var(--penalis-danger-soft);
+}
 
 /**
  * Filled danger button, for the confirm action of a destructive dialog.
@@ -789,18 +819,41 @@
  * The outline `--danger` variant is right for a row action (it should not
  * shout), but the button that actually deletes something must be unmistakable.
  */
-.penalis-button--danger-solid {
-  background: var(--penalis-danger);
+.penalis-dashboard-root .penalis-button--danger-solid,
+.penalis-dashboard-root .penalis-button--danger-solid:disabled,
+.penalis-dashboard-root .penalis-button--danger-solid[disabled] {
+  background-color: var(--penalis-danger);
+  background-image: none;
   border-color: var(--penalis-danger);
   color: #ffffff;
 }
 
-.penalis-button--danger-solid:hover:not(:disabled) {
-  background: #7f1d1d;
+.penalis-dashboard-root .penalis-button--danger-solid:hover:not(:disabled) {
+  background-color: #7f1d1d;
   border-color: #7f1d1d;
+  color: #ffffff;
 }
 
-.penalis-dashboard-root .penalis-button--danger-solid { color: #ffffff; }
+/* Inline spinner inside a button (e.g. during submitting) */
+.penalis-button .penalis-loading {
+  padding: 0;
+  gap: 0.45rem;
+  color: inherit;
+}
+
+.penalis-button .penalis-spinner {
+  width: 14px;
+  height: 14px;
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+}
+
+.penalis-dashboard-root .penalis-button--ghost .penalis-spinner,
+.penalis-dashboard-root .penalis-button--soft .penalis-spinner,
+.penalis-dashboard-root .penalis-button--danger .penalis-spinner {
+  border-color: var(--penalis-border);
+  border-top-color: currentColor;
+}
 
 .penalis-actions-row,
 .penalis-row-actions {

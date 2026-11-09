@@ -35,7 +35,7 @@ final class Penalis_Password_Reset {
 	 *
 	 * The wording never confirms whether an address is registered.
 	 */
-	public const GENERIC_MESSAGE = 'Jika alamat tersebut terdaftar, kami telah mengirim tautan untuk mengatur ulang kata sandi.';
+	public const GENERIC_MESSAGE = 'Jika alamat tersebut terdaftar, kami telah mengirim link untuk reset password.';
 
 	/**
 	 * Request a reset link.
@@ -140,7 +140,7 @@ final class Penalis_Password_Reset {
 		if ( ! self::is_reset_allowed( $user ) ) {
 			return new WP_Error(
 				'penalis_reset_forbidden',
-				'Akun ini tidak dapat mengatur ulang kata sandi. Silakan hubungi admin Penalis.',
+				'Akun ini tidak dapat reset password. Silakan hubungi admin Penalis.',
 				array( 'status' => 403 )
 			);
 		}
@@ -173,7 +173,7 @@ final class Penalis_Password_Reset {
 		Penalis_Rate_Limiter::clear( 'password_forgot_account', $user->user_email );
 
 		return array(
-			'message' => 'Kata sandi kamu telah diperbarui. Silakan masuk dengan kata sandi baru.',
+			'message' => 'Password kamu telah diperbarui. Silakan login dengan password baru.',
 		);
 	}
 
@@ -223,7 +223,7 @@ final class Penalis_Password_Reset {
 	private static function invalid_key_error() {
 		return new WP_Error(
 			'penalis_invalid_reset_key',
-			'Tautan pengaturan ulang kata sandi tidak valid atau sudah kedaluwarsa. Silakan minta tautan baru.',
+			'Link reset password tidak valid atau sudah kedaluwarsa. Silakan minta link baru.',
 			array( 'status' => 400 )
 		);
 	}

@@ -663,7 +663,7 @@ JS;
 					id="penalis-search"
 					name="s"
 					value="<?php echo esc_attr( $search ); ?>"
-					placeholder="Cari nama, nama pengguna, atau email"
+					placeholder="Cari nama, username, atau email"
 				>
 				<button type="submit" class="button">Cari</button>
 				<?php $clear_url = self::writers_url( array( 'status' => $status ) ); ?>
@@ -764,10 +764,10 @@ JS;
 									<?php if ( $access || $needs_password || $mail_failed ) : ?>
 										<div class="penalis-flags">
 											<?php if ( $access ) : ?>
-												<span class="penalis-flag penalis-flag--ok">Akses dasbor aktif</span>
+												<span class="penalis-flag penalis-flag--ok">Akses dashboard aktif</span>
 											<?php endif; ?>
 											<?php if ( $needs_password ) : ?>
-												<span class="penalis-flag">Belum punya kata sandi</span>
+												<span class="penalis-flag">Belum punya password</span>
 											<?php endif; ?>
 											<?php if ( $mail_failed ) : ?>
 												<span class="penalis-flag penalis-flag--warn">Email terakhir gagal</span>
@@ -804,8 +804,8 @@ JS;
 
 										<?php if ( $is_legacy_view ) : ?>
 											<p class="penalis-hint">
-												Akun lama belum punya kata sandi. &ldquo;Aktifkan langsung&rdquo; melewati
-												verifikasi email, mengaktifkan akun penulis, dan mengirim tautan atur kata sandi.
+												Akun lama belum punya password. &ldquo;Aktifkan langsung&rdquo; melewati
+												verifikasi email, mengaktifkan akun penulis, dan mengirim link atur password.
 											</p>
 										<?php endif; ?>
 

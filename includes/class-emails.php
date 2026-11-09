@@ -127,7 +127,7 @@ final class Penalis_Emails {
 
 		$message  = self::greeting( $user ) . "\n\n";
 		$message .= sprintf( 'Username akun %s kamu baru saja diubah menjadi %s.', $site, (string) $new_login ) . "\n\n";
-		$message .= "Semua sesi yang sedang aktif telah diakhiri. Masuk kembali dengan username baru kamu.\n\n";
+		$message .= "Semua sesi yang sedang aktif telah diakhiri. Login kembali dengan username baru kamu.\n\n";
 		$message .= "Jika kamu yang melakukan perubahan ini, tidak ada tindakan lain yang perlu dilakukan.\n\n";
 		$message .= "Jika bukan kamu, segera reset password akun kamu dan hubungi admin Penalis:\n\n";
 		$message .= Penalis_Dashboard::dashboard_url() . "\n";

@@ -37,7 +37,7 @@ final class Penalis_Email_Change {
 		$user    = get_userdata( $user_id );
 
 		if ( ! $user ) {
-			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus masuk terlebih dahulu.', array( 'status' => 401 ) );
+			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus login terlebih dahulu.', array( 'status' => 401 ) );
 		}
 
 		if ( ! self::can_change( $user_id ) ) {
@@ -74,7 +74,7 @@ final class Penalis_Email_Change {
 		if ( ! wp_check_password( (string) $current_password, $user->user_pass, $user_id ) ) {
 			return new WP_Error(
 				'penalis_password_invalid',
-				'Kata sandi kamu saat ini salah.',
+				'Password kamu saat ini salah.',
 				array( 'status' => 400 )
 			);
 		}
@@ -265,7 +265,7 @@ final class Penalis_Email_Change {
 
 				return array(
 					'email'     => $new_email,
-					'message'   => 'Alamat email kamu telah diperbarui. Gunakan alamat baru ini untuk masuk dan menerima email dari Penalis.',
+					'message'   => 'Alamat email kamu telah diperbarui. Gunakan alamat baru ini untuk login dan menerima email dari Penalis.',
 					'user_id'   => $user_id,
 					'old_email' => $old_email,
 				);

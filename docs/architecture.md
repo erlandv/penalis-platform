@@ -338,3 +338,9 @@ admin screens, and transactional emails is written in natural Indonesian without
 a `gettext` translation layer, while code, comments, and developer documentation
 are written in English.
 
+Common technical terms and web/publishing concepts are intentionally retained in
+English where Indonesian literal translations feel unnatural or awkward to
+writers (e.g., *login*, *logout*, *dashboard*, *password*, *link*,
+*featured image*, *publish*, *draft*, *review*, *submit*, *read-only*,
+*upload*, *download*, etc.).
+

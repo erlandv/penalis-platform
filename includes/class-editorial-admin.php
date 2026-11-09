@@ -716,7 +716,7 @@ final class Penalis_Editorial_Admin {
 			'penalis_editorial_busy'    => array( 'error', 'Karya tulis ini sedang diproses admin lain. Coba lagi sebentar lagi.' ),
 			'penalis_editorial_failed'  => array( 'error', 'Status karya tulis tidak dapat diperbarui.' ),
 			'penalis_not_found'         => array( 'error', 'Karya tulis tidak ditemukan.' ),
-			'penalis_not_authenticated' => array( 'error', 'Sesi kamu berakhir. Silakan masuk kembali.' ),
+			'penalis_not_authenticated' => array( 'error', 'Sesi kamu berakhir. Silakan login kembali.' ),
 			'penalis_account_inactive'  => array( 'error', 'Akun kamu tidak diizinkan melakukan tindakan ini.' ),
 		);
 

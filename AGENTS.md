@@ -9,8 +9,11 @@ and [`docs/development.md`](docs/development.md).
 
 Language convention: **code, comments, documentation, commit messages, and this
 file are English. User-facing copy in the dashboard, admin screens, and emails
-is Indonesian, hardcoded.** Penalis is an Indonesian community; the writers read
-Indonesian, the developers read English.
+is Indonesian, hardcoded** (except for familiar technical terms and digital
+publishing phrases that are retained in English, such as *login*, *logout*,
+*dashboard*, *password*, *link*, *featured image*, *publish*, *draft*,
+*review*, *submit*, *read-only*, *upload*, *download*, etc.). Penalis is an
+Indonesian community; the writers read Indonesian, the developers read English.
 
 ---
 

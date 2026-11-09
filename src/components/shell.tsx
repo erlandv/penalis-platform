@@ -46,7 +46,7 @@ export function StatusBanner({
   if (needsPassword) {
     return (
       <Notice tone="warning">
-        Akun kamu belum memiliki kata sandi. Kami mengirim link untuk membuat kata sandi
+        Akun kamu belum memiliki password. Kami mengirim link untuk membuat password
         ke {email}. Buka link tersebut agar kamu dapat login kembali.
       </Notice>
     );
@@ -393,7 +393,7 @@ export function Shell({
 
       {account.isAdministrator ? (
         <Notice tone="info">
-          Kamu masuk sebagai admin. Kontrol penerbitan penulis hanya berlaku untuk akun penulis; gunakan
+          Kamu login sebagai admin. Kontrol penerbitan penulis hanya berlaku untuk akun penulis; gunakan
           WordPress Admin untuk mengelola konten para penulis.
         </Notice>
       ) : (

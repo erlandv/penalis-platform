@@ -43,7 +43,7 @@ final class Penalis_Username_Change {
 		$user    = get_userdata( $user_id );
 
 		if ( ! $user ) {
-			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus masuk terlebih dahulu.', array( 'status' => 401 ) );
+			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus login terlebih dahulu.', array( 'status' => 401 ) );
 		}
 
 		if ( ! self::can_change( $user_id ) ) {
@@ -174,7 +174,7 @@ final class Penalis_Username_Change {
 			Penalis_Emails::send_username_change_notice( $user_id, $user->user_email, $old_login, $username );
 
 			return array(
-				'message' => 'Username kamu telah diperbarui. Semua sesi diakhiri; masuk kembali dengan username baru.',
+				'message' => 'Username kamu telah diperbarui. Semua sesi diakhiri; login kembali dengan username baru.',
 			);
 		} finally {
 			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Releases the advisory lock taken above.
