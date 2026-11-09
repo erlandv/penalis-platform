@@ -921,6 +921,18 @@ if ( ! function_exists( 'esc_url' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_salt' ) ) {
+	/**
+	 * Deterministic salt double for HMAC tests.
+	 *
+	 * @param string $scheme Salt scheme.
+	 * @return string
+	 */
+	function wp_salt( $scheme = 'auth' ) {
+		return 'penalis-test-salt-' . (string) $scheme;
+	}
+}
+
 if ( ! function_exists( 'get_option' ) ) {
 	/**
 	 * Option stub.

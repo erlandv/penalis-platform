@@ -234,6 +234,19 @@ export interface FieldErrors {
   [field: string]: string;
 }
 
+/**
+ * Response returned when a verification code is issued.
+ *
+ * The challenge ID is an opaque locator, not a secret: the six-digit code sent
+ * by email is the proof. Both are kept in component memory only.
+ */
+export interface ChallengeResponse {
+  challenge_id: string;
+  resend_after: number;
+  expires_in: number;
+  message: string;
+}
+
 export interface ApiErrorShape {
   code?: string;
   message?: string;

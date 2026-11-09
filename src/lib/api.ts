@@ -13,6 +13,7 @@ import type {
   Article,
   ArticleList,
   ArticleReview,
+  ChallengeResponse,
   DisplayNameMode,
   FieldErrors,
   MediaItem,
@@ -141,20 +142,20 @@ export const accountApi = {
   /**
    * Request a change of the account email address.
    *
-   * The address is not changed by this call: the server emails a confirmation
-   * link to the new address and applies the change only when it is consumed.
+   * The address is not changed by this call: the server emails a six-digit code
+   * to the new address and applies the change only when it is confirmed.
    */
   requestEmailChange: (payload: { new_email: string; current_password: string }) =>
-    request<{ message: string; pendingEmail: string }>('/account/email', {
+    request<ChallengeResponse & { pendingEmail: string }>('/account/email', {
       method: 'POST',
       body: payload,
     }),
 
-  /** Consume the confirmation token from the email sent to the new address. */
-  confirmEmailChange: (token: string) =>
+  /** Consume the code sent to the candidate address. */
+  confirmEmailChange: (payload: { challenge_id: string; code: string }) =>
     request<{ message: string; email: string }>('/account/email/confirm', {
       method: 'POST',
-      body: { token },
+      body: payload,
     }),
 
   /** Assign an existing media attachment as the profile photo. */
@@ -176,18 +177,18 @@ export const registrationApi = {
     instagram?: string;
     penalis_consent: string;
     penalis_website: string;
-  }) => request<{ message: string; email_sent: boolean }>('/registration', { method: 'POST', body: payload }),
+  }) => request<ChallengeResponse>('/registration', { method: 'POST', body: payload }),
 
   resend: (email: string) =>
-    request<{ message: string }>('/verification/resend', {
+    request<ChallengeResponse>('/verification/resend', {
       method: 'POST',
       body: { user_email: email },
     }),
 
-  confirm: (token: string) =>
+  confirm: (payload: { challenge_id: string; code: string }) =>
     request<{ message: string; status: string }>('/verification/confirm', {
       method: 'POST',
-      body: { token },
+      body: payload,
     }),
 };
 
@@ -201,13 +202,13 @@ export const legacyApi = {
    * address belongs to a legacy account.
    */
   request: (email: string, honeypot = '') =>
-    request<{ message: string }>('/legacy/activate', {
+    request<ChallengeResponse>('/legacy/activate', {
       method: 'POST',
       body: { user_email: email, penalis_website: honeypot },
     }),
 
-  /** Consume the activation token and set the first password. */
-  confirm: (payload: { token: string; password: string }) =>
+  /** Consume the activation code and set the first password. */
+  confirm: (payload: { challenge_id: string; code: string; password: string }) =>
     request<{ message: string; status: string }>('/legacy/activate/confirm', {
       method: 'POST',
       body: payload,
