@@ -1712,6 +1712,48 @@
 
 .penalis-editor-html:focus { outline: none; }
 
+.penalis-editor-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.penalis-editor-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 4px;
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-text);
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.penalis-editor-hint__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 4px;
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-text);
+  vertical-align: middle;
+}
+
+.penalis-editor-hint__icon svg {
+  width: 13px;
+  height: 13px;
+}
+
 .penalis-featured img {
   width: 100%;
   height: auto;

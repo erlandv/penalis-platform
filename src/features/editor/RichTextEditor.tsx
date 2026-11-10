@@ -121,7 +121,9 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         'aria-multiline': 'true',
         ...(readOnly ? { 'aria-readonly': 'true' } : {}),
         ...(labelledBy ? { 'aria-labelledby': labelledBy } : {}),
-        ...(errorId ? { 'aria-describedby': errorId } : {}),
+        ...([errorId, !readOnly ? 'penalis-content-hint' : ''].filter(Boolean).join(' ')
+          ? { 'aria-describedby': [errorId, !readOnly ? 'penalis-content-hint' : ''].filter(Boolean).join(' ') }
+          : {}),
         ...(invalid ? { 'aria-invalid': 'true' } : {}),
       },
     },
@@ -180,12 +182,13 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
     const element = editor.view.dom;
     element.setAttribute('aria-invalid', invalid ? 'true' : 'false');
 
-    if (errorId) {
-      element.setAttribute('aria-describedby', errorId);
+    const describedBy = [errorId, !readOnly && !htmlMode ? 'penalis-content-hint' : ''].filter(Boolean).join(' ');
+    if (describedBy) {
+      element.setAttribute('aria-describedby', describedBy);
     } else {
       element.removeAttribute('aria-describedby');
     }
-  }, [editor, invalid, errorId]);
+  }, [editor, invalid, errorId, readOnly, htmlMode]);
 
   // `aria-labelledby` is set once at creation because the label is stable.
   useEffect(() => {
@@ -357,9 +360,10 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
   }
 
   return (
-    <div className={`penalis-editor-shell${invalid ? ' is-invalid' : ''}`}>
-      <div className="penalis-editor-toolbar" role="toolbar" aria-label="Pemformatan teks">
-        <ToolbarButton
+    <>
+      <div className={`penalis-editor-shell${invalid ? ' is-invalid' : ''}`}>
+        <div className="penalis-editor-toolbar" role="toolbar" aria-label="Pemformatan teks">
+          <ToolbarButton
           label="Tebal"
           title="Tebal (Ctrl+B)"
           toggle
@@ -451,6 +455,14 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           onClick={() => editor?.chain().focus().toggleBlockquote().run()}
         >
           <Icon name="quote" />
+        </ToolbarButton>
+
+        <ToolbarButton
+          label="Baris baru"
+          title="Baris baru (Shift+Enter)"
+          onClick={() => editor?.chain().focus().setHardBreak().run()}
+        >
+          <Icon name="hardBreak" />
         </ToolbarButton>
 
         <ToolbarButton
@@ -555,7 +567,21 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         </div>
       ) : null}
 
-      <EditorContent editor={editor} />
-    </div>
+        <EditorContent editor={editor} />
+      </div>
+
+      <p className="penalis-editor-hint" id="penalis-content-hint">
+        Tips: Gunakan <kbd>Enter</kbd> untuk paragraf baru, gunakan{' '}
+        <span
+          className="penalis-editor-hint__icon"
+          role="img"
+          aria-label="tombol Baris baru"
+          title="Baris baru (Shift+Enter)"
+        >
+          <Icon name="hardBreak" />
+        </span>{' '}
+        untuk baris baru.
+      </p>
+    </>
   );
 });
