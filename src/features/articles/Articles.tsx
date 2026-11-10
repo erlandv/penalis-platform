@@ -229,7 +229,7 @@ export function Articles({
                         label={article.editorialStateLabel || editorialStateLabel(article.editorialState)}
                       />
                       {article.reviewCycle > 0 ? (
-                        <span className="penalis-table__submeta">Siklus {article.reviewCycle}</span>
+                        <span className="penalis-table__submeta">Cycle {article.reviewCycle}</span>
                       ) : null}
                     </div>
                   </td>

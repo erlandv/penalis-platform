@@ -461,7 +461,7 @@ final class Penalis_Editorial_Admin {
 												</span>
 												<?php if ( $entry_cycle > 0 ) : ?>
 													<span class="penalis-review__timeline-cycle">
-														<?php echo esc_html( sprintf( 'Siklus #%d', $entry_cycle ) ); ?>
+														<?php echo esc_html( sprintf( 'Cycle #%d', $entry_cycle ) ); ?>
 													</span>
 												<?php endif; ?>
 											</div>

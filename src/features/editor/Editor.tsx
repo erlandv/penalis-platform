@@ -712,31 +712,39 @@ export function Editor({
 
       {editorialState === 'published' ? (
         <Notice tone="info">
-          <strong>Karya tulis ini sudah terbit (read-only mode).</strong> Karya yang sudah terbit tidak dapat di-edit oleh
-          penulis. Jika ada perubahan atau perbaikan yang diperlukan, hubungi admin Penalis.
+          <p>
+            <strong>Karya tulis ini sudah terbit (read-only mode).</strong> Karya yang sudah terbit tidak dapat di-edit oleh
+            penulis. Jika ada perubahan atau perbaikan yang diperlukan, hubungi admin Penalis.
+          </p>
         </Notice>
       ) : null}
 
       {editorialState === 'pending_review' ? (
         <Notice tone="info">
-          <strong>Sedang menunggu review admin.</strong> Karya tulis ini sedang berada dalam antrean review
-          {reviewCycle > 0 ? ` (siklus ${reviewCycle})` : ''} dan dikunci sementara agar isi yang di-review admin tetap
-          konsisten.
+          <p>
+            <strong>Sedang menunggu review admin.</strong> Karya tulis ini sedang berada dalam antrean review
+            {reviewCycle > 0 ? ` (cyccle ${reviewCycle})` : ''} dan dikunci sementara agar isi yang di-review admin tetap
+            konsisten.
+          </p>
         </Notice>
       ) : null}
 
       {editorialState === 'changes_requested' ? (
         <Notice tone="warning">
-          <strong>Perlu revisi dari penulis.</strong> Admin telah me-review karya tulis ini dan memberikan catatan
-          perbaikan. Silakan perbarui karya tulismu sesuai catatan di bawah, simpan draft bila perlu, lalu klik{' '}
-          <strong>Submit Ulang</strong>.
+          <p>
+            <strong>Perlu revisi dari penulis.</strong> Admin telah me-review karya tulis ini dan memberikan catatan
+            perbaikan. Silakan perbarui karya tulismu sesuai catatan di bawah, simpan draft bila perlu, lalu klik{' '}
+            <strong>Submit Ulang</strong>.
+          </p>
         </Notice>
       ) : null}
 
       {editorialState === 'rejected' ? (
         <Notice tone="warning">
-          <strong>Submit karya tulis ditolak.</strong> Karya tulis ini dikunci dan tidak dapat di-submit ulang kecuali
-          admin membukanya kembali untuk revisi.
+          <p>
+            <strong>Submit karya tulis ditolak.</strong> Karya tulis ini dikunci dan tidak dapat di-submit ulang kecuali
+            admin membukanya kembali untuk revisi.
+          </p>
         </Notice>
       ) : null}
 
@@ -766,8 +774,10 @@ export function Editor({
           {feedback ? (
             <section className="penalis-panel penalis-editorial-feedback" aria-label="Catatan review admin">
               <div className="penalis-panel__header">
-                <h3>Catatan Review Admin</h3>
-                {reviewCycle > 0 ? <span className="penalis-muted">Siklus {reviewCycle}</span> : null}
+                <h3>Catatan review admin:</h3>
+                {reviewCycle > 0 ? (
+                  <span className="penalis-editorial-feedback__cycle">Cycle {reviewCycle}</span>
+                ) : null}
               </div>
               <p className="penalis-editorial-feedback__body">{feedback}</p>
               {reviewedAt ? (
@@ -891,7 +901,7 @@ export function Editor({
                         <div className="penalis-review-history__head">
                           <strong>{entry.actionLabel}</strong>
                           {entry.reviewCycle > 0 ? (
-                            <span className="penalis-muted">Siklus {entry.reviewCycle}</span>
+                            <span className="penalis-muted">Cycle {entry.reviewCycle}</span>
                           ) : null}
                         </div>
                         <p className="penalis-review-history__meta">
