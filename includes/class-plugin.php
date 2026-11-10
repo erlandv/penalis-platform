@@ -69,6 +69,7 @@ final class Penalis_Plugin {
 		if ( is_admin() ) {
 			Penalis_Admin::init();
 			Penalis_Editorial_Admin::init();
+			Penalis_Email_Settings::init();
 		}
 
 		add_action( 'admin_notices', array( $this, 'activation_notice' ) );

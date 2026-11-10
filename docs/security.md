@@ -220,6 +220,21 @@ Transient-based rate limits (`Penalis_Rate_Limiter`):
 | Username change | Per IP / Per user | 5 / hour per IP, 3 / hour per user |
 | Tag creation | Per user | 30 / hour |
 
+### 7.1 Email Template Security & Secret Preservation
+- **Capability Isolation:** Viewing and saving email templates requires
+  `manage_options` (`Penalis_Email_Settings::can_manage()`). Editors and writers
+  receive a `403` response.
+- **CSRF Protection:** All template mutation requests are guarded by WordPress
+  nonces (`check_admin_referer( 'penalis_save_email_settings' )`).
+- **Mandatory Placeholder Safety Net:** Critical tokens (`{kode_otp}`,
+  `{link_reset_password}`, `{link_review_admin}`, `{link_editor}`) cannot be
+  omitted. If removed by an administrator, they are automatically appended
+  during save and verified again during message rendering before dispatch.
+- **Link & HTML Sanitization:** Content in `Penalis_Email_Template` is escaped
+  before rendering. Markdown links (`[text](url)`) strictly reject unsafe
+  schemes (e.g. `javascript:`, `data:`) and only permit `http`, `https`, or
+  `mailto` URLs.
+
 ---
 
 ## 8. Production Operational Recommendations

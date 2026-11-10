@@ -27,6 +27,7 @@ require_once __DIR__ . '/../includes/class-dashboard.php';
 require_once __DIR__ . '/../includes/class-rate-limiter.php';
 require_once __DIR__ . '/../includes/class-activator.php';
 require_once __DIR__ . '/../includes/class-email-template.php';
+require_once __DIR__ . '/../includes/class-email-settings.php';
 require_once __DIR__ . '/../includes/class-emails.php';
 require_once __DIR__ . '/../includes/class-author-history.php';
 require_once __DIR__ . '/../includes/class-username-change.php';
@@ -3346,6 +3347,155 @@ $invalid_ig_resp = Penalis_Rest_Api::update_profile(
 );
 penalis_assert( is_wp_error( $invalid_ig_resp ), 'POST /account/profile with invalid Instagram fails.' );
 penalis_assert( isset( $invalid_ig_resp->get_error_data()['fields']['instagram'] ), 'Field error is attached to instagram.' );
+
+/* -------------------------------------------------------------------------
+ * Transactional email settings & Markdown formatting
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+
+// 1. Penalis_Email_Template Markdown rendering
+$html_link = Penalis_Email_Template::render( 'Yuk bergabung ke [WhatsApp Group](https://chat.whatsapp.com/test) sekarang.' );
+penalis_assert( false !== strpos( $html_link, 'href="https://chat.whatsapp.com/test"' ), 'Markdown link href is properly rendered in email HTML.' );
+penalis_assert( false !== strpos( $html_link, '>WhatsApp Group</a>' ), 'Markdown link label is properly rendered.' );
+
+$html_bold = Penalis_Email_Template::render( 'Karya tulismu yang berjudul **Testing Bold** sudah terbit.' );
+penalis_assert( false !== strpos( $html_bold, '<strong>Testing Bold</strong>' ), 'Markdown bold is rendered with strong tag.' );
+
+$html_button = Penalis_Email_Template::render( "[Baca Tulisanmu](https://penalis.com/karya/testing)" );
+penalis_assert( false !== strpos( $html_button, 'Baca Tulisanmu' ), 'Standalone markdown link renders button text.' );
+penalis_assert( false !== strpos( $html_button, 'href="https://penalis.com/karya/testing"' ), 'Standalone markdown link renders button URL.' );
+penalis_assert( false !== strpos( $html_button, '<table role="presentation"' ), 'Standalone markdown link renders as styled CTA button table.' );
+
+$html_raw_url = Penalis_Email_Template::render( 'Kunjungi https://penalis.com/panduan untuk info.' );
+penalis_assert( false !== strpos( $html_raw_url, 'href="https://penalis.com/panduan"' ), 'Raw URLs are converted to clickable links.' );
+
+$html_safe = Penalis_Email_Template::render( '[Klik Disini](javascript:alert(1))' );
+penalis_assert( false === strpos( $html_safe, 'href="javascript:' ), 'Unsafe link scheme in markdown is rejected.' );
+
+// 2. Penalis_Email_Settings registry & capabilities
+penalis_same( 15, count( Penalis_Email_Settings::get_registry() ), 'There are exactly 15 configurable email templates in the registry.' );
+
+$admin_user  = new WP_User( 100, array( 'administrator' ) );
+$editor_user = new WP_User( 101, array( 'editor' ) );
+$writer_user = new WP_User( 102, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_users'][100] = $admin_user;
+$GLOBALS['penalis_test_users'][101] = $editor_user;
+$GLOBALS['penalis_test_users'][102] = $writer_user;
+
+$GLOBALS['penalis_test_current_user'] = 100;
+penalis_assert( Penalis_Email_Settings::can_manage(), 'Administrator with manage_options can manage email settings.' );
+
+$GLOBALS['penalis_test_current_user'] = 101;
+penalis_assert( ! Penalis_Email_Settings::can_manage(), 'Editor without manage_options cannot manage email settings.' );
+
+$GLOBALS['penalis_test_current_user'] = 102;
+penalis_assert( ! Penalis_Email_Settings::can_manage(), 'Writer cannot manage email settings.' );
+
+$GLOBALS['penalis_test_current_user'] = 0;
+penalis_assert( ! Penalis_Email_Settings::can_manage(), 'Logged-out user cannot manage email settings.' );
+
+// 3. Default template retrieval and rendering
+$default_reg = Penalis_Email_Settings::get_template( 'otp_registration' );
+penalis_same( '[Penalis] Verifikasi pendaftaran', $default_reg['subject'], 'Default registration OTP subject matches specification.' );
+penalis_assert( false !== strpos( $default_reg['body'], '{kode_otp}' ), 'Default registration OTP body includes {kode_otp}.' );
+penalis_assert( false !== strpos( $default_reg['footer'], 'admin@penalis.com' ), 'Default registration OTP footer includes support email.' );
+
+$rendered_reg = Penalis_Email_Settings::render(
+	'otp_registration',
+	array(
+		'{kode_otp}'           => '123456',
+		'{menit_berlaku}'      => '10',
+		'{maksimal_percobaan}' => '5',
+		'{nama_penulis}'       => 'Penulis Uji',
+	)
+);
+penalis_same( '[Penalis] Verifikasi pendaftaran', $rendered_reg['subject'], 'Rendered default subject is clean.' );
+penalis_assert( false !== strpos( $rendered_reg['body'], '123456' ), 'Rendered body replaces {kode_otp} with actual code.' );
+penalis_assert( false === strpos( $rendered_reg['body'], '{kode_otp}' ), 'No unresolved placeholder remains in body.' );
+penalis_assert( false !== strpos( $rendered_reg['footer'], 'admin@penalis.com' ), 'Rendered footer preserves contact copy.' );
+
+// 4. Custom template saving, overriding, and placeholder substitution
+update_option(
+	Penalis_Email_Settings::OPTION_NAME,
+	array(
+		'editorial_approve' => array(
+			'subject' => 'Selamat {nama_penulis}! Karya {judul_karya} Terbit!',
+			'body'    => "Halo {nama_penulis},\n\nKarya tulismu **{judul_karya}** sudah terbit!\n\n[Baca Tulisanmu]({link_karya})\n\nGabung ke [WhatsApp Group](https://chat.whatsapp.com/test) ya!\n\nSalam,\n**Penalis**",
+			'footer'  => 'Email resmi kurasi Penalis untuk {nama_penulis}.',
+		),
+	)
+);
+
+$custom_appr = Penalis_Email_Settings::get_template( 'editorial_approve' );
+penalis_same( 'Selamat {nama_penulis}! Karya {judul_karya} Terbit!', $custom_appr['subject'], 'Custom subject is retrieved from option.' );
+penalis_assert( false !== strpos( $custom_appr['body'], 'WhatsApp Group' ), 'Custom body is retrieved from option.' );
+penalis_same( 'Email resmi kurasi Penalis untuk {nama_penulis}.', $custom_appr['footer'], 'Custom footer is retrieved from option.' );
+
+$rendered_appr = Penalis_Email_Settings::render(
+	'editorial_approve',
+	array(
+		'{nama_penulis}' => 'Erlandzzz',
+		'{judul_karya}'  => 'Testing Deleted Soon',
+		'{link_karya}'   => 'https://penalis.com/testing-deleted-soon/',
+	)
+);
+penalis_same( 'Selamat Erlandzzz! Karya Testing Deleted Soon Terbit!', $rendered_appr['subject'], 'Variables in custom subject are substituted.' );
+penalis_assert( false !== strpos( $rendered_appr['body'], 'Testing Deleted Soon' ), 'Variables in custom body are substituted.' );
+penalis_same( 'Email resmi kurasi Penalis untuk Erlandzzz.', $rendered_appr['footer'], 'Variables in custom footer are substituted.' );
+
+// Check full HTML output of customized email with Markdown links and CTA button
+$full_html = Penalis_Email_Template::render( $rendered_appr['body'], $rendered_appr['subject'], $rendered_appr['footer'] );
+penalis_assert( false !== strpos( $full_html, '<strong>Testing Deleted Soon</strong>' ), 'Custom body bold Markdown is rendered.' );
+penalis_assert( false !== strpos( $full_html, 'href="https://chat.whatsapp.com/test"' ), 'Custom body WhatsApp Markdown link is rendered.' );
+penalis_assert( false !== strpos( $full_html, 'href="https://penalis.com/testing-deleted-soon/"' ), 'Custom body CTA link is rendered.' );
+penalis_assert( false !== strpos( $full_html, 'Baca Tulisanmu' ), 'Custom body CTA button label is rendered.' );
+penalis_assert( false !== strpos( $full_html, 'Email resmi kurasi Penalis untuk Erlandzzz.' ), 'Custom contextual footer is rendered in HTML.' );
+
+// 5. Safety-Net for required secret placeholders
+update_option(
+	Penalis_Email_Settings::OPTION_NAME,
+	array(
+		'otp_registration' => array(
+			'subject' => 'Verifikasi Akun Baru',
+			'body'    => 'Halo, selamat datang di Penalis! Silakan konfirmasi akunmu.', // Missing {kode_otp}!
+			'footer'  => 'Footer aman.',
+		),
+		'password_reset'   => array(
+			'subject' => 'Atur Ulang Sandi',
+			'body'    => 'Klik tombol untuk reset password akun kamu.', // Missing {link_reset_password}!
+			'footer'  => 'Footer reset.',
+		),
+	)
+);
+
+$safety_otp = Penalis_Email_Settings::render(
+	'otp_registration',
+	array(
+		'{kode_otp}' => '987654',
+	)
+);
+penalis_assert( false !== strpos( $safety_otp['body'], '987654' ), 'Safety net auto-appends missing {kode_otp} to rendered body.' );
+
+$safety_pwd = Penalis_Email_Settings::render(
+	'password_reset',
+	array(
+		'{link_reset_password}' => 'https://penalis.com/dashboard/?action=reset&key=secret123',
+	)
+);
+penalis_assert( false !== strpos( $safety_pwd['body'], 'https://penalis.com/dashboard/?action=reset&key=secret123' ), 'Safety net auto-appends missing {link_reset_password} to rendered body.' );
+
+// 6. Reset single and reset all
+Penalis_Email_Settings::reset_single( 'otp_registration' );
+$after_single = Penalis_Email_Settings::get_template( 'otp_registration' );
+penalis_same( '[Penalis] Verifikasi pendaftaran', $after_single['subject'], 'Reset single reverts template to default.' );
+
+$still_custom = Penalis_Email_Settings::get_template( 'password_reset' );
+penalis_same( 'Atur Ulang Sandi', $still_custom['subject'], 'Reset single leaves other custom templates intact.' );
+
+Penalis_Email_Settings::reset_all();
+$after_all = Penalis_Email_Settings::get_template( 'password_reset' );
+penalis_same( '[{nama_situs}] Reset Password Kamu', $after_all['subject'], 'Reset all reverts all templates to plugin defaults.' );
 
 /* -------------------------------------------------------------------------
  * Report

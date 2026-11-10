@@ -192,15 +192,20 @@ final class Penalis_Registration {
 			return;
 		}
 
-		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Percobaan Pendaftaran', $site );
+		$rendered = Penalis_Email_Settings::render(
+			'duplicate_notice',
+			array(
+				'{nama_penulis}'   => $user->display_name,
+				'{link_dashboard}' => Penalis_Dashboard::dashboard_url(),
+			)
+		);
 
-		$message  = "Seseorang mencoba mendaftar menggunakan alamat email atau username kamu.\n\n";
-		$message .= "Jika ini adalah kamu, silakan masuk ke dashboard penulis atau reset password kamu.\n";
-		$message .= Penalis_Dashboard::dashboard_url() . "\n\n";
-		$message .= "Jika bukan kamu, tidak ada tindakan yang perlu dilakukan.\n";
-
-		wp_mail( $user->user_email, $subject, $message );
+		Penalis_Emails::send_mail(
+			$user->user_email,
+			$rendered['subject'],
+			$rendered['body'],
+			$rendered['footer']
+		);
 	}
 
 	/**

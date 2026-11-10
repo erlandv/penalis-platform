@@ -87,6 +87,16 @@ final class Penalis_Email_Template {
 
 		foreach ( (array) $paragraphs as $paragraph ) {
 			$lines = explode( "\n", trim( $paragraph ) );
+
+			// Standalone markdown link on its own line becomes a prominent button.
+			if ( 1 === count( $lines ) && preg_match( '#\A\[([^\]\r\n]+)\]\((https?://[^\s\)\"\'<>]+)\)\z#i', trim( $lines[0] ), $btn_match ) ) {
+				$label = trim( $btn_match[1] );
+				$url   = esc_url( trim( $btn_match[2] ) );
+				$html .= '<p style="margin:0 0 20px;"><a href="' . $url . '" style="display:inline-block;padding:12px 20px;border-radius:4px;background-color:#5145cd;color:#ffffff;font-weight:700;text-decoration:none;">' . esc_html( $label ) . '</a></p>';
+				continue;
+			}
+
+			// Standalone raw URL on its own line becomes a button with an inferred label.
 			if ( 1 === count( $lines ) && preg_match( '#\Ahttps?://[^\s]+\z#i', trim( $lines[0] ) ) ) {
 				$url   = esc_url( trim( $lines[0] ) );
 				$label = self::get_action_label( $url );
@@ -106,29 +116,60 @@ final class Penalis_Email_Template {
 	}
 
 	/**
-	 * Escape a line while linking any HTTPS or HTTP URLs it contains.
+	 * Escape a line while parsing markdown links, bold text, and raw URLs.
 	 *
 	 * @param string $line Plain-text line.
 	 * @return string
 	 */
 	private static function render_line( $line ) {
-		$pattern = '#https?://[^\s<]+#i';
-		$count   = preg_match_all( $pattern, $line, $matches, PREG_OFFSET_CAPTURE );
+		$tokens = array();
+		$i      = 0;
 
-		if ( ! $count ) {
-			return esc_html( $line );
+		// 1. Markdown links: [text](https://url).
+		$line = preg_replace_callback(
+			'#\[([^\]\r\n]+)\]\((https?://[^\s\)\"\'<>]+)\)#i',
+			static function ( $matches ) use ( &$tokens, &$i ) {
+				$key            = '###PENALISLINK' . ( $i++ ) . '###';
+				$text           = esc_html( $matches[1] );
+				$url            = esc_url( $matches[2] );
+				$tokens[ $key ] = '<a href="' . $url . '" style="color:#2873c8;text-decoration:underline;">' . $text . '</a>';
+				return $key;
+			},
+			$line
+		);
+
+		// 2. Bold text: **text**.
+		$line = preg_replace_callback(
+			'#\*\*([^*\r\n]+)\*\*#',
+			static function ( $matches ) use ( &$tokens, &$i ) {
+				$key            = '###PENALISBOLD' . ( $i++ ) . '###';
+				$text           = esc_html( $matches[1] );
+				$tokens[ $key ] = '<strong>' . $text . '</strong>';
+				return $key;
+			},
+			$line
+		);
+
+		// 3. Raw URLs: https://...
+		$line = preg_replace_callback(
+			'#https?://[^\s<>]+#i',
+			static function ( $matches ) use ( &$tokens, &$i ) {
+				$key            = '###PENALISRAW' . ( $i++ ) . '###';
+				$url            = esc_url( $matches[0] );
+				$tokens[ $key ] = '<a href="' . $url . '" style="color:#2873c8;text-decoration:underline;">' . esc_html( $matches[0] ) . '</a>';
+				return $key;
+			},
+			$line
+		);
+
+		// 4. Escape all remaining text for safety.
+		$escaped = esc_html( $line );
+
+		// 5. Restore substituted safe HTML tokens.
+		if ( ! empty( $tokens ) ) {
+			$escaped = strtr( $escaped, $tokens );
 		}
 
-		$html   = '';
-		$offset = 0;
-		foreach ( $matches[0] as $match ) {
-			$url    = $match[0];
-			$start  = $match[1];
-			$html  .= esc_html( substr( $line, $offset, $start - $offset ) );
-			$html  .= '<a href="' . esc_url( $url ) . '" style="color:#2873c8;text-decoration:underline;">' . esc_html( $url ) . '</a>';
-			$offset = $start + strlen( $url );
-		}
-
-		return $html . esc_html( substr( $line, $offset ) );
+		return $escaped;
 	}
 }

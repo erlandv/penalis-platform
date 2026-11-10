@@ -146,6 +146,7 @@ final class Penalis_Admin {
 			self::MENU_SLUG,
 			self::PAGE_SLUG,
 			Penalis_Editorial_Admin::PAGE_SLUG,
+			Penalis_Email_Settings::PAGE_SLUG,
 		);
 
 		foreach ( $slugs as $slug ) {

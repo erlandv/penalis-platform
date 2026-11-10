@@ -259,6 +259,17 @@ editors.
      confirmation modals for all account actions (`Tangguhkan`,
      `Aktifkan kembali`, `Kirim ulang verifikasi`, `Kirim link aktivasi`,
      `Aktifkan langsung`), and the site-wide default profile photo setting.
+4. **Penalis → Pengaturan Email** (`?page=penalis-email-settings`, `Penalis_Email_Settings::render_page()`)
+   - Centralized management console for all 15 transactional emails, accessible
+     only to administrators (`manage_options`).
+   - Categorized tabbed navigation (`Semua Email`, `Verifikasi & Aktivasi`,
+     `Keamanan Akun`, `Status Penulis`, `Kurasi Karya Tulis`).
+   - Customization fields for subject, body, and per-email contextual footer.
+   - Rich Markdown formatting with live toolbar buttons for bold (`**text**`),
+     inline links (`[Text](url)`), and one-click tag insertion chips.
+   - Built-in safety net that guarantees critical secret placeholders (such as
+     `{kode_otp}` and `{link_reset_password}`) cannot be lost.
+   - Single-template and all-template "Kembalikan ke Bawaan Plugin" reset actions.
 
 ---
 
@@ -310,6 +321,7 @@ No custom database tables are created.
 | --- | --- | --- |
 | `penalis_platform_version` | Option | Installed plugin version for `maybe_upgrade()` |
 | `penalis_registration_enabled` | Option | Enables/disables public writer registration (`1`/`0`, default `1`) |
+| `penalis_email_templates` | Option | Serialized associative array containing custom subjects, bodies, and footers for transactional emails |
 | `penalis_dashboard_page_id` | Option | Page ID of the `/dashboard/` page |
 | `penalis_dashboard_page_created_by_plugin` | Option | Guard ensuring uninstall only removes a plugin-created page |
 | `penalis_remove_data_on_uninstall` | Option | Opt-in flag (`1`/`0`) for destructive uninstall |
@@ -354,4 +366,21 @@ English where Indonesian literal translations feel unnatural or awkward to
 writers (e.g., *login*, *logout*, *dashboard*, *password*, *link*,
 *featured image*, *publish*, *draft*, *review*, *submit*, *read-only*,
 *upload*, *download*, etc.).
+
+### 7.5 Customizable Transactional Emails & Markdown Support
+Transactional emails can be adjusted by non-technical administrators via
+`Penalis_Email_Settings` without modifying PHP code.
+- **Unified Registry:** All 15 email types define standard defaults, metadata,
+  allowed variables (`{tag}`), and mandatory required tags.
+- **Markdown & CTA Buttons:** Body copy supports inline links
+  (`[WhatsApp Group](url)`), bold text (`**bold**`), and standalone links
+  rendered as branded table CTA buttons.
+- **Safety Net:** Required secret placeholders (`{kode_otp}`,
+  `{link_reset_password}`, `{link_review_admin}`, `{link_editor}`) cannot be
+  accidentally removed; if absent from a customized body, they are automatically
+  appended during save and before dispatch.
+- **Recipient Isolation:** Reviewer notifications are dispatched individually in
+  a loop rather than pooled via CC/BCC, ensuring private delivery across
+  administrators, editors, and the site notification address.
+
 

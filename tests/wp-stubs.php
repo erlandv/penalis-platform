@@ -1016,6 +1016,19 @@ if ( ! function_exists( 'update_option' ) ) {
 	}
 }
 
+if ( ! function_exists( 'delete_option' ) ) {
+	/**
+	 * Delete option stub.
+	 *
+	 * @param string $name Name.
+	 * @return bool
+	 */
+	function delete_option( $name ) {
+		unset( $GLOBALS['penalis_test_options'][ $name ] );
+		return true;
+	}
+}
+
 if ( ! function_exists( 'set_transient' ) ) {
 	/**
 	 * Set transient stub.

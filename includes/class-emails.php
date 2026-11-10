@@ -27,35 +27,39 @@ final class Penalis_Emails {
 	 * @return bool
 	 */
 	public static function send_otp( $user_id, $email, $code, $purpose ) {
-		$labels = array(
-			'registration' => 'Verifikasi pendaftaran',
-			'legacy'       => 'Aktivasi akun lama',
-			'email_change' => 'Konfirmasi email baru',
-		);
+		$template_key = 'otp_' . $purpose;
+		$registry     = class_exists( 'Penalis_Email_Settings' ) ? Penalis_Email_Settings::get_registry() : array();
 
-		if ( ! isset( $labels[ $purpose ] ) ) {
+		if ( ! isset( $registry[ $template_key ] ) ) {
 			return false;
 		}
 
-		$label   = $labels[ $purpose ];
+		$user    = get_userdata( (int) $user_id );
 		$minutes = (int) round( Penalis_Policy::OTP_TTL / 60 );
-		$body    = $label . "\n\nKode verifikasi kamu:\n\n" . $code . "\n\nMasukkan kode ini di dashboard Penalis. Berlaku " . $minutes . ' menit, maksimal ' . Penalis_Policy::OTP_MAX_ATTEMPTS . ' percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.';
 
-		// The code is the only proof in this flow, so it must not be quoted in
-		// the message someone forwards or in an auto-reply that quotes the
-		// original message. The footer is set explicitly for that reason.
+		$rendered = Penalis_Email_Settings::render(
+			$template_key,
+			array(
+				'{kode_otp}'           => (string) $code,
+				'{menit_berlaku}'      => (string) $minutes,
+				'{maksimal_percobaan}' => (string) Penalis_Policy::OTP_MAX_ATTEMPTS,
+				'{nama_penulis}'       => $user ? $user->display_name : 'Penulis',
+				'{email}'              => (string) $email,
+			)
+		);
+
 		$sent = self::send_mail(
 			$email,
-			'[Penalis] ' . $label,
-			$body,
-			'Email ini dikirim otomatis. Kamu menerima email ini karena ada permintaan verifikasi pada akun Penalis yang terhubung ke alamat ini. Jangan bagikan kode verifikasi kepada siapa pun, termasuk yang mengaku sebagai admin Penalis. Jika kamu tidak meminta kode ini, abaikan email ini dan kode akan kedaluwarsa dengan sendirinya. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.'
+			$rendered['subject'],
+			$rendered['body'],
+			$rendered['footer']
 		);
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, $purpose );
 		}
 
-		return $sent;
+		return (bool) $sent;
 	}
 
 	/**
@@ -83,16 +87,20 @@ final class Penalis_Emails {
 			Penalis_Dashboard::registration_url()
 		);
 
-		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Reset Password Kamu', $site );
+		$rendered = Penalis_Email_Settings::render(
+			'password_reset',
+			array(
+				'{nama_penulis}'        => $user->display_name,
+				'{link_reset_password}' => $reset_url,
+			)
+		);
 
-		$message  = self::greeting( $user ) . "\n\n";
-		$message .= sprintf( 'Kami menerima permintaan untuk reset password akun %s kamu.', $site ) . "\n\n";
-		$message .= "Buka link berikut lalu masukkan password baru:\n\n";
-		$message .= $reset_url . "\n\n";
-		$message .= "Link ini hanya dapat digunakan sekali. Jika kamu tidak meminta reset, abaikan email ini; password kamu tidak akan berubah.\n";
-
-		$sent = self::send_mail( $user->user_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami menerima permintaan reset password untuk akun Penalis kamu. Jika kamu tidak meminta reset, abaikan email ini. Jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
+		$sent = self::send_mail(
+			$user->user_email,
+			$rendered['subject'],
+			$rendered['body'],
+			$rendered['footer']
+		);
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'password_reset' );
@@ -123,17 +131,21 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Username Akun Kamu Telah Diubah', $site );
+		$rendered = Penalis_Email_Settings::render(
+			'username_change',
+			array(
+				'{nama_penulis}'  => $user->display_name,
+				'{username_baru}' => (string) $new_login,
+				'{username_lama}' => (string) $old_login,
+			)
+		);
 
-		$message  = self::greeting( $user ) . "\n\n";
-		$message .= sprintf( 'Username akun %s kamu baru saja diubah menjadi %s.', $site, (string) $new_login ) . "\n\n";
-		$message .= "Semua sesi yang sedang aktif telah diakhiri. Login kembali dengan username baru kamu.\n\n";
-		$message .= "Jika kamu yang melakukan perubahan ini, tidak ada tindakan lain yang perlu dilakukan.\n\n";
-		$message .= "Jika bukan kamu, segera reset password akun kamu dan hubungi admin Penalis:\n\n";
-		$message .= Penalis_Dashboard::dashboard_url() . "\n";
-
-		$sent = self::send_mail( $email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena username akun Penalis kamu baru saja diubah. Jika bukan kamu yang melakukan perubahan ini, segera reset password akun Penalis kamu. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
+		$sent = self::send_mail(
+			$email,
+			$rendered['subject'],
+			$rendered['body'],
+			$rendered['footer']
+		);
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'username_change_notice' );
@@ -156,16 +168,21 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$subject = sprintf( '[%s] Alamat Email Akun Kamu Telah Diubah', $site );
+		$rendered = Penalis_Email_Settings::render(
+			'email_change',
+			array(
+				'{nama_penulis}' => $user->display_name,
+				'{email_lama}'   => (string) $old_email,
+				'{email_baru}'   => (string) $new_email,
+			)
+		);
 
-		$message  = self::greeting( $user ) . "\n\n";
-		$message .= sprintf( 'Alamat email akun %s kamu baru saja diubah menjadi %s.', $site, $new_email ) . "\n\n";
-		$message .= "Jika kamu yang melakukan perubahan ini, tidak ada tindakan yang perlu dilakukan.\n\n";
-		$message .= "Jika bukan kamu, segera ubah password akun kamu dan hubungi admin Penalis:\n\n";
-		$message .= Penalis_Dashboard::dashboard_url() . "\n";
-
-		$sent = self::send_mail( $old_email, $subject, $message, 'Email ini dikirim otomatis. Kamu menerima email ini karena alamat email akun Penalis kamu baru saja diubah. Jika bukan kamu yang melakukan perubahan ini, segera reset password akun Penalis kamu. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
+		$sent = self::send_mail(
+			$old_email,
+			$rendered['subject'],
+			$rendered['body'],
+			$rendered['footer']
+		);
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_notice' );
@@ -187,28 +204,26 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$site    = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
-		$login   = Penalis_Dashboard::dashboard_url();
-		$subject = '';
-		$body    = '';
-
-		switch ( $status ) {
-			case Penalis_Policy::STATUS_ACTIVE:
-				$subject = sprintf( '[%s] Akun Kamu Sudah Aktif', $site );
-				$body    = self::greeting( $user ) . "\n\n" . sprintf( 'Akun %s kamu kini sudah aktif. Kamu sudah dapat menulis dan submit karya tulis melalui dashboard penulis.', $site ) . "\n\nBuka dashboard penulis:\n\n" . $login . "\n";
-				break;
-
-			case Penalis_Policy::STATUS_SUSPENDED:
-				$subject = sprintf( '[%s] Akun Kamu Ditangguhkan', $site );
-				$body    = self::greeting( $user ) . "\n\n" . sprintf( 'Akun %s kamu ditangguhkan, sehingga pengelolaan karya tulis untuk sementara tidak tersedia. Hubungi admin %s jika ada pertanyaan.', $site, $site ) . "\n";
-				break;
-		}
-
-		if ( '' === $subject ) {
+		$key      = 'status_' . $status;
+		$registry = class_exists( 'Penalis_Email_Settings' ) ? Penalis_Email_Settings::get_registry() : array();
+		if ( ! isset( $registry[ $key ] ) ) {
 			return false;
 		}
 
-		$sent = self::send_mail( $user->user_email, $subject, $body, 'Email ini dikirim otomatis. Kamu menerima email ini karena kami perlu mengirim pemberitahuan tentang status akun Penalis kamu yang terhubung ke email ini. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.' );
+		$rendered = Penalis_Email_Settings::render(
+			$key,
+			array(
+				'{nama_penulis}' => $user->display_name,
+				'{email_admin}'  => (string) get_option( 'admin_email' ),
+			)
+		);
+
+		$sent = self::send_mail(
+			$user->user_email,
+			$rendered['subject'],
+			$rendered['body'],
+			$rendered['footer']
+		);
 
 		if ( ! $sent ) {
 			Penalis_Account_Status::record_email_failure( $user_id, 'status_notification' );
@@ -250,35 +265,30 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$site       = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
 		$title      = self::safe_article_title( $post );
 		$cycle      = max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) );
 		$review_url = admin_url( 'admin.php?page=penalis-review&post_id=' . (int) $post->ID );
 
-		if ( Penalis_Editorial_Policy::ACTION_RESUBMIT === $action ) {
-			$subject = sprintf( '[%s] Revisi Karya Tulis Menunggu Review', $site );
-			$intro   = sprintf( 'Ada revisi karya tulis di %s yang di-submit ulang dan menunggu review tim editorial.', $site );
-		} else {
-			$subject = sprintf( '[%s] Karya Tulis Baru Menunggu Review', $site );
-			$intro   = sprintf( 'Ada karya tulis baru di %s yang menunggu review tim editorial.', $site );
-		}
+		$key      = 'editorial_' . $action;
+		$rendered = Penalis_Email_Settings::render(
+			$key,
+			array(
+				'{judul_karya}'       => $title,
+				'{nama_penulis}'      => $author->display_name,
+				'{username_penulis}'  => $author->user_login,
+				'{review_cycle}'      => (string) $cycle,
+				'{link_review_admin}' => $review_url,
+			)
+		);
 
-		$message  = $intro . "\n\n";
-		$message .= 'Judul Karya: ' . $title . "\n";
-		$message .= 'Penulis: ' . $author->display_name . ' (' . $author->user_login . ")\n";
-		$message .= 'Review cycle: #' . $cycle . "\n\n";
-		$message .= "Review karya tulis melalui WordPress Admin:\n\n";
-		$message .= $review_url . "\n";
-
-		$footer_context = 'Email ini dikirim otomatis untuk tim editorial Penalis sebagai pemberitahuan bahwa ada karya tulis yang menunggu review.';
-		$any_sent       = false;
+		$any_sent = false;
 
 		foreach ( $recipients as $recipient_email ) {
 			$sent = self::send_mail(
 				$recipient_email,
-				$subject,
-				$message,
-				$footer_context
+				$rendered['subject'],
+				$rendered['body'],
+				$rendered['footer']
 			);
 
 			if ( $sent ) {
@@ -353,7 +363,6 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$site       = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
 		$title      = self::safe_article_title( $post );
 		$clean_note = wp_strip_all_tags( trim( (string) $feedback ) );
 		$editor_url = add_query_arg(
@@ -363,65 +372,25 @@ final class Penalis_Emails {
 			),
 			Penalis_Dashboard::dashboard_url()
 		);
+		$public_url = get_permalink( (int) $post->ID );
 
-		$subject = '';
-		$body    = self::greeting( $author ) . "\n\n";
-
-		switch ( $action ) {
-			case Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES:
-				$subject = sprintf( '[%s] Karya Tulis Kamu Perlu Revisi', $site );
-				$body   .= sprintf( 'Admin %s telah meninjau karya tulis kamu yang berjudul "%s" dan meminta beberapa revisi sebelum dapat diterbitkan.', $site, $title ) . "\n\n";
-				if ( '' !== $clean_note ) {
-					$body .= "Catatan review admin:\n" . $clean_note . "\n\n";
-				}
-				$body .= "Buka dashboard penulis untuk memperbaiki draft dan submit ulang:\n\n";
-				$body .= $editor_url . "\n";
-				break;
-
-			case Penalis_Editorial_Policy::ACTION_REJECT:
-				$subject = sprintf( '[%s] Pembaruan Review Karya Tulis Kamu', $site );
-				$body   .= sprintf( 'Terima kasih telah mengirimkan karya tulis berjudul "%s" ke %s. Setelah di-review oleh admin, karya tulis ini belum dapat diterbitkan.', $title, $site ) . "\n\n";
-				if ( '' !== $clean_note ) {
-					$body .= "Catatan review admin:\n" . $clean_note . "\n\n";
-				}
-				$body .= "Karya tulis yang ditolak tidak dapat di-submit ulang kecuali dibuka kembali oleh admin. Kamu dapat melihat detail review di dashboard penulis:\n\n";
-				$body .= $editor_url . "\n";
-				break;
-
-			case Penalis_Editorial_Policy::ACTION_REOPEN:
-				$subject = sprintf( '[%s] Karya Tulis Kamu Dibuka Kembali untuk Revisi', $site );
-				$body   .= sprintf( 'Admin %s telah membuka kembali karya tulis kamu yang berjudul "%s". Kamu kini dapat edit draft tersebut dan submit ulang untuk di-review.', $site, $title ) . "\n\n";
-				if ( '' !== $clean_note ) {
-					$body .= "Catatan admin:\n" . $clean_note . "\n\n";
-				}
-				$body .= "Buka karya tulis kamu di dashboard penulis:\n\n";
-				$body .= $editor_url . "\n";
-				break;
-
-			case Penalis_Editorial_Policy::ACTION_APPROVE:
-				$subject    = sprintf( '[%s] Karya Tulis Kamu Telah Terbit', $site );
-				$public_url = get_permalink( (int) $post->ID );
-				$body      .= sprintf( 'Selamat! Karya tulis kamu yang berjudul "%s" telah disetujui admin dan kini resmi terbit di %s.', $title, $site ) . "\n\n";
-				if ( '' !== $clean_note ) {
-					$body .= "Catatan admin:\n" . $clean_note . "\n\n";
-				}
-				if ( is_string( $public_url ) && '' !== $public_url ) {
-					$body .= 'Lihat karya tulis yang telah terbit: ' . $public_url . "\n\n";
-				}
-				$body .= "Buka detail karya tulis di dashboard penulis:\n\n";
-				$body .= $editor_url . "\n";
-				break;
-		}
-
-		if ( '' === $subject ) {
-			return false;
-		}
+		$key      = 'editorial_' . $action;
+		$rendered = Penalis_Email_Settings::render(
+			$key,
+			array(
+				'{nama_penulis}'      => $author->display_name,
+				'{judul_karya}'       => $title,
+				'{catatan_review}'    => '' !== $clean_note ? $clean_note : '',
+				'{link_editor}'       => $editor_url,
+				'{link_karya_terbit}' => is_string( $public_url ) ? $public_url : '',
+			)
+		);
 
 		$sent = self::send_mail(
 			$author->user_email,
-			$subject,
-			$body,
-			'Email ini dikirim otomatis. Kamu menerima email ini karena ada pembaruan status review karya tulis di akun Penalis kamu. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.'
+			$rendered['subject'],
+			$rendered['body'],
+			$rendered['footer']
 		);
 
 		if ( ! $sent ) {
@@ -456,7 +425,7 @@ final class Penalis_Emails {
 	 * @param string $footer_context Purpose-specific recipient guidance.
 	 * @return bool Whether wp_mail accepted the message.
 	 */
-	private static function send_mail( $to, $subject, $message, $footer_context = '' ) {
+	public static function send_mail( $to, $subject, $message, $footer_context = '' ) {
 		$html = Penalis_Email_Template::render( (string) $message, (string) $subject, (string) $footer_context );
 		return (bool) wp_mail( $to, $subject, $html, array( 'Content-Type: text/html; charset=UTF-8' ) );
 	}
