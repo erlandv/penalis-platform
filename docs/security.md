@@ -107,10 +107,15 @@ unauthorized publishing:
 
 ## 5. Editorial Workflow Security Invariants
 
-- **Publication is Administrator-Only:** Only `Penalis_Editorial_Workflow::apply()`
+- **Publication is Reviewer-Only:** Only `Penalis_Editorial_Workflow::apply()`
   with action `approve` by a user satisfying `Penalis_Editorial_Policy::can_review()`
-  (administrator + `edit_others_posts`) can transition a writer submission to
-  `publish`.
+  (`edit_others_posts`, held by administrators and editors) can transition a
+  writer submission to `publish`. Writers never hold that capability.
+- **Account Management is Administrator-Only:** The **Penulis Penalis** screen is
+  read-only for editors. `Penalis_Admin::handle_account_action()` and
+  `Penalis_Admin::save_default_avatar()` require `list_users` and
+  `manage_options` respectively and answer `403` otherwise, so a forged request
+  from an editor is refused even though the screen itself is reachable.
 - **Published Articles are Immutable to Writers:** `Penalis_Editorial_Policy::effective_state()`
   reconciles stored `_penalis_editorial_state` against WordPress `post_status`.
   Any post with `post_status === 'publish'` is treated as `published` regardless

@@ -174,8 +174,9 @@ have no `_penalis_account_status` metadata (`Penalis_Account_Status::is_legacy_a
 ## 4. Editorial Workflow Model
 
 Writers never publish directly and cannot edit published articles. All writer
-submissions pass through administrator review (`Penalis_Editorial_Policy` and
-`Penalis_Editorial_Workflow`).
+submissions pass through editorial review (`Penalis_Editorial_Policy` and
+`Penalis_Editorial_Workflow`). Reviewing requires `edit_others_posts`, which
+administrators and editors both hold.
 
 ### 4.1 Editorial States & Post Status Mapping
 
@@ -201,10 +202,10 @@ draft ──(submit)──► pending_review ──(approve)──► published
 | --- | --- | --- | --- | --- |
 | `submit` | Article owner (active writer) | `draft` | `pending_review` | N/A |
 | `resubmit` | Article owner (active writer) | `changes_requested` | `pending_review` | Clears active feedback |
-| `approve` | Reviewer administrator | `pending_review` | `published` | Optional |
-| `request_changes` | Reviewer administrator | `pending_review` | `changes_requested` | **Required** |
-| `reject` | Reviewer administrator | `pending_review` | `rejected` | **Required** |
-| `reopen` | Reviewer administrator | `rejected` | `changes_requested` | Optional |
+| `approve` | Reviewer (administrator or editor) | `pending_review` | `published` | Optional |
+| `request_changes` | Reviewer (administrator or editor) | `pending_review` | `changes_requested` | **Required** |
+| `reject` | Reviewer (administrator or editor) | `pending_review` | `rejected` | **Required** |
+| `reopen` | Reviewer (administrator or editor) | `rejected` | `changes_requested` | Optional |
 
 Key invariants:
 - **Reconciliation against `post_status`:** `Penalis_Editorial_Policy::effective_state()`
@@ -215,8 +216,8 @@ Key invariants:
   increments `_penalis_review_cycle`. Reviewer decisions (`approve`,
   `request_changes`, `reject`) acquire a per-post MySQL advisory lock
   (`GET_LOCK`, 5-second timeout), re-read the post inside the lock, and verify
-  `expected_cycle` so two administrators cannot apply conflicting decisions to
-  the same submission round.
+  `expected_cycle` so two reviewers cannot apply conflicting decisions to the
+  same submission round.
 - **Notifications:** Every transition fires `penalis_editorial_action`.
   `Penalis_Editorial_Notifications` records a bounded in-dashboard notification
   (`_penalis_notifications`, max 50 per user) and dispatches a branded HTML
@@ -227,8 +228,12 @@ Key invariants:
 
 ## 5. WordPress Admin Console
 
-All administrator curation surfaces live under a single top-level menu,
-**Penalis** (`admin.php?page=penalis-platform`):
+All curation surfaces live under a single top-level menu, **Penalis**
+(`admin.php?page=penalis-platform`). The menu requires `edit_others_posts`, so
+both administrators and editors see it; writers never do. Account actions and
+the site-wide default avatar stay administrator-only (`list_users` and
+`manage_options` respectively), which makes **Penulis Penalis** read-only for
+editors.
 
 1. **Penalis → Ringkasan** (`?page=penalis-platform`, `Penalis_Admin::render_overview_page()`)
    - Summary metric cards for pending article reviews, revisions, published
@@ -289,7 +294,7 @@ No custom database tables are created.
 | `_penalis_submitted_at` | Timestamp of latest writer submission/resubmission |
 | `_penalis_submitted_by` | User ID of submitting writer |
 | `_penalis_reviewed_at` | Timestamp of latest reviewer decision |
-| `_penalis_reviewed_by` | User ID of reviewing administrator |
+| `_penalis_reviewed_by` | User ID of the reviewer (administrator or editor) |
 | `_penalis_review_cycle` | Integer counter incremented on each submission round |
 | `_penalis_review_history` | Bounded array of submission and review events (max 50) |
 

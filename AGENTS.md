@@ -51,7 +51,8 @@ even if it is technically correct.
 
 The plugin replaces manual account and post entry with a self-service writer
 dashboard (**`/dashboard/`**, a React SPA — deliberately *not* `wp-admin`) paired
-with a centralized administrator curation console in `wp-admin` (**Penalis**):
+with a centralized curation console in `wp-admin` (**Penalis**), accessible to
+administrators and editors:
 
 ```text
 register -> verify email -> active writer -> write draft in /dashboard/ -> submit for review -> admin approves & publishes
@@ -133,13 +134,14 @@ editorial state lives in `_penalis_editorial_state` and is reconciled against
 | --- | --- | --- | --- |
 | `submit` | Article owner (`active` writer) | `draft` -> `pending_review` (`pending`) | N/A |
 | `resubmit` | Article owner (`active` writer) | `changes_requested` -> `pending_review` (`pending`) | Clears active feedback |
-| `approve` | Reviewer administrator | `pending_review` -> `published` (`publish`) | Optional |
-| `request_changes` | Reviewer administrator | `pending_review` -> `changes_requested` (`draft`) | **Required** |
-| `reject` | Reviewer administrator | `pending_review` -> `rejected` (`draft`) | **Required** |
-| `reopen` | Reviewer administrator | `rejected` -> `changes_requested` (`draft`) | Optional |
+| `approve` | Reviewer (administrator or editor) | `pending_review` -> `published` (`publish`) | Optional |
+| `request_changes` | Reviewer (administrator or editor) | `pending_review` -> `changes_requested` (`draft`) | **Required** |
+| `reject` | Reviewer (administrator or editor) | `pending_review` -> `rejected` (`draft`) | **Required** |
+| `reopen` | Reviewer (administrator or editor) | `rejected` -> `changes_requested` (`draft`) | Optional |
 
 Invariants that must never be broken:
-- Only the administrator `approve` action may publish a writer submission.
+- Only a reviewer `approve` action (`edit_others_posts`, held by administrators
+  and editors) may publish a writer submission.
 - Writers cannot edit published articles (`post_status = publish`), under-review
   articles (`pending_review`), or rejected articles (`rejected`).
 - Administrators may edit posts directly in `wp-admin` at any time.

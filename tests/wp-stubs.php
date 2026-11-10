@@ -334,19 +334,24 @@ if ( ! function_exists( 'metadata_exists' ) ) {
 
 if ( ! function_exists( 'get_users' ) ) {
 	/**
-	 * Find users by meta or role.
+	 * Find users by meta, role, or capability.
 	 *
 	 * @param array $args Args.
 	 * @return int[]
 	 */
 	function get_users( $args ) {
-		$key   = isset( $args['meta_key'] ) ? $args['meta_key'] : '';
-		$value = isset( $args['meta_value'] ) ? $args['meta_value'] : '';
-		$role  = isset( $args['role'] ) ? (string) $args['role'] : '';
-		$out   = array();
+		$key        = isset( $args['meta_key'] ) ? $args['meta_key'] : '';
+		$value      = isset( $args['meta_value'] ) ? $args['meta_value'] : '';
+		$role       = isset( $args['role'] ) ? (string) $args['role'] : '';
+		$capability = isset( $args['capability'] ) ? (string) $args['capability'] : '';
+		$out        = array();
 
 		foreach ( $GLOBALS['penalis_test_users'] as $user ) {
 			if ( '' !== $role && ! in_array( $role, (array) $user->roles, true ) ) {
+				continue;
+			}
+
+			if ( '' !== $capability && ! $user->has_cap( $capability ) ) {
 				continue;
 			}
 

@@ -1,6 +1,6 @@
 <?php
 /**
- * Administrator approval screens.
+ * Penalis curation screens.
  *
  * @package Penalis_Platform
  */
@@ -17,6 +17,45 @@ final class Penalis_Admin {
 
 	public const MENU_SLUG = 'penalis-platform';
 	public const PAGE_SLUG = 'penalis-writers';
+
+	public const CAP_ACCESS          = 'edit_others_posts';
+	public const CAP_MANAGE_WRITERS  = 'list_users';
+	public const CAP_MANAGE_SETTINGS = 'manage_options';
+
+	/**
+	 * Whether the current user may open the Penalis curation screens.
+	 *
+	 * Editors and administrators both have `edit_others_posts`; writers do not.
+	 *
+	 * @return bool
+	 */
+	public static function can_access() {
+		return current_user_can( self::CAP_ACCESS );
+	}
+
+	/**
+	 * Whether the current user may manage writer accounts.
+	 *
+	 * Account actions (suspend, reactivate, resend codes, legacy vouching) are
+	 * administrator-only. Editors get a read-only writers screen.
+	 *
+	 * @return bool
+	 */
+	public static function can_manage_writers() {
+		return current_user_can( self::CAP_MANAGE_WRITERS );
+	}
+
+	/**
+	 * Whether the current user may change site-wide Penalis settings.
+	 *
+	 * The default profile photo is stored in a WordPress option, so changing it
+	 * requires `manage_options`.
+	 *
+	 * @return bool
+	 */
+	public static function can_manage_settings() {
+		return current_user_can( self::CAP_MANAGE_SETTINGS );
+	}
 
 	/**
 	 * Register hooks.
@@ -54,7 +93,7 @@ final class Penalis_Admin {
 		add_menu_page(
 			'Penalis Platform',
 			$menu_title,
-			'list_users',
+			self::CAP_ACCESS,
 			self::MENU_SLUG,
 			array( __CLASS__, 'render_overview_page' ),
 			'dashicons-welcome-write-blog',
@@ -65,7 +104,7 @@ final class Penalis_Admin {
 			self::MENU_SLUG,
 			'Ringkasan — Penalis Platform',
 			'Ringkasan',
-			'list_users',
+			self::CAP_ACCESS,
 			self::MENU_SLUG,
 			array( __CLASS__, 'render_overview_page' )
 		);
@@ -86,7 +125,7 @@ final class Penalis_Admin {
 			self::MENU_SLUG,
 			'Penulis Penalis — Penalis Platform',
 			'Penulis Penalis',
-			'list_users',
+			self::CAP_ACCESS,
 			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
 		);
@@ -188,7 +227,7 @@ final class Penalis_Admin {
 		$page      = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$is_writer = false !== strpos( (string) $hook, self::PAGE_SLUG ) || self::PAGE_SLUG === $page;
 
-		if ( ! $is_writer ) {
+		if ( ! $is_writer || ! self::can_manage_writers() ) {
 			return;
 		}
 
@@ -234,8 +273,8 @@ JS;
 	 * @return void
 	 */
 	public static function save_default_avatar() {
-		if ( ! current_user_can( 'list_users' ) ) {
-			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.' );
+		if ( ! self::can_manage_settings() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
 		}
 
 		check_admin_referer( 'penalis_default_avatar' );
@@ -267,8 +306,8 @@ JS;
 	 * @return void
 	 */
 	public static function render_overview_page() {
-		if ( ! current_user_can( 'list_users' ) ) {
-			wp_die( 'Kamu tidak memiliki izin untuk melihat halaman ini.' );
+		if ( ! self::can_access() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk melihat halaman ini.', '', array( 'response' => 403 ) );
 		}
 
 		$user_counts    = self::status_counts();
@@ -534,13 +573,14 @@ JS;
 	 * @return void
 	 */
 	public static function render_page() {
-		if ( ! current_user_can( 'list_users' ) ) {
-			wp_die( 'Kamu tidak memiliki izin untuk melihat halaman ini.' );
+		if ( ! self::can_access() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk melihat halaman ini.', '', array( 'response' => 403 ) );
 		}
 
-		$status = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$paged  = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$can_manage = self::can_manage_writers();
+		$status     = isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$paged      = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$search     = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		// An unknown filter value would silently fall back to the default query
 		// while leaving no tab highlighted, so normalise it up front.
@@ -613,7 +653,9 @@ JS;
 		?>
 		<div class="wrap penalis-writers">
 			<h1 class="wp-heading-inline">Penulis Penalis</h1>
-			<a href="<?php echo esc_url( admin_url( 'users.php' ) ); ?>" class="page-title-action">Semua pengguna</a>
+			<?php if ( $can_manage ) : ?>
+				<a href="<?php echo esc_url( admin_url( 'users.php' ) ); ?>" class="page-title-action">Semua pengguna</a>
+			<?php endif; ?>
 			<hr class="wp-header-end">
 
 			<?php if ( isset( $_GET['penalis_message'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
@@ -624,12 +666,18 @@ JS;
 				<div class="notice notice-error is-dismissible"><p><?php echo esc_html( self::message_for( sanitize_key( wp_unslash( $_GET['penalis_error'] ) ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?></p></div>
 			<?php endif; ?>
 
-			<p class="penalis-intro">
-				Kelola akun penulis komunitas Penalis di sini. Pendaftar yang telah memverifikasi alamat
-				email otomatis menjadi penulis aktif; kamu dapat mengirim ulang email verifikasi,
-				mengaktifkan akun kontributor lama, atau menangguhkan akun jika ditemukan pelanggaran
-				atau indikasi spam.
-			</p>
+			<?php if ( $can_manage ) : ?>
+				<p class="penalis-intro">
+					Kelola akun penulis komunitas Penalis di sini. Pendaftar yang telah memverifikasi alamat
+					email otomatis menjadi penulis aktif; kamu dapat mengirim ulang email verifikasi,
+					mengaktifkan akun kontributor lama, atau menangguhkan akun jika ditemukan pelanggaran
+					atau indikasi spam.
+				</p>
+			<?php else : ?>
+				<p class="penalis-intro">
+					Lihat status akun penulis komunitas Penalis. Tindakan akun hanya dapat dilakukan administrator.
+				</p>
+			<?php endif; ?>
 
 			<ul class="subsubsub">
 				<?php foreach ( $tabs as $value => $label ) : ?>
@@ -684,7 +732,7 @@ JS;
 							<th scope="col" class="penalis-col-instagram">Instagram</th>
 							<th scope="col" class="penalis-col-status">Status</th>
 							<th scope="col" class="penalis-col-date">Terdaftar</th>
-							<th scope="col" class="penalis-col-actions">Tindakan</th>
+							<th scope="col" class="penalis-col-actions"><?php echo esc_html( $can_manage ? 'Tindakan' : 'Riwayat' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -780,7 +828,9 @@ JS;
 									<span class="penalis-muted"><?php echo esc_html( mysql2date( get_option( 'time_format' ), $user->user_registered ) ); ?></span>
 								</td>
 								<td>
-									<?php if ( $is_protected ) : ?>
+									<?php if ( ! $can_manage ) : ?>
+										<p class="penalis-hint">Read-only mode. Tindakan akun hanya dapat dilakukan administrator.</p>
+									<?php elseif ( $is_protected ) : ?>
 										<p class="penalis-hint">Akun administrator tidak dapat diubah dari layar ini.</p>
 									<?php else : ?>
 										<div class="penalis-actions">
@@ -808,35 +858,35 @@ JS;
 												verifikasi email, mengaktifkan akun penulis, dan mengirim link atur password.
 											</p>
 										<?php endif; ?>
+									<?php endif; ?>
 
-										<?php
-										$log = Penalis_Account_Status::get_log( $user_id );
-										if ( ! empty( $log ) ) :
-											$entries = array_slice( array_reverse( $log ), 0, 3 );
-											?>
-											<details class="penalis-history">
-												<summary>Riwayat (<?php echo esc_html( (string) count( $log ) ); ?>)</summary>
-												<ul class="penalis-history__list">
-													<?php foreach ( $entries as $entry ) : ?>
-														<li class="penalis-history__item">
-															<span class="penalis-history__time"><?php echo esc_html( date_i18n( 'j M Y H:i', (int) $entry['time'] ) ); ?></span>
-															<span class="penalis-history__flow">
-																<?php
-																echo esc_html(
-																	sprintf(
-																		'%1$s → %2$s',
-																		self::status_short_label( (string) $entry['from'] ),
-																		self::status_short_label( (string) $entry['to'] )
-																	)
-																);
-																?>
-															</span>
-															<span class="penalis-history__reason"><?php echo esc_html( self::reason_label( (string) $entry['reason'] ) ); ?></span>
-														</li>
-													<?php endforeach; ?>
-												</ul>
-											</details>
-										<?php endif; ?>
+									<?php
+									$log = Penalis_Account_Status::get_log( $user_id );
+									if ( ! empty( $log ) ) :
+										$entries = array_slice( array_reverse( $log ), 0, 3 );
+										?>
+										<details class="penalis-history">
+											<summary>Riwayat (<?php echo esc_html( (string) count( $log ) ); ?>)</summary>
+											<ul class="penalis-history__list">
+												<?php foreach ( $entries as $entry ) : ?>
+													<li class="penalis-history__item">
+														<span class="penalis-history__time"><?php echo esc_html( date_i18n( 'j M Y H:i', (int) $entry['time'] ) ); ?></span>
+														<span class="penalis-history__flow">
+															<?php
+															echo esc_html(
+																sprintf(
+																	'%1$s → %2$s',
+																	self::status_short_label( (string) $entry['from'] ),
+																	self::status_short_label( (string) $entry['to'] )
+																)
+															);
+															?>
+														</span>
+														<span class="penalis-history__reason"><?php echo esc_html( self::reason_label( (string) $entry['reason'] ) ); ?></span>
+													</li>
+												<?php endforeach; ?>
+											</ul>
+										</details>
 									<?php endif; ?>
 								</td>
 							</tr>
@@ -866,6 +916,7 @@ JS;
 			}
 			?>
 
+			<?php if ( self::can_manage_settings() ) : ?>
 			<div class="penalis-panel">
 				<h2>Foto profil bawaan</h2>
 				<p class="description">
@@ -897,7 +948,9 @@ JS;
 					</div>
 				</form>
 			</div>
+			<?php endif; ?>
 
+			<?php if ( $can_manage ) : ?>
 			<div id="penalis-writer-confirm-modal" class="penalis-confirm-modal" hidden>
 				<div class="penalis-confirm-modal__backdrop" data-penalis-writer-confirm-close></div>
 				<div
@@ -926,6 +979,7 @@ JS;
 					</div>
 				</div>
 			</div>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -1062,8 +1116,8 @@ JS;
 	 * @return void
 	 */
 	public static function handle_account_action() {
-		if ( ! current_user_can( 'list_users' ) ) {
-			wp_die( 'Kamu tidak memiliki izin untuk melakukan tindakan ini.' );
+		if ( ! self::can_manage_writers() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk melakukan tindakan ini.', '', array( 'response' => 403 ) );
 		}
 
 		$user_id = isset( $_POST['user_id'] ) ? (int) $_POST['user_id'] : 0;

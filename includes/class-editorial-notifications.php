@@ -5,8 +5,7 @@
  * Every V2 editorial transition records a dashboard notification and sends a
  * transactional email without ever rolling back a committed editorial decision
  * when mail delivery fails. Private post content is never included, and
- * notifications are strictly scoped to the article owner and reviewer
- * administrators.
+ * notifications are strictly scoped to the article owner and reviewers.
  *
  * @package Penalis_Platform
  */
@@ -284,7 +283,7 @@ final class Penalis_Editorial_Notifications {
 	 *
 	 * @param int   $user_id    User ID.
 	 * @param array $entry      Notification entry.
-	 * @param bool  $can_review Whether the user is a reviewer administrator.
+	 * @param bool  $can_review Whether the user is a reviewer.
 	 * @return bool
 	 */
 	private static function can_user_read_entry( $user_id, $entry, $can_review ) {
@@ -359,9 +358,9 @@ final class Penalis_Editorial_Notifications {
 	private static function reviewer_user_ids() {
 		$users = get_users(
 			array(
-				'role'   => 'administrator',
-				'fields' => 'ID',
-				'number' => 50,
+				'capability' => 'edit_others_posts',
+				'fields'     => 'ID',
+				'number'     => 50,
 			)
 		);
 

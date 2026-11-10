@@ -1,11 +1,12 @@
 <?php
 /**
- * Administrator editorial review screen.
+ * Editorial review screen.
  *
- * This is the curation surface for the V2 workflow: administrators read
- * submissions, request changes, reject, reopen, and approve. It is deliberately
- * separate from the account screen under Users, because reviewing an article
- * and approving an account are different jobs.
+ * This is the curation surface for the V2 workflow: reviewers (administrators
+ * and editors, both holding `edit_others_posts`) read submissions, request
+ * changes, reject, reopen, and approve. It is deliberately separate from the
+ * account screen under Users, because reviewing an article and approving an
+ * account are different jobs.
  *
  * Every decision goes through Penalis_Editorial_Workflow::apply(), so the state
  * machine, the review cycle guard, the per-post lock, and the audit history are
@@ -491,7 +492,7 @@ final class Penalis_Editorial_Admin {
 	 *
 	 * @param WP_Post  $post    Post.
 	 * @param string[] $actions Available reviewer actions for the post's state.
-	 * @param int      $cycle   Review cycle the administrator is looking at.
+	 * @param int      $cycle   Review cycle the reviewer is looking at.
 	 * @return void
 	 */
 	private static function render_decision_form( $post, $actions, $cycle ) {
@@ -793,7 +794,7 @@ final class Penalis_Editorial_Admin {
 	}
 
 	/**
-	 * Count submissions awaiting administrator review.
+	 * Count submissions awaiting reviewer review.
 	 *
 	 * @return int
 	 */
@@ -816,7 +817,7 @@ final class Penalis_Editorial_Admin {
 	}
 
 	/**
-	 * Recent submissions awaiting administrator review.
+	 * Recent submissions awaiting reviewer review.
 	 *
 	 * @param int $limit Max items.
 	 * @return WP_Post[]

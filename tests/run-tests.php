@@ -1492,10 +1492,8 @@ penalis_assert(
 );
 
 // Reviewer permission.
-penalis_assert( Penalis_Editorial_Policy::can_review( true, true ), 'An administrator who can edit others may review.' );
-penalis_assert( ! Penalis_Editorial_Policy::can_review( true, false ), 'An administrator without edit-others may not review.' );
-penalis_assert( ! Penalis_Editorial_Policy::can_review( false, true ), 'A non-administrator may not review even with edit-others.' );
-penalis_assert( ! Penalis_Editorial_Policy::can_review( false, false ), 'A writer may not review.' );
+penalis_assert( Penalis_Editorial_Policy::can_review( true ), 'A user who can edit others may review.' );
+penalis_assert( ! Penalis_Editorial_Policy::can_review( false ), 'A user without edit-others may not review.' );
 
 // Writers may edit drafts only. Published posts are immutable to writers, and a
 // submission under review is not editable either.
@@ -1870,9 +1868,24 @@ $GLOBALS['penalis_test_users'][10]->meta[ Penalis_Account_Status::META_ACCESS ] 
 penalis_editorial_admin( 20 );
 $GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'editor' ) );
 penalis_assert( Penalis_Editorial_Workflow::can_review( 20 ), 'An administrator may review.' );
-penalis_assert( ! Penalis_Editorial_Workflow::can_review( 21 ), 'An editor may not review.' );
+penalis_assert( Penalis_Editorial_Workflow::can_review( 21 ), 'An editor may review.' );
 penalis_assert( ! Penalis_Editorial_Workflow::can_review( 10 ), 'A writer may not review.' );
 penalis_assert( ! Penalis_Editorial_Workflow::can_review( 0 ), 'A guest may not review.' );
+
+// Penalis admin access is capability-based: editors curate, administrators manage.
+$GLOBALS['penalis_test_current_user'] = 21;
+penalis_assert( Penalis_Admin::can_access(), 'An editor may open the Penalis screens.' );
+penalis_assert( ! Penalis_Admin::can_manage_writers(), 'An editor may not manage writer accounts.' );
+penalis_assert( ! Penalis_Admin::can_manage_settings(), 'An editor may not change site-wide settings.' );
+
+$GLOBALS['penalis_test_current_user'] = 20;
+penalis_assert( Penalis_Admin::can_access(), 'An administrator may open the Penalis screens.' );
+penalis_assert( Penalis_Admin::can_manage_writers(), 'An administrator may manage writer accounts.' );
+penalis_assert( Penalis_Admin::can_manage_settings(), 'An administrator may change site-wide settings.' );
+
+$GLOBALS['penalis_test_current_user'] = 10;
+penalis_assert( ! Penalis_Admin::can_access(), 'A writer may not open the Penalis screens.' );
+unset( $GLOBALS['penalis_test_current_user'] );
 
 // Submit: draft -> pending.
 penalis_reset();
@@ -2994,6 +3007,7 @@ update_option( 'admin_email', 'admin@example.com' );
 penalis_editorial_writer( 10 );
 penalis_editorial_writer( 11 );
 penalis_editorial_admin( 20 );
+$GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'editor' ) );
 penalis_editorial_post( 600, 10, 'draft' );
 $GLOBALS['penalis_test_posts'][600]->post_title   = 'Malam di Pelabuhan';
 $GLOBALS['penalis_test_posts'][600]->post_content = '<p>RAHASIA_ISI_ARTIKEL_PRIVAT_YANG_TIDAK_BOLEH_BOCOR</p>';
@@ -3023,6 +3037,7 @@ penalis_assert(
 	'Submission email never includes private post_content.'
 );
 penalis_same( 1, Penalis_Editorial_Notifications::count_unread( 20 ), 'Administrator receives one unread dashboard notification on submit.' );
+penalis_same( 1, Penalis_Editorial_Notifications::count_unread( 21 ), 'Editor reviewer receives one unread dashboard notification on submit.' );
 penalis_same( 1, Penalis_Editorial_Notifications::count_unread( 10 ), 'Submitting writer receives one submission confirmation notification.' );
 penalis_same( 0, Penalis_Editorial_Notifications::count_unread( 11 ), 'Another writer receives no notification on submit.' );
 

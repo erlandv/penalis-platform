@@ -149,14 +149,15 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
      receives a submission email, and the **Penalis** admin menu shows a pending
      badge.
 5. **Editorial Review: Request Changes & Resubmission**
-   - As an administrator, open **Penalis → Review Karya Tulis**, select the
-     submission, enter feedback, click **Minta revisi**, and confirm in the
-     dialog.
+   - As a reviewer (administrator or editor), open **Penalis → Review Karya
+     Tulis**, select the submission, enter feedback, click **Minta revisi**, and
+     confirm in the dialog.
    - Verify the writer receives an email and a compact unread notification on
      the dashboard **Ringkasan** screen, can edit the article again, and can
      click **Submit Ulang**.
 6. **Editorial Review: Approval & Read-Only Published State**
-   - As an administrator, click **Setujui dan terbitkan** and confirm.
+   - As a reviewer (administrator or editor), click **Setujui dan terbitkan**
+     and confirm.
    - Verify the article is published on the public site, the writer receives a
      publication notification, and the article remains read-only to the writer
      in the dashboard (and refuses direct `POST /wp/v2/posts/{id}` edits from

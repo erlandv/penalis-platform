@@ -172,15 +172,16 @@ final class Penalis_Editorial_Policy {
 	/**
 	 * Whether a user may review submissions.
 	 *
-	 * The caller supplies resolved capabilities so this remains pure and can be
-	 * reused by REST and wp-admin without coupling policy to a WP_User object.
+	 * Reviewing is a curation capability, not a role name: administrators and
+	 * editors both hold `edit_others_posts`, while writers do not. The caller
+	 * supplies the resolved capability so this remains pure and can be reused by
+	 * REST and wp-admin without coupling policy to a WP_User object.
 	 *
-	 * @param bool $is_administrator Whether the user is an administrator.
-	 * @param bool $can_edit_others  Whether the user may edit others' posts.
+	 * @param bool $can_edit_others Whether the user may edit others' posts.
 	 * @return bool
 	 */
-	public static function can_review( $is_administrator, $can_edit_others ) {
-		return (bool) $is_administrator && (bool) $can_edit_others;
+	public static function can_review( $can_edit_others ) {
+		return (bool) $can_edit_others;
 	}
 
 	/**
@@ -213,7 +214,7 @@ final class Penalis_Editorial_Policy {
 	}
 
 	/**
-	 * Whether an action is performed by an administrator reviewer.
+	 * Whether an action is performed by a reviewer.
 	 *
 	 * @param string $action Workflow action.
 	 * @return bool
@@ -258,8 +259,8 @@ final class Penalis_Editorial_Policy {
 	 * Whether a writer may edit an article in the given editorial state.
 	 *
 	 * Only `draft` and `changes_requested` are editable. `pending_review` is
-	 * locked while an administrator reads it, `rejected` needs an administrator
-	 * to reopen it first, and `published` is final.
+	 * locked while a reviewer reads it, `rejected` needs a reviewer to reopen it
+	 * first, and `published` is final.
 	 *
 	 * @param string $state Editorial state.
 	 * @return bool
@@ -299,7 +300,7 @@ final class Penalis_Editorial_Policy {
 	/**
 	 * Compute the next review cycle number.
 	 *
-	 * Every submission starts a new cycle so two administrators cannot apply
+	 * Every submission starts a new cycle so two reviewers cannot apply
 	 * conflicting decisions to the same round of review.
 	 *
 	 * @param mixed $current Current cycle value.
@@ -314,8 +315,8 @@ final class Penalis_Editorial_Policy {
 	/**
 	 * Whether a reviewer decision targets an outdated review cycle.
 	 *
-	 * Two administrators can open the same submission at once. The decision
-	 * carries the cycle the reviewer saw; if the stored cycle has moved on, the
+	 * Two reviewers can open the same submission at once. The decision carries
+	 * the cycle the reviewer saw; if the stored cycle has moved on, the
 	 * decision is stale and must be rejected instead of overwriting a newer
 	 * round of review.
 	 *
@@ -595,7 +596,7 @@ final class Penalis_Editorial_Policy {
 	/**
 	 * Whether a user may receive a notification for a workflow action on a post.
 	 *
-	 * Submission actions notify the article owner and reviewer administrators.
+	 * Submission actions notify the article owner and reviewers.
 	 * Reviewer decisions notify only the article owner. Other writers and
 	 * non-reviewer roles are always denied so private titles and feedback never
 	 * leak across accounts.

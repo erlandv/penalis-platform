@@ -55,7 +55,7 @@ Accessible to active writers (`_penalis_account_status = active` and
 | Route | Method | Handler | Access & Behavior |
 | --- | --- | --- | --- |
 | `/articles` | `GET` | `list_articles` | Paginated list of the current writer's articles (`status`: `all`, `draft`, `pending_review`, `changes_requested`, `rejected`, `published`) |
-| `/articles/(?P<id>\d+)` | `GET` | `get_article` | Single article with editorial metadata; readable only by the article owner or a reviewer administrator (`404` otherwise) |
+| `/articles/(?P<id>\d+)` | `GET` | `get_article` | Single article with editorial metadata; readable only by the article owner or a reviewer (`edit_others_posts`, i.e. administrator or editor) (`404` otherwise) |
 | `/articles/(?P<id>\d+)/review` | `GET` | `get_article_review` | Editorial state, capability flags (`canEdit`, `canSubmit`, `canResubmit`), active feedback, review cycle, and bounded review history |
 | `/articles/(?P<id>\d+)/submit` | `POST` | `submit_article` | Owner-only: submit a complete `draft` article (`title` and `content` required) to `pending_review` |
 | `/articles/(?P<id>\d+)/resubmit` | `POST` | `resubmit_article` | Owner-only: resubmit a `changes_requested` article to `pending_review` |

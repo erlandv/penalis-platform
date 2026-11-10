@@ -15,7 +15,7 @@ Penalis Platform adds a self-service writer account lifecycle, an editorial
 submission and review workflow, and a frontend React writing dashboard
 (`/dashboard/`) to WordPress. It is built for the Penalis literary community
 (penalis.com), where member-submitted essays, prose, and poetry are curated by
-administrators before publication.
+reviewers (administrators and editors) before publication.
 
 Key features:
 
@@ -33,10 +33,11 @@ Key features:
   preserving existing user IDs, authored posts, and author archives.
 * **Editorial submission and review workflow.** Writers save drafts and submit
   them for review (`Submit Review` / `Submit Ulang`). Writers cannot publish
-  directly and cannot edit published articles. Administrators review submissions
-  in a 2-column workspace under **Penalis → Review Karya Tulis**, where they can
-  approve and publish, request revisions with required feedback, reject with
-  required feedback, or reopen a rejected submission.
+  directly and cannot edit published articles. Reviewers (administrators and
+  editors) review submissions in a 2-column workspace under **Penalis → Review
+  Karya Tulis**, where they can approve and publish, request revisions with
+  required feedback, reject with required feedback, or reopen a rejected
+  submission.
 * **Email and in-dashboard notifications.** Submissions and review decisions
   dispatch branded responsive HTML emails and record bounded in-dashboard
   notifications on the **Ringkasan** screen.
@@ -76,16 +77,17 @@ Recommended site configuration:
 
 = Do writers use wp-admin to write articles? =
 
-No. Approved writers use the frontend dashboard at `/dashboard/`. Only
-administrators use `wp-admin` (under the **Penalis** menu) to review article
-submissions and manage writer accounts.
+No. Approved writers use the frontend dashboard at `/dashboard/`. Reviewers use
+`wp-admin` (under the **Penalis** menu) to review article submissions:
+administrators and editors can both curate articles, while only administrators
+can manage writer accounts and site-wide settings.
 
 = Can a writer publish an article directly or edit an already published article? =
 
-No. Writers can only save drafts and submit or resubmit them for review. Only an
-administrator approval action under **Penalis → Review Karya Tulis** can publish an
-article, and published articles are strictly read-only for writers both in the
-dashboard UI and at the REST API level.
+No. Writers can only save drafts and submit or resubmit them for review. Only a
+reviewer approval action (administrator or editor) under **Penalis → Review Karya
+Tulis** can publish an article, and published articles are strictly read-only for
+writers both in the dashboard UI and at the REST API level.
 
 = Are existing contributor accounts and posts affected on activation? =
 
@@ -114,9 +116,9 @@ renamed executable files are rejected.
   writer account, administrator suspension/reactivation, legacy contributor
   activation, and bounded audit logging.
 * Editorial submission and review workflow: draft submission, resubmission,
-  serialized administrator review decisions (`Setujui dan terbitkan`,
-  `Minta revisi`, `Tolak`, `Buka kembali`), review cycle locking, and read-only
-  protection for published articles.
+  serialized reviewer decisions (`Setujui dan terbitkan`, `Minta revisi`,
+  `Tolak`, `Buka kembali`), review cycle locking, and read-only protection for
+  published articles.
 * Branded HTML transactional emails and compact, bounded in-dashboard editorial
   notifications.
 * React writing dashboard (`/dashboard/`) with lazy-loaded TipTap WYSIWYG

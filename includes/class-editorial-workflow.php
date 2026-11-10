@@ -128,7 +128,7 @@ final class Penalis_Editorial_Workflow {
 	 * Writers may edit only their own post while its editorial state allows it.
 	 * Published and rejected articles are closed to the writer, which is also
 	 * what makes a rejected submission impossible to resubmit: the only way
-	 * back is an administrator reopening it.
+	 * back is a reviewer reopening it.
 	 *
 	 * @param WP_Post|int $post    Post or post ID.
 	 * @param int         $user_id User ID.
@@ -161,8 +161,8 @@ final class Penalis_Editorial_Workflow {
 	 * Apply a workflow action to a post.
 	 *
 	 * The decision is serialized per post: the post is re-read inside an
-	 * advisory lock so two administrators cannot both decide on the same round
-	 * of review. The lock fails closed, because a reviewer decision that cannot
+	 * advisory lock so two reviewers cannot both decide on the same round of
+	 * review. The lock fails closed, because a reviewer decision that cannot
 	 * be serialized must not be applied at all.
 	 *
 	 * @param WP_Post|int $post Post or post ID.
@@ -299,7 +299,7 @@ final class Penalis_Editorial_Workflow {
 		}
 
 		// A submission starts a new round of review. Reviewer decisions stay in
-		// the cycle they were made for, so a second administrator acting on the
+			// the cycle they were made for, so a second reviewer acting on the
 		// same round is refused by the stale-cycle guard.
 		$next_cycle = Penalis_Editorial_Policy::is_writer_action( $action )
 			? Penalis_Editorial_Policy::next_review_cycle( $current_cycle )
@@ -411,7 +411,7 @@ final class Penalis_Editorial_Workflow {
 	/**
 	 * Acquire the per-post advisory lock.
 	 *
-	 * Two administrators can open the same submission at once. The review cycle
+	 * Two reviewers can open the same submission at once. The review cycle
 	 * guard rejects a *stale* decision, but it cannot stop two requests that both
 	 * read the same cycle. The lock serializes the decision itself: the second
 	 * request waits for the first to finish, then re-reads the post and is
@@ -469,9 +469,9 @@ final class Penalis_Editorial_Workflow {
 	/**
 	 * Whether a user may review submissions.
 	 *
-	 * Administrators review; editors and writers do not. Requiring
-	 * `edit_others_posts` as well keeps the rule explicit if the site ever adds
-	 * a custom reviewer role.
+	 * Reviewing is granted by the `edit_others_posts` capability, so both
+	 * administrators and editors can curate submissions. Writers never hold that
+	 * capability, and a custom reviewer role only needs to be granted it.
 	 *
 	 * @param int $user_id User ID.
 	 * @return bool
@@ -489,10 +489,7 @@ final class Penalis_Editorial_Workflow {
 			return false;
 		}
 
-		return Penalis_Editorial_Policy::can_review(
-			in_array( 'administrator', (array) $user->roles, true ),
-			user_can( $user_id, 'edit_others_posts' )
-		);
+		return Penalis_Editorial_Policy::can_review( user_can( $user_id, 'edit_others_posts' ) );
 	}
 
 	/**
