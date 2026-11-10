@@ -355,7 +355,7 @@ final class Penalis_Editorial_Notifications {
 	 *
 	 * @return int[]
 	 */
-	private static function reviewer_user_ids() {
+	public static function reviewer_user_ids() {
 		$users = get_users(
 			array(
 				'capability' => 'edit_others_posts',

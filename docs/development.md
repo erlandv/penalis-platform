@@ -145,9 +145,9 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
    - Sign in as the approved writer, create a draft with title, content,
      category, tag, and featured image, and click **Simpan Draft**.
    - Click **Submit Review** and confirm. Verify the article state changes to
-     **Menunggu review**, the editor switches to read-only mode, the admin
-     receives a submission email, and the **Penalis** admin menu shows a pending
-     badge.
+     **Menunggu review**, the editor switches to read-only mode, the
+     reviewers (administrators and editors) receive a submission email, and the
+     **Penalis** admin menu shows a pending badge.
 5. **Editorial Review: Request Changes & Resubmission**
    - As a reviewer (administrator or editor), open **Penalis → Review Karya
      Tulis**, select the submission, enter feedback, click **Minta revisi**, and

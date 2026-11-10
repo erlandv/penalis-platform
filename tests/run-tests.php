@@ -3053,10 +3053,17 @@ penalis_assert(
 	'An active writer may reach POST /notifications/{id}/read.'
 );
 
-// 1. Submit: emails admin_email, records admin + owner dashboard notifications, never leaks post_content.
+// 1. Submit: emails all reviewers (admin + editor + admin_email), records admin + owner dashboard notifications, never leaks post_content.
 Penalis_Editorial_Workflow::apply( 600, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
-penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'Submitting an article sends one email to the administrator.' );
-penalis_same( 'admin@example.com', $GLOBALS['penalis_test_mail'][0][0], 'Submission email is addressed to admin_email.' );
+penalis_same( 3, count( $GLOBALS['penalis_test_mail'] ), 'Submitting an article sends individual emails to administrator, editor, and admin_email.' );
+$submit_recipients = array(
+	$GLOBALS['penalis_test_mail'][0][0],
+	$GLOBALS['penalis_test_mail'][1][0],
+	$GLOBALS['penalis_test_mail'][2][0],
+);
+penalis_assert( in_array( 'user20@example.com', $submit_recipients, true ), 'Administrator reviewer receives a submission email.' );
+penalis_assert( in_array( 'user21@example.com', $submit_recipients, true ), 'Editor reviewer receives a submission email.' );
+penalis_assert( in_array( 'admin@example.com', $submit_recipients, true ), 'Submission email is also addressed to admin_email.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][1], 'Karya Tulis Baru' ), 'Submission email has the new-submission subject.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Malam di Pelabuhan' ), 'Submission email names the article title.' );
 penalis_assert(
@@ -3086,11 +3093,11 @@ Penalis_Editorial_Workflow::apply(
 		'expected_cycle' => 1,
 	)
 );
-penalis_same( 2, count( $GLOBALS['penalis_test_mail'] ), 'Requesting changes sends an email to the writer.' );
-penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][1][0], 'Requested-changes email goes only to the article owner.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][1][2], 'Mohon rapikan bait kedua.' ), 'Requested-changes email includes the reviewer feedback.' );
+penalis_same( 4, count( $GLOBALS['penalis_test_mail'] ), 'Requesting changes sends an email to the writer.' );
+penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][3][0], 'Requested-changes email goes only to the article owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][3][2], 'Mohon rapikan bait kedua.' ), 'Requested-changes email includes the reviewer feedback.' );
 penalis_assert(
-	false === strpos( $GLOBALS['penalis_test_mail'][1][2], 'RAHASIA_ISI_ARTIKEL_PRIVAT_YANG_TIDAK_BOLEH_BOCOR' ),
+	false === strpos( $GLOBALS['penalis_test_mail'][3][2], 'RAHASIA_ISI_ARTIKEL_PRIVAT_YANG_TIDAK_BOLEH_BOCOR' ),
 	'Requested-changes email never includes private post_content.'
 );
 penalis_same( 2, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer has two unread notifications after requested changes.' );
@@ -3104,11 +3111,18 @@ penalis_assert(
 );
 penalis_same( '', $writer_notifs[0]['reviewUrl'], 'Non-admin writer notification does not expose an admin reviewUrl.' );
 
-// 3. Resubmit: emails admin_email, records admin + owner resubmit notifications.
+// 3. Resubmit: emails reviewers, records admin + owner resubmit notifications.
 Penalis_Editorial_Workflow::apply( 600, Penalis_Editorial_Policy::ACTION_RESUBMIT, array( 'actor_id' => 10 ) );
-penalis_same( 3, count( $GLOBALS['penalis_test_mail'] ), 'Resubmitting sends an email to admin_email.' );
-penalis_same( 'admin@example.com', $GLOBALS['penalis_test_mail'][2][0], 'Resubmission email is addressed to admin_email.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][2][1], 'Revisi Karya Tulis Menunggu Review' ), 'Resubmission email has the resubmission subject.' );
+penalis_same( 7, count( $GLOBALS['penalis_test_mail'] ), 'Resubmitting sends individual emails to all reviewers.' );
+$resubmit_recipients = array(
+	$GLOBALS['penalis_test_mail'][4][0],
+	$GLOBALS['penalis_test_mail'][5][0],
+	$GLOBALS['penalis_test_mail'][6][0],
+);
+penalis_assert( in_array( 'user20@example.com', $resubmit_recipients, true ), 'Administrator receives resubmission email.' );
+penalis_assert( in_array( 'user21@example.com', $resubmit_recipients, true ), 'Editor receives resubmission email.' );
+penalis_assert( in_array( 'admin@example.com', $resubmit_recipients, true ), 'admin_email receives resubmission email.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][4][1], 'Revisi Karya Tulis Menunggu Review' ), 'Resubmission email has the resubmission subject.' );
 penalis_same( 2, Penalis_Editorial_Notifications::count_unread( 20 ), 'Administrator now has two unread notifications.' );
 penalis_same( 3, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has three unread notifications.' );
 
@@ -3122,16 +3136,16 @@ Penalis_Editorial_Workflow::apply(
 		'expected_cycle' => 2,
 	)
 );
-penalis_same( 4, count( $GLOBALS['penalis_test_mail'] ), 'Rejecting sends an email to the writer.' );
-penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][3][0], 'Rejection email goes only to the article owner.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][3][2], 'Tema belum sesuai kurasi bulan ini.' ), 'Rejection email includes the feedback.' );
+penalis_same( 8, count( $GLOBALS['penalis_test_mail'] ), 'Rejecting sends an email to the writer.' );
+penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][7][0], 'Rejection email goes only to the article owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][7][2], 'Tema belum sesuai kurasi bulan ini.' ), 'Rejection email includes the feedback.' );
 penalis_same( 4, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has four unread notifications.' );
 
 // 5. Reopen: emails author, records writer reopen notification.
 Penalis_Editorial_Workflow::apply( 600, Penalis_Editorial_Policy::ACTION_REOPEN, array( 'actor_id' => 20 ) );
-penalis_same( 5, count( $GLOBALS['penalis_test_mail'] ), 'Reopening sends an email to the writer.' );
-penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][4][0], 'Reopen email goes only to the article owner.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][4][1], 'Dibuka Kembali' ), 'Reopen email has the reopen subject.' );
+penalis_same( 9, count( $GLOBALS['penalis_test_mail'] ), 'Reopening sends an email to the writer.' );
+penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][8][0], 'Reopen email goes only to the article owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][8][1], 'Dibuka Kembali' ), 'Reopen email has the reopen subject.' );
 penalis_same( 5, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has five unread notifications.' );
 
 // 6. Resubmit and Approve (publication): emails author with public link, records writer approve notification.
@@ -3145,10 +3159,10 @@ Penalis_Editorial_Workflow::apply(
 		'expected_cycle' => 3,
 	)
 );
-penalis_same( 7, count( $GLOBALS['penalis_test_mail'] ), 'Resubmit + approve sends two more emails.' );
-penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][6][0], 'Publication email goes to the article owner.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][6][1], 'Telah Terbit' ), 'Publication email has the published subject.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][6][2], 'Selamat, karya siap tayang.' ), 'Publication email includes optional approval note.' );
+penalis_same( 13, count( $GLOBALS['penalis_test_mail'] ), 'Resubmit (3) + approve (1) sends four more emails.' );
+penalis_same( 'user10@example.com', $GLOBALS['penalis_test_mail'][12][0], 'Publication email goes to the article owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][12][1], 'Telah Terbit' ), 'Publication email has the published subject.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][12][2], 'Selamat, karya siap tayang.' ), 'Publication email includes optional approval note.' );
 penalis_same( 7, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has seven unread notifications.' );
 
 // REST notifications list and read/unread mutations for the writer.

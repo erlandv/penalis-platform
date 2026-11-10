@@ -218,16 +218,17 @@ final class Penalis_Emails {
 	}
 
 	/**
-	 * Notify the site administrator that a writer submitted or resubmitted an article.
+	 * Send an editorial submission or resubmission email to reviewers.
 	 *
-	 * Only the article title, author identity, review cycle, and review URL are
-	 * included; private draft body content is never sent over email. Mail
-	 * delivery failures are recorded on the author's account without rolling
-	 * back the submission.
+	 * Emails are delivered individually (one email per recipient address) to
+	 * all active reviewers (administrators and editors) as well as the site
+	 * admin email. This preserves recipient privacy (no Cc header leaking) and
+	 * maximizes deliverability. Mail delivery failures are recorded on the
+	 * author's account without rolling back the submission.
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $action  Writer workflow action (`submit` or `resubmit`).
-	 * @return bool
+	 * @return bool Whether at least one notification email was accepted.
 	 */
 	public static function send_editorial_submission_notification( $post_id, $action ) {
 		$post   = get_post( (int) $post_id );
@@ -243,8 +244,8 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$admin_email = get_option( 'admin_email' );
-		if ( ! is_email( $admin_email ) ) {
+		$recipients = self::submission_notification_recipients();
+		if ( empty( $recipients ) ) {
 			Penalis_Account_Status::record_email_failure( $author_id, 'editorial_' . $action );
 			return false;
 		}
@@ -256,10 +257,10 @@ final class Penalis_Emails {
 
 		if ( Penalis_Editorial_Policy::ACTION_RESUBMIT === $action ) {
 			$subject = sprintf( '[%s] Revisi Karya Tulis Menunggu Review', $site );
-			$intro   = sprintf( 'Ada revisi karya tulis di %s yang di-submit ulang dan menunggu review admin.', $site );
+			$intro   = sprintf( 'Ada revisi karya tulis di %s yang di-submit ulang dan menunggu review tim editorial.', $site );
 		} else {
 			$subject = sprintf( '[%s] Karya Tulis Baru Menunggu Review', $site );
-			$intro   = sprintf( 'Ada karya tulis baru di %s yang menunggu review admin.', $site );
+			$intro   = sprintf( 'Ada karya tulis baru di %s yang menunggu review tim editorial.', $site );
 		}
 
 		$message  = $intro . "\n\n";
@@ -269,18 +270,57 @@ final class Penalis_Emails {
 		$message .= "Review karya tulis melalui WordPress Admin:\n\n";
 		$message .= $review_url . "\n";
 
-		$sent = self::send_mail(
-			$admin_email,
-			$subject,
-			$message,
-			'Email ini dikirim otomatis untuk admin Penalis sebagai pemberitahuan bahwa ada karya tulis yang menunggu review.'
-		);
+		$footer_context = 'Email ini dikirim otomatis untuk tim editorial Penalis sebagai pemberitahuan bahwa ada karya tulis yang menunggu review.';
+		$any_sent       = false;
 
-		if ( ! $sent ) {
+		foreach ( $recipients as $recipient_email ) {
+			$sent = self::send_mail(
+				$recipient_email,
+				$subject,
+				$message,
+				$footer_context
+			);
+
+			if ( $sent ) {
+				$any_sent = true;
+			}
+		}
+
+		if ( ! $any_sent ) {
 			Penalis_Account_Status::record_email_failure( $author_id, 'editorial_' . $action );
 		}
 
-		return (bool) $sent;
+		return (bool) $any_sent;
+	}
+
+	/**
+	 * Collect unique email addresses for reviewers entitled to receive
+	 * submission notification emails.
+	 *
+	 * Includes all active reviewers holding the review capability
+	 * (editors and administrators) plus the site admin_email as a fallback.
+	 *
+	 * @return string[] Unique valid email addresses.
+	 */
+	public static function submission_notification_recipients() {
+		$recipients = array();
+
+		if ( class_exists( 'Penalis_Editorial_Notifications' ) ) {
+			$reviewer_ids = Penalis_Editorial_Notifications::reviewer_user_ids();
+			foreach ( $reviewer_ids as $reviewer_id ) {
+				$user = get_userdata( (int) $reviewer_id );
+				if ( $user && is_email( $user->user_email ) ) {
+					$recipients[] = sanitize_email( $user->user_email );
+				}
+			}
+		}
+
+		$admin_email = get_option( 'admin_email' );
+		if ( is_email( $admin_email ) ) {
+			$recipients[] = sanitize_email( $admin_email );
+		}
+
+		return array_values( array_unique( array_filter( $recipients ) ) );
 	}
 
 	/**
