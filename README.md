@@ -24,7 +24,7 @@ authentication store.
   verification or administrator vouching while preserving existing user IDs,
   authored posts, and author archive URLs.
 - **Editorial Submission & Review Pipeline** — Writers compose drafts and submit
-  them for review (`Ajukan Tinjauan` / `Ajukan Ulang`). Only an administrator
+  them for review (`Submit Review` / `Submit Ulang`). Only an administrator
   approval action can publish a submission, and published articles remain
   read-only to writers.
 - **React Writing Dashboard (`/dashboard/`)** — Single-page application built
@@ -33,7 +33,7 @@ authentication store.
   compact editorial notifications, and re-authenticated credential settings
   (password, verified email change, and 301-redirected username rename).
 - **Unified WordPress Admin Console (`Penalis`)** — Centralized `wp-admin` menu
-  with **Ringkasan** (overview metrics and pending queues), **Tinjauan Karya**
+  with **Ringkasan** (overview metrics and pending queues), **Review Karya Tulis**
   (2-column article review workspace with serialized per-post locking and
   confirmation dialogs), and **Penulis Penalis** (writer account curation and
   default profile photo).

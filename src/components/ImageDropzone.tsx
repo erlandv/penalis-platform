@@ -127,7 +127,7 @@ export function ImageDropzone({
         <span className="penalis-dropzone__icon" aria-hidden="true">
           {busy ? <span className="penalis-spinner" /> : <Icon name="image" />}
         </span>
-        <span className="penalis-dropzone__title">{busy ? 'Mengunggah…' : title}</span>
+        <span className="penalis-dropzone__title">{busy ? 'Uploading…' : title}</span>
         {busy ? null : <span className="penalis-dropzone__subtitle">{subtitle}</span>}
       </button>
 

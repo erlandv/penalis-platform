@@ -648,7 +648,7 @@ final class Penalis_Access_Control {
 			if ( ! Penalis_Editorial_Workflow::can_writer_edit( $existing, $user->ID ) ) {
 				return new WP_Error(
 					'penalis_editorial_locked',
-					'Karya tulis ini sedang ditinjau atau sudah terbit.',
+					'Karya tulis ini sedang di-review atau sudah terbit.',
 					array( 'status' => 403 )
 				);
 			}
@@ -730,7 +730,7 @@ final class Penalis_Access_Control {
 			if ( ! $attachment || 'attachment' !== $attachment->post_type || (int) $attachment->post_author !== (int) $user->ID ) {
 				return new WP_Error(
 					'penalis_invalid_media',
-					'Kamu hanya dapat menggunakan media milik sendiri sebagai gambar unggulan.',
+					'Kamu hanya dapat menggunakan media milik sendiri sebagai thumbnail.',
 					array( 'status' => 403 )
 				);
 			}
@@ -928,26 +928,26 @@ final class Penalis_Access_Control {
 		$type    = isset( $file['type'] ) ? (string) $file['type'] : '';
 
 		if ( ! in_array( $type, $allowed, true ) ) {
-			$file['error'] = 'Hanya gambar JPEG, PNG, GIF, dan WebP yang dapat diunggah.';
+			$file['error'] = 'Hanya gambar JPEG, PNG, GIF, dan WebP yang dapat di-upload.';
 			return $file;
 		}
 
 		// Reject files whose contents do not match an image.
 		$tmp = isset( $file['tmp_name'] ) ? $file['tmp_name'] : '';
 		if ( '' === $tmp || ! is_readable( $tmp ) ) {
-			$file['error'] = 'File yang diunggah tidak dapat divalidasi.';
+			$file['error'] = 'File yang di-upload tidak dapat divalidasi.';
 			return $file;
 		}
 
 		$info = @getimagesize( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		if ( false === $info || ! isset( $info[2] ) ) {
-			$file['error'] = 'File yang diunggah bukan gambar yang valid.';
+			$file['error'] = 'File yang di-upload bukan gambar yang valid.';
 			return $file;
 		}
 
 		$allowed_types = array( IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP );
 		if ( ! in_array( (int) $info[2], $allowed_types, true ) ) {
-			$file['error'] = 'Jenis gambar yang diunggah tidak diizinkan.';
+			$file['error'] = 'Jenis gambar yang di-upload tidak diizinkan.';
 		}
 
 		return $file;

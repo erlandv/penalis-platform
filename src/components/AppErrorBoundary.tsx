@@ -35,10 +35,10 @@ export class AppErrorBoundary extends Component<Props, State> {
     return (
       <div className="penalis-auth">
         <div className="penalis-auth__panel">
-          <h1>Dasbor tidak dapat dimuat</h1>
+          <h1>Dashboard tidak dapat dimuat</h1>
           <p className="penalis-muted">
-            Terjadi kesalahan saat menampilkan dasbor. Coba muat ulang halaman. Jika masalah berlanjut,
-            hubungi admin Penalis dan sertakan pesan di bawah ini.
+            Terjadi kesalahan saat menampilkan dashboard. Coba refresh halaman. Jika masalah berlanjut,
+            hubungi admin Penalis dan sertakan pesan error di bawah ini.
           </p>
           <p className="penalis-fineprint">
             <code>{this.state.error.message}</code>
@@ -48,7 +48,7 @@ export class AppErrorBoundary extends Component<Props, State> {
             className="penalis-button penalis-button--primary"
             onClick={() => window.location.reload()}
           >
-            Muat ulang halaman
+            Refresh halaman
           </button>
         </div>
       </div>

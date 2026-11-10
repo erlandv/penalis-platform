@@ -618,7 +618,7 @@ function ActivateVerifyForm({
         <Notice tone="success">{message}</Notice>
         <p className="penalis-muted">
           Karya tulis yang sudah terbit tetap terhubung ke akun ini. Akun kamu kini sudah aktif dan siap
-          digunakan di dasbor penulis.
+          digunakan di dashboard penulis.
         </p>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
           Lanjut login ke Dashboard

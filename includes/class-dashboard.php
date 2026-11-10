@@ -432,7 +432,7 @@ final class Penalis_Dashboard {
 		if ( ! $has_build && current_user_can( 'manage_options' ) ) {
 			?>
 			<div class="penalis-build-missing" style="max-width:720px;margin:2rem auto;padding:1.25rem;border:1px solid #f0c36d;background:#fff8e5;border-radius:8px;font-family:system-ui,sans-serif;">
-				<strong><?php echo esc_html( 'Aset dasbor Penalis tidak ditemukan.' ); ?></strong>
+				<strong><?php echo esc_html( 'Aset dashboard Penalis tidak ditemukan.' ); ?></strong>
 				<p><?php echo esc_html( 'Jalankan "npm ci && npm run build" di direktori plugin, lalu pasang folder build/ yang dihasilkan.' ); ?></p>
 			</div>
 			<?php
@@ -440,7 +440,7 @@ final class Penalis_Dashboard {
 		?>
 		<div id="penalis-dashboard-root" class="penalis-dashboard-root">
 			<noscript>
-				<p><?php echo esc_html( 'Dasbor menulis Penalis memerlukan JavaScript.' ); ?></p>
+				<p><?php echo esc_html( 'Dashboard Penulis memerlukan JavaScript.' ); ?></p>
 			</noscript>
 		</div>
 		<?php

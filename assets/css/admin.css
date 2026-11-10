@@ -3,7 +3,7 @@
  *
  * Loaded on:
  * - Penalis Platform -> Ringkasan (.penalis-overview)
- * - Penalis Platform -> Tinjauan Karya (.penalis-review)
+ * - Penalis Platform -> Review Karya Tulis (.penalis-review)
  * - Penalis Platform -> Penulis Penalis (.penalis-writers)
  * - Users -> All Users status column (.penalis-status)
  */
@@ -585,7 +585,7 @@
 }
 
 /* ==========================================================================
-   4. Review Screen: Penalis Platform -> Tinjauan Karya (.penalis-review)
+   4. Review Screen: Penalis Platform -> Review Karya Tulis (.penalis-review)
    ========================================================================== */
 
 .penalis-review .penalis-review__intro {

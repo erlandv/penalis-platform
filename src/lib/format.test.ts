@@ -33,8 +33,8 @@ describe('decodeEntities', () => {
 
 describe('editorialStateLabel and statusTone', () => {
   it('returns Indonesian labels for every V2 editorial state', () => {
-    expect(editorialStateLabel('draft')).toBe('Draf');
-    expect(editorialStateLabel('pending_review')).toBe('Menunggu tinjauan');
+    expect(editorialStateLabel('draft')).toBe('Draft');
+    expect(editorialStateLabel('pending_review')).toBe('Menunggu review');
     expect(editorialStateLabel('changes_requested')).toBe('Perlu revisi');
     expect(editorialStateLabel('rejected')).toBe('Ditolak');
     expect(editorialStateLabel('published')).toBe('Terbit');
@@ -43,9 +43,9 @@ describe('editorialStateLabel and statusTone', () => {
 
   it('maps editorial and post statuses to badge tones and Indonesian labels', () => {
     expect(statusLabel('published')).toBe('Terbit');
-    expect(statusLabel('pending_review')).toBe('Menunggu tinjauan');
+    expect(statusLabel('pending_review')).toBe('Menunggu review');
     expect(statusLabel('changes_requested')).toBe('Perlu revisi');
-    expect(statusLabel('draft')).toBe('Draf');
+    expect(statusLabel('draft')).toBe('Draft');
     expect(statusLabel('rejected')).toBe('Ditolak');
 
     expect(statusTone('published')).toBe('success');

@@ -335,7 +335,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
             <Icon name="code" />
           </ToolbarButton>
           <span className="penalis-editor-toolbar__hint">
-            Mode HTML. Perubahan di sini langsung tersimpan saat kamu menyimpan artikel.
+            Mode HTML. Perubahan di sini langsung tersimpan saat kamu menyimpan karya tulis.
           </span>
         </div>
 
@@ -348,7 +348,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
           }}
           rows={18}
           spellCheck={false}
-          aria-label="Isi artikel dalam HTML"
+          aria-label="Isi karya tulis dalam HTML"
           aria-invalid={invalid}
           aria-describedby={errorId}
         />

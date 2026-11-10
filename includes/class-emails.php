@@ -195,7 +195,7 @@ final class Penalis_Emails {
 		switch ( $status ) {
 			case Penalis_Policy::STATUS_ACTIVE:
 				$subject = sprintf( '[%s] Akun Kamu Sudah Aktif', $site );
-				$body    = self::greeting( $user ) . "\n\n" . sprintf( 'Akun %s kamu kini sudah aktif. Kamu sudah dapat menulis dan mengajukan karya tulis melalui dasbor penulis.', $site ) . "\n\nBuka dasbor penulis:\n\n" . $login . "\n";
+				$body    = self::greeting( $user ) . "\n\n" . sprintf( 'Akun %s kamu kini sudah aktif. Kamu sudah dapat menulis dan submit karya tulis melalui dashboard penulis.', $site ) . "\n\nBuka dashboard penulis:\n\n" . $login . "\n";
 				break;
 
 			case Penalis_Policy::STATUS_SUSPENDED:
@@ -255,25 +255,25 @@ final class Penalis_Emails {
 		$review_url = admin_url( 'admin.php?page=penalis-review&post_id=' . (int) $post->ID );
 
 		if ( Penalis_Editorial_Policy::ACTION_RESUBMIT === $action ) {
-			$subject = sprintf( '[%s] Revisi Karya Tulis Menunggu Tinjauan', $site );
-			$intro   = sprintf( 'Ada revisi karya tulis di %s yang diajukan ulang dan menunggu tinjauan admin.', $site );
+			$subject = sprintf( '[%s] Revisi Karya Tulis Menunggu Review', $site );
+			$intro   = sprintf( 'Ada revisi karya tulis di %s yang di-submit ulang dan menunggu review admin.', $site );
 		} else {
-			$subject = sprintf( '[%s] Karya Tulis Baru Menunggu Tinjauan', $site );
-			$intro   = sprintf( 'Ada karya tulis baru di %s yang menunggu tinjauan admin.', $site );
+			$subject = sprintf( '[%s] Karya Tulis Baru Menunggu Review', $site );
+			$intro   = sprintf( 'Ada karya tulis baru di %s yang menunggu review admin.', $site );
 		}
 
 		$message  = $intro . "\n\n";
 		$message .= 'Judul Karya: ' . $title . "\n";
 		$message .= 'Penulis: ' . $author->display_name . ' (' . $author->user_login . ")\n";
-		$message .= 'Putaran Tinjauan: #' . $cycle . "\n\n";
-		$message .= "Tinjau karya tulis melalui WordPress Admin:\n\n";
+		$message .= 'Review cycle: #' . $cycle . "\n\n";
+		$message .= "Review karya tulis melalui WordPress Admin:\n\n";
 		$message .= $review_url . "\n";
 
 		$sent = self::send_mail(
 			$admin_email,
 			$subject,
 			$message,
-			'Email ini dikirim otomatis untuk admin Penalis sebagai pemberitahuan bahwa ada karya tulis yang menunggu peninjauan editorial.'
+			'Email ini dikirim otomatis untuk admin Penalis sebagai pemberitahuan bahwa ada karya tulis yang menunggu review.'
 		);
 
 		if ( ! $sent ) {
@@ -332,29 +332,29 @@ final class Penalis_Emails {
 				$subject = sprintf( '[%s] Karya Tulis Kamu Perlu Revisi', $site );
 				$body   .= sprintf( 'Admin %s telah meninjau karya tulis kamu yang berjudul "%s" dan meminta beberapa revisi sebelum dapat diterbitkan.', $site, $title ) . "\n\n";
 				if ( '' !== $clean_note ) {
-					$body .= "Catatan tinjauan admin:\n" . $clean_note . "\n\n";
+					$body .= "Catatan review admin:\n" . $clean_note . "\n\n";
 				}
-				$body .= "Buka dasbor penulis untuk memperbaiki draf dan mengajukannya ulang:\n\n";
+				$body .= "Buka dashboard penulis untuk memperbaiki draft dan submit ulang:\n\n";
 				$body .= $editor_url . "\n";
 				break;
 
 			case Penalis_Editorial_Policy::ACTION_REJECT:
-				$subject = sprintf( '[%s] Pembaruan Tinjauan Karya Tulis Kamu', $site );
-				$body   .= sprintf( 'Terima kasih telah mengirimkan karya tulis berjudul "%s" ke %s. Setelah ditinjau oleh admin, karya tulis ini belum dapat diterbitkan.', $title, $site ) . "\n\n";
+				$subject = sprintf( '[%s] Pembaruan Review Karya Tulis Kamu', $site );
+				$body   .= sprintf( 'Terima kasih telah mengirimkan karya tulis berjudul "%s" ke %s. Setelah di-review oleh admin, karya tulis ini belum dapat diterbitkan.', $title, $site ) . "\n\n";
 				if ( '' !== $clean_note ) {
-					$body .= "Catatan tinjauan admin:\n" . $clean_note . "\n\n";
+					$body .= "Catatan review admin:\n" . $clean_note . "\n\n";
 				}
-				$body .= "Karya tulis yang ditolak tidak dapat diajukan ulang kecuali dibuka kembali oleh admin. Kamu dapat melihat detail tinjauan di dasbor penulis:\n\n";
+				$body .= "Karya tulis yang ditolak tidak dapat di-submit ulang kecuali dibuka kembali oleh admin. Kamu dapat melihat detail review di dashboard penulis:\n\n";
 				$body .= $editor_url . "\n";
 				break;
 
 			case Penalis_Editorial_Policy::ACTION_REOPEN:
 				$subject = sprintf( '[%s] Karya Tulis Kamu Dibuka Kembali untuk Revisi', $site );
-				$body   .= sprintf( 'Admin %s telah membuka kembali karya tulis kamu yang berjudul "%s". Kamu kini dapat menyunting draf tersebut dan mengajukannya ulang untuk ditinjau.', $site, $title ) . "\n\n";
+				$body   .= sprintf( 'Admin %s telah membuka kembali karya tulis kamu yang berjudul "%s". Kamu kini dapat edit draft tersebut dan submit ulang untuk di-review.', $site, $title ) . "\n\n";
 				if ( '' !== $clean_note ) {
 					$body .= "Catatan admin:\n" . $clean_note . "\n\n";
 				}
-				$body .= "Buka karya tulis kamu di dasbor penulis:\n\n";
+				$body .= "Buka karya tulis kamu di dashboard penulis:\n\n";
 				$body .= $editor_url . "\n";
 				break;
 
@@ -368,7 +368,7 @@ final class Penalis_Emails {
 				if ( is_string( $public_url ) && '' !== $public_url ) {
 					$body .= 'Lihat karya tulis yang telah terbit: ' . $public_url . "\n\n";
 				}
-				$body .= "Buka detail karya tulis di dasbor penulis:\n\n";
+				$body .= "Buka detail karya tulis di dashboard penulis:\n\n";
 				$body .= $editor_url . "\n";
 				break;
 		}
@@ -381,7 +381,7 @@ final class Penalis_Emails {
 			$author->user_email,
 			$subject,
 			$body,
-			'Email ini dikirim otomatis. Kamu menerima email ini karena ada pembaruan status tinjauan karya tulis di akun Penalis kamu. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.'
+			'Email ini dikirim otomatis. Kamu menerima email ini karena ada pembaruan status review karya tulis di akun Penalis kamu. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.'
 		);
 
 		if ( ! $sent ) {

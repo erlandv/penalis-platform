@@ -2545,8 +2545,8 @@ penalis_same( 'publish', $guest_publish['post_status'], 'An anonymous insert is 
  * ---------------------------------------------------------------------- */
 
 // Labels are user-facing Indonesian copy, not internal state codes.
-penalis_same( 'Draf', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_DRAFT ), 'Draft has an Indonesian label.' );
-penalis_same( 'Menunggu tinjauan', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ), 'Pending review has an Indonesian label.' );
+penalis_same( 'Draft', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_DRAFT ), 'Draft has an Indonesian label.' );
+penalis_same( 'Menunggu review', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ), 'Pending review has an Indonesian label.' );
 penalis_same( 'Perlu revisi', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED ), 'Requested changes has an Indonesian label.' );
 penalis_same( 'Ditolak', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_REJECTED ), 'Rejected has an Indonesian label.' );
 penalis_same( 'Terbit', Penalis_Editorial_Policy::state_label( Penalis_Editorial_Policy::STATE_PUBLISHED ), 'Published has an Indonesian label.' );
@@ -2556,8 +2556,8 @@ penalis_same( 'Disetujui dan diterbitkan', Penalis_Editorial_Policy::action_labe
 penalis_same( 'Diminta revisi', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ), 'Requested changes has an Indonesian label.' );
 penalis_same( 'Ditolak', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_REJECT ), 'Rejection has an Indonesian label.' );
 penalis_same( 'Dibuka kembali', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_REOPEN ), 'Reopen has an Indonesian label.' );
-penalis_same( 'Diajukan penulis', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_SUBMIT ), 'Submission has an Indonesian label.' );
-penalis_same( 'Diajukan ulang penulis', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_RESUBMIT ), 'Resubmission has an Indonesian label.' );
+penalis_same( 'Di-submit penulis', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_SUBMIT ), 'Submission has an Indonesian label.' );
+penalis_same( 'Di-submit ulang penulis', Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::ACTION_RESUBMIT ), 'Resubmission has an Indonesian label.' );
 
 // The buttons shown must match the transitions the state machine accepts.
 penalis_same(
@@ -2760,7 +2760,7 @@ $initial_article = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/
 penalis_assert( $initial_article instanceof WP_REST_Response, 'The owner may fetch their draft article.' );
 $initial_data = $initial_article->get_data();
 penalis_same( Penalis_Editorial_Policy::STATE_DRAFT, $initial_data['editorialState'], 'A new draft reports the draft editorial state.' );
-penalis_same( 'Draf', $initial_data['editorialStateLabel'], 'A new draft reports the Indonesian state label.' );
+penalis_same( 'Draft', $initial_data['editorialStateLabel'], 'A new draft reports the Indonesian state label.' );
 penalis_assert( true === $initial_data['canEdit'], 'A draft is editable by its owner.' );
 penalis_assert( true === $initial_data['canSubmit'], 'A draft can be submitted by its owner.' );
 penalis_assert( false === $initial_data['canResubmit'], 'A draft cannot be resubmitted before a review.' );
@@ -2769,7 +2769,7 @@ $submit_resp = Penalis_Rest_Api::submit_article( new WP_REST_Request( 'POST', '/
 penalis_assert( $submit_resp instanceof WP_REST_Response, 'A complete draft is accepted for review.' );
 $submit_data = $submit_resp->get_data();
 penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $submit_data['editorialState'], 'Submission moves the article to pending review.' );
-penalis_same( 'Menunggu tinjauan', $submit_data['editorialStateLabel'], 'Submission reports the pending review label.' );
+penalis_same( 'Menunggu review', $submit_data['editorialStateLabel'], 'Submission reports the pending review label.' );
 penalis_assert( false === $submit_data['canEdit'], 'A submission under review is locked from writer edits.' );
 penalis_assert( false === $submit_data['canSubmit'], 'A submission under review cannot be submitted again.' );
 penalis_assert( false === $submit_data['canResubmit'], 'A submission under review cannot be resubmitted.' );
@@ -2885,7 +2885,7 @@ $valid_item = array(
 	'id'         => 'notif_1',
 	'type'       => Penalis_Editorial_Policy::ACTION_SUBMIT,
 	'article_id' => 600,
-	'message'    => 'Karya tulis menunggu tinjauan.',
+	'message'    => 'Karya tulis menunggu review.',
 	'created_at' => 1700000000,
 	'read_at'    => 0,
 );
@@ -2943,7 +2943,7 @@ $review_mail = Penalis_Email_Template::render(
 	"Ada kiriman baru.\n\nhttps://example.com/wp-admin/admin.php?page=penalis-review&post_id=600",
 	'Karya Tulis Baru'
 );
-penalis_assert( false !== strpos( $review_mail, 'Tinjau Karya Tulis' ), 'Review email CTA uses the Tinjau Karya Tulis label.' );
+penalis_assert( false !== strpos( $review_mail, 'Review Karya Tulis' ), 'Review email CTA uses the Review Karya Tulis label.' );
 
 penalis_same(
 	'https://example.com/wp-admin/admin.php?page=penalis-platform',
@@ -2958,12 +2958,12 @@ penalis_same(
 penalis_same(
 	'https://example.com/wp-admin/admin.php?page=penalis-review&state=pending_review',
 	Penalis_Editorial_Admin::list_url(),
-	'Editorial review list URL points to the Tinjauan Karya submenu under admin.php.'
+	'Editorial review list URL points to the Review Karya Tulis submenu under admin.php.'
 );
 penalis_same(
 	'https://example.com/wp-admin/admin.php?page=penalis-review&post_id=600',
 	Penalis_Editorial_Admin::detail_url( 600 ),
-	'Editorial review detail URL points to the Tinjauan Karya submenu under admin.php.'
+	'Editorial review detail URL points to the Review Karya Tulis submenu under admin.php.'
 );
 penalis_assert(
 	Penalis_Admin::is_penalis_screen( 'toplevel_page_penalis-platform' ),
@@ -3066,7 +3066,7 @@ penalis_same( '', $writer_notifs[0]['reviewUrl'], 'Non-admin writer notification
 Penalis_Editorial_Workflow::apply( 600, Penalis_Editorial_Policy::ACTION_RESUBMIT, array( 'actor_id' => 10 ) );
 penalis_same( 3, count( $GLOBALS['penalis_test_mail'] ), 'Resubmitting sends an email to admin_email.' );
 penalis_same( 'admin@example.com', $GLOBALS['penalis_test_mail'][2][0], 'Resubmission email is addressed to admin_email.' );
-penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][2][1], 'Revisi Karya Tulis Menunggu Tinjauan' ), 'Resubmission email has the resubmission subject.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][2][1], 'Revisi Karya Tulis Menunggu Review' ), 'Resubmission email has the resubmission subject.' );
 penalis_same( 2, Penalis_Editorial_Notifications::count_unread( 20 ), 'Administrator now has two unread notifications.' );
 penalis_same( 3, Penalis_Editorial_Notifications::count_unread( 10 ), 'Writer now has three unread notifications.' );
 

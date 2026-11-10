@@ -80,7 +80,7 @@ export function Overview({
       })
       .catch((caught: unknown) => {
         if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'Artikel Anda tidak dapat dimuat.');
+          setError(caught instanceof ApiError ? caught.message : 'Karya tulis kamu tidak dapat dimuat.');
         }
       })
       .finally(() => {
@@ -140,11 +140,11 @@ export function Overview({
     <div className="penalis-stack">
       <section className="penalis-hero">
         <div>
-          <p className="penalis-eyebrow">Selamat datang kembali</p>
+          <p className="penalis-eyebrow">Halo sahabat Penalis</p>
           <h2>{account.displayName}</h2>
           <p className="penalis-muted">
             {account.canWrite
-              ? 'Di dasbor ini kamu dapat menulis draf karya tulis, mengajukannya untuk ditinjau admin, dan memantau status penerbitan karyamu di satu tempat.'
+              ? 'Di dashboard penulis ini kamu dapat menulis draft, submit karya tulis untuk di-review admin, dan memantau status submit karyamu di satu tempat. Jadi, mau menulis apa hari ini?'
               : 'Akun Penalis kamu saat ini belum dapat mengelola karya tulis. Kamu dapat meninjau detail akun di bawah ini. Jika ada pertanyaan, hubungi admin Penalis.'}
           </p>
         </div>
@@ -154,16 +154,16 @@ export function Overview({
       </section>
 
       <section className="penalis-cards" aria-label="Ringkasan karya tulis">
-        <StatCard label="Total karya tulis" value={counts.all} />
+        <StatCard label="Total karya" value={counts.all} />
         <StatCard label="Diterbitkan" value={counts.publish} />
-        <StatCard label="Menunggu tinjauan" value={counts.pending} />
-        <StatCard label="Draf" value={counts.draft} />
+        <StatCard label="Menunggu review" value={counts.pending} />
+        <StatCard label="Draft" value={counts.draft} />
       </section>
 
       {account.canWrite ? (
         <div className="penalis-actions-row">
           <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
-            Tulis karya tulis baru
+            Buat karya baru
           </button>
           <button type="button" className="penalis-button penalis-button--ghost" onClick={onOpenArticles}>
             Lihat semua karya tulis
@@ -172,10 +172,10 @@ export function Overview({
       ) : null}
 
       {account.canWrite || account.isAdministrator ? (
-        <section className="penalis-panel" aria-label="Notifikasi tinjauan">
+        <section className="penalis-panel" aria-label="Notifikasi review karya tulis">
           <div className="penalis-panel__header">
             <div className="penalis-notification-header">
-              <h3>Notifikasi Tinjauan</h3>
+              <h3>Notifikasi Review Karya Tulis</h3>
               {unreadCount > 0 ? (
                 <StatusBadge status="pending_review" label={`${unreadCount} belum dibaca`} />
               ) : null}
@@ -198,8 +198,7 @@ export function Overview({
             <ErrorBanner message={notificationsError} onRetry={() => void loadNotifications()} />
           ) : !notifications || notifications.items.length === 0 ? (
             <p className="penalis-muted">
-              Belum ada notifikasi tinjauan. Pembaruan pengajuan, catatan revisi, dan penerbitan karya tulismu
-              akan muncul di sini.
+              Belum ada notifikasi. Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.
             </p>
           ) : (
             <>
@@ -237,7 +236,7 @@ export function Overview({
                           className="penalis-notification-action penalis-notification-action--primary"
                           href={item.reviewUrl}
                         >
-                          Tinjau di WP Admin
+                          Review di WP Admin
                         </a>
                       ) : null}
 
@@ -282,7 +281,7 @@ export function Overview({
 
         {!account.canWrite ? (
           <p className="penalis-muted">
-            Kamu dapat menulis dan mengajukan karya tulismu setelah alamat email kamu dikonfirmasi.
+            Kamu dapat menulis dan submit karya tulismu setelah alamat email kamu dikonfirmasi.
           </p>
         ) : loading ? (
           <Spinner label="Memuat karya tulismu…" />
@@ -291,7 +290,7 @@ export function Overview({
         ) : data && data.items.length === 0 ? (
           <EmptyState
             title="Belum ada karya"
-            description="Karya tulis pertama kamu dimulai di sini. Kamu dapat menyimpan draf dan kembali kapan saja."
+            description="Karya tulis pertama kamu dimulai di sini. Kamu dapat menyimpan draft dan kembali kapan saja."
             action={
               <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
                 Buat karya tulis pertama

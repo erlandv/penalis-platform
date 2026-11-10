@@ -279,7 +279,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
       <div className="penalis-page-heading">
         <div>
           <h2>Pengaturan Akun</h2>
-          <p className="penalis-muted">Tinjau informasi akun kamu, ubah username, email, dan password kamu di sini.</p>
+          <p className="penalis-muted">Periksa informasi akun Penalis kamu, ubah username, email, dan password kamu di sini.</p>
         </div>
       </div>
 

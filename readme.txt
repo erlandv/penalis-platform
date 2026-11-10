@@ -32,9 +32,9 @@ Key features:
   administrator vouching, which immediately activates the account while
   preserving existing user IDs, authored posts, and author archives.
 * **Editorial submission and review workflow.** Writers save drafts and submit
-  them for review (`Ajukan Tinjauan` / `Ajukan Ulang`). Writers cannot publish
+  them for review (`Submit Review` / `Submit Ulang`). Writers cannot publish
   directly and cannot edit published articles. Administrators review submissions
-  in a 2-column workspace under **Penalis → Tinjauan Karya**, where they can
+  in a 2-column workspace under **Penalis → Review Karya Tulis**, where they can
   approve and publish, request revisions with required feedback, reject with
   required feedback, or reopen a rejected submission.
 * **Email and in-dashboard notifications.** Submissions and review decisions
@@ -47,7 +47,7 @@ Key features:
   settings (password change, verified email change, and re-authenticated
   username change with 301 author-archive redirects).
 * **Unified WordPress admin console (`Penalis`).** Groups **Ringkasan**,
-  **Tinjauan Karya**, and **Penulis Penalis** under one top-level menu with
+  **Review Karya Tulis**, and **Penulis Penalis** under one top-level menu with
   pending notification badges and confirmation dialogs on all administrative
   actions.
 
@@ -83,7 +83,7 @@ submissions and manage writer accounts.
 = Can a writer publish an article directly or edit an already published article? =
 
 No. Writers can only save drafts and submit or resubmit them for review. Only an
-administrator approval action under **Penalis → Tinjauan Karya** can publish an
+administrator approval action under **Penalis → Review Karya Tulis** can publish an
 article, and published articles are strictly read-only for writers both in the
 dashboard UI and at the REST API level.
 
@@ -122,7 +122,7 @@ renamed executable files are rejected.
 * React writing dashboard (`/dashboard/`) with lazy-loaded TipTap WYSIWYG
   editor, raw HTML mode, media library, profile & avatar management, verified
   email change, and re-authenticated username change with 301 author redirects.
-* Unified **Penalis** WordPress admin console (**Ringkasan**, **Tinjauan Karya**,
+* Unified **Penalis** WordPress admin console (**Ringkasan**, **Review Karya Tulis**,
   and **Penulis Penalis**) with externalized admin assets (`assets/css/admin.css`,
   `assets/js/admin-review.js`) and confirmation dialogs for all reviewer and
   account actions.

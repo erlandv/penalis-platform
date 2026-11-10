@@ -106,7 +106,7 @@ export function Editor({
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('draft');
   const [editorialState, setEditorialState] = useState<EditorialState>('draft');
-  const [editorialStateLabel, setEditorialStateLabel] = useState('Draf');
+  const [editorialStateLabel, setEditorialStateLabel] = useState('Draft');
   const [canEdit, setCanEdit] = useState(true);
   const [canSubmit, setCanSubmit] = useState(true);
   const [canResubmit, setCanResubmit] = useState(false);
@@ -242,7 +242,7 @@ export function Editor({
         }),
       );
     } catch (caught) {
-      setLoadError(caught instanceof ApiError ? caught.message : 'Artikel ini tidak dapat dimuat.');
+      setLoadError(caught instanceof ApiError ? caught.message : 'Karya tulis ini tidak dapat dimuat.');
     } finally {
       setLoading(false);
     }
@@ -260,9 +260,9 @@ export function Editor({
     try {
       const review = await articlesApi.review(id);
       applyReviewState(review);
-      setNotice('Status tinjauan terbaru berhasil dimuat.');
+      setNotice('Status review terbaru berhasil dimuat.');
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Status tinjauan terbaru tidak dapat dimuat.');
+      setError(caught instanceof ApiError ? caught.message : 'Status review terbaru tidak dapat dimuat.');
     } finally {
       setSaving(false);
     }
@@ -349,7 +349,7 @@ export function Editor({
       const uploaded = await mediaApi.upload(file);
       setMedia((current) => [uploaded, ...current]);
     } catch (caught) {
-      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat diunggah.');
+      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat di-upload.');
     } finally {
       setUploading(false);
     }
@@ -452,7 +452,7 @@ export function Editor({
 
       setId(result.id);
       setStatus(result.status);
-      setNotice('Draf karya tulis telah disimpan.');
+      setNotice('Draft karya tulis telah disimpan.');
       // The server may normalise the payload (kses filtering, slug, status),
       // so the baseline is rebuilt from what was actually sent plus the status
       // the server reported back.
@@ -476,7 +476,7 @@ export function Editor({
         setErrors(caught.fields);
         setError(caught.message);
       } else {
-        setError('Draf karya tulis tidak dapat disimpan.');
+        setError('Draft karya tulis tidak dapat disimpan.');
       }
     } finally {
       setSaving(false);
@@ -540,8 +540,8 @@ export function Editor({
       setNotice(
         review.message ||
         (canResubmit
-          ? 'Revisi karya tulis kamu telah diajukan ulang untuk ditinjau admin.'
-          : 'Karya tulis kamu telah diajukan dan sedang menunggu tinjauan admin.'),
+          ? 'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.'
+          : 'Karya tulis kamu telah di-submit dan sedang menunggu review admin.'),
       );
       setSubmitConfirmOpen(false);
       onSaved(targetId);
@@ -553,7 +553,7 @@ export function Editor({
         setErrors(caught.fields);
         setError(caught.message);
       } else {
-        setError('Karya tulis tidak dapat diajukan untuk ditinjau.');
+        setError('Karya tulis tidak dapat di-submit untuk di-review.');
       }
       setSubmitConfirmOpen(false);
     } finally {
@@ -570,7 +570,7 @@ export function Editor({
    * Leave the editor, asking first when there is unsaved work.
    *
    * "Batal" used to navigate away immediately, so a mis-click next to
-   * "Pratinjau" threw away everything typed since the last save with no way
+   * "Preview" threw away everything typed since the last save with no way
    * back. The confirmation is the browser's own dialog: it is the only prompt
    * that also covers closing the tab, and it needs no extra UI.
    */
@@ -613,7 +613,7 @@ export function Editor({
   }, [content, title]);
 
   if (loading) {
-    return <Spinner label="Memuat artikel…" />;
+    return <Spinner label="Memuat karya tulis…" />;
   }
 
   if (loadError) {
@@ -674,7 +674,7 @@ export function Editor({
 
         <div className="penalis-action-bar__actions">
           <button type="button" className="penalis-button penalis-button--ghost" onClick={() => setPreviewOpen(true)}>
-            Pratinjau
+            Preview
           </button>
           {editorialState === 'published' && link ? (
             <a
@@ -694,7 +694,7 @@ export function Editor({
               onClick={() => void saveDraft()}
               disabled={saving || !isDirty}
             >
-              {saving ? 'Menyimpan…' : 'Simpan Draf'}
+              {saving ? 'Menyimpan…' : 'Simpan Draft'}
             </button>
           ) : null}
           {canEdit && (canSubmit || canResubmit) ? (
@@ -704,7 +704,7 @@ export function Editor({
               onClick={() => setSubmitConfirmOpen(true)}
               disabled={saving}
             >
-              {canResubmit ? 'Ajukan Ulang' : 'Ajukan Tinjauan'}
+              {canResubmit ? 'Submit Ulang' : 'Submit Review'}
             </button>
           ) : null}
         </div>
@@ -712,30 +712,30 @@ export function Editor({
 
       {editorialState === 'published' ? (
         <Notice tone="info">
-          <strong>Karya tulis sudah publish (read-only mode).</strong> Karya yang telah publish tidak dapat diubah oleh
-          penulis. Jika ada perubahan atau perbaikan yang diperlukan, silakan ajukan permintaan kepada admin Penalis.
+          <strong>Karya tulis ini sudah terbit (read-only mode).</strong> Karya yang sudah terbit tidak dapat di-edit oleh
+          penulis. Jika ada perubahan atau perbaikan yang diperlukan, hubungi admin Penalis.
         </Notice>
       ) : null}
 
       {editorialState === 'pending_review' ? (
         <Notice tone="info">
-          <strong>Sedang menunggu tinjauan admin.</strong> Karya tulis ini sedang berada dalam antrean tinjauan
-          {reviewCycle > 0 ? ` (siklus ${reviewCycle})` : ''} dan dikunci sementara agar isi yang ditinjau admin tetap
+          <strong>Sedang menunggu review admin.</strong> Karya tulis ini sedang berada dalam antrean review
+          {reviewCycle > 0 ? ` (siklus ${reviewCycle})` : ''} dan dikunci sementara agar isi yang di-review admin tetap
           konsisten.
         </Notice>
       ) : null}
 
       {editorialState === 'changes_requested' ? (
         <Notice tone="warning">
-          <strong>Perlu revisi dari penulis.</strong> Admin telah meninjau karya tulis ini dan memberikan catatan
-          perbaikan. Silakan perbarui karya tulismu sesuai catatan di bawah, simpan draf bila perlu, lalu klik{' '}
-          <strong>Ajukan Ulang</strong>.
+          <strong>Perlu revisi dari penulis.</strong> Admin telah me-review karya tulis ini dan memberikan catatan
+          perbaikan. Silakan perbarui karya tulismu sesuai catatan di bawah, simpan draft bila perlu, lalu klik{' '}
+          <strong>Submit Ulang</strong>.
         </Notice>
       ) : null}
 
       {editorialState === 'rejected' ? (
         <Notice tone="warning">
-          <strong>Pengajuan karya tulis ditolak.</strong> Karya tulis ini dikunci dan tidak dapat diajukan ulang kecuali
+          <strong>Submit karya tulis ditolak.</strong> Karya tulis ini dikunci dan tidak dapat di-submit ulang kecuali
           admin membukanya kembali untuk revisi.
         </Notice>
       ) : null}
@@ -744,7 +744,7 @@ export function Editor({
         <Notice tone="warning">
           <div className="penalis-stale-banner">
             <span>
-              Status tinjauan karya tulis ini telah berubah di server. Muat ulang data terbaru sebelum melanjutkan.
+              Status review karya tulis ini telah berubah di server. Refresh data terbaru sebelum melanjutkan.
             </span>
             <button
               type="button"
@@ -752,7 +752,7 @@ export function Editor({
               onClick={() => void (id ? load() : refreshReviewState())}
               disabled={saving}
             >
-              Muat ulang status terbaru
+              Refresh status terbaru
             </button>
           </div>
         </Notice>
@@ -764,14 +764,14 @@ export function Editor({
       <div className="penalis-editor">
         <div className="penalis-editor__main">
           {feedback ? (
-            <section className="penalis-panel penalis-editorial-feedback" aria-label="Catatan tinjauan admin">
+            <section className="penalis-panel penalis-editorial-feedback" aria-label="Catatan review admin">
               <div className="penalis-panel__header">
-                <h3>Catatan Tinjauan Admin</h3>
+                <h3>Catatan Review Admin</h3>
                 {reviewCycle > 0 ? <span className="penalis-muted">Siklus {reviewCycle}</span> : null}
               </div>
               <p className="penalis-editorial-feedback__body">{feedback}</p>
               {reviewedAt ? (
-                <p className="penalis-fineprint">Ditinjau pada {formatDate(reviewedAt)}</p>
+                <p className="penalis-fineprint">Di-review pada {formatDate(reviewedAt)}</p>
               ) : null}
             </section>
           ) : null}
@@ -802,7 +802,7 @@ export function Editor({
                 <div className="penalis-editor-fallback">
                   <p className="penalis-muted">
                     Editor visual tidak dapat dimuat. Kamu tetap bisa menulis di kolom HTML di bawah ini,
-                    atau muat ulang halaman untuk mencoba lagi.
+                    atau refresh halaman untuk mencoba lagi.
                   </p>
                   <textarea
                     className="penalis-editor-html"
@@ -837,9 +837,9 @@ export function Editor({
         </div>
 
         <aside className="penalis-editor__side">
-          <section className="penalis-panel" aria-label="Status dan riwayat tinjauan">
+          <section className="penalis-panel" aria-label="Status dan riwayat review">
             <div className="penalis-panel__header">
-              <h3>Status Tinjauan</h3>
+              <h3>Status Review</h3>
               <StatusBadge
                 status={editorialState}
                 label={editorialStateLabel || formatEditorialStateLabel(editorialState)}
@@ -848,18 +848,18 @@ export function Editor({
 
             <dl className="penalis-editorial-meta">
               <div>
-                <dt>Siklus tinjauan</dt>
-                <dd>{reviewCycle > 0 ? `Siklus ${reviewCycle}` : 'Belum diajukan'}</dd>
+                <dt>Review cycle</dt>
+                <dd>{reviewCycle > 0 ? `Cycle ${reviewCycle}` : 'Belum di-submit'}</dd>
               </div>
               {submittedAt ? (
                 <div>
-                  <dt>Terakhir diajukan</dt>
+                  <dt>Terakhir di-submit</dt>
                   <dd>{formatDate(submittedAt)}</dd>
                 </div>
               ) : null}
               {reviewedAt ? (
                 <div>
-                  <dt>Terakhir ditinjau</dt>
+                  <dt>Terakhir di-review</dt>
                   <dd>{formatDate(reviewedAt)}</dd>
                 </div>
               ) : null}
@@ -872,15 +872,15 @@ export function Editor({
                 onClick={() => void refreshReviewState()}
                 disabled={saving}
               >
-                Perbarui status tinjauan
+                Perbarui status review
               </button>
             ) : null}
 
             {id ? (
               <div className="penalis-editorial-history">
-                <h4>Riwayat Tinjauan</h4>
+                <h4>Riwayat Review</h4>
                 {reviewHistory.length === 0 ? (
-                  <p className="penalis-muted">Belum ada riwayat tinjauan untuk karya tulis ini.</p>
+                  <p className="penalis-muted">Belum ada riwayat review untuk karya tulis ini.</p>
                 ) : (
                   <ol className="penalis-review-history">
                     {reviewHistory.map((entry, index) => (
@@ -1054,7 +1054,7 @@ export function Editor({
               busy={uploading}
               title="Letakkan gambar di sini"
               subtitle="atau klik untuk memilih file"
-              hint="Hanya dapat mengunggah file JPEG, PNG, GIF, atau WebP."
+              hint="Hanya dapat upload file JPEG, PNG, GIF, atau WebP."
             />
 
             {uploadError ? <ErrorBanner message={uploadError} /> : null}
@@ -1063,7 +1063,7 @@ export function Editor({
               <Spinner label="Memuat media…" />
             ) : media.length === 0 ? (
               <p className="penalis-muted">
-                Kamu belum mengunggah media apa pun. Gunakan kontrol unggah di atas untuk menambahkan gambar pertama.
+                Kamu belum upload media apa pun. Gunakan kontrol upload di atas untuk menambahkan gambar pertama.
               </p>
             ) : (
 
@@ -1075,10 +1075,10 @@ export function Editor({
       ) : null}
 
       {previewOpen ? (
-        <Dialog label="Pratinjau artikel" onClose={closePreview}>
+        <Dialog label="Preview karya tulis" onClose={closePreview}>
           <div className="penalis-modal__content penalis-modal__content--wide">
             <div className="penalis-modal__header">
-              <h3>Pratinjau</h3>
+              <h3>Preview</h3>
               <div className="penalis-row-actions">
                 {editorialState === 'published' && link ? (
                   <a
@@ -1100,7 +1100,7 @@ export function Editor({
               </div>
             </div>
             <iframe
-              title="Pratinjau karya tulis"
+              title="Preview karya tulis"
               className="penalis-preview-frame"
               sandbox=""
               srcDoc={previewDocument}
@@ -1111,20 +1111,20 @@ export function Editor({
 
       {submitConfirmOpen ? (
         <ConfirmDialog
-          title={canResubmit ? 'Ajukan ulang revisi karya tulis?' : 'Ajukan karya tulis untuk ditinjau?'}
+          title={canResubmit ? 'Submit ulang revisi karya tulis?' : 'Submit karya tulis untuk di-review?'}
           description={
             <>
               <p>
-                Karya tulis berjudul <strong>{title.trim() || 'Tanpa judul'}</strong> akan dikirim ke antrean tinjauan
+                Karya tulis berjudul <strong>{title.trim() || 'Tanpa judul'}</strong> akan dikirim ke antrean review
                 admin Penalis.
               </p>
               <p className="penalis-muted">
-                Selama proses tinjauan berlangsung, karya tulis tidak dapat diubah sampai admin memberikan keputusan
+                Selama proses review berlangsung, karya tulis tidak dapat diubah sampai admin memberikan keputusan
                 (menyetujui untuk terbit, meminta revisi, atau menolak).
               </p>
             </>
           }
-          confirmLabel={canResubmit ? 'Ajukan Ulang' : 'Ajukan Tinjauan'}
+          confirmLabel={canResubmit ? 'Submit Ulang' : 'Submit Review'}
           tone="warning"
           busy={saving}
           onConfirm={() => void submitForReview()}

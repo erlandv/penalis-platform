@@ -124,7 +124,7 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
 1. **Activation & Admin Console**
    - Activate **Penalis Platform**, save **Settings → Permalinks**, and verify
      that `/dashboard/` loads and the top-level **Penalis** menu appears in
-     `wp-admin` with submenus **Ringkasan**, **Tinjauan Karya**, and
+     `wp-admin` with submenus **Ringkasan**, **Review Karya Tulis**, and
      **Penulis Penalis**.
 2. **Registration & Email Verification**
    - Register a new account from `/dashboard/?penalis_register=1` (including an
@@ -143,18 +143,18 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
      actions (`Tangguhkan` and `Aktifkan kembali`).
 4. **Draft Creation & Editorial Submission**
    - Sign in as the approved writer, create a draft with title, content,
-     category, tag, and featured image, and click **Simpan Draf**.
-   - Click **Ajukan Tinjauan** and confirm. Verify the article state changes to
-     **Menunggu tinjauan**, the editor switches to read-only mode, the admin
+     category, tag, and featured image, and click **Simpan Draft**.
+   - Click **Submit Review** and confirm. Verify the article state changes to
+     **Menunggu review**, the editor switches to read-only mode, the admin
      receives a submission email, and the **Penalis** admin menu shows a pending
      badge.
 5. **Editorial Review: Request Changes & Resubmission**
-   - As an administrator, open **Penalis → Tinjauan Karya**, select the
+   - As an administrator, open **Penalis → Review Karya Tulis**, select the
      submission, enter feedback, click **Minta revisi**, and confirm in the
      dialog.
    - Verify the writer receives an email and a compact unread notification on
      the dashboard **Ringkasan** screen, can edit the article again, and can
-     click **Ajukan Ulang**.
+     click **Submit Ulang**.
 6. **Editorial Review: Approval & Read-Only Published State**
    - As an administrator, click **Setujui dan terbitkan** and confirm.
    - Verify the article is published on the public site, the writer receives a

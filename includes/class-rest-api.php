@@ -478,7 +478,7 @@ final class Penalis_Rest_Api {
 		if ( ! Penalis_Account_Status::can_view_dashboard( $user_id ) ) {
 			return new WP_Error(
 				'penalis_account_inactive',
-				'Akun ini tidak dapat mengakses dasbor penulis.',
+				'Akun ini tidak dapat mengakses dashboard penulis.',
 				array( 'status' => 403 )
 			);
 		}
@@ -1191,7 +1191,7 @@ final class Penalis_Rest_Api {
 		return self::apply_writer_editorial_action(
 			(int) $request->get_param( 'id' ),
 			Penalis_Editorial_Policy::ACTION_SUBMIT,
-			'Karya tulis kamu telah diajukan dan sedang menunggu tinjauan admin.'
+			'Karya tulis kamu telah di-submit dan sedang menunggu review admin.'
 		);
 	}
 
@@ -1205,7 +1205,7 @@ final class Penalis_Rest_Api {
 		return self::apply_writer_editorial_action(
 			(int) $request->get_param( 'id' ),
 			Penalis_Editorial_Policy::ACTION_RESUBMIT,
-			'Revisi karya tulis kamu telah diajukan ulang untuk ditinjau admin.'
+			'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.'
 		);
 	}
 
@@ -1233,7 +1233,7 @@ final class Penalis_Rest_Api {
 			if ( '' === $title || '' === $content ) {
 				return new WP_Error(
 					'penalis_editorial_incomplete',
-					'Judul dan isi karya tulis wajib diisi sebelum diajukan untuk ditinjau.',
+					'Judul dan isi karya tulis wajib diisi sebelum di-submit untuk di-review.',
 					array( 'status' => 400 )
 				);
 			}
@@ -1272,7 +1272,7 @@ final class Penalis_Rest_Api {
 	public static function reject_legacy_publish( $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Route callback signature.
 		return new WP_Error(
 			'penalis_publish_forbidden',
-			'Penerbitan karya tulis dilakukan oleh admin melalui alur tinjauan.',
+			'Penerbitan karya tulis dilakukan oleh admin melalui alur review karya tulis.',
 			array( 'status' => 403 )
 		);
 	}

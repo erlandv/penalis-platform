@@ -29,7 +29,7 @@ export function Media() {
         total: current.total + 1,
       } : { items: [item], total: 1, page: 1, perPage: 10, totalPages: 1 });
     } catch (caught) {
-      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat diunggah.');
+      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat di-upload.');
     } finally {
       setUploading(false);
     }
@@ -49,7 +49,7 @@ export function Media() {
       })
       .catch((caught: unknown) => {
         if (!cancelled) {
-          setError(caught instanceof ApiError ? caught.message : 'Media Anda tidak dapat dimuat.');
+          setError(caught instanceof ApiError ? caught.message : 'Media kamu tidak dapat dimuat.');
         }
       })
       .finally(() => {
@@ -69,7 +69,7 @@ export function Media() {
         <div>
           <h2>Pustaka Media</h2>
           <p className="penalis-muted">
-            Lihat gambar yang pernah kamu unggah atau tambahkan gambar baru di sini.
+            Lihat gambar yang pernah kamu upload atau tambahkan gambar baru di sini.
           </p>
         </div>
       </div>
@@ -91,7 +91,7 @@ export function Media() {
       ) : data && data.items.length === 0 ? (
         <EmptyState
           title="Belum ada media"
-          description="Gambar yang Anda unggah untuk artikel akan tampil di sini."
+          description="Gambar yang kamu upload akan tampil di sini."
         />
       ) : (
         <div className="penalis-media-grid">

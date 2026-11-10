@@ -319,21 +319,21 @@ final class Penalis_Editorial_Notifications {
 		switch ( $action ) {
 			case Penalis_Editorial_Policy::ACTION_SUBMIT:
 				if ( $is_owner ) {
-					return sprintf( 'Karya tulis "%s" telah diajukan dan sedang menunggu tinjauan admin.', $title );
+					return sprintf( 'Karya tulis "%s" telah di-submit dan sedang menunggu review admin.', $title );
 				}
-				return sprintf( 'Karya tulis baru "%s" diajukan penulis dan menunggu tinjauan admin.', $title );
+				return sprintf( 'Karya tulis baru "%s" di-submit penulis dan menunggu review admin.', $title );
 
 			case Penalis_Editorial_Policy::ACTION_RESUBMIT:
 				if ( $is_owner ) {
-					return sprintf( 'Revisi karya tulis "%s" telah diajukan ulang dan sedang menunggu tinjauan admin.', $title );
+					return sprintf( 'Revisi karya tulis "%s" telah di-submit ulang dan sedang menunggu review admin.', $title );
 				}
-				return sprintf( 'Revisi karya tulis "%s" diajukan ulang oleh penulis dan menunggu tinjauan admin.', $title );
+				return sprintf( 'Revisi karya tulis "%s" di-submit ulang oleh penulis dan menunggu review admin.', $title );
 
 			case Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES:
 				if ( '' !== $feedback ) {
 					return sprintf( 'Admin meminta revisi pada karya tulis "%s": %s', $title, $feedback );
 				}
-				return sprintf( 'Admin meminta revisi pada karya tulis "%s". Buka editor untuk melihat catatan tinjauan.', $title );
+				return sprintf( 'Admin meminta revisi pada karya tulis "%s". Buka editor untuk melihat catatan review.', $title );
 
 			case Penalis_Editorial_Policy::ACTION_REJECT:
 				if ( '' !== $feedback ) {
@@ -342,13 +342,13 @@ final class Penalis_Editorial_Notifications {
 				return sprintf( 'Karya tulis "%s" belum dapat diterbitkan oleh admin.', $title );
 
 			case Penalis_Editorial_Policy::ACTION_REOPEN:
-				return sprintf( 'Karya tulis "%s" telah dibuka kembali oleh admin. Kamu kini dapat menyunting dan mengajukannya ulang.', $title );
+				return sprintf( 'Karya tulis "%s" telah dibuka kembali oleh admin. Kamu kini dapat edit dan submit kembali.', $title );
 
 			case Penalis_Editorial_Policy::ACTION_APPROVE:
 				return sprintf( 'Selamat! Karya tulis "%s" telah disetujui admin dan resmi diterbitkan.', $title );
 		}
 
-		return sprintf( 'Status tinjauan karya tulis "%s" telah diperbarui.', $title );
+		return sprintf( 'Status review karya tulis "%s" telah diperbarui.', $title );
 	}
 
 	/**

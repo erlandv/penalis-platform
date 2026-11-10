@@ -723,7 +723,7 @@ final class Penalis_Policy {
 	 */
 	public static function validate_avatar( $mime, $width, $height, $permitted ) {
 		if ( ! $permitted ) {
-			return 'Kamu hanya dapat menggunakan gambar yang kamu unggah sendiri.';
+			return 'Kamu hanya dapat menggunakan gambar yang kamu upload sendiri.';
 		}
 
 		if ( ! in_array( (string) $mime, self::avatar_mimes(), true ) ) {

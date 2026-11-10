@@ -20,8 +20,8 @@ import {
 
 const FILTERS = [
   { value: 'all', label: 'Semua' },
-  { value: 'draft', label: 'Draf' },
-  { value: 'pending_review', label: 'Menunggu tinjauan' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'pending_review', label: 'Menunggu review' },
   { value: 'changes_requested', label: 'Perlu revisi' },
   { value: 'rejected', label: 'Ditolak' },
   { value: 'published', label: 'Terbit' },
@@ -97,11 +97,11 @@ export function Articles({
     setNotice('');
     try {
       const result = await articlesApi.submit(id);
-      setNotice(result.message || 'Karya tulis kamu telah diajukan dan sedang menunggu tinjauan admin.');
+      setNotice(result.message || 'Karya tulis kamu telah di-submit dan sedang menunggu review admin.');
       setPending(null);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat diajukan untuk ditinjau.');
+      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat di-submit untuk di-review.');
       setPending(null);
       if (isStaleEditorialError(caught)) {
         await load();
@@ -117,11 +117,11 @@ export function Articles({
     setNotice('');
     try {
       const result = await articlesApi.resubmit(id);
-      setNotice(result.message || 'Revisi karya tulis kamu telah diajukan ulang untuk ditinjau admin.');
+      setNotice(result.message || 'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.');
       setPending(null);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Revisi karya tulis tidak dapat diajukan ulang.');
+      setError(caught instanceof ApiError ? caught.message : 'Revisi karya tulis tidak dapat di-submit ulang.');
       setPending(null);
       if (isStaleEditorialError(caught)) {
         await load();
@@ -156,7 +156,7 @@ export function Articles({
         <div>
           <h2>Daftar Karya Tulis</h2>
           <p className="penalis-muted">
-            Tinjau dan kelola daftar karya tulismu di sini. Karya yang sudah terbit bersifat read-only; hubungi admin
+            Lihat dan kelola daftar karya tulismu di sini. Karya yang sudah terbit bersifat read-only; hubungi admin Penalis
             jika memerlukan perubahan.
           </p>
         </div>
@@ -218,7 +218,7 @@ export function Articles({
                     <p className="penalis-muted">{truncate(article.excerpt, 100)}</p>
                     {article.feedback ? (
                       <p className="penalis-article-feedback-note">
-                        <strong>Catatan tinjauan:</strong> {truncate(article.feedback, 140)}
+                        <strong>Catatan review:</strong> {truncate(article.feedback, 140)}
                       </p>
                     ) : null}
                   </td>
@@ -235,14 +235,7 @@ export function Articles({
                   </td>
                   <td data-label="Diubah">{formatDate(article.modified)}</td>
                   <td data-label="Tindakan">
-                    {/*
-                      Icon-only actions keep the table readable: four labelled
-                      buttons per row wrapped onto two lines and made the
-                      "Tindakan" column wider than the title column. Each button
-                      carries an `aria-label` that names both the action and the
-                      article, so screen readers still get full context, and a
-                      `title` so a mouse user can hover for the same text.
-                    */}
+
                     <div className="penalis-row-actions penalis-row-actions--compact">
                       <button
                         type="button"
@@ -278,8 +271,8 @@ export function Articles({
                           className="penalis-icon-button"
                           onClick={() => setPending({ kind: 'submit', article })}
                           disabled={busyId === article.id}
-                          aria-label={`Ajukan tinjauan “${article.title || 'Tanpa judul'}”`}
-                          title="Ajukan tinjauan"
+                          aria-label={`Submit review “${article.title || 'Tanpa judul'}”`}
+                          title="Submit review"
                         >
                           <Icon name="send" />
                         </button>
@@ -291,8 +284,8 @@ export function Articles({
                           className="penalis-icon-button"
                           onClick={() => setPending({ kind: 'resubmit', article })}
                           disabled={busyId === article.id}
-                          aria-label={`Ajukan ulang “${article.title || 'Tanpa judul'}”`}
-                          title="Ajukan ulang"
+                          aria-label={`Submit ulang “${article.title || 'Tanpa judul'}”`}
+                          title="Submit ulang"
                         >
                           <Icon name="send" />
                         </button>
@@ -341,20 +334,20 @@ export function Articles({
 
       {pending?.kind === 'submit' ? (
         <ConfirmDialog
-          title="Ajukan karya tulis untuk ditinjau?"
+          title="Submit karya tulis untuk di-review?"
           description={
             <>
               <p>
-                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim ke antrean tinjauan admin
+                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim ke antrean review admin
                 Penalis.
               </p>
               <p className="penalis-muted">
-                Selama proses tinjauan berlangsung, karya tulis dikunci dari perubahan sampai admin menyetujui,
-                meminta revisi, atau menolak pengajuan.
+                Selama proses review berlangsung, karya tulis dikunci dari perubahan sampai admin menyetujui,
+                meminta revisi, atau menolak.
               </p>
             </>
           }
-          confirmLabel="Ajukan Tinjauan"
+          confirmLabel="Submit Review"
           tone="warning"
           busy={busyId === pending.article.id}
           onConfirm={() => void submitForReview(pending.article.id)}
@@ -364,19 +357,19 @@ export function Articles({
 
       {pending?.kind === 'resubmit' ? (
         <ConfirmDialog
-          title="Ajukan ulang revisi karya tulis?"
+          title="Submit ulang revisi karya tulis?"
           description={
             <>
               <p>
                 Revisi untuk <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim kembali ke antrean
-                tinjauan admin Penalis.
+                review admin Penalis.
               </p>
               <p className="penalis-muted">
-                Pastikan kamu sudah memperbarui karya tulis sesuai catatan tinjauan admin sebelum mengajukannya ulang.
+                Pastikan kamu sudah memperbarui karya tulis sesuai catatan review admin sebelum submit ulang.
               </p>
             </>
           }
-          confirmLabel="Ajukan Ulang"
+          confirmLabel="Submit Ulang"
           tone="warning"
           busy={busyId === pending.article.id}
           onConfirm={() => void resubmitForReview(pending.article.id)}

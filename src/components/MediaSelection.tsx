@@ -22,7 +22,7 @@ export function MediaSelection({
   onConfirm,
   onCancel,
   busy = false,
-  emptyMessage = 'Belum ada gambar. Unggah gambar terlebih dahulu.',
+  emptyMessage = 'Belum ada gambar. Upload gambar terlebih dahulu.',
 }: {
   items: MediaItem[];
   selectedId: number | null;

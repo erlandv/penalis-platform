@@ -76,7 +76,7 @@ final class Penalis_Admin {
 	 *
 	 * Registered at priority 12 so the submenu order is:
 	 * 1. Ringkasan (priority 10)
-	 * 2. Tinjauan Karya (priority 11)
+	 * 2. Review Karya Tulis (priority 11)
 	 * 3. Penulis Penalis (priority 12)
 	 *
 	 * @return void
@@ -288,14 +288,14 @@ JS;
 		?>
 		<div class="wrap penalis-overview">
 			<h1 class="wp-heading-inline">Penalis Platform</h1>
-			<a href="<?php echo esc_url( Penalis_Editorial_Admin::list_url() ); ?>" class="page-title-action">Tinjauan Karya</a>
+			<a href="<?php echo esc_url( Penalis_Editorial_Admin::list_url() ); ?>" class="page-title-action">Review Karya Tulis</a>
 			<a href="<?php echo esc_url( self::writers_url() ); ?>" class="page-title-action">Penulis Penalis</a>
-			<a href="<?php echo esc_url( Penalis_Dashboard::dashboard_url() ); ?>" class="page-title-action" target="_blank" rel="noopener noreferrer">Buka Dasbor Penulis &nearr;</a>
+			<a href="<?php echo esc_url( Penalis_Dashboard::dashboard_url() ); ?>" class="page-title-action" target="_blank" rel="noopener noreferrer">Buka Dashboard Penulis &nearr;</a>
 			<hr class="wp-header-end">
 
 			<p class="penalis-intro">
-				Pusat kurasi komunitas Penalis. Pantau antrean karya tulis yang menunggu tinjauan dan
-				kelola akun penulis komunitas di satu tempat.
+				Pusat kurasi Penalis. Pantau antrean karya tulis yang menunggu review dan
+				kelola akun penulis di satu tempat.
 			</p>
 
 			<div class="penalis-overview__section">
@@ -305,9 +305,9 @@ JS;
 						href="<?php echo esc_url( Penalis_Editorial_Admin::list_url( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ) ); ?>"
 						class="penalis-overview__stat <?php echo $pending_review_count > 0 ? 'penalis-overview__stat--attention' : ''; ?>"
 					>
-						<span class="penalis-overview__stat-label">Menunggu tinjauan</span>
+						<span class="penalis-overview__stat-label">Menunggu review</span>
 						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $pending_review_count ) ); ?></span>
-						<span class="penalis-overview__stat-hint">Tinjau pengajuan &rarr;</span>
+						<span class="penalis-overview__stat-hint">Review submit &rarr;</span>
 					</a>
 
 					<a
@@ -334,7 +334,7 @@ JS;
 					>
 						<span class="penalis-overview__stat-label">Terbit</span>
 						<span class="penalis-overview__stat-value"><?php echo esc_html( number_format_i18n( $published_article_count ) ); ?></span>
-						<span class="penalis-overview__stat-hint">Lihat artikel terbit &rarr;</span>
+						<span class="penalis-overview__stat-hint">Lihat karya tulis terbit &rarr;</span>
 					</a>
 				</div>
 			</div>
@@ -383,13 +383,13 @@ JS;
 			<div class="penalis-overview__panels">
 				<div class="penalis-overview__card">
 					<div class="penalis-overview__card-header">
-						<h2>Karya Tulis Menunggu Tinjauan</h2>
+						<h2>Karya Tulis Menunggu Review</h2>
 						<a class="penalis-overview__card-link" href="<?php echo esc_url( Penalis_Editorial_Admin::list_url() ); ?>">
 							Lihat semua &rarr;
 						</a>
 					</div>
 					<?php if ( empty( $pending_posts ) ) : ?>
-						<p class="penalis-overview__empty">Tidak ada karya tulis yang menunggu tinjauan saat ini.</p>
+						<p class="penalis-overview__empty">Tidak ada karya tulis yang menunggu review saat ini.</p>
 					<?php else : ?>
 						<ul class="penalis-overview__list">
 							<?php foreach ( $pending_posts as $post ) : ?>
@@ -408,7 +408,7 @@ JS;
 											<?php
 											echo esc_html(
 												sprintf(
-													'%1$s · Siklus #%2$d · %3$s',
+													'%1$s · Review Cycle #%2$d · %3$s',
 													$author ? $author->display_name : 'Penulis tidak ditemukan',
 													$cycle,
 													$submitted > 0 ? date_i18n( 'j M Y H:i', $submitted ) : mysql2date( 'j M Y H:i', $post->post_modified )
@@ -418,7 +418,7 @@ JS;
 										</span>
 									</div>
 									<a class="button button-small button-primary" href="<?php echo esc_url( $detail_url ); ?>">
-										Tinjau
+										Review
 									</a>
 								</li>
 							<?php endforeach; ?>

@@ -782,8 +782,8 @@
 /**
  * Secondary-but-important action.
  *
- * "Simpan draf" is the action a writer uses most, yet it used to look exactly
- * like "Pratinjau" and "Batal". This variant gives it weight without competing
+ * "Simpan draft" is the action a writer uses most, yet it used to look exactly
+ * like "Preview" and "Batal". This variant gives it weight without competing
  * with the single primary action ("Terbitkan").
  */
 .penalis-dashboard-root .penalis-button--soft,

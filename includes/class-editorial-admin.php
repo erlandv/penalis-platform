@@ -44,7 +44,7 @@ final class Penalis_Editorial_Admin {
 	 */
 	public static function register_menu() {
 		$pending    = self::pending_review_count();
-		$menu_title = 'Tinjauan Karya';
+		$menu_title = 'Review Karya Tulis';
 
 		if ( $pending > 0 ) {
 			$menu_title .= sprintf(
@@ -56,7 +56,7 @@ final class Penalis_Editorial_Admin {
 
 		add_submenu_page(
 			Penalis_Admin::MENU_SLUG,
-			'Tinjauan Karya — Penalis Platform',
+			'Review Karya Tulis — Penalis Platform',
 			$menu_title,
 			'edit_others_posts',
 			self::PAGE_SLUG,
@@ -114,7 +114,7 @@ final class Penalis_Editorial_Admin {
 	 */
 	public static function render_page() {
 		if ( ! Penalis_Editorial_Workflow::can_review( get_current_user_id() ) ) {
-			wp_die( 'Kamu tidak memiliki izin untuk meninjau karya tulis.' );
+			wp_die( 'Kamu tidak memiliki izin untuk review karya tulis.' );
 		}
 
 		$post_id = isset( $_GET['post_id'] ) ? (int) $_GET['post_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -137,7 +137,7 @@ final class Penalis_Editorial_Admin {
 		$paged = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		$tabs = array(
-			Penalis_Editorial_Policy::STATE_PENDING_REVIEW => 'Menunggu tinjauan',
+			Penalis_Editorial_Policy::STATE_PENDING_REVIEW => 'Menunggu review',
 			Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED => 'Perlu revisi',
 			Penalis_Editorial_Policy::STATE_REJECTED       => 'Ditolak',
 			Penalis_Editorial_Policy::STATE_PUBLISHED      => 'Terbit',
@@ -153,15 +153,15 @@ final class Penalis_Editorial_Admin {
 
 		?>
 		<div class="wrap penalis-review">
-			<h1 class="wp-heading-inline">Tinjauan Karya</h1>
+			<h1 class="wp-heading-inline">Review Karya Tulis</h1>
 			<hr class="wp-header-end">
 
 			<?php self::render_notices(); ?>
 
 			<p class="penalis-review__intro">
-				Tinjau karya tulis yang diajukan penulis. Menyetujui akan menerbitkan artikel;
+				Review karya tulis yang di-submit penulis. Menyetujui akan menerbitkan karya tulis;
 				meminta revisi atau menolak wajib disertai catatan agar penulis tahu apa yang harus
-				diperbaiki. Artikel yang sudah terbit tidak dapat diedit penulis.
+				diperbaiki. Karya tulis yang sudah terbit tidak dapat di-edit penulis.
 			</p>
 
 			<ul class="subsubsub">
@@ -186,7 +186,7 @@ final class Penalis_Editorial_Admin {
 						<th scope="col">Karya tulis</th>
 						<th scope="col" style="width:18%">Penulis</th>
 						<th scope="col" style="width:15%">Status</th>
-						<th scope="col" style="width:16%">Diajukan</th>
+						<th scope="col" style="width:16%">Di-submit</th>
 						<th scope="col" style="width:12%">Tindakan</th>
 					</tr>
 				</thead>
@@ -211,7 +211,7 @@ final class Penalis_Editorial_Admin {
 									<?php echo esc_html( '' !== $post->post_title ? $post->post_title : '(tanpa judul)' ); ?>
 								</a>
 								<span class="penalis-review__meta">
-									<?php echo esc_html( sprintf( 'Siklus tinjauan #%d', max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) ) ) ); ?>
+									<?php echo esc_html( sprintf( 'Review Cycle #%d', max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) ) ) ); ?>
 								</span>
 							</td>
 							<td>
@@ -233,7 +233,7 @@ final class Penalis_Editorial_Admin {
 								?>
 							</td>
 							<td>
-								<a class="button button-small" href="<?php echo esc_url( $detail_url ); ?>">Tinjau</a>
+								<a class="button button-small" href="<?php echo esc_url( $detail_url ); ?>">Review</a>
 							</td>
 						</tr>
 					<?php endforeach; ?>
@@ -282,7 +282,7 @@ final class Penalis_Editorial_Admin {
 		if ( ! $post || 'post' !== $post->post_type ) {
 			?>
 			<div class="wrap penalis-review">
-				<h1>Tinjauan Karya</h1>
+				<h1>Review Karya Tulis</h1>
 				<p class="penalis-review__empty">Karya tulis tidak ditemukan.</p>
 				<p><a class="button" href="<?php echo esc_url( self::list_url() ); ?>">Kembali ke daftar</a></p>
 			</div>
@@ -304,9 +304,9 @@ final class Penalis_Editorial_Admin {
 		$word_count = '' === $plain_text ? 0 : count( (array) preg_split( '/\s+/u', $plain_text ) );
 		?>
 		<div class="wrap penalis-review">
-			<h1 class="wp-heading-inline">Tinjauan Karya</h1>
+			<h1 class="wp-heading-inline">Review Karya Tulis</h1>
 			<a class="page-title-action" href="<?php echo esc_url( self::list_url( $state ) ); ?>">
-				&larr; Kembali ke daftar tinjauan
+				&larr; Kembali ke daftar review
 			</a>
 			<hr class="wp-header-end">
 
@@ -320,7 +320,7 @@ final class Penalis_Editorial_Admin {
 							<?php echo esc_html( Penalis_Editorial_Policy::state_label( $state ) ); ?>
 						</span>
 						<span class="penalis-review__cycle-badge">
-							<?php echo esc_html( sprintf( 'Siklus tinjauan #%d', $cycle ) ); ?>
+							<?php echo esc_html( sprintf( 'Review Cycle #%d', $cycle ) ); ?>
 						</span>
 					</div>
 
@@ -335,7 +335,7 @@ final class Penalis_Editorial_Admin {
 								target="_blank"
 								rel="noopener noreferrer"
 							>
-								Lihat artikel terbit &nearr;
+								Lihat karya tulis terbit &nearr;
 							</a>
 						<?php endif; ?>
 					</div>
@@ -364,7 +364,7 @@ final class Penalis_Editorial_Admin {
 					</span>
 
 					<?php if ( $submitted > 0 ) : ?>
-						<span><?php echo esc_html( 'Diajukan: ' . date_i18n( 'j M Y H:i', $submitted ) ); ?></span>
+						<span><?php echo esc_html( 'Di-submit: ' . date_i18n( 'j M Y H:i', $submitted ) ); ?></span>
 					<?php endif; ?>
 
 					<?php if ( is_array( $categories ) && ! empty( $categories ) ) : ?>
@@ -411,7 +411,7 @@ final class Penalis_Editorial_Admin {
 						<?php if ( '' !== $thumb_url ) : ?>
 							<figure class="penalis-review__featured">
 								<img src="<?php echo esc_url( $thumb_url ); ?>" alt="" />
-								<figcaption>Gambar unggulan</figcaption>
+								<figcaption>Thumbnail</figcaption>
 							</figure>
 						<?php endif; ?>
 
@@ -424,7 +424,7 @@ final class Penalis_Editorial_Admin {
 				<div class="penalis-review__sidebar">
 					<div class="penalis-review__card">
 						<div class="penalis-review__card-header">
-							<h2>Keputusan Tinjauan</h2>
+							<h2>Keputusan Review</h2>
 						</div>
 						<div class="penalis-review__card-body">
 							<?php if ( ! empty( $actions ) ) : ?>
@@ -440,7 +440,7 @@ final class Penalis_Editorial_Admin {
 					<?php if ( ! empty( $history ) ) : ?>
 						<div class="penalis-review__card">
 							<div class="penalis-review__card-header">
-								<h2>Riwayat Tinjauan</h2>
+								<h2>Riwayat Review</h2>
 								<span class="penalis-review__word-count">
 									<?php echo esc_html( sprintf( '%d aktivitas', count( $history ) ) ); ?>
 								</span>
@@ -506,8 +506,8 @@ final class Penalis_Editorial_Admin {
 
 			<?php if ( $is_reopen_only ) : ?>
 				<p class="penalis-review__decision-help">
-					Karya tulis ini berstatus ditolak. Buka kembali agar penulis dapat menyunting dan
-					mengajukannya ulang untuk ditinjau.
+					Karya tulis ini berstatus ditolak. Buka kembali agar penulis dapat edit dan
+					submit ulang untuk review.
 				</p>
 				<div class="penalis-review__decision-buttons">
 					<button
@@ -533,7 +533,7 @@ final class Penalis_Editorial_Admin {
 						name="feedback"
 						rows="5"
 						aria-describedby="penalis-review-feedback-desc penalis-review-feedback-error"
-						placeholder="Tulis catatan tinjauan atau masukan perbaikan untuk penulis..."
+						placeholder="Tulis catatan review atau feedback perbaikan untuk penulis..."
 					></textarea>
 					<p id="penalis-review-feedback-error" class="penalis-review__field-error" role="alert" hidden></p>
 					<p id="penalis-review-feedback-desc" class="description">
@@ -593,7 +593,7 @@ final class Penalis_Editorial_Admin {
 				>
 					<div class="penalis-confirm-modal__head">
 						<span id="penalis-confirm-badge" class="penalis-badge">Konfirmasi</span>
-						<h4 id="penalis-confirm-title" class="penalis-confirm-modal__title">Konfirmasi Keputusan Tinjauan</h4>
+						<h4 id="penalis-confirm-title" class="penalis-confirm-modal__title">Konfirmasi Keputusan Review</h4>
 					</div>
 					<p id="penalis-confirm-desc" class="penalis-confirm-modal__desc"></p>
 					<div id="penalis-confirm-feedback-box" class="penalis-confirm-modal__feedback">
@@ -623,11 +623,11 @@ final class Penalis_Editorial_Admin {
 	private static function no_action_note( $state ) {
 		switch ( $state ) {
 			case Penalis_Editorial_Policy::STATE_PUBLISHED:
-				return 'Karya tulis ini telah disetujui dan diterbitkan. Tidak ada tindakan tinjauan yang diperlukan.';
+				return 'Karya tulis ini telah disetujui dan diterbitkan. Tidak ada tindakan review yang diperlukan.';
 			case Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED:
-				return 'Menunggu penulis memperbaiki dan mengajukan ulang karya tulis ini.';
+				return 'Menunggu penulis memperbaiki dan submit ulang karya tulis ini.';
 			default:
-				return 'Karya tulis ini masih berupa draf dan belum diajukan untuk ditinjau.';
+				return 'Karya tulis ini masih berupa draft dan belum di-submit untuk di-review.';
 		}
 	}
 
@@ -638,7 +638,7 @@ final class Penalis_Editorial_Admin {
 	 */
 	public static function handle_review_action() {
 		if ( ! Penalis_Editorial_Workflow::can_review( get_current_user_id() ) ) {
-			wp_die( 'Kamu tidak memiliki izin untuk meninjau karya tulis.' );
+			wp_die( 'Kamu tidak memiliki izin untuk me-review karya tulis.' );
 		}
 
 		$post_id = isset( $_POST['post_id'] ) ? (int) $_POST['post_id'] : 0;
@@ -710,10 +710,10 @@ final class Penalis_Editorial_Admin {
 		$key = sanitize_key( wp_unslash( $_GET['penalis_review_message'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		$messages = array(
-			'done'                      => array( 'success', 'Keputusan tinjauan telah disimpan.' ),
-			'invalid_action'            => array( 'error', 'Tindakan tinjauan tersebut tidak diizinkan.' ),
+			'done'                      => array( 'success', 'Keputusan review telah disimpan.' ),
+			'invalid_action'            => array( 'error', 'Tindakan review tersebut tidak diizinkan.' ),
 			'penalis_editorial_denied'  => array( 'error', 'Keputusan tidak dapat diterapkan pada status karya tulis saat ini.' ),
-			'penalis_editorial_busy'    => array( 'error', 'Karya tulis ini sedang diproses admin lain. Coba lagi sebentar lagi.' ),
+			'penalis_editorial_busy'    => array( 'error', 'Karya tulis ini sedang diproses admin lain. Coba sesaat lagi.' ),
 			'penalis_editorial_failed'  => array( 'error', 'Status karya tulis tidak dapat diperbarui.' ),
 			'penalis_not_found'         => array( 'error', 'Karya tulis tidak ditemukan.' ),
 			'penalis_not_authenticated' => array( 'error', 'Sesi kamu berakhir. Silakan login kembali.' ),
@@ -754,9 +754,9 @@ final class Penalis_Editorial_Admin {
 
 		printf(
 			'<div class="notice notice-info"><p>%s <a href="%s">%s</a></p></div>',
-			esc_html( sprintf( '%d karya tulis menunggu tinjauan.', $count ) ),
+			esc_html( sprintf( '%d karya tulis menunggu review.', $count ) ),
 			esc_url( self::list_url() ),
-			'Tinjau karya tulis'
+			'Review karya tulis'
 		);
 	}
 

@@ -67,7 +67,7 @@ register -> verify email -> active writer -> write draft in /dashboard/ -> submi
   administrator visibility in `wp-admin`.
 - Administrators manage writer accounts (including suspending/reactivating and
   viewing Instagram handles) under **Penalis → Penulis Penalis** and review
-  submitted articles under **Penalis → Tinjauan Karya** (with a unified
+  submitted articles under **Penalis → Review Karya Tulis** (with a unified
   overview at **Penalis → Ringkasan**).
 - Active writers receive the `penalis_writer` role and use `/dashboard/` for
   overview, notifications, own articles, editor, media, profile, and settings.
@@ -157,7 +157,7 @@ Invariants that must never be broken:
 penalis-platform.php        Plugin header, constants, Penalis_ autoloader, activation hooks
 uninstall.php               Opt-in cleanup only
 includes/                   PHP classes (Penalis_ prefix, one concern per file)
-assets/css/admin.css        Shared wp-admin stylesheet (Ringkasan, Tinjauan Karya, Penulis Penalis)
+assets/css/admin.css        Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis)
 assets/js/admin-review.js   Confirmation modals and inline validation for wp-admin actions
 templates/dashboard.php     Minimal theme wrapper for [penalis_dashboard]
 src/                        React SPA (app/, components/, features/, lib/, styles/)
@@ -169,7 +169,7 @@ readme.txt                  WordPress plugin readme and changelog
 
 - **Admin screens (`wp-admin`):** Top-level menu **Penalis**
   (`admin.php?page=penalis-platform`) with submenus **Ringkasan**
-  (`penalis-platform`), **Tinjauan Karya** (`penalis-review`), and
+  (`penalis-platform`), **Review Karya Tulis** (`penalis-review`), and
   **Penulis Penalis** (`penalis-writers`). All admin styles live in
   `assets/css/admin.css` and confirmation dialog logic in
   `assets/js/admin-review.js` — do not inline large CSS or JS blocks inside PHP

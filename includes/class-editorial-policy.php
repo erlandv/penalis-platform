@@ -454,17 +454,17 @@ final class Penalis_Editorial_Policy {
 		);
 
 		if ( ! self::is_valid_action( $action ) ) {
-			$denied['error'] = 'Aksi tinjauan tidak dikenal.';
+			$denied['error'] = 'Aksi review tidak dikenal.';
 			return $denied;
 		}
 
 		if ( self::is_writer_action( $action ) && ! $is_owner ) {
-			$denied['error'] = 'Kamu hanya dapat mengajukan karya tulis milikmu sendiri.';
+			$denied['error'] = 'Kamu hanya dapat submit karya tulis milikmu sendiri.';
 			return $denied;
 		}
 
 		if ( self::is_reviewer_action( $action ) && ! $can_review ) {
-			$denied['error'] = 'Kamu tidak diizinkan meninjau karya tulis ini.';
+			$denied['error'] = 'Kamu tidak diizinkan me-review karya tulis ini.';
 			return $denied;
 		}
 
@@ -481,7 +481,7 @@ final class Penalis_Editorial_Policy {
 		}
 
 		if ( self::requires_review_cycle( $action ) && self::is_stale_decision( $expected_cycle, $current_cycle ) ) {
-			$denied['error'] = 'Karya tulis ini sudah diproses pada siklus tinjauan yang lebih baru. Muat ulang halaman.';
+			$denied['error'] = 'Karya tulis ini sudah diproses pada review cycle yang lebih baru. Refresh halaman.';
 			return $denied;
 		}
 
@@ -500,8 +500,8 @@ final class Penalis_Editorial_Policy {
 	 */
 	public static function state_label( $state ) {
 		$labels = array(
-			self::STATE_DRAFT             => 'Draf',
-			self::STATE_PENDING_REVIEW    => 'Menunggu tinjauan',
+			self::STATE_DRAFT             => 'Draft',
+			self::STATE_PENDING_REVIEW    => 'Menunggu review',
 			self::STATE_CHANGES_REQUESTED => 'Perlu revisi',
 			self::STATE_REJECTED          => 'Ditolak',
 			self::STATE_PUBLISHED         => 'Terbit',
@@ -518,8 +518,8 @@ final class Penalis_Editorial_Policy {
 	 */
 	public static function action_label( $action ) {
 		$labels = array(
-			self::ACTION_SUBMIT          => 'Diajukan penulis',
-			self::ACTION_RESUBMIT        => 'Diajukan ulang penulis',
+			self::ACTION_SUBMIT          => 'Di-submit penulis',
+			self::ACTION_RESUBMIT        => 'Di-submit ulang penulis',
 			self::ACTION_REQUEST_CHANGES => 'Diminta revisi',
 			self::ACTION_REJECT          => 'Ditolak',
 			self::ACTION_REOPEN          => 'Dibuka kembali',

@@ -1,7 +1,7 @@
 /**
  * Penalis Platform — Administrator Confirmation Dialogs
  *
- * 1. Article review decisions on Tinjauan Karya (`?page=penalis-review&post_id=...`)
+ * 1. Article review decisions on Review Karya Tulis (`?page=penalis-review&post_id=...`)
  * 2. Writer account actions on Penulis Penalis (`?page=penalis-writers`)
  */
 ( function () {
@@ -32,8 +32,8 @@
 		reject: {
 			badge: 'Tolak Karya Tulis',
 			badgeClass: 'penalis-badge penalis-badge--rejected',
-			title: 'Tolak pengajuan karya tulis ini?',
-			description: 'Pengajuan akan ditandai Ditolak. Penulis tidak dapat mengajukannya ulang kecuali admin membukanya kembali.',
+			title: 'Tolak submit karya tulis ini?',
+			description: 'Submit karya tulis ini akan ditandai Ditolak. Penulis tidak dapat submit ulang kecuali admin membukanya kembali.',
 			confirmLabel: 'Ya, Tolak Karya Tulis',
 			confirmClass: 'button penalis-confirm-modal__btn-reject',
 			requiresFeedback: true,
@@ -44,7 +44,7 @@
 			badge: 'Buka Kembali',
 			badgeClass: 'penalis-badge penalis-badge--pending_verification',
 			title: 'Buka kembali untuk revisi?',
-			description: 'Status karya tulis akan diubah menjadi Perlu revisi agar penulis dapat menyunting dan mengajukannya ulang.',
+			description: 'Status karya tulis akan diubah menjadi Perlu revisi agar penulis dapat edit dan submit ulang.',
 			confirmLabel: 'Ya, Buka Kembali',
 			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve',
 			requiresFeedback: false,
@@ -57,7 +57,7 @@
 			badge: 'Tangguhkan Akun',
 			badgeClass: 'penalis-badge penalis-badge--suspended',
 			title: 'Tangguhkan akun penulis ini?',
-			description: 'Peran penulis dan akses dasbor akan dicabut serta seluruh sesi login dihentikan. Jika akun masih menunggu verifikasi, link verifikasi akan dibatalkan. Karya tulis yang sudah terbit tetap tayang.',
+			description: 'Peran Penulis Aktif dan akses dashboard akan dicabut serta seluruh sesi login dihentikan. Jika akun masih menunggu verifikasi, link verifikasi akan dibatalkan. Karya tulis yang sudah terbit tetap tayang.',
 			confirmLabel: 'Ya, Tangguhkan Akun',
 			confirmClass: 'button penalis-confirm-modal__btn-reject'
 		},
@@ -65,7 +65,7 @@
 			badge: 'Aktifkan Kembali',
 			badgeClass: 'penalis-badge penalis-badge--active',
 			title: 'Aktifkan kembali akun penulis ini?',
-			description: 'Peran Penulis Aktif dan akses ke dasbor akan dipulihkan kembali untuk akun ini.',
+			description: 'Peran Penulis Aktif dan akses ke dashboard akan dipulihkan kembali untuk akun ini.',
 			confirmLabel: 'Ya, Aktifkan Kembali',
 			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
 		},
@@ -73,16 +73,16 @@
 			badge: 'Verifikasi Email',
 			badgeClass: 'penalis-badge penalis-badge--pending_verification',
 			title: 'Kirim ulang email verifikasi?',
-			description: 'Link verifikasi baru akan dikirimkan ke alamat email pendaftar (dibatasi maksimal 1 kali setiap 10 menit).',
+			description: 'Email verifikasi baru akan dikirimkan ke alamat email pendaftar (dibatasi maksimal 1 kali setiap 10 menit).',
 			confirmLabel: 'Ya, Kirim Ulang',
 			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
 		},
 		legacy_send_activation: {
 			badge: 'Aktivasi Akun Lama',
 			badgeClass: 'penalis-badge penalis-badge--pending_verification',
-			title: 'Kirim link aktivasi ke akun lama ini?',
-			description: 'Email berisi link aktivasi dan pembuatan password pertama akan dikirim ke alamat email kontributor lama ini.',
-			confirmLabel: 'Ya, Kirim Link Aktivasi',
+			title: 'Kirim email aktivasi ke akun lama ini?',
+			description: 'Email aktivasi dan pembuatan password pertama akan dikirim ke alamat email kontributor lama ini.',
+			confirmLabel: 'Ya, Kirim Email Aktivasi',
 			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
 		},
 		legacy_vouch: {

@@ -50,7 +50,7 @@ penalis-platform/
 │   ├── class-editorial-policy.php        Pure editorial state machine, review cycle, notification rules
 │   ├── class-editorial-workflow.php      Serialized editorial transitions and post meta persistence
 │   ├── class-editorial-notifications.php Bounded dashboard notifications and editorial email dispatch
-│   ├── class-editorial-admin.php         Penalis → Tinjauan Karya admin review workspace
+│   ├── class-editorial-admin.php         Penalis → Review Karya Tulis admin review workspace
 │   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen
 │   ├── class-access-control.php          Login gate, capability filters, REST guards, upload validation
 │   ├── class-rest-api.php                penalis/v1 REST endpoints
@@ -66,7 +66,7 @@ penalis-platform/
 │   ├── class-email-template.php          Branded responsive HTML email layout
 │   └── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting
 ├── assets/
-│   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Tinjauan Karya, Penulis Penalis)
+│   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis)
 │   └── js/admin-review.js                Confirmation dialogs and inline validation for wp-admin actions
 ├── templates/
 │   └── dashboard.php                     Minimal theme-compatible wrapper for [penalis_dashboard]
@@ -181,8 +181,8 @@ submissions pass through administrator review (`Penalis_Editorial_Policy` and
 
 | Editorial State (`_penalis_editorial_state`) | WordPress `post_status` | Writer Can Edit? | UI Label |
 | --- | --- | --- | --- |
-| `draft` | `draft` | Yes | Draf |
-| `pending_review` | `pending` | No | Menunggu tinjauan |
+| `draft` | `draft` | Yes | Draft |
+| `pending_review` | `pending` | No | Menunggu review |
 | `changes_requested` | `draft` | Yes | Perlu revisi |
 | `rejected` | `draft` | No | Ditolak |
 | `published` | `publish` | No | Terbit |
@@ -235,8 +235,8 @@ All administrator curation surfaces live under a single top-level menu,
      works, active writers, unverified registrations, suspended accounts, and
      legacy accounts, plus quick-action panels for the latest pending article
      submissions and newly registered writers.
-2. **Penalis → Tinjauan Karya** (`?page=penalis-review`, `Penalis_Editorial_Admin::render_page()`)
-   - Filter tabs by editorial state (`Menunggu tinjauan`, `Perlu revisi`,
+2. **Penalis → Review Karya Tulis** (`?page=penalis-review`, `Penalis_Editorial_Admin::render_page()`)
+   - Filter tabs by editorial state (`Menunggu review`, `Perlu revisi`,
      `Ditolak`, `Terbit`) and a 2-column detail review workspace with the
      rendered article preview, metadata header, unified decision form with an
      accessible confirmation modal, link to the native WordPress editor for
@@ -246,7 +246,7 @@ All administrator curation surfaces live under a single top-level menu,
      `Menunggu verifikasi`, `Ditangguhkan`, `Akun lama`), search toolbar,
      Instagram handle column (`@username`), collapsible audit history,
      confirmation modals for all account actions (`Tangguhkan`,
-     `Aktifkan kembali`, `Kirim ulang verifikasi`, `Kirim tautan aktivasi`,
+     `Aktifkan kembali`, `Kirim ulang verifikasi`, `Kirim link aktivasi`,
      `Aktifkan langsung`), and the site-wide default profile photo setting.
 
 ---

@@ -136,7 +136,7 @@ function ResendBanner({ email }: { email: string }) {
       <Notice tone="success">
         <p>{message}</p>
         <a className="penalis-button penalis-button--ghost" href={getBootstrap().dashboardUrl}>
-          Muat ulang dasbor
+          Refresh dashboard
         </a>
       </Notice>
     );
@@ -146,7 +146,7 @@ function ResendBanner({ email }: { email: string }) {
     <Notice tone="warning">
       <p>
         Konfirmasi alamat email kamu. Kami mengirim kode verifikasi enam digit ke {email}. Kamu belum dapat
-        menulis atau mengajukan karya tulis sampai alamat email kamu dikonfirmasi.
+        menulis atau submit karya tulis sampai alamat email kamu dikonfirmasi.
       </p>
       {!challenge && error ? <p role="alert">{error}</p> : null}
       {challenge ? (
@@ -364,7 +364,7 @@ function AccountMenu({
               rel="noreferrer noopener"
             >
               <Icon name="externalLink" />
-              <span>Lihat profil publik</span>
+              <span>Lihat profil</span>
             </a>
 
             {adminUrl ? (
@@ -407,7 +407,7 @@ export function Shell({
     <div className="penalis-app">
       <header className="penalis-header">
         <div>
-          <h1>Dasbor Penulis</h1>
+          <h1>Dashboard Penulis</h1>
         </div>
         <div className="penalis-header__meta">
           <AccountMenu
@@ -420,7 +420,7 @@ export function Shell({
 
       {account.isAdministrator ? (
         <Notice tone="info">
-          Kamu login sebagai admin. Kontrol penerbitan penulis hanya berlaku untuk akun penulis; gunakan
+          Kamu login sebagai admin. Dashboard ini khusus untuk penulis; gunakan
           WordPress Admin untuk mengelola konten para penulis.
         </Notice>
       ) : (
@@ -432,7 +432,7 @@ export function Shell({
       )}
 
       <div className="penalis-layout">
-        <nav className="penalis-nav" aria-label="Bagian dasbor">
+        <nav className="penalis-nav" aria-label="Bagian dashboard">
           {NAV_ITEMS.map((item) => {
             const disabled =
               !canWrite && item.view !== 'overview' && item.view !== 'profile' && item.view !== 'settings';

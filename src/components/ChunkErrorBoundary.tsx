@@ -58,10 +58,10 @@ export class ChunkErrorBoundary extends Component<Props, State> {
       <div className="penalis-banner penalis-banner--error" role="alert">
         <p>
           {this.props.message ??
-            'Editor tidak dapat dimuat. Ini biasanya terjadi setelah pembaruan plugin; muat ulang halaman untuk mencoba lagi.'}
+            'Editor tidak dapat dimuat. Ini biasanya terjadi setelah upgrade plugin; refresh halaman untuk mencoba lagi.'}
         </p>
         <button type="button" className="penalis-button penalis-button--ghost" onClick={this.retry}>
-          Coba muat ulang editor
+          Coba refresh editor
         </button>
       </div>
     );

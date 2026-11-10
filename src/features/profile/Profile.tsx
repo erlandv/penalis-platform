@@ -146,7 +146,7 @@ export function Profile({
       setMedia((current) => [uploaded, ...current]);
       setSelectedMediaId(uploaded.id);
     } catch (caught) {
-      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat diunggah.');
+      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat di-upload.');
     } finally {
       setUploading(false);
     }
@@ -158,8 +158,8 @@ export function Profile({
         <div>
           <h2>Profil Penulis</h2>
           <p className="penalis-muted">
-            Profil kamu akan tampil di bagian bawah karya tulis kamu 
-            yang telah terbit dan juga akan tampil di halaman penulismu.
+            Informasi profil kamu akan tampil di halaman karya tulis yang telah terbit 
+            dan juga akan tampil di halaman publik profil kamu.
           </p>
         </div>
       </div>
@@ -271,7 +271,7 @@ export function Profile({
             aria-invalid={Boolean(errors.instagram)}
           />
           <FieldHint id="instagram-hint">
-            Opsional, digunakan untuk keperluan internal admin Penalis (tidak ditampilkan di profil publik).
+            Opsional, digunakan untuk keperluan internal admin Penalis.
           </FieldHint>
           <FieldError errors={errors} name="instagram" />
         </label>
@@ -316,7 +316,7 @@ export function Profile({
             {mediaLoading ? (
               <Spinner label="Memuat media…" />
             ) : media.length === 0 ? (
-              <p className="penalis-muted">Kamu belum mengunggah gambar apa pun. Gunakan kontrol unggah di atas.</p>
+              <p className="penalis-muted">Kamu belum upload gambar apa pun. Gunakan kontrol upload di atas.</p>
             ) : (
               <MediaSelection items={media} selectedId={selectedMediaId} onSelect={setSelectedMediaId}
                 onConfirm={() => { if (selectedMediaId !== null) void chooseAvatar(selectedMediaId); }}

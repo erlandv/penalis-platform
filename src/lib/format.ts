@@ -28,9 +28,9 @@ export function statusLabel(status: string): string {
   const labels: Record<string, string> = {
     publish: 'Terbit',
     published: 'Terbit',
-    draft: 'Draf',
-    pending: 'Menunggu tinjauan',
-    pending_review: 'Menunggu tinjauan',
+    draft: 'Draft',
+    pending: 'Menunggu review',
+    pending_review: 'Menunggu review',
     changes_requested: 'Perlu revisi',
     future: 'Terjadwal',
     private: 'Privat',
@@ -45,13 +45,13 @@ export function statusLabel(status: string): string {
 
 export function editorialStateLabel(state: string): string {
   const labels: Record<string, string> = {
-    draft: 'Draf',
-    pending_review: 'Menunggu tinjauan',
+    draft: 'Draft',
+    pending_review: 'Menunggu review',
     changes_requested: 'Perlu revisi',
     rejected: 'Ditolak',
     published: 'Terbit',
     publish: 'Terbit',
-    pending: 'Menunggu tinjauan',
+    pending: 'Menunggu review',
   };
 
   return labels[state] ?? 'Tidak diketahui';

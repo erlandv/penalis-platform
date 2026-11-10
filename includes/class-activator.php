@@ -80,7 +80,7 @@ final class Penalis_Activator {
 
 		$page_id = wp_insert_post(
 			array(
-				'post_title'     => 'Dasbor Penulis',
+				'post_title'     => 'Dashboard Penulis',
 				'post_name'      => self::SLUG,
 				'post_content'   => '[penalis_dashboard]',
 				'post_status'    => 'publish',

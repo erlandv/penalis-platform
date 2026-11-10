@@ -231,11 +231,11 @@ export function App() {
         <div className="penalis-auth__panel">
           <h1>Akun tidak tersedia</h1>
           <p className="penalis-muted">
-            Akun ini tidak dapat mengakses dasbor menulis. Jika kamu merasa ini keliru, silakan hubungi
-            administrator situs.
+            Akun ini tidak dapat mengakses dashboard penulis. Jika kamu merasa ini keliru, silakan hubungi
+            admin Penalis.
           </p>
           <a className="penalis-button penalis-button--ghost" href={bootstrap.homeUrl}>
-            Kembali ke situs
+            Kembali ke beranda
           </a>
         </div>
       </div>
@@ -246,7 +246,7 @@ export function App() {
     return (
       <div className="penalis-auth">
         <div className="penalis-auth__panel">
-          <Spinner label="Memuat dasbor…" />
+          <Spinner label="Memuat dashboard…" />
         </div>
       </div>
     );

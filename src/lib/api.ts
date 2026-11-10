@@ -70,7 +70,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     });
   } catch {
     throw new ApiError(
-      'Server tidak dapat dihubungi. Periksa koneksi Anda lalu coba lagi.',
+      'Server tidak dapat dihubungi. Periksa koneksi kamu lalu coba lagi.',
       'network_error',
       0,
     );
@@ -413,7 +413,7 @@ export const mediaApi = {
         body: form,
       });
     } catch {
-      throw new ApiError('Gambar tidak dapat diunggah. Periksa koneksi Anda.', 'network_error', 0);
+      throw new ApiError('Gambar tidak dapat di-upload. Periksa koneksi kamu.', 'network_error', 0);
     }
 
     const payload: unknown = await response.json().catch(() => null);
@@ -421,7 +421,7 @@ export const mediaApi = {
     if (!response.ok) {
       const shape = (payload ?? {}) as ApiErrorShape;
       throw new ApiError(
-        typeof shape.message === 'string' ? stripTags(shape.message) : 'Gambar tidak dapat diunggah.',
+        typeof shape.message === 'string' ? stripTags(shape.message) : 'Gambar tidak dapat di-upload.',
         shape.code ?? 'upload_failed',
         response.status,
       );

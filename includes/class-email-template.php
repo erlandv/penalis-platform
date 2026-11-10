@@ -65,7 +65,7 @@ final class Penalis_Email_Template {
 		}
 
 		if ( isset( $parameters['page'] ) && 'penalis-review' === $parameters['page'] ) {
-			return 'Tinjau Karya Tulis';
+			return 'Review Karya Tulis';
 		}
 
 		if ( isset( $parameters['view'] ) && 'editor' === $parameters['view'] ) {
