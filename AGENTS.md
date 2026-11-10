@@ -72,6 +72,11 @@ register -> verify email -> active writer -> write draft in /dashboard/ -> submi
   overview at **Penalis → Ringkasan**).
 - Active writers receive the `penalis_writer` role and use `/dashboard/` for
   overview, notifications, own articles, editor, media, profile, and settings.
+- Reviewers (administrators and editors) may also open `/dashboard/` in a
+  read-only reviewer mode: the REST account guard accepts `edit_others_posts`,
+  the dashboard shows a Reviewer notice with a shortcut to **Review Karya
+  Tulis**, and the account menu links to the same screen. They never gain
+  writer capabilities (`canWrite` stays `false`).
 - Pre-plugin contributors use **"Aktifkan akun penulis lama"** to verify their
   stored email, set a first password, and immediately become `active` while
   keeping their existing user ID, authored posts, and author archive URL.

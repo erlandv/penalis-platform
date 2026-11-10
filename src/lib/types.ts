@@ -39,6 +39,8 @@ export interface DashboardBootstrap {
   lostPassword: string;
   homeUrl: string;
   adminUrl: string;
+  /** wp-admin review screen, empty for accounts that cannot review. */
+  reviewUrl: string;
   siteName: string;
   user: BootstrapUser | null;
 }
@@ -135,6 +137,8 @@ export interface Account {
   status: AccountStatus;
   statusLabel: string;
   isAdministrator: boolean;
+  /** Whether this account may review submissions (administrator or editor). */
+  isReviewer: boolean;
   canWrite: boolean;
   canView: boolean;
   emailVerified: boolean;

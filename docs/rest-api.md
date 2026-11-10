@@ -32,11 +32,15 @@ rate limits, and generic responses that prevent account enumeration.
 ### 1.2 Signed-In Account Routes (`require_logged_in`)
 
 Accessible to any signed-in user (including `pending_verification` accounts
-viewing their status or updating their profile).
+viewing their status or updating their profile). Reviewers (administrators and
+editors, both holding `edit_others_posts`) bypass the writer status gate: they
+have no Penalis writer status, so `/account` reports `isReviewer: true`,
+`canView: true`, `canWrite: false`, and the label `Reviewer` (or
+`Administrator`).
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
-| `/account` | `GET` | `get_account` | Return account status, capability flags, `instagram`, article counts by editorial state, and `unreadNotifications` count |
+| `/account` | `GET` | `get_account` | Return account status, capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), `instagram`, article counts by editorial state, and `unreadNotifications` count |
 | `/account/profile` | `POST` | `update_profile` | Update `first_name`, `last_name`, `display_name_mode`, custom `display_name`, `description`, and optional `instagram` |
 | `/account/password` | `POST` | `update_password` | Change own password (requires `current_password`, `new_password` >= 12 chars) |
 | `/account/username` | `POST` | `change_username` | Re-authenticated `user_login` change inside a MySQL advisory lock; records 301 redirect and ends sessions |

@@ -115,6 +115,12 @@ Account status is managed by `Penalis_Account_Status` and validated by
 | `active` | Verified active writer with dashboard write access | Penulis aktif |
 | `suspended` | Writer account whose access was revoked by an administrator | Akun ditangguhkan |
 
+Reviewers (administrators and editors) are created in `wp-admin` and have no
+Penalis status metadata. They are not a fourth status: the dashboard API admits
+them through `edit_others_posts`, reports `isReviewer: true`, and keeps
+`canWrite: false`, so `/dashboard/` opens in a read-only reviewer mode instead
+of showing "Akun tidak tersedia".
+
 ```text
 pending_verification ──► active ◄──► suspended
          │                              ▲

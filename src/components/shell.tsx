@@ -191,10 +191,12 @@ function ResendBanner({ email }: { email: string }) {
 function AccountMenu({
   account,
   adminUrl,
+  reviewUrl,
   logoutUrl,
 }: {
   account: Account;
   adminUrl?: string;
+  reviewUrl?: string;
   logoutUrl: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -374,6 +376,13 @@ function AccountMenu({
               </a>
             ) : null}
 
+            {reviewUrl ? (
+              <a className="penalis-account__item" role="menuitem" href={reviewUrl}>
+                <Icon name="fileText" />
+                <span>Review karya tulis</span>
+              </a>
+            ) : null}
+
             <a
               className="penalis-account__item penalis-account__item--danger"
               role="menuitem"
@@ -413,6 +422,7 @@ export function Shell({
           <AccountMenu
             account={account}
             adminUrl={bootstrap.adminUrl}
+            reviewUrl={bootstrap.reviewUrl}
             logoutUrl={bootstrap.logoutUrl}
           />
         </div>
@@ -420,8 +430,15 @@ export function Shell({
 
       {account.isAdministrator ? (
         <Notice tone="info">
-          Kamu login sebagai admin. Dashboard ini khusus untuk penulis; gunakan
+          Kamu login sebagai Admin. Dashboard ini khusus untuk penulis; gunakan
           WordPress Admin untuk mengelola konten para penulis.
+        </Notice>
+      ) : account.isReviewer ? (
+        <Notice tone="info">
+          <p>
+            Kamu login sebagai Reviewer. Dashboard ini khusus untuk penulis; gunakan 
+            WordPress Admin untuk mengelola konten para penulis.
+          </p>
         </Notice>
       ) : (
         <StatusBanner
@@ -437,6 +454,9 @@ export function Shell({
             const disabled =
               !canWrite && item.view !== 'overview' && item.view !== 'profile' && item.view !== 'settings';
             const unreadCount = item.view === 'overview' ? (account.unreadNotifications ?? 0) : 0;
+            const disabledHint = account.isReviewer
+              ? 'Hanya tersedia untuk akun penulis'
+              : 'Tersedia setelah email kamu dikonfirmasi';
 
             return (
               <button
@@ -446,7 +466,7 @@ export function Shell({
                 onClick={() => onNavigate(item.view)}
                 aria-current={view === item.view ? 'page' : undefined}
                 disabled={disabled}
-                title={disabled ? 'Tersedia setelah email kamu dikonfirmasi' : undefined}
+                title={disabled ? disabledHint : undefined}
               >
                 <Icon name={item.icon} />
                 <span>{item.label}</span>

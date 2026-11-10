@@ -28,6 +28,7 @@ const fallback: DashboardBootstrap = {
   lostPassword: '/?penalis_forgot=1',
   homeUrl: '/',
   adminUrl: '',
+  reviewUrl: '',
   siteName: 'Penalis',
   user: null,
 };

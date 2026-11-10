@@ -29,7 +29,9 @@ export function Overview({
   const [loading, setLoading] = useState(account.canWrite);
 
   const [notifications, setNotifications] = useState<NotificationList | null>(null);
-  const [notificationsLoading, setNotificationsLoading] = useState(account.canWrite || account.isAdministrator);
+  const [notificationsLoading, setNotificationsLoading] = useState(
+    account.canWrite || account.isAdministrator || account.isReviewer,
+  );
   const [notificationsError, setNotificationsError] = useState('');
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [showAllNotifications, setShowAllNotifications] = useState(false);
@@ -38,7 +40,7 @@ export function Overview({
   onNotificationsChangedRef.current = onNotificationsChanged;
 
   const loadNotifications = useCallback(async () => {
-    if (!account.canWrite && !account.isAdministrator) {
+    if (!account.canWrite && !account.isAdministrator && !account.isReviewer) {
       return;
     }
 
@@ -56,7 +58,7 @@ export function Overview({
     } finally {
       setNotificationsLoading(false);
     }
-  }, [account.canWrite, account.isAdministrator]);
+  }, [account.canWrite, account.isAdministrator, account.isReviewer]);
 
   useEffect(() => {
     void loadNotifications();
@@ -145,7 +147,9 @@ export function Overview({
           <p className="penalis-muted">
             {account.canWrite
               ? 'Di dashboard penulis ini kamu dapat menulis draft, submit karya tulis untuk di-review admin, dan memantau status submit karyamu di satu tempat. Jadi, mau menulis apa hari ini?'
-              : 'Akun Penalis kamu saat ini belum dapat mengelola karya tulis. Kamu dapat meninjau detail akun di bawah ini. Jika ada pertanyaan, hubungi admin Penalis.'}
+              : account.isReviewer
+                ? 'Kamu login sebagai Reviewer. Kamu dapat melihat bagaimana dashboard penulis bekerja; untuk mengambil keputusan review, gunakan Review Karya Tulis di WordPress Admin.'
+                : 'Akun Penalis kamu saat ini belum dapat mengelola karya tulis. Kamu dapat meninjau detail akun di bawah ini. Jika ada pertanyaan, hubungi admin Penalis.'}
           </p>
         </div>
         <div className="penalis-hero__status">
@@ -171,7 +175,7 @@ export function Overview({
         </div>
       ) : null}
 
-      {account.canWrite || account.isAdministrator ? (
+      {account.canWrite || account.isAdministrator || account.isReviewer ? (
         <section className="penalis-panel" aria-label="Notifikasi review karya tulis">
           <div className="penalis-panel__header">
             <div className="penalis-notification-header">

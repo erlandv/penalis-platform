@@ -456,7 +456,10 @@ final class Penalis_Rest_Api {
 	 * Require an authenticated user.
 	 *
 	 * Pending accounts may read their account state. Rejected and suspended
-	 * accounts cannot use the dashboard API.
+	 * accounts cannot use the dashboard API. Reviewers (administrators and
+	 * editors, both holding `edit_others_posts`) are created in wp-admin and have
+	 * no Penalis writer status, so they bypass the writer status gate and see the
+	 * dashboard in a read-only reviewer mode.
 	 *
 	 * @return true|WP_Error
 	 */
@@ -471,7 +474,7 @@ final class Penalis_Rest_Api {
 
 		$user_id = get_current_user_id();
 
-		if ( current_user_can( 'manage_options' ) ) {
+		if ( current_user_can( 'edit_others_posts' ) ) {
 			return true;
 		}
 
@@ -686,10 +689,11 @@ final class Penalis_Rest_Api {
 			return new WP_Error( 'penalis_not_authenticated', 'Kamu harus login terlebih dahulu.', array( 'status' => 401 ) );
 		}
 
-		$status    = Penalis_Account_Status::get_status( $user_id );
-		$can_write = Penalis_Account_Status::can_write( $user_id );
-		$counts    = self::article_counts( $user_id );
-		$is_admin  = current_user_can( 'manage_options' );
+		$status      = Penalis_Account_Status::get_status( $user_id );
+		$can_write   = Penalis_Account_Status::can_write( $user_id );
+		$counts      = self::article_counts( $user_id );
+		$is_admin    = current_user_can( 'manage_options' );
+		$is_reviewer = current_user_can( 'edit_others_posts' );
 
 		// The candidate address is only a display hint; the OTP challenge is
 		// the authority and expires independently.
@@ -699,6 +703,8 @@ final class Penalis_Rest_Api {
 			$status_label = Penalis_Policy::status_label( $status );
 		} elseif ( $is_admin ) {
 			$status_label = 'Administrator';
+		} elseif ( $is_reviewer ) {
+			$status_label = 'Reviewer';
 		} else {
 			$status_label = 'Akun lama';
 		}
@@ -723,8 +729,9 @@ final class Penalis_Rest_Api {
 				'status'              => $status,
 				'statusLabel'         => $status_label,
 				'isAdministrator'     => $is_admin,
+				'isReviewer'          => $is_reviewer,
 				'canWrite'            => $can_write,
-				'canView'             => Penalis_Account_Status::can_view_dashboard( $user_id ),
+				'canView'             => $is_reviewer || Penalis_Account_Status::can_view_dashboard( $user_id ),
 				'emailVerified'       => '1' === (string) get_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, true ),
 				'needsPassword'       => Penalis_Account_Status::needs_password( $user_id ),
 				'registeredAt'        => (int) get_user_meta( $user_id, Penalis_Account_Status::META_REGISTERED_AT, true ),

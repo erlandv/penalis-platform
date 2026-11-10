@@ -2185,6 +2185,33 @@ penalis_assert( null === penalis_guard( 20, '/wp/v2/posts', 'POST' ), 'An admini
 penalis_assert( null === penalis_guard( 20, '/penalis/v1/articles/100/publish', 'POST' ), 'An administrator is not restricted by the writer allowlist.' );
 penalis_assert( null === penalis_guard( 21, '/wp/v2/posts/100', 'POST' ), 'An editor is not restricted by the writer allowlist.' );
 
+// Reviewers without a Penalis writer status may still open the dashboard API.
+$GLOBALS['penalis_test_current_user'] = 21;
+penalis_assert( true === Penalis_Rest_Api::require_logged_in(), 'An editor may reach the dashboard API without a writer status.' );
+
+$editor_account = Penalis_Rest_Api::get_account();
+penalis_assert( $editor_account instanceof WP_REST_Response, 'An editor receives an account payload.' );
+$editor_data = $editor_account->get_data();
+penalis_assert( true === $editor_data['isReviewer'], 'The account payload marks an editor as a reviewer.' );
+penalis_assert( false === $editor_data['isAdministrator'], 'The account payload does not mark an editor as an administrator.' );
+penalis_assert( false === $editor_data['canWrite'], 'An editor does not gain writer capabilities in the dashboard.' );
+penalis_assert( true === $editor_data['canView'], 'An editor may view the dashboard.' );
+penalis_same( 'Reviewer', $editor_data['statusLabel'], 'An editor without a writer status is labelled Reviewer.' );
+
+$GLOBALS['penalis_test_current_user'] = 20;
+penalis_assert( true === Penalis_Rest_Api::require_logged_in(), 'An administrator may reach the dashboard API.' );
+$admin_account = Penalis_Rest_Api::get_account()->get_data();
+penalis_assert( true === $admin_account['isReviewer'], 'The account payload marks an administrator as a reviewer.' );
+penalis_same( 'Administrator', $admin_account['statusLabel'], 'An administrator keeps the Administrator label.' );
+
+// A writer without an active status is still refused by the dashboard API.
+penalis_auth_account( 13, Penalis_Policy::STATUS_SUSPENDED );
+$GLOBALS['penalis_test_current_user'] = 13;
+$suspended_check = Penalis_Rest_Api::require_logged_in();
+penalis_assert( is_wp_error( $suspended_check ), 'A suspended account is refused by the dashboard API.' );
+penalis_same( 'penalis_account_inactive', $suspended_check->get_error_code(), 'A suspended account reports the inactive error code.' );
+unset( $GLOBALS['penalis_test_current_user'] );
+
 // Single-item IDOR: another writer's draft, pending post, and media.
 penalis_reset();
 penalis_auth_writer( 10 );
