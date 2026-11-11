@@ -1727,3 +1727,31 @@ if ( ! function_exists( 'get_avatar_url' ) ) {
 		return 'https://example.com/avatar.jpg';
 	}
 }
+
+if ( ! function_exists( 'wp_doing_ajax' ) ) {
+	/**
+	 * AJAX check stub.
+	 *
+	 * @return bool
+	 */
+	function wp_doing_ajax() {
+		return ! empty( $GLOBALS['penalis_test_doing_ajax'] );
+	}
+}
+
+if ( ! function_exists( 'wp_safe_redirect' ) ) {
+	/**
+	 * Safe redirect stub.
+	 *
+	 * @param string $location Redirect target.
+	 * @param int    $status   HTTP status code.
+	 * @return bool
+	 */
+	function wp_safe_redirect( $location, $status = 302 ) {
+		$GLOBALS['penalis_test_redirect'] = array(
+			'location' => $location,
+			'status'   => $status,
+		);
+		return true;
+	}
+}

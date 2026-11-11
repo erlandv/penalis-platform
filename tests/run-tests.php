@@ -2596,6 +2596,40 @@ $GLOBALS['penalis_test_current_user'] = 0;
 $guest_publish = Penalis_Access_Control::guard_writer_publish_status( array( 'post_status' => 'publish' ), array() );
 penalis_same( 'publish', $guest_publish['post_status'], 'An anonymous insert is left to core.' );
 
+// wp-admin access restriction tests.
+$GLOBALS['penalis_test_users'][30] = new WP_User( 30, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_current_user'] = 30;
+penalis_assert( true === Penalis_Access_Control::restrict_admin_access( false ), 'A writer is restricted from accessing wp-admin.' );
+penalis_same( Penalis_Dashboard::dashboard_url(), $GLOBALS['penalis_test_redirect']['location'] ?? '', 'A restricted user is redirected to the dashboard.' );
+
+$GLOBALS['penalis_test_doing_ajax'] = true;
+penalis_assert( false === Penalis_Access_Control::restrict_admin_access( false ), 'An AJAX request is allowed through restrict_admin_access.' );
+$GLOBALS['penalis_test_doing_ajax'] = false;
+
+$GLOBALS['penalis_test_users'][31] = new WP_User( 31, array( 'editor' ) );
+$GLOBALS['penalis_test_current_user'] = 31;
+penalis_assert( false === Penalis_Access_Control::restrict_admin_access( false ), 'An editor is allowed in wp-admin.' );
+
+$GLOBALS['penalis_test_users'][32] = new WP_User( 32, array( 'administrator' ) );
+$GLOBALS['penalis_test_current_user'] = 32;
+penalis_assert( false === Penalis_Access_Control::restrict_admin_access( false ), 'An administrator is allowed in wp-admin.' );
+
+// login_redirect tests.
+penalis_same( Penalis_Dashboard::dashboard_url(), Penalis_Access_Control::redirect_after_login( 'https://example.com/wp-admin/', 'https://example.com/wp-admin/', $GLOBALS['penalis_test_users'][30] ), 'Non-staff user is redirected to dashboard upon login.' );
+penalis_same( 'https://example.com/wp-admin/', Penalis_Access_Control::redirect_after_login( 'https://example.com/wp-admin/', 'https://example.com/wp-admin/', $GLOBALS['penalis_test_users'][32] ), 'Administrator login redirect is untouched.' );
+
+// Staff-only wp-login.php authentication tests.
+$GLOBALS['pagenow'] = 'wp-login.php';
+$blocked_writer_login = Penalis_Access_Control::block_login( $GLOBALS['penalis_test_users'][30], 'user30', 'pass' );
+penalis_assert( is_wp_error( $blocked_writer_login ) && 'penalis_staff_only_login' === $blocked_writer_login->get_error_code(), 'Non-staff account is blocked from authenticating via wp-login.php.' );
+$allowed_admin_login = Penalis_Access_Control::block_login( $GLOBALS['penalis_test_users'][32], 'user32', 'pass' );
+penalis_assert( $allowed_admin_login instanceof WP_User, 'Administrator is allowed to authenticate via wp-login.php.' );
+$GLOBALS['pagenow'] = 'index.php';
+
+// generic_login_error preservation tests.
+penalis_assert( false !== strpos( Penalis_Access_Control::generic_login_error( 'Halaman login ini khusus untuk tim pengelola. Silakan login melalui dashboard.' ), 'dashboard' ), 'Staff login error pointing to dashboard is preserved.' );
+penalis_same( 'Username atau password salah.', Penalis_Access_Control::generic_login_error( 'Unknown error' ), 'Arbitrary error is replaced with generic message.' );
+
 /* -------------------------------------------------------------------------
  * Administrator review surface (Phase 4)
  * ---------------------------------------------------------------------- */

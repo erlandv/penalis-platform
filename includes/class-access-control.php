@@ -60,6 +60,8 @@ final class Penalis_Access_Control {
 		add_filter( 'send_email_change_email', array( __CLASS__, 'suppress_core_email_change_notice' ), 10, 1 );
 		add_filter( 'map_meta_cap', array( __CLASS__, 'map_meta_cap' ), 10, 4 );
 		add_filter( 'wp_insert_post_data', array( __CLASS__, 'guard_writer_publish_status' ), 10, 2 );
+		add_action( 'admin_init', array( __CLASS__, 'restrict_admin_access' ) );
+		add_filter( 'login_redirect', array( __CLASS__, 'redirect_after_login' ), 10, 3 );
 	}
 
 	/**
@@ -183,6 +185,15 @@ final class Penalis_Access_Control {
 			return $user;
 		}
 
+		// Non-staff accounts (writers, contributors, subscribers) cannot log in via wp-login.php.
+		// They must log in through the dashboard (/dashboard/).
+		if ( ! empty( $GLOBALS['pagenow'] ) && 'wp-login.php' === $GLOBALS['pagenow'] && ! $user->has_cap( 'edit_others_posts' ) ) {
+			return new WP_Error(
+				'penalis_staff_only_login',
+				'Halaman login ini khusus untuk tim pengelola. Silakan login melalui dashboard.'
+			);
+		}
+
 		$status = Penalis_Account_Status::get_status( $user->ID );
 
 		if ( '' !== $status ) {
@@ -262,12 +273,55 @@ final class Penalis_Access_Control {
 			return $message;
 		}
 
-		// Preserve operational errors that do not reveal account existence.
-		if ( false !== stripos( (string) $message, 'cookie' ) ) {
+		// Preserve operational errors and staff redirection notices.
+		if ( false !== stripos( (string) $message, 'cookie' ) || false !== stripos( (string) $message, 'dashboard' ) ) {
 			return $message;
 		}
 
 		return 'Username atau password salah.';
+	}
+
+	/**
+	 * Restrict wp-admin access to administrators and editors.
+	 *
+	 * Writers, contributors, and subscribers have a self-service dashboard and
+	 * must never access native WordPress administrative screens.
+	 *
+	 * AJAX calls are allowed through so background requests are not broken.
+	 *
+	 * @param bool $should_exit Whether to exit after redirecting. Default true.
+	 * @return bool True if access was restricted (redirected), false otherwise.
+	 */
+	public static function restrict_admin_access( $should_exit = true ) {
+		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+			return false;
+		}
+
+		if ( ! current_user_can( 'edit_others_posts' ) ) {
+			wp_safe_redirect( Penalis_Dashboard::dashboard_url() );
+			if ( $should_exit ) {
+				exit;
+			}
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Ensure non-staff users are redirected to the dashboard upon login.
+	 *
+	 * @param string           $redirect_to           Default redirect URL.
+	 * @param string           $requested_redirect_to Requested redirect URL.
+	 * @param WP_User|WP_Error $user                  User object or error.
+	 * @return string
+	 */
+	public static function redirect_after_login( $redirect_to, $requested_redirect_to, $user ) {
+		if ( $user instanceof WP_User && ! $user->has_cap( 'edit_others_posts' ) ) {
+			return Penalis_Dashboard::dashboard_url();
+		}
+
+		return $redirect_to;
 	}
 
 	/**
