@@ -1300,7 +1300,164 @@ body.penalis-modal-open {
 }
 
 /* ==========================================================================
-   5. Responsive Adjustments
+   5. Shared Table Pagination (.tablenav, .tablenav-pages)
+   ========================================================================== */
+
+.penalis-review .tablenav,
+.penalis-writers .tablenav {
+	clear: both;
+	height: auto;
+	min-height: 32px;
+	margin: 14px 0 16px;
+	padding: 0;
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+}
+
+.penalis-review .tablenav.bottom,
+.penalis-writers .tablenav.bottom {
+	margin-top: 14px;
+}
+
+.penalis-review .tablenav-pages,
+.penalis-writers .tablenav-pages {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	color: #50575e;
+	cursor: default;
+	line-height: 1;
+	margin: 0;
+	padding: 0;
+}
+
+.penalis-review .tablenav-pages .displaying-num,
+.penalis-writers .tablenav-pages .displaying-num {
+	display: inline-block;
+	font-size: 13px;
+	color: #50575e;
+	margin-right: 6px;
+	line-height: 28px;
+}
+
+.penalis-review .tablenav-pages .pagination-links,
+.penalis-writers .tablenav-pages .pagination-links {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.penalis-review .tablenav-pages .pagination-links .button,
+.penalis-review .tablenav-pages .pagination-links .tablenav-pages-navspan,
+.penalis-writers .tablenav-pages .pagination-links .button,
+.penalis-writers .tablenav-pages .pagination-links .tablenav-pages-navspan {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 4px;
+	font-size: 15px;
+	font-weight: 500;
+	line-height: 1;
+	border-radius: 3px;
+	text-align: center;
+	text-decoration: none;
+	box-sizing: border-box;
+	vertical-align: middle;
+	margin: 0;
+}
+
+.penalis-review .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled,
+.penalis-review .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled:hover,
+.penalis-writers .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled,
+.penalis-writers .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled:hover {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	color: #a7aaad;
+	cursor: default;
+	pointer-events: none;
+	box-shadow: none;
+}
+
+.penalis-review .tablenav-pages .pagination-links .paging-input,
+.penalis-writers .tablenav-pages .pagination-links .paging-input {
+	display: inline-flex;
+	align-items: center;
+	padding: 0 6px;
+	font-size: 13px;
+	color: #2c3338;
+}
+
+.penalis-review .tablenav-pages .tablenav-paging-text,
+.penalis-writers .tablenav-pages .tablenav-paging-text {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0;
+	font-size: 13px;
+	color: #2c3338;
+	line-height: 28px;
+}
+
+.penalis-review .tablenav-pages .current-page,
+.penalis-writers .tablenav-pages .current-page {
+	font-weight: 600;
+}
+
+.penalis-review .tablenav-pages .total-pages,
+.penalis-writers .tablenav-pages .total-pages {
+	font-weight: 400;
+}
+
+/* Fallback page-numbers styling */
+.penalis-review .tablenav-pages .page-numbers,
+.penalis-writers .tablenav-pages .page-numbers {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 8px;
+	font-size: 13px;
+	line-height: 28px;
+	border: 1px solid #8c8f94;
+	border-radius: 3px;
+	background: #f6f7f7;
+	color: #2c3338;
+	text-decoration: none;
+	box-sizing: border-box;
+	margin: 0 1px;
+}
+
+.penalis-review .tablenav-pages .page-numbers:hover,
+.penalis-writers .tablenav-pages .page-numbers:hover {
+	background: #f0f0f1;
+	border-color: #0a4b78;
+	color: #0a4b78;
+}
+
+.penalis-review .tablenav-pages .page-numbers.current,
+.penalis-writers .tablenav-pages .page-numbers.current {
+	background: #fff;
+	border-color: #2c3338;
+	font-weight: 600;
+	color: #2c3338;
+}
+
+.penalis-review .tablenav-pages .page-numbers.dots,
+.penalis-writers .tablenav-pages .page-numbers.dots {
+	border: none;
+	background: transparent;
+	min-width: auto;
+	padding: 0 4px;
+	color: #646970;
+}
+
+/* ==========================================================================
+   6. Responsive Adjustments
    ========================================================================== */
 
 @media screen and (max-width: 960px) {
@@ -1328,6 +1485,13 @@ body.penalis-modal-open {
 
 	.penalis-writers .penalis-toolbar__count {
 		margin-left: 0;
+	}
+
+	.penalis-writers .tablenav,
+	.penalis-review .tablenav {
+		justify-content: center;
+		flex-wrap: wrap;
+		gap: 8px;
 	}
 }
 @media screen and (max-width: 600px) {

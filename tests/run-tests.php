@@ -3498,6 +3498,60 @@ $after_all = Penalis_Email_Settings::get_template( 'password_reset' );
 penalis_same( '[{nama_situs}] Reset Password Kamu', $after_all['subject'], 'Reset all reverts all templates to plugin defaults.' );
 
 /* -------------------------------------------------------------------------
+ * Admin pagination component
+ * ---------------------------------------------------------------------- */
+
+// 1. First page of multi-page list.
+ob_start();
+Penalis_Admin::render_pagination( 381, 20, 1, 'https://example.com/admin.php?page=penalis-review' );
+$p1_html = ob_get_clean();
+
+penalis_assert( false !== strpos( $p1_html, 'class="tablenav bottom"' ), 'Pagination renders tablenav bottom container.' );
+penalis_assert( false !== strpos( $p1_html, '381 item' ), 'Pagination renders total item count.' );
+penalis_assert( false !== strpos( $p1_html, 'tablenav-pages-navspan button disabled' ), 'First page has disabled prev buttons.' );
+penalis_assert( false !== strpos( $p1_html, '<span class="current-page">1</span>' ), 'Current page indicator renders page 1.' );
+penalis_assert( false !== strpos( $p1_html, '<span class="total-pages">20</span>' ), 'Total pages indicator renders 20.' );
+penalis_assert( false !== strpos( $p1_html, 'class="next-page button"' ), 'Next page button is active.' );
+penalis_assert( false !== strpos( $p1_html, 'paged=2' ), 'Next page button links to page 2.' );
+penalis_assert( false !== strpos( $p1_html, 'paged=20' ), 'Last page button links to page 20.' );
+
+// 2. Middle page of multi-page list.
+ob_start();
+Penalis_Admin::render_pagination( 381, 20, 5, 'https://example.com/admin.php?page=penalis-review' );
+$p5_html = ob_get_clean();
+
+penalis_assert( false !== strpos( $p5_html, 'class="first-page button"' ), 'Middle page has active first-page link.' );
+penalis_assert( false !== strpos( $p5_html, 'class="prev-page button"' ), 'Middle page has active prev-page link.' );
+penalis_assert( false !== strpos( $p5_html, 'paged=4' ), 'Prev page link points to page 4.' );
+penalis_assert( false !== strpos( $p5_html, '<span class="current-page">5</span>' ), 'Current page indicator renders page 5.' );
+penalis_assert( false !== strpos( $p5_html, 'paged=6' ), 'Next page link points to page 6.' );
+
+// 3. Last page of multi-page list.
+ob_start();
+Penalis_Admin::render_pagination( 381, 20, 20, 'https://example.com/admin.php?page=penalis-review' );
+$p20_html = ob_get_clean();
+
+penalis_assert( false !== strpos( $p20_html, '<span class="current-page">20</span>' ), 'Current page indicator renders page 20.' );
+penalis_assert( false === strpos( $p20_html, 'class="next-page button"' ), 'Last page does not have active next link.' );
+penalis_assert( false === strpos( $p20_html, 'class="last-page button"' ), 'Last page does not have active last link.' );
+
+// 4. Single page list (items <= per_page).
+ob_start();
+Penalis_Admin::render_pagination( 15, 20, 1, 'https://example.com/admin.php?page=penalis-writers' );
+$single_html = ob_get_clean();
+
+penalis_assert( false !== strpos( $single_html, 'tablenav-pages one-page' ), 'Single page list uses one-page class.' );
+penalis_assert( false !== strpos( $single_html, '15 item' ), 'Single page list displays item count.' );
+penalis_assert( false === strpos( $single_html, 'pagination-links' ), 'Single page list does not render navigation buttons.' );
+
+// 5. Empty list.
+ob_start();
+Penalis_Admin::render_pagination( 0, 20, 1, 'https://example.com/admin.php?page=penalis-writers' );
+$empty_html = ob_get_clean();
+
+penalis_same( '', trim( $empty_html ), 'Empty list renders no pagination markup.' );
+
+/* -------------------------------------------------------------------------
  * Report
  * ---------------------------------------------------------------------- */
 

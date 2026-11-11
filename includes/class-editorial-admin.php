@@ -242,31 +242,20 @@ final class Penalis_Editorial_Admin {
 				</tbody>
 			</table>
 
-			<?php if ( $pages > 1 ) : ?>
-				<div class="tablenav"><div class="tablenav-pages">
-					<?php
-					echo wp_kses_post(
-						paginate_links(
-							array(
-								'base'      => add_query_arg(
-									array(
-										'page'  => self::PAGE_SLUG,
-										'state' => $state,
-										'paged' => '%#%',
-									),
-									admin_url( 'admin.php' )
-								),
-								'format'    => '',
-								'current'   => $paged,
-								'total'     => $pages,
-								'prev_text' => '&laquo;',
-								'next_text' => '&raquo;',
-							)
-						)
-					);
-					?>
-				</div></div>
-			<?php endif; ?>
+			<?php
+			Penalis_Admin::render_pagination(
+				$query->found_posts,
+				$per_page,
+				$paged,
+				add_query_arg(
+					array(
+						'page'  => self::PAGE_SLUG,
+						'state' => $state,
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			?>
 		</div>
 		<?php
 	}

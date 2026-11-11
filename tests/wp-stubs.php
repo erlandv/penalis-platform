@@ -368,14 +368,55 @@ if ( ! function_exists( 'add_query_arg' ) ) {
 	/**
 	 * Query argument stub.
 	 *
-	 * @param array  $args Arguments.
-	 * @param string $url  URL.
+	 * @param array|string $args     Arguments or key.
+	 * @param mixed        ...$extra Additional arguments ($url or $value, $url).
 	 * @return string
 	 */
-	function add_query_arg( $args, $url = '' ) {
-		$separator = false !== strpos( (string) $url, '?' ) ? '&' : '?';
+	function add_query_arg( $args, ...$extra ) {
+		if ( is_array( $args ) ) {
+			$url       = isset( $extra[0] ) ? (string) $extra[0] : '';
+			$query_arr = $args;
+		} else {
+			$query_arr = array( (string) $args => isset( $extra[0] ) ? $extra[0] : '' );
+			$url       = isset( $extra[1] ) ? (string) $extra[1] : '';
+		}
 
-		return $url . $separator . http_build_query( $args );
+		$parts = explode( '?', (string) $url, 2 );
+		$base  = $parts[0];
+		$query = array();
+		if ( isset( $parts[1] ) ) {
+			parse_str( $parts[1], $query );
+		}
+		foreach ( $query_arr as $k => $v ) {
+			$query[ $k ] = $v;
+		}
+		$qs = http_build_query( $query );
+
+		return $base . ( '' !== $qs ? '?' . $qs : '' );
+	}
+}
+
+if ( ! function_exists( 'remove_query_arg' ) ) {
+	/**
+	 * Remove query arg stub.
+	 *
+	 * @param string|array $key Key or keys to remove.
+	 * @param string       $url URL.
+	 * @return string
+	 */
+	function remove_query_arg( $key, $url = '' ) {
+		$parts = explode( '?', (string) $url, 2 );
+		if ( count( $parts ) < 2 ) {
+			return $url;
+		}
+		parse_str( $parts[1], $query );
+		$keys = (array) $key;
+		foreach ( $keys as $k ) {
+			unset( $query[ $k ] );
+		}
+		$qs = http_build_query( $query );
+
+		return $parts[0] . ( '' !== $qs ? '?' . $qs : '' );
 	}
 }
 
@@ -836,6 +877,31 @@ if ( ! function_exists( 'esc_html__' ) ) {
 	 */
 	function esc_html__( $value ) {
 		return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'esc_html_e' ) ) {
+	/**
+	 * Translate and escape, echo.
+	 *
+	 * @param string $value Value.
+	 * @return void
+	 */
+	function esc_html_e( $value ) {
+		echo htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
+if ( ! function_exists( 'number_format_i18n' ) ) {
+	/**
+	 * Format number per locale stub.
+	 *
+	 * @param float|int $number   Number to format.
+	 * @param int       $decimals Decimals.
+	 * @return string
+	 */
+	function number_format_i18n( $number, $decimals = 0 ) {
+		return number_format( (float) $number, (int) $decimals, '.', ',' );
 	}
 }
 

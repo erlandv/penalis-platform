@@ -898,23 +898,17 @@ JS;
 			</div>
 
 			<?php
-			$pages = (int) ceil( $total / $per_page );
-			if ( $pages > 1 ) {
-				echo '<div class="tablenav"><div class="tablenav-pages">';
-				echo wp_kses_post(
-					paginate_links(
-						array(
-							'base'      => add_query_arg( 'paged', '%#%' ),
-							'format'    => '',
-							'current'   => $paged,
-							'total'     => $pages,
-							'prev_text' => '&laquo;',
-							'next_text' => '&raquo;',
-						)
+			$pagination_base = add_query_arg(
+				array_filter(
+					array(
+						'page'   => self::PAGE_SLUG,
+						'status' => $status,
+						's'      => $search,
 					)
-				);
-				echo '</div></div>';
-			}
+				),
+				admin_url( 'admin.php' )
+			);
+			self::render_pagination( $total, $per_page, $paged, $pagination_base );
 			?>
 
 			<?php if ( self::can_manage_settings() ) : ?>
@@ -1109,6 +1103,105 @@ JS;
 			</button>
 		</form>
 		<?php
+	}
+
+	/**
+	 * Render standard WordPress admin pagination bar.
+	 *
+	 * Matches the visual design of WP_List_Table pagination with total item count,
+	 * navigation chevrons, and current/total page indicator.
+	 *
+	 * @param int    $total    Total number of items.
+	 * @param int    $per_page Number of items per page.
+	 * @param int    $paged    Current page number.
+	 * @param string $base_url Optional base URL for pagination links.
+	 * @return void
+	 */
+	public static function render_pagination( $total, $per_page, $paged, $base_url = '' ) {
+		$total    = max( 0, (int) $total );
+		$per_page = max( 1, (int) $per_page );
+		$pages    = (int) ceil( $total / $per_page );
+
+		if ( $pages <= 1 && $total <= 0 ) {
+			return;
+		}
+
+		$paged = max( 1, min( $pages > 0 ? $pages : 1, (int) $paged ) );
+
+		$first_url = self::get_page_link_url( 1, $base_url );
+		$prev_url  = self::get_page_link_url( max( 1, $paged - 1 ), $base_url );
+		$next_url  = self::get_page_link_url( min( $pages, $paged + 1 ), $base_url );
+		$last_url  = self::get_page_link_url( $pages, $base_url );
+
+		?>
+		<div class="tablenav bottom">
+			<div class="tablenav-pages<?php echo $pages <= 1 ? ' one-page' : ''; ?>">
+				<span class="displaying-num">
+					<?php echo esc_html( sprintf( '%s item', number_format_i18n( $total ) ) ); ?>
+				</span>
+				<?php if ( $pages > 1 ) : ?>
+					<span class="pagination-links">
+						<?php if ( $paged <= 1 ) : ?>
+							<span class="tablenav-pages-navspan button disabled" aria-hidden="true">&laquo;</span>
+							<span class="tablenav-pages-navspan button disabled" aria-hidden="true">&lsaquo;</span>
+						<?php else : ?>
+							<a class="first-page button" href="<?php echo esc_url( $first_url ); ?>">
+								<span class="screen-reader-text">Halaman pertama</span>
+								<span aria-hidden="true">&laquo;</span>
+							</a>
+							<a class="prev-page button" href="<?php echo esc_url( $prev_url ); ?>">
+								<span class="screen-reader-text">Halaman sebelumnya</span>
+								<span aria-hidden="true">&lsaquo;</span>
+							</a>
+						<?php endif; ?>
+
+						<span class="paging-input">
+							<span class="tablenav-paging-text">
+								<span class="current-page"><?php echo esc_html( (string) $paged ); ?></span>
+								dari
+								<span class="total-pages"><?php echo esc_html( (string) $pages ); ?></span>
+							</span>
+						</span>
+
+						<?php if ( $paged >= $pages ) : ?>
+							<span class="tablenav-pages-navspan button disabled" aria-hidden="true">&rsaquo;</span>
+							<span class="tablenav-pages-navspan button disabled" aria-hidden="true">&raquo;</span>
+						<?php else : ?>
+							<a class="next-page button" href="<?php echo esc_url( $next_url ); ?>">
+								<span class="screen-reader-text">Halaman berikutnya</span>
+								<span aria-hidden="true">&rsaquo;</span>
+							</a>
+							<a class="last-page button" href="<?php echo esc_url( $last_url ); ?>">
+								<span class="screen-reader-text">Halaman terakhir</span>
+								<span aria-hidden="true">&raquo;</span>
+							</a>
+						<?php endif; ?>
+					</span>
+				<?php endif; ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Build URL for a specific page in pagination.
+	 *
+	 * @param int    $page_num Target page number.
+	 * @param string $base_url Optional base URL.
+	 * @return string
+	 */
+	public static function get_page_link_url( $page_num, $base_url = '' ) {
+		$page_num = max( 1, (int) $page_num );
+
+		if ( '' !== $base_url ) {
+			return 1 === $page_num
+				? remove_query_arg( 'paged', $base_url )
+				: add_query_arg( 'paged', $page_num, $base_url );
+		}
+
+		return 1 === $page_num
+			? remove_query_arg( 'paged' )
+			: add_query_arg( 'paged', $page_num );
 	}
 
 	/**
