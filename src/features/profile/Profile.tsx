@@ -3,6 +3,7 @@
  */
 
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { AvatarCropper } from '../../components/AvatarCropper';
 import { Dialog } from '../../components/Dialog';
 import { ImageDropzone } from '../../components/ImageDropzone';
 import { MediaSelection } from '../../components/MediaSelection';
@@ -34,12 +35,15 @@ export function Profile({
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [cropTarget, setCropTarget] = useState<File | string | null>(null);
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
-  const closePicker = useCallback(() => setPickerOpen(false), []);
+  const closePicker = useCallback(() => {
+    setPickerOpen(false);
+    setCropTarget(null);
+  }, []);
 
   const options = useMemo(
     () => displayNameOptions(firstName, lastName, account.username),
@@ -106,17 +110,22 @@ export function Profile({
     }
   };
 
-  const chooseAvatar = async (attachmentId: number) => {
+  const handleCroppedAvatar = async (croppedFile: File) => {
     setAvatarBusy(true);
     setAvatarError('');
 
     try {
-      const updated = await accountApi.setAvatar(attachmentId);
+      const uploaded = await mediaApi.upload(croppedFile);
+      setMedia((current) => [uploaded, ...current]);
+      const updated = await accountApi.setAvatar(uploaded.id);
       onUpdated(updated);
+      setCropTarget(null);
       setPickerOpen(false);
       setNotice('Foto profil kamu telah diperbarui.');
     } catch (caught) {
-      setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat diperbarui.');
+      setAvatarError(
+        caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat diperbarui.',
+      );
     } finally {
       setAvatarBusy(false);
     }
@@ -134,21 +143,6 @@ export function Profile({
       setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat dihapus.');
     } finally {
       setAvatarBusy(false);
-    }
-  };
-
-  const uploadAvatar = async (file: File) => {
-    setUploading(true);
-    setUploadError('');
-
-    try {
-      const uploaded = await mediaApi.upload(file);
-      setMedia((current) => [uploaded, ...current]);
-      setSelectedMediaId(uploaded.id);
-    } catch (caught) {
-      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat di-upload.');
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -294,7 +288,14 @@ export function Profile({
         </button>
       </form>
 
-      {pickerOpen ? (
+      {cropTarget !== null ? (
+        <AvatarCropper
+          imageSource={cropTarget}
+          onCrop={handleCroppedAvatar}
+          onCancel={() => setCropTarget(null)}
+          busy={avatarBusy}
+        />
+      ) : pickerOpen ? (
         <Dialog label="Pilih foto profil" onClose={closePicker}>
           <div className="penalis-modal__content">
             <div className="penalis-modal__header">
@@ -302,9 +303,9 @@ export function Profile({
             </div>
 
             <ImageDropzone
-              onFile={(file) => void uploadAvatar(file)}
+              onFile={(file) => setCropTarget(file)}
               onReject={setUploadError}
-              busy={uploading}
+              busy={avatarBusy}
               title="Letakkan gambar di sini"
               subtitle="atau klik untuk memilih file"
               hint="JPEG, PNG, GIF, atau WebP, minimal 100 x 100 piksel."
@@ -318,9 +319,21 @@ export function Profile({
             ) : media.length === 0 ? (
               <p className="penalis-muted">Kamu belum upload gambar apa pun. Gunakan kontrol upload di atas.</p>
             ) : (
-              <MediaSelection items={media} selectedId={selectedMediaId} onSelect={setSelectedMediaId}
-                onConfirm={() => { if (selectedMediaId !== null) void chooseAvatar(selectedMediaId); }}
-                onCancel={closePicker} busy={avatarBusy || uploading} />
+              <MediaSelection
+                items={media}
+                selectedId={selectedMediaId}
+                onSelect={setSelectedMediaId}
+                onConfirm={() => {
+                  if (selectedMediaId !== null) {
+                    const item = media.find((m) => m.id === selectedMediaId);
+                    if (item) {
+                      setCropTarget(item.full || item.thumbnail);
+                    }
+                  }
+                }}
+                onCancel={closePicker}
+                busy={avatarBusy}
+              />
             )}
           </div>
         </Dialog>
