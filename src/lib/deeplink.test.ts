@@ -71,4 +71,9 @@ describe('DEEPLINK', () => {
   it('keeps the legacy activation parameter as a flag only', () => {
     expect(DEEPLINK.activate).toBe('penalis_activate');
   });
+
+  it('uses penalis_user for password reset companion and retains legacy penalis_login', () => {
+    expect(DEEPLINK.resetLogin).toBe('penalis_user');
+    expect(DEEPLINK.legacyResetLogin).toBe('penalis_login');
+  });
 });

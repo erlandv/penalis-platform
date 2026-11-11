@@ -82,7 +82,7 @@ final class Penalis_Emails {
 		$reset_url = add_query_arg(
 			array(
 				'penalis_reset' => rawurlencode( (string) $key ),
-				'penalis_login' => rawurlencode( $user->user_login ),
+				'penalis_user'  => rawurlencode( $user->user_login ),
 			),
 			Penalis_Dashboard::registration_url()
 		);

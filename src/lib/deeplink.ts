@@ -21,7 +21,9 @@ export const DEEPLINK = {
    */
   reset: 'penalis_reset',
   /** Companion to `reset`: the username the key belongs to. */
-  resetLogin: 'penalis_login',
+  resetLogin: 'penalis_user',
+  /** Legacy companion to `reset` for backwards compatibility with earlier emails. */
+  legacyResetLogin: 'penalis_login',
   /** Flag: open the legacy account activation form. */
   activate: 'penalis_activate',
   /** Flag: open the password reset request form. */

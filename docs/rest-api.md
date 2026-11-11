@@ -132,7 +132,7 @@ directly from transactional emails and public links:
 | `penalis_forgot=1` | Flag | Forgot-password request form |
 | `penalis_resend=1` | Flag | Resend verification code form |
 | `penalis_activate=1` | Flag | Legacy contributor activation request form |
-| `penalis_reset=<key>&penalis_login=<login>` | Core reset key + login | Set new password form |
+| `penalis_reset=<key>&penalis_user=<login>` | Core reset key + login (also accepts legacy `penalis_login`) | Set new password form |
 | `penalis_login_error=<code>` | Error code | Sign-in form with localized error banner |
 | `view=editor&id=<post_id>` | Signed-in view route | Opens a specific article in the dashboard editor |
 

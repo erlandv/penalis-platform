@@ -64,6 +64,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
       const url = new URL(window.location.href);
       url.searchParams.delete(DEEPLINK.reset);
       url.searchParams.delete(DEEPLINK.resetLogin);
+      url.searchParams.delete(DEEPLINK.legacyResetLogin);
       window.history.replaceState({}, '', url.toString());
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -164,7 +165,9 @@ export function App() {
     const value = readParam(DEEPLINK.reset);
     return value && value.trim() !== '' ? value : null;
   });
-  const [resetLogin] = useState(() => readParam(DEEPLINK.resetLogin) ?? '');
+  const [resetLogin] = useState(
+    () => readParam(DEEPLINK.resetLogin) ?? readParam(DEEPLINK.legacyResetLogin) ?? '',
+  );
 
   const loadAccount = useCallback(async () => {
     setLoading(true);

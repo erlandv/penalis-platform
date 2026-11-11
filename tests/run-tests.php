@@ -1298,6 +1298,7 @@ $GLOBALS['penalis_test_users'][91] = new WP_User( 91 );
 $GLOBALS['penalis_test_users'][91]->user_email = 'writer@example.com';
 $GLOBALS['penalis_test_users'][91]->display_name = 'Penulis Uji';
 penalis_assert( Penalis_Emails::send_password_reset( 91, 'reset-key' ), 'Password reset email is accepted.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'penalis_user=' ), 'Password reset link uses penalis_user parameter.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'permintaan reset password' ), 'Password reset email has reset-specific footer copy.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'Jika kamu tidak meminta reset, abaikan email ini. Jangan bagikan isi email ini kepada siapapun.' ), 'Password reset footer uses the approved reset-denial and confidentiality copy.' );
 
