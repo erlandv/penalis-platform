@@ -981,12 +981,26 @@ penalis_assert(
 	'The dashboard bundle is loaded as an ES module.'
 );
 penalis_assert(
+	false !== strpos( $penalis_module_tag, 'crossorigin="anonymous"' ),
+	'The module tag includes crossorigin="anonymous" for CORS compatibility.'
+);
+penalis_assert(
 	false !== strpos( $penalis_module_tag, 'src="https://example.com/dashboard.js"' ),
-	'The module tag keeps the enqueued source.'
+	'The module tag keeps the enqueued source when same origin.'
 );
 penalis_assert(
 	false !== strpos( $penalis_module_tag, 'id="penalis-dashboard-js"' ),
 	'The module tag keeps the handle id so dependent localisations still resolve.'
+);
+
+$penalis_cdn_module_tag = Penalis_Dashboard::module_script_tag(
+	'<script src="https://cdn.example.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0"></script>',
+	'penalis-dashboard',
+	'https://cdn.example.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0'
+);
+penalis_assert(
+	false !== strpos( $penalis_cdn_module_tag, 'src="https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0"' ),
+	'The module tag normalizes cross-origin CDN host to site origin to prevent CORS blocks.'
 );
 
 /* -------------------------------------------------------------------------

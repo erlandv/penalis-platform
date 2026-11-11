@@ -146,6 +146,10 @@ final class Penalis_Dashboard {
 			return;
 		}
 
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+
 		nocache_headers();
 		header( 'Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0' );
 		header( 'X-Robots-Tag: noindex, nofollow' );
@@ -331,7 +335,7 @@ final class Penalis_Dashboard {
 		}
 
 		$entry = $manifest['src/app/index.tsx'];
-		$base  = PENALIS_PLATFORM_URL . 'build/';
+		$base  = self::asset_base_url();
 
 		if ( ! empty( $entry['css'] ) && is_array( $entry['css'] ) ) {
 			foreach ( $entry['css'] as $index => $css_file ) {
@@ -397,6 +401,43 @@ final class Penalis_Dashboard {
 	}
 
 	/**
+	 * Base URL for dashboard build assets.
+	 *
+	 * ES module scripts (`<script type="module">`) are strictly subject to CORS
+	 * when loaded cross-origin (e.g. from a CDN subdomain like cdn.penalis.com).
+	 * If the CDN does not send `Access-Control-Allow-Origin`, browsers block the
+	 * script from executing, leaving the dashboard root empty.
+	 *
+	 * To keep the dashboard resilient against CDN environments lacking CORS
+	 * headers, this method resolves the asset base URL to the site's origin
+	 * (`home_url()`) if the host differs.
+	 *
+	 * @return string
+	 */
+	public static function asset_base_url() {
+		$url = PENALIS_PLATFORM_URL . 'build/';
+
+		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
+		$url_host  = wp_parse_url( $url, PHP_URL_HOST );
+
+		if ( $home_host && $url_host && strtolower( (string) $home_host ) !== strtolower( (string) $url_host ) ) {
+			$url_path = wp_parse_url( $url, PHP_URL_PATH );
+			if ( $url_path ) {
+				$home_scheme = wp_parse_url( home_url(), PHP_URL_SCHEME );
+				$scheme      = $home_scheme ? $home_scheme : ( is_ssl() ? 'https' : 'http' );
+				$url         = $scheme . '://' . $home_host . $url_path;
+			}
+		}
+
+		/**
+		 * Filter the asset base URL for the dashboard SPA.
+		 *
+		 * @param string $url Base URL pointing to the build/ directory.
+		 */
+		return (string) apply_filters( 'penalis_dashboard_asset_base_url', $url );
+	}
+
+	/**
 	 * Load the dashboard bundle as an ES module.
 	 *
 	 * `wp_enqueue_script()` always prints a classic script tag. Vite's output is
@@ -414,8 +455,23 @@ final class Penalis_Dashboard {
 			return $tag;
 		}
 
+		// Ensure the script source is same-origin even if a CDN plugin rewrote
+		// the script_loader_src filter, preventing CORS blocks.
+		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
+		$src_host  = wp_parse_url( $src, PHP_URL_HOST );
+
+		if ( $home_host && $src_host && strtolower( (string) $home_host ) !== strtolower( (string) $src_host ) ) {
+			$src_path  = wp_parse_url( $src, PHP_URL_PATH );
+			$src_query = wp_parse_url( $src, PHP_URL_QUERY );
+			if ( $src_path ) {
+				$home_scheme = wp_parse_url( home_url(), PHP_URL_SCHEME );
+				$scheme      = $home_scheme ? $home_scheme : ( is_ssl() ? 'https' : 'http' );
+				$src         = $scheme . '://' . $home_host . $src_path . ( $src_query ? '?' . $src_query : '' );
+			}
+		}
+
 		return sprintf(
-			'<script type="module" src="%s" id="penalis-dashboard-js"></script>' . "\n", // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag for an already-enqueued handle; wp_enqueue_script() cannot emit type="module".
+			'<script type="module" crossorigin="anonymous" src="%s" id="penalis-dashboard-js"></script>' . "\n", // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag for an already-enqueued handle; wp_enqueue_script() cannot emit type="module".
 			esc_url( $src )
 		);
 	}
