@@ -9,7 +9,7 @@ building production assets, creating releases, and executing manual QA checks.
 
 | Tool | Version | Purpose |
 | --- | --- | --- |
-| PHP | 7.4+ (8.2+ recommended for dev) | Plugin runtime and unit test runner |
+| PHP | 8.2+ | Plugin runtime and unit test runner |
 | WordPress | 6.0+ | Target CMS runtime |
 | Node.js | 20+ (`.nvmrc` pins `20`) | Frontend build & Vitest (build-time only) |
 | npm | 9+ | Frontend package management |
@@ -101,7 +101,7 @@ option against `PENALIS_PLATFORM_VERSION` to run non-destructive upgrades.
 ### 4.2 GitHub Actions CI & Release
 - **`.github/workflows/ci.yml`** runs on every push and pull request targeting `main`:
   - PHP 8.2 coding standards (`composer lint`) and unit tests (`composer test`).
-  - PHP 7.4 syntax lint (`php -l`) across every tracked `.php` file.
+  - PHP 8.2 syntax lint (`php -l`) across every tracked `.php` file.
   - Frontend quality gate (`npm run check`) and `build/manifest.json` verification.
 - **`.github/workflows/release.yml`** runs automatically when a `v*` tag (for
   example `v1.0.0`) is pushed:

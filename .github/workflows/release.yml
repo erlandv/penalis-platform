@@ -164,7 +164,7 @@ jobs:
             The archive already contains the compiled writing dashboard in `build/`, so no Node.js
             toolchain is required on the server.
 
-            **Requirements:** WordPress 6.0+, PHP 7.4+.
+            **Requirements:** WordPress 6.0+, PHP 8.2+.
 
             Release notes are also listed in
             [readme.txt](https://github.com/${{ github.repository }}/blob/main/readme.txt).

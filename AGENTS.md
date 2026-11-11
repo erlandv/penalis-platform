@@ -241,7 +241,7 @@ When bumping the plugin version, update all four places together:
 ### 7.3 Code conventions
 
 - **PHP:** WordPress Coding Standards (`phpcs.xml.dist`), tabs for indentation,
-  PHP 7.4 syntax compatibility, Yoda conditions, full docblocks, `penalis_` /
+  PHP 8.2+ syntax compatibility, Yoda conditions, full docblocks, `penalis_` /
   `Penalis_` / `PENALIS_` prefixes, sanitize on input, escape on output. Keep
   pure business rules in `Penalis_Policy` and `Penalis_Editorial_Policy`.
 - **TypeScript / React:** `strict` mode (`noUncheckedIndexedAccess`,

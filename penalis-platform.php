@@ -5,7 +5,7 @@
  * Description:       Curated publishing workflow and React writing dashboard for the Penalis literary community on WordPress.
  * Version:           1.1.0
  * Requires at least: 6.0
- * Requires PHP:      7.4
+ * Requires PHP:      8.2
  * Author:            Penalis
  * Author URI:        https://penalis.com
  * License:           GPL-2.0-or-later
@@ -16,6 +16,19 @@
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
+}
+
+// Minimum PHP version guard — fail gracefully without fatal errors.
+if ( version_compare( PHP_VERSION, '8.2', '<' ) ) {
+	add_action(
+		'admin_notices',
+		static function () {
+			echo '<div class="notice notice-error"><p>'
+				. esc_html__( 'Penalis Platform requires PHP 8.2 or higher. Please upgrade PHP.', 'penalis-platform' )
+				. '</p></div>';
+		}
+	);
+	return;
 }
 
 define( 'PENALIS_PLATFORM_VERSION', '1.1.0' );

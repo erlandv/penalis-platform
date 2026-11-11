@@ -45,7 +45,7 @@ authentication store.
 | Component | Version | Notes |
 | --- | --- | --- |
 | WordPress | 6.0+ | Requires pretty permalinks enabled |
-| PHP | 7.4+ | Production runtime |
+| PHP | 8.2+ | Production runtime |
 | Node.js & npm | Node 20+, npm 9+ | Build-time only (not needed on the WordPress server) |
 | Composer | 2.x | Development tooling (PHPCS) only |
 

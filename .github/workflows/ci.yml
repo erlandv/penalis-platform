@@ -44,20 +44,19 @@ jobs:
         run: composer test
 
   # ---------------------------------------------------------------------------
-  # The plugin declares PHP 7.4 support. Tooling cannot run there, but every
-  # shipped file must at least parse.
+  # The plugin declares PHP 8.2 support. Every shipped file must parse under 8.2.
   # ---------------------------------------------------------------------------
   php-syntax:
-    name: PHP 7.4 syntax compatibility
+    name: PHP 8.2 syntax compatibility
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up PHP 7.4
+      - name: Set up PHP 8.2
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '7.4'
+          php-version: '8.2'
           coverage: none
 
       - name: Lint shipped PHP files
@@ -66,7 +65,7 @@ jobs:
           for file in "${files[@]}"; do
             php -l "$file" > /dev/null || exit 1
           done
-          echo "All ${#files[@]} PHP files parse under 7.4."
+          echo "All ${#files[@]} PHP files parse under 8.2."
 
   # ---------------------------------------------------------------------------
   # React dashboard: lint, type check, unit tests, and a production build.
