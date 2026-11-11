@@ -27,16 +27,15 @@ import { Dialog } from '../../components/Dialog';
 import { ImageDropzone } from '../../components/ImageDropzone';
 import { MediaSelection } from '../../components/MediaSelection';
 import { Icon } from '../../components/icons';
+import { editorLoader } from './editorLoader';
 import type { RichTextEditorHandle } from './RichTextEditor';
 
 /**
  * The editor pulls in TipTap and ProseMirror (~135 kB gzip). Loading it on
  * demand keeps the rest of the dashboard light, because only writers who open
- * the editor ever download it.
+ * the editor ever download it. Retrying protects against mobile network hiccups.
  */
-const RichTextEditor = lazy(() =>
-  import('./RichTextEditor').then((module) => ({ default: module.RichTextEditor })),
-);
+const RichTextEditor = lazy(editorLoader.load);
 
 /**
  * What the media picker should do with the chosen image.

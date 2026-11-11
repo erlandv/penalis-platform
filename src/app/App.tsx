@@ -17,6 +17,7 @@ import { AuthGate } from '../features/auth/AuthGate';
 import { Overview } from '../features/overview/Overview';
 import { Articles } from '../features/articles/Articles';
 import { Editor } from '../features/editor/Editor';
+import { preloadEditor } from '../features/editor/editorLoader';
 import { Profile } from '../features/profile/Profile';
 import { Settings } from '../features/settings/Settings';
 import { Media } from '../features/media/Media';
@@ -207,6 +208,35 @@ export function App() {
       }
     }
   }, []);
+
+  // Preload the editor chunk during browser idle time for active writers so
+  // navigating to the editor is instant and immune to mobile network drops.
+  useEffect(() => {
+    if (!account?.canWrite) {
+      return;
+    }
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (cb: () => void) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof idleWindow.requestIdleCallback === 'function') {
+      const handle = idleWindow.requestIdleCallback(() => {
+        preloadEditor();
+      });
+      return () => {
+        if (typeof idleWindow.cancelIdleCallback === 'function') {
+          idleWindow.cancelIdleCallback(handle);
+        }
+      };
+    }
+
+    const timer = setTimeout(() => {
+      preloadEditor();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [account?.canWrite]);
 
   const handleNotificationsChanged = useCallback((unreadCount: number) => {
     setAccount((prev) => {

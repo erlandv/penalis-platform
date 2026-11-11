@@ -19,6 +19,7 @@ import type { Account, AccountStatus, ViewName } from '../lib/types';
 import { Icon, type IconName } from './icons';
 import { OtpForm } from './OtpForm';
 import { Notice } from './ui';
+import { preloadEditor } from '../features/editor/editorLoader';
 
 /**
  * Navigation entries carry an icon so the sidebar reads as a set of places
@@ -464,6 +465,16 @@ export function Shell({
                 type="button"
                 className={`penalis-nav__item ${view === item.view ? 'is-active' : ''}`}
                 onClick={() => onNavigate(item.view)}
+                onPointerEnter={() => {
+                  if (item.view === 'editor' && !disabled) {
+                    preloadEditor();
+                  }
+                }}
+                onFocus={() => {
+                  if (item.view === 'editor' && !disabled) {
+                    preloadEditor();
+                  }
+                }}
                 aria-current={view === item.view ? 'page' : undefined}
                 disabled={disabled}
                 title={disabled ? disabledHint : undefined}
