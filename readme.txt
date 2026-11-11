@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -109,6 +109,12 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 1.1.0 =
+* Security: Restrict non-staff accounts (writers, contributors, subscribers) from accessing wp-admin and wp-login.php, automatically redirecting them to the frontend dashboard (/dashboard/).
+* Fix: Prevent CORS blocking for dashboard ES modules by enforcing same-origin asset URLs and adding crossorigin attribute to module scripts and preloads.
+* Performance: Implement code-splitting and lazy-loading with automated retry and preloading for the TipTap editor chunk, accelerating initial dashboard load time.
+* Refactor: Rename password reset login parameter to penalis_user while maintaining backwards compatibility with legacy penalis_login URLs.
+
 = 1.0.0 =
 * Initial production release of Penalis Platform.
 * Self-service writer account lifecycle: registration with optional Instagram
@@ -130,6 +136,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 1.1.0 =
+Includes security hardening for wp-admin/wp-login access, dashboard performance improvements with editor lazy-loading, and module asset loading fixes.
 
 = 1.0.0 =
 Initial production release. Activation and upgrades are non-destructive.
