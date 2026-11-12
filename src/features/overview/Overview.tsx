@@ -160,7 +160,7 @@ export function Overview({
       <section className="penalis-cards" aria-label="Ringkasan karya tulis">
         <StatCard label="Total karya" value={counts.all} />
         <StatCard label="Diterbitkan" value={counts.publish} />
-        <StatCard label="Menunggu review" value={counts.pending} />
+        <StatCard label="Review" value={counts.pending} />
         <StatCard label="Draft" value={counts.draft} />
       </section>
 
@@ -170,7 +170,7 @@ export function Overview({
             Buat karya baru
           </button>
           <button type="button" className="penalis-button penalis-button--ghost" onClick={onOpenArticles}>
-            Lihat semua karya tulis
+            Lihat semua karya
           </button>
         </div>
       ) : null}

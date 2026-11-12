@@ -119,10 +119,9 @@
 
 .penalis-header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
   padding-bottom: 1.25rem;
   border-bottom: 1px solid var(--penalis-border);
   margin-bottom: 1.5rem;
@@ -132,20 +131,18 @@
 
 .penalis-header__meta {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 1rem;
+  flex-shrink: 0;
   font-size: 0.9rem;
 }
 
 /*
  * Account flyout.
  *
- * The header used to show the display name plus three bare links, which wrapped
- * onto its own row on a phone. Only the name is visible now; the actions live
- * in a popover. The wrapper is the hover/focus boundary, so the popover stays
- * open while the pointer travels from the trigger into the menu — a gap between
- * the two would otherwise close it mid-move.
+ * The trigger presents the user avatar and a chevron. The full name, username,
+ * and account actions live in a popover. The wrapper is the hover/focus boundary,
+ * so the popover stays open while the pointer travels from the trigger into the
+ * menu — a gap between the two would otherwise close it mid-move.
  */
 .penalis-account {
   position: relative;
@@ -157,7 +154,7 @@
   gap: 0.35rem;
   /* 44px keeps the trigger a comfortable touch target on a phone. */
   min-height: 44px;
-  padding: 0.35rem 0.6rem;
+  padding: 0.25rem 0.45rem 0.25rem 0.3rem;
   border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
@@ -165,6 +162,7 @@
   font: inherit;
   font-size: 0.9rem;
   cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
 .penalis-account__trigger:hover,
@@ -173,17 +171,46 @@
   border-color: var(--penalis-border);
 }
 
+.penalis-account__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--penalis-surface-alt);
+  border: 1px solid var(--penalis-border);
+  flex-shrink: 0;
+  display: block;
+}
+
+.penalis-account__avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--penalis-muted);
+}
+
+.penalis-account__avatar--fallback svg {
+  width: 20px;
+  height: 20px;
+}
+
 /*
- * The chevron is the only affordance that says "this opens something", so it
- * must not be squeezed by a long display name.
+ * The chevron is the affordance that says "this opens something".
  */
-.penalis-account__trigger svg {
+.penalis-account__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   color: var(--penalis-muted);
   transition: transform 120ms ease;
 }
 
-.penalis-account__trigger.is-open svg {
+.penalis-account__chevron svg {
+  display: block;
+}
+
+.penalis-account__trigger.is-open .penalis-account__chevron {
   transform: rotate(180deg);
 }
 
@@ -202,12 +229,52 @@
 .penalis-account__menu {
   display: flex;
   flex-direction: column;
-  min-width: 13rem;
+  min-width: 14rem;
   padding: 0.35rem;
   border: 1px solid var(--penalis-border);
   border-radius: 12px;
   background: var(--penalis-surface);
   box-shadow: var(--penalis-shadow);
+}
+
+.penalis-account__header {
+  padding: 0.6rem 0.75rem 0.5rem;
+}
+
+.penalis-account__header-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--penalis-text);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.penalis-account__header-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--penalis-muted);
+  margin-top: 0.2rem;
+  line-height: 1.3;
+}
+
+.penalis-account__badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+  line-height: 1.2;
+}
+
+.penalis-account__divider {
+  height: 1px;
+  background: var(--penalis-border);
+  margin: 0.25rem 0 0.35rem;
 }
 
 .penalis-account__item {
@@ -242,10 +309,6 @@
 .penalis-account__item--danger:focus-visible {
   background: var(--penalis-danger-soft);
   color: var(--penalis-danger);
-}
-
-.penalis-user {
-  font-weight: 600;
 }
 
 .penalis-eyebrow {

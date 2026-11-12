@@ -202,10 +202,15 @@ function AccountMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const focusFirstOnOpen = useRef(false);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [account.avatarUrl]);
 
   const close = useCallback((refocusTrigger = false) => {
     setOpen(false);
@@ -343,11 +348,27 @@ function AccountMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? 'penalis-account-menu' : undefined}
+        aria-label={`Menu akun: ${account.displayName}`}
         onClick={onTriggerClick}
         onKeyDown={onTriggerKeyDown}
       >
-        <span className="penalis-user">{account.displayName}</span>
-        <Icon name="chevronDown" />
+        {account.avatarUrl && !avatarError ? (
+          <img
+            className="penalis-account__avatar"
+            src={account.avatarUrl}
+            alt=""
+            width={34}
+            height={34}
+            onError={() => setAvatarError(true)}
+          />
+        ) : (
+          <span className="penalis-account__avatar penalis-account__avatar--fallback" aria-hidden="true">
+            <Icon name="user" />
+          </span>
+        )}
+        <span className="penalis-account__chevron" aria-hidden="true">
+          <Icon name="chevronDown" />
+        </span>
       </button>
 
       {open ? (
@@ -359,6 +380,19 @@ function AccountMenu({
             aria-label="Menu akun"
             ref={menuRef}
           >
+            <div className="penalis-account__header" role="presentation">
+              <div className="penalis-account__header-name">{account.displayName}</div>
+              <div className="penalis-account__header-meta">
+                {account.isAdministrator ? (
+                  <span className="penalis-account__badge">Admin</span>
+                ) : account.isReviewer ? (
+                  <span className="penalis-account__badge">Reviewer</span>
+                ) : null}
+                <span>@{account.username}</span>
+              </div>
+            </div>
+            <div className="penalis-account__divider" role="separator" />
+
             <a
               className="penalis-account__item"
               role="menuitem"
