@@ -40,6 +40,8 @@ export type IconName =
   | 'users'
   | 'settings'
   | 'chevronDown'
+  | 'chevronLeft'
+  | 'chevronRight'
   | 'logout';
 
 const paths: Record<IconName, ReactNode> = {
@@ -238,6 +240,8 @@ const paths: Record<IconName, ReactNode> = {
     </>
   ),
   chevronDown: <path d="m6 9 6 6 6-6" />,
+  chevronLeft: <path d="m15 18-6-6 6-6" />,
+  chevronRight: <path d="m9 18 6-6-6-6" />,
   logout: (
     <>
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

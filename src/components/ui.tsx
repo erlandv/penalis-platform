@@ -4,6 +4,7 @@
 
 import type { ReactNode } from 'react';
 
+import { Icon } from './icons';
 import type { FieldErrors } from '../lib/types';
 import { statusLabel, statusTone } from '../lib/format';
 
@@ -119,22 +120,26 @@ export function Pagination({
     <nav className="penalis-pagination" aria-label="Navigasi halaman">
       <button
         type="button"
-        className="penalis-button penalis-button--ghost"
+        className="penalis-pagination__button"
         onClick={() => onChange(page - 1)}
         disabled={page <= 1}
+        aria-label="Sebelumnya"
+        title="Sebelumnya"
       >
-        Sebelumnya
+        <Icon name="chevronLeft" />
       </button>
-      <span>
+      <span className="penalis-pagination__status">
         Halaman {page} dari {totalPages}
       </span>
       <button
         type="button"
-        className="penalis-button penalis-button--ghost"
+        className="penalis-pagination__button"
         onClick={() => onChange(page + 1)}
         disabled={page >= totalPages}
+        aria-label="Berikutnya"
+        title="Berikutnya"
       >
-        Berikutnya
+        <Icon name="chevronRight" />
       </button>
     </nav>
   );
