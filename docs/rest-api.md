@@ -131,7 +131,6 @@ directly from transactional emails and public links:
 | `penalis_signin=1` | Flag | Sign-in form (default for guests) |
 | `penalis_register=1` | Flag | New writer registration form |
 | `penalis_forgot=1` | Flag | Forgot-password request form |
-| `penalis_resend=1` | Flag | Resend verification code form |
 | `penalis_activate=1` | Flag | Legacy contributor activation request form |
 | `penalis_reset=<key>&penalis_user=<login>` | Core reset key + login (also accepts legacy `penalis_login`) | Set new password form |
 | `penalis_login_error=<code>` | Error code | Sign-in form with localized error banner |

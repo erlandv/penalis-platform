@@ -30,8 +30,6 @@ export const DEEPLINK = {
   forgot: 'penalis_forgot',
   /** Flag: open the registration form. */
   register: 'penalis_register',
-  /** Flag: open the verification code resend form. */
-  resend: 'penalis_resend',
   /** Flag: open the login form. Login is also the default. */
   signin: 'penalis_signin',
   /** Flag: a dashboard login attempt failed. */

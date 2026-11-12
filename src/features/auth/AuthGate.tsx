@@ -15,7 +15,7 @@ import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../compo
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
 
-type Mode = 'login' | 'register' | 'verify' | 'resend' | 'forgot' | 'activate' | 'activateVerify';
+type Mode = 'login' | 'register' | 'verify' | 'forgot' | 'activate' | 'activateVerify';
 
 /**
  * A verification code that was just issued.
@@ -35,7 +35,6 @@ const HEADINGS: Record<Mode, string> = {
   login: 'Login ke Dashboard',
   register: 'Buat Akun Penalis',
   verify: 'Masukkan Kode Verifikasi',
-  resend: 'Kirim Ulang Kode Verifikasi',
   forgot: 'Lupa Password',
   activate: 'Aktifkan Akun Kontributor',
   activateVerify: 'Verifikasi Akun Kontributor',
@@ -45,7 +44,6 @@ const DESCRIPTIONS: Record<Mode, string> = {
   login: 'Login ke dashboard dengan akun Penalis untuk mengelola karya tulis.',
   register: 'Buat akun Penalis untuk mengakses dashboard dan mulai menulis di Penalis.',
   verify: 'Masukkan kode enam digit yang kami kirim ke email kamu untuk mengaktifkan akun.',
-  resend: 'Minta kode verifikasi baru untuk akun yang belum dikonfirmasi.',
   forgot: 'Masukkan email kamu. Kami akan mengirim link untuk reset password.',
   activate: 'Sudah pernah mengirim karya tulis dan menjadi kontributor Penalis sebelumnya?',
   activateVerify: 'Masukkan kode dari email kamu, lalu buat password untuk akun tersebut.',
@@ -62,7 +60,6 @@ const DESCRIPTIONS: Record<Mode, string> = {
  * | `penalis_register=1` | Registration |
  * | `penalis_activate=1` | Legacy account activation |
  * | `penalis_forgot=1` | Password reset request |
- * | `penalis_resend=1` | Verification code resend |
  */
 function initialMode(): Mode {
   if (hasParam(DEEPLINK.register)) {
@@ -75,10 +72,6 @@ function initialMode(): Mode {
 
   if (hasParam(DEEPLINK.forgot)) {
     return 'forgot';
-  }
-
-  if (hasParam(DEEPLINK.resend)) {
-    return 'resend';
   }
 
   return 'login';
@@ -141,9 +134,6 @@ export function AuthGate() {
             Sesi verifikasi tidak ditemukan. Silakan masuk, atau minta kode verifikasi baru.
           </p>
         ) : null}
-        {mode === 'resend' ? (
-          <ResendForm onChallenge={(next) => startChallenge(next, 'verify')} />
-        ) : null}
         {mode === 'forgot' ? <ForgotForm onDone={backToLogin} /> : null}
         {mode === 'activate' ? (
           <ActivateForm onChallenge={(next) => startChallenge(next, 'activateVerify')} />
@@ -193,12 +183,6 @@ export function AuthGate() {
           {mode === 'login' ? (
             <button type="button" className="penalis-link-button" onClick={() => setMode('forgot')}>
               Lupa Password?
-            </button>
-          ) : null}
-
-          {mode !== 'resend' ? (
-            <button type="button" className="penalis-link-button" onClick={() => setMode('resend')}>
-              Kirim Ulang Kode Verifikasi
             </button>
           ) : null}
         </div>
@@ -669,79 +653,6 @@ function ActivateVerifyForm({
         <FieldError errors={errors} name="confirm_password" />
       </div>
     </OtpForm>
-  );
-}
-
-function ResendForm({ onChallenge }: { onChallenge: (challenge: Challenge) => void }) {
-  const [email, setEmail] = useState('');
-  const [fieldError, setFieldError] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-
-    // The server answers generically for every outcome, so an empty or
-    // malformed address would otherwise look like a successful request.
-    const invalid = validateEmail(email);
-    if (invalid) {
-      setFieldError(invalid);
-      return;
-    }
-    setFieldError('');
-    setSubmitting(true);
-
-    try {
-      const result = await registrationApi.resend(email.trim());
-      onChallenge({
-        challengeId: result.challenge_id,
-        email: email.trim(),
-        resendAfter: result.resend_after,
-        expiresIn: result.expires_in,
-        maxAttempts: result.max_attempts,
-      });
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <form className="penalis-form" onSubmit={submit} noValidate>
-      <p className="penalis-muted">
-        Masukkan email yang kamu gunakan saat membuat akun. Jika akun sedang menunggu verifikasi, kami akan
-        mengirim kode verifikasi baru.
-      </p>
-
-      {error ? <ErrorBanner message={error} /> : null}
-
-      <div className="penalis-field">
-        <label htmlFor="resend_email">Email</label>
-        <input
-          id="resend_email"
-          type="email"
-          value={email}
-          onChange={(event) => {
-            setEmail(event.target.value);
-            setFieldError('');
-          }}
-          autoComplete="email"
-          maxLength={254}
-          placeholder="Email kamu"
-          aria-invalid={Boolean(fieldError)}
-          aria-describedby={describedBy('resend_email-hint', fieldError && 'resend_email-error')}
-          required
-        />
-        <FieldHint id="resend_email-hint">Gunakan email yang kamu pakai saat membuat akun.</FieldHint>
-        <FieldError errors={{ resend_email: fieldError }} name="resend_email" />
-      </div>
-
-      <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Kode Verifikasi'}
-      </button>
-    </form>
   );
 }
 
