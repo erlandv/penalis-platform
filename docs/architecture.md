@@ -174,6 +174,13 @@ have no `_penalis_account_status` metadata (`Penalis_Account_Status::is_legacy_a
     account directly to `active` (`penalis_writer` role,
     `_penalis_access_enabled = 1`), sets `_penalis_needs_password = 1`, and
     triggers a password reset email so the writer can set a password.
+- **Registration collision handling:** If a visitor attempts to register with an
+  email address belonging to a dormant legacy contributor, the registration
+  endpoint preserves anti-enumeration by returning a generic success challenge,
+  while sending a dedicated guidance notice (`legacy_register_notice`) to the
+  contributor's email address with a direct deep-link to the activation form
+  (`/dashboard/?penalis_activate=1`). Usernames are checked explicitly for
+  availability; conflicting usernames return an immediate field error.
 
 ---
 
@@ -328,6 +335,7 @@ No custom database tables are created.
 | `avatar_default_wp_user_avatar` | Option | Default profile photo attachment ID (shared with One User Avatar) |
 | `penalis_pending_review_count` | Transient | Cached count of `pending_review` article submissions |
 | `penalis_activation_notice` | Transient | Short-lived post-activation admin notice flag |
+| `penalis_dup_notice_<id>` | Transient | One-hour throttle for duplicate registration and legacy notices |
 | `penalis_rl_<md5>` | Transient | Rate-limiter bucket counters |
 
 ---

@@ -218,10 +218,10 @@ JS;
 			),
 			'duplicate_notice'          => array(
 				'title'           => 'Pemberitahuan Percobaan Pendaftaran Akun Ganda',
-				'description'     => 'Dikirim ke pemilik akun lama saat seseorang mencoba mendaftar menggunakan email atau username miliknya.',
+				'description'     => 'Dikirim ke pemilik akun terdaftar saat seseorang mencoba mendaftar menggunakan alamat email miliknya.',
 				'group'           => 'keamanan',
 				'default_subject' => '[{nama_situs}] Percobaan Pendaftaran',
-				'default_body'    => "Seseorang mencoba mendaftar menggunakan alamat email atau username kamu.\n\nJika ini adalah kamu, silakan masuk ke dashboard penulis atau reset password kamu.\n\n{link_dashboard}\n\nJika bukan kamu, tidak ada tindakan yang perlu dilakukan.",
+				'default_body'    => "Seseorang mencoba mendaftar menggunakan alamat email kamu.\n\nJika ini adalah kamu, silakan masuk ke dashboard penulis atau reset password kamu.\n\n{link_dashboard}\n\nJika bukan kamu, tidak ada tindakan yang perlu dilakukan.",
 				'default_footer'  => 'Email ini dikirim otomatis untuk keamanan akun Penalis kamu. Jika bukan kamu yang mencoba mendaftar, akun kamu tetap aman dan tidak ada tindakan yang perlu dilakukan. Hubungi admin@penalis.com jika ada pertanyaan.',
 				'tags'            => array(
 					'{nama_penulis}'   => 'Nama tampilan pemilik akun',
@@ -229,6 +229,20 @@ JS;
 					'{link_dashboard}' => 'URL halaman dashboard penulis',
 				),
 				'required_tags'   => array(),
+			),
+			'legacy_register_notice'    => array(
+				'title'           => 'Pemberitahuan Pendaftaran Akun Kontributor Lama',
+				'description'     => 'Dikirim ke pemilik akun kontributor lama saat seseorang mencoba mendaftar menggunakan email yang sudah terdaftar.',
+				'group'           => 'keamanan',
+				'default_subject' => '[{nama_situs}] Akun Kontributor Kamu Sudah Terdaftar',
+				'default_body'    => "Halo {nama_penulis},\n\nKami menerima upaya pendaftaran akun baru di {nama_situs} menggunakan alamat email ini.\n\nKamu sebelumnya sudah terdaftar sebagai kontributor Penalis, sehingga kamu tidak perlu mendaftar dari awal. Seluruh karya tulis yang pernah kamu kirimkan tetap aman dan terhubung dengan akun kamu.\n\nUntuk mulai menulis dan mengelola karya, silakan aktifkan akun lamamu dan buat password baru melalui tautan berikut:\n\n{link_aktivasi}\n\nJika bukan kamu yang mencoba mendaftar, abaikan email ini. Akun kamu tetap aman.",
+				'default_footer'  => 'Email ini dikirim otomatis untuk keamanan akun Penalis kamu. Jika bukan kamu yang mencoba mendaftar, akun kamu tetap aman dan tidak ada tindakan yang perlu dilakukan. Hubungi admin@penalis.com jika ada pertanyaan.',
+				'tags'            => array(
+					'{nama_penulis}'  => 'Nama tampilan pemilik akun',
+					'{nama_situs}'    => 'Nama website situs',
+					'{link_aktivasi}' => 'Tautan langsung ke form aktivasi akun kontributor lama (Wajib)',
+				),
+				'required_tags'   => array( '{link_aktivasi}' ),
 			),
 			'password_reset'            => array(
 				'title'           => 'Reset Password Akun Penulis',

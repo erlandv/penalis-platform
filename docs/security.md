@@ -198,6 +198,25 @@ changes:
 - Clears user caches, destroys all sessions, clears auth cookies, and emails a
   security notice.
 
+### 6.4 Registration Collisions & Duplicate Handling
+- **Public Identifiers vs. Private Handles:** Usernames are public identifiers
+  (author archives, public profiles) and are validated for availability
+  immediately. Conflicting or reserved usernames return `400 penalis_registration_invalid`
+  with a direct field error (`user_login`), avoiding dead-end registration states.
+- **Email Anti-Enumeration:** Candidate email addresses enforce anti-enumeration:
+  an attempt to register with an already-registered email returns the exact same
+  generic challenge response shape as a new registration.
+- **Account-Aware Dispatched Notices:**
+  - Active / Standard accounts: Dispatches `duplicate_notice` to the stored
+    email address advising the owner to sign in or reset their password.
+  - Legacy contributor accounts: Dispatches `legacy_register_notice` advising the
+    owner that their literary works are safely linked to their pre-existing
+    contributor profile, providing a direct link to the self-service activation
+    flow (`?penalis_activate=1`).
+- **Abuse Throttling:** Outgoing duplicate and legacy notices are throttled per
+  user to at most one per hour (`penalis_dup_notice_<id>`) so high-volume
+  registration attempts cannot turn the site into an email spam vector.
+
 ---
 
 ## 7. Rate Limits & Abuse Controls
@@ -207,6 +226,7 @@ Transient-based rate limits (`Penalis_Rate_Limiter`):
 | Operation | Scope | Limit |
 | --- | --- | --- |
 | Registration | Per IP | 5 / hour |
+| Duplicate / legacy notice | Per target user | 1 / hour |
 | Verification code confirm | Per IP | 20 / hour |
 | Verification code issue | Per account / Per address / Per IP | 5 / hour, 10 / day, 5 / hour, 20 / hour, with a 60-second cooldown |
 | Verification code failures | Per account (cumulative) | Locked after 30 failed codes until administrator unlock |
@@ -227,9 +247,10 @@ Transient-based rate limits (`Penalis_Rate_Limiter`):
 - **CSRF Protection:** All template mutation requests are guarded by WordPress
   nonces (`check_admin_referer( 'penalis_save_email_settings' )`).
 - **Mandatory Placeholder Safety Net:** Critical tokens (`{kode_otp}`,
-  `{link_reset_password}`, `{link_review_admin}`, `{link_editor}`) cannot be
-  omitted. If removed by an administrator, they are automatically appended
-  during save and verified again during message rendering before dispatch.
+  `{link_reset_password}`, `{link_review_admin}`, `{link_editor}`,
+  `{link_aktivasi}`) cannot be omitted. If removed by an administrator, they
+  are automatically appended during save and verified again during message
+  rendering before dispatch.
 - **Link & HTML Sanitization:** Content in `Penalis_Email_Template` is escaped
   before rendering. Markdown links (`[text](url)`) strictly reject unsafe
   schemes (e.g. `javascript:`, `data:`) and only permit `http`, `https`, or

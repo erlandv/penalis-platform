@@ -81,16 +81,32 @@ final class Penalis_Registration {
 		$password = (string) $data['password'];
 		$display  = sanitize_text_field( $data['display_name'] );
 
-		// Detect duplicates without disclosing existence in the response.
-		$existing_email = email_exists( $email );
-		$existing_login = username_exists( $login );
+		// Usernames are public identifiers (e.g. author archive URLs). Rejecting
+		// taken usernames directly gives immediate and helpful feedback to the
+		// registrant while avoiding sending spurious notices or legacy activation
+		// codes to other users.
+		if ( username_exists( $login ) || Penalis_Author_History::unavailable( $login ) ) {
+			return new WP_Error(
+				'penalis_registration_invalid',
+				'Perbaiki kolom yang ditandai.',
+				array(
+					'status' => 400,
+					'fields' => array(
+						'user_login' => 'Username tersebut sudah digunakan. Silakan pilih username lain.',
+					),
+				)
+			);
+		}
 
-		if ( $existing_email || $existing_login || Penalis_Author_History::unavailable( $login ) ) {
-			self::handle_duplicate_attempt( $existing_email, $existing_login );
+		// Detect duplicate email without disclosing existence in the response.
+		$existing_email = email_exists( $email );
+
+		if ( $existing_email ) {
+			self::handle_duplicate_attempt( (int) $existing_email );
 
 			// Return the same challenge shape as a successful registration. This
-			// prevents the endpoint from confirming whether an email address or
-			// username already exists.
+			// prevents the endpoint from confirming whether an email address
+			// already exists.
 			return Penalis_Otp::response();
 		}
 
@@ -134,25 +150,22 @@ final class Penalis_Registration {
 	}
 
 	/**
-	 * Handle a registration attempt that matches an existing account.
+	 * Handle a registration attempt that matches an existing email address.
 	 *
 	 * The response to the requester is always the same generic success, so this
 	 * method only decides what to send to the account owner:
 	 *
-	 * - Legacy contributor: send an activation code. These accounts have no
-	 *   password and cannot sign in, so telling them to "sign in or reset the
-	 *   password" would be a dead end.
-	 * - Any other account: send a neutral notice.
+	 * - Legacy contributor: send a guidance notice explaining their account is
+	 *   already registered as a legacy contributor, with a link to activate.
+	 *   An unexplained OTP code is not sent because the registrant cannot
+	 *   consume it on the registration verification screen.
+	 * - Any other account: send a neutral duplicate registration notice.
 	 *
-	 * @param int $existing_email_id User ID by email.
-	 * @param int $existing_login_id User ID by login.
+	 * @param int $user_id User ID matching the email address.
 	 * @return void
 	 */
-	private static function handle_duplicate_attempt( $existing_email_id, $existing_login_id ) {
-		$user_id = (int) $existing_email_id;
-		if ( $user_id <= 0 ) {
-			$user_id = (int) $existing_login_id;
-		}
+	private static function handle_duplicate_attempt( $user_id ) {
+		$user_id = (int) $user_id;
 
 		if ( $user_id <= 0 ) {
 			return;
@@ -166,16 +179,42 @@ final class Penalis_Registration {
 		set_transient( $throttle_key, '1', HOUR_IN_SECONDS );
 
 		if ( Penalis_Account_Status::is_legacy_account( $user_id ) ) {
-			$user = get_userdata( $user_id );
-
-			if ( $user ) {
-				Penalis_Otp::issue( 'legacy', $user_id, $user->user_email );
-			}
-
+			self::send_legacy_notice( $user_id );
 			return;
 		}
 
 		self::send_duplicate_notice( $user_id );
+	}
+
+	/**
+	 * Send a guidance notice to an existing legacy contributor account.
+	 *
+	 * Explains that their account is already registered as a legacy contributor
+	 * and provides a direct link to the activation form.
+	 *
+	 * @param int $user_id User ID.
+	 * @return void
+	 */
+	private static function send_legacy_notice( $user_id ) {
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user || ! is_email( $user->user_email ) ) {
+			return;
+		}
+
+		$rendered = Penalis_Email_Settings::render(
+			'legacy_register_notice',
+			array(
+				'{nama_penulis}'  => $user->display_name,
+				'{link_aktivasi}' => add_query_arg( 'penalis_activate', '1', Penalis_Dashboard::dashboard_url() ),
+			)
+		);
+
+		Penalis_Emails::send_mail(
+			$user->user_email,
+			$rendered['subject'],
+			$rendered['body'],
+			$rendered['footer']
+		);
 	}
 
 	/**

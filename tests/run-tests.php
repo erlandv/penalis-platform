@@ -3423,7 +3423,7 @@ $html_safe = Penalis_Email_Template::render( '[Klik Disini](javascript:alert(1))
 penalis_assert( false === strpos( $html_safe, 'href="javascript:' ), 'Unsafe link scheme in markdown is rejected.' );
 
 // 2. Penalis_Email_Settings registry & capabilities
-penalis_same( 15, count( Penalis_Email_Settings::get_registry() ), 'There are exactly 15 configurable email templates in the registry.' );
+penalis_same( 16, count( Penalis_Email_Settings::get_registry() ), 'There are exactly 16 configurable email templates in the registry.' );
 
 $admin_user  = new WP_User( 100, array( 'administrator' ) );
 $editor_user = new WP_User( 101, array( 'editor' ) );
@@ -3599,6 +3599,75 @@ Penalis_Admin::render_pagination( 0, 20, 1, 'https://example.com/admin.php?page=
 $empty_html = ob_get_clean();
 
 penalis_same( '', trim( $empty_html ), 'Empty list renders no pagination markup.' );
+
+/* -------------------------------------------------------------------------
+ * Registration duplicate and collision handling
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+$GLOBALS['penalis_test_options']['penalis_registration_enabled'] = '1';
+$GLOBALS['penalis_test_users'][200]                             = new WP_User( 200, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_users'][200]->user_login                 = 'penulis_aktif';
+$GLOBALS['penalis_test_users'][200]->user_email                 = 'aktif@example.com';
+$GLOBALS['penalis_test_users'][200]->display_name               = 'Penulis Aktif';
+Penalis_Account_Status::transition( 200, Penalis_Policy::STATUS_ACTIVE, 'test', 0 );
+
+$GLOBALS['penalis_test_users'][201]               = new WP_User( 201, array( 'contributor' ) );
+$GLOBALS['penalis_test_users'][201]->user_login   = 'penulis_legacy';
+$GLOBALS['penalis_test_users'][201]->user_email   = 'legacy@example.com';
+$GLOBALS['penalis_test_users'][201]->display_name = 'Penulis Legacy';
+
+// 1. Taken username is rejected directly with field error.
+$reg_username_conflict = Penalis_Registration::register(
+	array(
+		'display_name'    => 'Calon Penulis',
+		'user_login'      => 'penulis_aktif',
+		'user_email'      => 'calon_baru@example.com',
+		'password'        => 'P@ssw0rdKuat1234!',
+		'penalis_consent' => '1',
+		'penalis_website' => '',
+	)
+);
+penalis_assert( is_wp_error( $reg_username_conflict ), 'Registration with existing username returns WP_Error.' );
+penalis_same( 'penalis_registration_invalid', $reg_username_conflict->get_error_code(), 'Registration with existing username returns invalid error code.' );
+penalis_same( 'Username tersebut sudah digunakan. Silakan pilih username lain.', $reg_username_conflict->get_error_data()['fields']['user_login'], 'Field error explains username is taken.' );
+
+// 2. Duplicate email for active account returns generic challenge and sends duplicate_notice.
+$GLOBALS['penalis_test_mail'] = array();
+$reg_email_active             = Penalis_Registration::register(
+	array(
+		'display_name'    => 'Calon Penulis',
+		'user_login'      => 'username_baru_1',
+		'user_email'      => 'aktif@example.com',
+		'password'        => 'P@ssw0rdKuat1234!',
+		'penalis_consent' => '1',
+		'penalis_website' => '',
+	)
+);
+penalis_assert( ! is_wp_error( $reg_email_active ), 'Duplicate active email returns generic success challenge.' );
+penalis_assert( isset( $reg_email_active['challenge_id'] ), 'Generic challenge ID is returned.' );
+penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'One email is dispatched.' );
+penalis_same( 'aktif@example.com', $GLOBALS['penalis_test_mail'][0][0], 'Email is sent to existing active account owner.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][1], 'Percobaan Pendaftaran' ), 'Email subject matches duplicate_notice.' );
+
+// 3. Duplicate email for legacy account returns generic challenge and sends legacy_register_notice.
+$GLOBALS['penalis_test_mail'] = array();
+$reg_email_legacy             = Penalis_Registration::register(
+	array(
+		'display_name'    => 'Calon Penulis',
+		'user_login'      => 'username_baru_2',
+		'user_email'      => 'legacy@example.com',
+		'password'        => 'P@ssw0rdKuat1234!',
+		'penalis_consent' => '1',
+		'penalis_website' => '',
+	)
+);
+penalis_assert( ! is_wp_error( $reg_email_legacy ), 'Duplicate legacy email returns generic success challenge.' );
+penalis_assert( isset( $reg_email_legacy['challenge_id'] ), 'Generic challenge ID is returned.' );
+penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'One email is dispatched.' );
+penalis_same( 'legacy@example.com', $GLOBALS['penalis_test_mail'][0][0], 'Email is sent to legacy contributor.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][1], 'Akun Kontributor Kamu Sudah Terdaftar' ), 'Email subject matches legacy_register_notice.' );
+penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'penalis_activate=1' ), 'Email body includes direct link to activate.' );
 
 /* -------------------------------------------------------------------------
  * Report

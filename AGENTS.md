@@ -207,7 +207,8 @@ Summary of rules that must always hold:
   `wp_insert_post_data`, query forcing, and upload validation).
 - Every public endpoint must enforce rate limits, check the `penalis_website`
   honeypot where applicable, and return generic messages that do not leak
-  account existence.
+  account existence (candidate emails on registration enforce anti-enumeration;
+  candidate usernames report taken status directly to avoid registration dead-ends).
 - Password reset requests (`POST /penalis/v1/password/forgot`) accept an **email
   address only**, never a username.
 - Verification codes are consumed only through an explicit `POST` with the

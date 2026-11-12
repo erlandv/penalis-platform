@@ -131,6 +131,11 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
      optional **Username Instagram**).
    - Confirm that the account is created as `subscriber` with status
      `pending_verification` and cannot create articles via the UI or REST API.
+   - Confirm that attempting to register with an already taken username immediately
+     displays an inline field error and does not proceed to verification.
+   - Confirm that attempting to register with an already registered email returns
+     a generic challenge (anti-enumeration) and delivers `duplicate_notice` or
+     `legacy_register_notice` to the stored email address.
    - Confirm the dashboard immediately shows the **Masukkan Kode Verifikasi**
      screen, and that the email contains a six-digit code and no link.
    - Enter the code and verify the account immediately becomes `active` with the

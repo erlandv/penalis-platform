@@ -364,7 +364,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           aria-describedby={describedBy('user_login-hint', errors.user_login && 'user_login-error')}
         />
         <FieldHint id="user_login-hint">
-          3-50 karakter: huruf kecil, angka, garis bawah, atau tanda hubung. Titik tidak diperbolehkan.
+          Gunakan huruf kecil, angka, garis bawah, atau tanda hubung.
         </FieldHint>
         <FieldError errors={errors} name="user_login" />
       </div>
@@ -382,7 +382,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           aria-invalid={Boolean(errors.user_email)}
           aria-describedby={describedBy('user_email-hint', errors.user_email && 'user_email-error')}
         />
-        <FieldHint id="user_email-hint">Kami mengirim kode verifikasi enam digit ke email ini.</FieldHint>
+        <FieldHint id="user_email-hint">Kode verifikasi akan dikirim ke email ini.</FieldHint>
         <FieldError errors={errors} name="user_email" />
       </div>
 
@@ -399,7 +399,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           aria-describedby={describedBy('instagram-hint', errors.instagram && 'instagram-error')}
         />
         <FieldHint id="instagram-hint">
-          Opsional, digunakan untuk keperluan internal admin Penalis.
+          Digunakan untuk keperluan internal admin Penalis.
         </FieldHint>
         <FieldError errors={errors} name="instagram" />
       </div>
