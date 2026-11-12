@@ -1,6 +1,114 @@
 import { describe, expect, it } from 'vitest';
 
-import { decodeEntities, editorialStateLabel, statusLabel, statusTone } from './format';
+import {
+  decodeEntities,
+  editorialStateLabel,
+  formatDate,
+  formatDateTime,
+  formatTime,
+  parseDateValue,
+  statusLabel,
+  statusTone,
+} from './format';
+
+describe('parseDateValue', () => {
+  it('parses offset-less WordPress GMT strings as UTC', () => {
+    expect(parseDateValue('2025-11-12 20:30:00')?.toISOString()).toBe('2025-11-12T20:30:00.000Z');
+    expect(parseDateValue('2025-11-12T20:30:00')?.toISOString()).toBe('2025-11-12T20:30:00.000Z');
+  });
+
+  it('preserves explicit UTC and numeric offsets', () => {
+    expect(parseDateValue('2025-11-12T20:30:00Z')?.toISOString()).toBe('2025-11-12T20:30:00.000Z');
+    expect(parseDateValue('2025-11-12T20:30:00+07:00')?.toISOString()).toBe('2025-11-12T13:30:00.000Z');
+    expect(parseDateValue('2025-11-12T20:30:00+0700')?.toISOString()).toBe('2025-11-12T13:30:00.000Z');
+  });
+
+  it('accepts epoch seconds and milliseconds', () => {
+    expect(parseDateValue(1762979400)?.toISOString()).toBe('2025-11-12T20:30:00.000Z');
+    expect(parseDateValue(1762979400000)?.toISOString()).toBe('2025-11-12T20:30:00.000Z');
+  });
+
+  it('rejects empty and invalid values', () => {
+    expect(parseDateValue('')).toBeNull();
+    expect(parseDateValue('   ')).toBeNull();
+    expect(parseDateValue('not-a-date')).toBeNull();
+    expect(parseDateValue(0)).toBeNull();
+    expect(parseDateValue(Number.NaN)).toBeNull();
+    expect(parseDateValue(new Date('invalid'))).toBeNull();
+  });
+});
+
+describe('formatDate', () => {
+  it('formats in the browser timezone by default', () => {
+    // No `timeZone` option means the reader's own timezone, which is exactly
+    // what Intl resolves without an override. This asserts the helper never
+    // silently switches to the site timezone.
+    const value = '2025-11-12T20:30:00Z';
+    const expected = new Intl.DateTimeFormat('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(value));
+
+    expect(formatDate(value)).toBe(expected);
+    expect(formatDate(value)).toMatch(/^\d{1,2} \w{3} \d{4}$/);
+  });
+
+  it('formats Jakarta dates with the Indonesian locale', () => {
+    expect(formatDate('2025-11-12T20:30:00Z', { timeZone: 'Asia/Jakarta' })).toBe('13 Nov 2025');
+    expect(formatDate('2025-11-12T20:30:00Z', { timeZone: 'UTC' })).toBe('12 Nov 2025');
+  });
+
+  it('rolls over into the next year in Jakarta', () => {
+    expect(formatDate('2025-12-31T20:00:00Z', { timeZone: 'Asia/Jakarta' })).toBe('1 Jan 2026');
+    expect(formatDate('2025-12-31T20:00:00Z', { timeZone: 'UTC' })).toBe('31 Des 2025');
+  });
+
+  it('returns an em dash for empty values', () => {
+    expect(formatDate('')).toBe('—');
+    expect(formatDate(0)).toBe('—');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('includes hours, minutes, and a short timezone label', () => {
+    expect(formatDateTime('2025-11-12T20:30:00Z', { timeZone: 'Asia/Jakarta' })).toBe('13 Nov 2025, 03.30 WIB');
+    expect(formatDateTime('2025-11-12T20:30:00Z', { timeZone: 'UTC' })).toBe('12 Nov 2025, 20.30 UTC');
+  });
+
+  it('handles the Jakarta year rollover', () => {
+    expect(formatDateTime('2025-12-31T20:00:00Z', { timeZone: 'Asia/Jakarta' })).toBe('1 Jan 2026, 03.00 WIB');
+  });
+
+  it('formats epoch seconds from notifications and account metadata', () => {
+    expect(formatDateTime(1762979400, { timeZone: 'Asia/Jakarta' })).toBe('13 Nov 2025, 03.30 WIB');
+  });
+
+  it('respects explicit offsets instead of reinterpreting them as UTC', () => {
+    expect(formatDateTime('2025-11-12T20:30:00+07:00', { timeZone: 'Asia/Jakarta' })).toBe(
+      '12 Nov 2025, 20.30 WIB',
+    );
+  });
+
+  it('returns an em dash for empty values', () => {
+    expect(formatDateTime('')).toBe('—');
+  });
+});
+
+describe('formatTime', () => {
+  it('shows only the clock time with a timezone label', () => {
+    expect(formatTime('2025-11-12T20:30:00Z', { timeZone: 'Asia/Jakarta' })).toBe('03.30 WIB');
+    expect(formatTime('2025-11-12T20:30:00Z', { timeZone: 'UTC' })).toBe('20.30 UTC');
+  });
+
+  it('accepts Date objects from the editor save indicator', () => {
+    expect(formatTime(new Date('2025-11-12T20:30:00Z'), { timeZone: 'Asia/Jakarta' })).toBe('03.30 WIB');
+  });
+
+  it('returns an em dash for empty values', () => {
+    expect(formatTime('')).toBe('—');
+  });
+});
 
 describe('decodeEntities', () => {
   it('decodes named entities', () => {

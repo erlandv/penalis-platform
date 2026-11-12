@@ -74,7 +74,9 @@ composer check           # Run composer lint + php tests/run-tests.php
 - Covers account policy, status transitions, legacy conversions, editorial
   policy and state machine, serialized workflow transitions, REST route
   permissions, IDOR guards, post-insert filters, username/email changes,
-  author slug redirects, avatar fallback, and bounded notifications.
+  author slug redirects, avatar fallback, bounded notifications, and
+  timezone-aware date formatting (`Penalis_Datetime` with IANA and fixed-offset
+  site timezones, including Jakarta and year rollover).
 
 ### 3.2 Frontend Unit Tests (`src/lib/*.test.ts`)
 - Runs via Vitest in the `node` environment.
@@ -83,6 +85,60 @@ composer check           # Run composer lint + php tests/run-tests.php
   code normalization and countdown formatting (`otp.test.ts`), HTML
   normalization (`html.test.ts`), formatting (`format.test.ts`), and public
   display name derivation (`profile.test.ts`).
+- Date/time tests pass an explicit `timeZone` option (`Asia/Jakarta`, `UTC`) so
+  assertions are deterministic regardless of the machine running the suite.
+
+---
+
+### 3.3 Timezone Policy
+
+Penalis stores and displays time in two deliberately different ways. Mixing
+them is the most common source of "off by seven hours" bugs, so the rules are
+enforced by helpers rather than by ad-hoc `date()` calls.
+
+### PHP (`wp-admin`)
+
+- **Never call `date_i18n()`, `mysql2date()`, `date()`, or `strtotime()` on a
+  stored timestamp.** They use the server's default timezone, which is not the
+  site timezone.
+- Use `Penalis_Datetime` (`includes/class-datetime.php`):
+  - `Penalis_Datetime::format( $timestamp, $format )` — Unix timestamps
+    (`_penalis_submitted_at`, `_penalis_reviewed_at`, review history
+    `created_at`, account status log `time`). Formats with `wp_date()` in the
+    site timezone.
+  - `Penalis_Datetime::format_gmt( $mysql_gmt, $format )` — GMT columns such as
+    `user_registered`, `post_date_gmt`, and `post_modified_gmt`. Parses the
+    value explicitly as UTC, then formats it in the site timezone.
+  - `Penalis_Datetime::format_local( $mysql_local, $format )` — local columns
+    such as `post_modified`. Parses and formats in the site timezone without
+    converting, preserving the stored calendar day.
+  - `Penalis_Datetime::date_format()` / `time_format()` — the site's
+    `date_format` / `time_format` options with safe defaults.
+- The site timezone comes from `wp_timezone()`, which honours both
+  `timezone_string` (IANA) and `gmt_offset` (fixed offset, including half-hour
+  offsets such as `+05:30`).
+- `Penalis_Datetime::site_timezone_payload()` is exposed to the dashboard as
+  `penalisDashboard.siteTimezone` (`string`, `offsetSeconds`, `label`). It is
+  informational only.
+
+### React (`/dashboard/`)
+
+- Timestamps are displayed in the **reader's browser timezone**, never forced
+  to the site timezone. A writer travelling abroad reads times on their own
+  clock; the bootstrap `siteTimezone` payload only explains which timezone the
+  site uses.
+- Use the helpers in `src/lib/format.ts`:
+  - `parseDateValue()` — accepts epoch seconds, epoch milliseconds, `Date`,
+    ISO strings with `Z`/numeric offsets, and offset-less WordPress GMT strings
+    (treated as UTC). Explicit offsets are preserved.
+  - `formatDate()` — calendar day only (`13 Nov 2025`).
+  - `formatDateTime()` — calendar day, hours, minutes, and a short timezone
+    label (`13 Nov 2025, 03.30 WIB`). Use this for editorial timestamps
+    (submission, review, review history) and notifications.
+  - `formatTime()` — clock time and a short timezone label (`03.30 WIB`). Use
+    this for the editor's save indicator, where the calendar day is noise.
+- All helpers use the `id-ID` locale and accept an optional `{ timeZone }`
+  override for deterministic tests. Production call sites must not pass it.
 
 ---
 

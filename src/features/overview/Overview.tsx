@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { articlesApi, notificationsApi, ApiError } from '../../lib/api';
 import type { Account, ArticleList, DashboardNotification, NotificationList } from '../../lib/types';
-import { editorialStateLabel, formatDate } from '../../lib/format';
+import { editorialStateLabel, formatDate, formatDateTime } from '../../lib/format';
 import { EmptyState, ErrorBanner, Spinner, StatusBadge } from '../../components/ui';
 
 const INITIAL_VISIBLE_NOTIFICATIONS = 5;
@@ -218,7 +218,7 @@ export function Overview({
                     <div className="penalis-notification-item__body">
                       <div className="penalis-notification-item__head">
                         <StatusBadge status={item.type} label={item.typeLabel} />
-                        <span className="penalis-notification-item__meta">{formatDate(item.createdAt)}</span>
+                        <span className="penalis-notification-item__meta">{formatDateTime(item.createdAt)}</span>
                       </div>
 
                       <p className="penalis-notification-item__message">{item.message}</p>

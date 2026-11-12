@@ -228,8 +228,8 @@ final class Penalis_Editorial_Admin {
 								<?php
 								echo esc_html(
 									$submitted > 0
-										? date_i18n( 'j M Y H:i', $submitted )
-										: mysql2date( 'j M Y H:i', $post->post_modified )
+										? Penalis_Datetime::format( $submitted, 'j M Y H:i' )
+										: Penalis_Datetime::format_local( $post->post_modified, 'j M Y H:i' )
 								);
 								?>
 							</td>
@@ -354,7 +354,7 @@ final class Penalis_Editorial_Admin {
 					</span>
 
 					<?php if ( $submitted > 0 ) : ?>
-						<span><?php echo esc_html( 'Di-submit: ' . date_i18n( 'j M Y H:i', $submitted ) ); ?></span>
+						<span><?php echo esc_html( 'Di-submit: ' . Penalis_Datetime::format( $submitted, 'j M Y H:i' ) ); ?></span>
 					<?php endif; ?>
 
 					<?php if ( is_array( $categories ) && ! empty( $categories ) ) : ?>
@@ -458,7 +458,7 @@ final class Penalis_Editorial_Admin {
 											<span class="penalis-review__timeline-meta">
 												<?php echo esc_html( $actor ? $actor->display_name : 'Pengguna tidak ditemukan' ); ?>
 												<?php if ( ! empty( $entry['created_at'] ) ) : ?>
-													<?php echo esc_html( ' · ' . date_i18n( 'j M Y H:i', (int) $entry['created_at'] ) ); ?>
+														<?php echo esc_html( ' · ' . Penalis_Datetime::format( (int) $entry['created_at'], 'j M Y H:i' ) ); ?>
 												<?php endif; ?>
 											</span>
 											<?php if ( ! empty( $entry['feedback'] ) ) : ?>

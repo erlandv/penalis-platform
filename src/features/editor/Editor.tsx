@@ -8,7 +8,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { ApiError, articlesApi, mediaApi, taxonomyApi } from '../../lib/api';
-import { editorialStateLabel as formatEditorialStateLabel, formatDate } from '../../lib/format';
+import { editorialStateLabel as formatEditorialStateLabel, formatDateTime, formatTime } from '../../lib/format';
 import { trimTrailingEmptyParagraphs } from '../../lib/html';
 import type {
   Article,
@@ -665,7 +665,7 @@ export function Editor({
           ) : isDirty ? (
             'Belum disimpan'
           ) : savedAt ? (
-            `Tersimpan ${savedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+            `Tersimpan ${formatTime(savedAt)}`
           ) : (
             'Belum ada perubahan'
           )}
@@ -722,7 +722,7 @@ export function Editor({
         <Notice tone="info">
           <p>
             <strong>Sedang menunggu review admin.</strong> Karya tulis ini sedang berada dalam antrean review
-            {reviewCycle > 0 ? ` (cyccle ${reviewCycle})` : ''} dan dikunci sementara agar isi yang di-review admin tetap
+            {reviewCycle > 0 ? ` (cycle ${reviewCycle})` : ''} dan dikunci sementara agar isi yang di-review admin tetap
             konsisten.
           </p>
         </Notice>
@@ -780,7 +780,7 @@ export function Editor({
               </div>
               <p className="penalis-editorial-feedback__body">{feedback}</p>
               {reviewedAt ? (
-                <p className="penalis-fineprint">Di-review pada {formatDate(reviewedAt)}</p>
+                <p className="penalis-fineprint">Di-review pada {formatDateTime(reviewedAt)}</p>
               ) : null}
             </section>
           ) : null}
@@ -858,18 +858,18 @@ export function Editor({
             <dl className="penalis-editorial-meta">
               <div>
                 <dt>Review cycle</dt>
-                <dd>{reviewCycle > 0 ? `Cycle ${reviewCycle}` : 'Belum di-submit'}</dd>
+                <dd>{reviewCycle > 0 ? `Cycle ${reviewCycle}` : 'Belum submit'}</dd>
               </div>
               {submittedAt ? (
                 <div>
                   <dt>Terakhir di-submit</dt>
-                  <dd>{formatDate(submittedAt)}</dd>
+                  <dd>{formatDateTime(submittedAt)}</dd>
                 </div>
               ) : null}
               {reviewedAt ? (
                 <div>
                   <dt>Terakhir di-review</dt>
-                  <dd>{formatDate(reviewedAt)}</dd>
+                  <dd>{formatDateTime(reviewedAt)}</dd>
                 </div>
               ) : null}
             </dl>
@@ -881,7 +881,7 @@ export function Editor({
                 onClick={() => void refreshReviewState()}
                 disabled={saving}
               >
-                Perbarui status review
+                Refresh status
               </button>
             ) : null}
 
@@ -905,7 +905,7 @@ export function Editor({
                         </div>
                         <p className="penalis-review-history__meta">
                           {entry.actorName}
-                          {entry.createdAt ? ` · ${formatDate(entry.createdAt)}` : ''}
+                          {entry.createdAt ? ` · ${formatDateTime(entry.createdAt)}` : ''}
                         </p>
                         {entry.feedback ? (
                           <p className="penalis-review-history__feedback">{entry.feedback}</p>

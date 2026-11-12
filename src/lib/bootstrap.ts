@@ -30,6 +30,7 @@ const fallback: DashboardBootstrap = {
   adminUrl: '',
   reviewUrl: '',
   siteName: 'Penalis',
+  siteTimezone: undefined,
   user: null,
 };
 

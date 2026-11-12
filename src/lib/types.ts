@@ -24,6 +24,15 @@ export interface BootstrapUser {
   instagram?: string;
 }
 
+export interface SiteTimezone {
+  /** IANA name, or a fixed `+07:00` offset when the site uses `gmt_offset`. */
+  string: string;
+  /** Offset from UTC in seconds at the reference timestamp. */
+  offsetSeconds: number;
+  /** Short human label such as `WIB` or `UTC+07:00`. */
+  label: string;
+}
+
 export interface DashboardBootstrap {
   restUrl: string;
   wpRestUrl: string;
@@ -42,6 +51,11 @@ export interface DashboardBootstrap {
   /** wp-admin review screen, empty for accounts that cannot review. */
   reviewUrl: string;
   siteName: string;
+  /**
+   * Informational site timezone. Dashboard timestamps stay in the browser's
+   * timezone; this only lets the UI explain which timezone the site uses.
+   */
+  siteTimezone?: SiteTimezone;
   user: BootstrapUser | null;
 }
 

@@ -325,6 +325,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
             <dd>{account.approvedAt ? formatDate(account.approvedAt) : '—'}</dd>
           </div>
         </dl>
+
       </section>
 
       <section className="penalis-panel">

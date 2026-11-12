@@ -451,7 +451,9 @@ JS;
 													'%1$s · Review Cycle #%2$d · %3$s',
 													$author ? $author->display_name : 'Penulis tidak ditemukan',
 													$cycle,
-													$submitted > 0 ? date_i18n( 'j M Y H:i', $submitted ) : mysql2date( 'j M Y H:i', $post->post_modified )
+													$submitted > 0
+														? Penalis_Datetime::format( $submitted, 'j M Y H:i' )
+														: Penalis_Datetime::format_local( $post->post_modified, 'j M Y H:i' )
 												)
 											);
 											?>
@@ -511,7 +513,7 @@ JS;
 												if ( '' !== $instagram ) {
 													$meta_parts[] = '@' . $instagram;
 												}
-												$meta_parts[] = mysql2date( get_option( 'date_format' ), $user->user_registered );
+												$meta_parts[] = Penalis_Datetime::format_gmt( $user->user_registered, Penalis_Datetime::date_format() );
 												echo esc_html( implode( ' · ', $meta_parts ) );
 												?>
 											</span>
@@ -825,8 +827,8 @@ JS;
 									<?php endif; ?>
 								</td>
 								<td>
-									<span class="penalis-date"><?php echo esc_html( mysql2date( get_option( 'date_format' ), $user->user_registered ) ); ?></span>
-									<span class="penalis-muted"><?php echo esc_html( mysql2date( get_option( 'time_format' ), $user->user_registered ) ); ?></span>
+									<span class="penalis-date"><?php echo esc_html( Penalis_Datetime::format_gmt( $user->user_registered, Penalis_Datetime::date_format() ) ); ?></span>
+									<span class="penalis-muted"><?php echo esc_html( Penalis_Datetime::format_gmt( $user->user_registered, Penalis_Datetime::time_format() ) ); ?></span>
 								</td>
 								<td>
 									<?php if ( ! $can_manage ) : ?>
@@ -871,7 +873,7 @@ JS;
 											<ul class="penalis-history__list">
 												<?php foreach ( $entries as $entry ) : ?>
 													<li class="penalis-history__item">
-														<span class="penalis-history__time"><?php echo esc_html( date_i18n( 'j M Y H:i', (int) $entry['time'] ) ); ?></span>
+														<span class="penalis-history__time"><?php echo esc_html( Penalis_Datetime::format( (int) $entry['time'], 'j M Y H:i' ) ); ?></span>
 														<span class="penalis-history__flow">
 															<?php
 															echo esc_html(

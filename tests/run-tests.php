@@ -13,6 +13,7 @@
 
 require_once __DIR__ . '/wp-stubs.php';
 require_once __DIR__ . '/../includes/class-policy.php';
+require_once __DIR__ . '/../includes/class-datetime.php';
 require_once __DIR__ . '/../includes/class-editorial-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
@@ -3668,6 +3669,124 @@ penalis_same( 1, count( $GLOBALS['penalis_test_mail'] ), 'One email is dispatche
 penalis_same( 'legacy@example.com', $GLOBALS['penalis_test_mail'][0][0], 'Email is sent to legacy contributor.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][1], 'Akun Kontributor Kamu Sudah Terdaftar' ), 'Email subject matches legacy_register_notice.' );
 penalis_assert( false !== strpos( $GLOBALS['penalis_test_mail'][0][2], 'penalis_activate=1' ), 'Email body includes direct link to activate.' );
+
+/* -------------------------------------------------------------------------
+ * Timezone-aware date formatting
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+$GLOBALS['penalis_test_options']['timezone_string'] = 'Asia/Jakarta';
+$GLOBALS['penalis_test_options']['date_format']     = 'j M Y';
+$GLOBALS['penalis_test_options']['time_format']     = 'H:i';
+
+// 2025-11-12T20:30:00Z is 2025-11-13 03:30 in Jakarta.
+$jakarta_timestamp = 1762979400;
+
+penalis_same(
+	'2025-11-13 03:30',
+	Penalis_Datetime::format( $jakarta_timestamp, 'Y-m-d H:i' ),
+	'Unix timestamps are rendered in the site timezone, not the server timezone.'
+);
+penalis_same(
+	'2025-11-13 03:30',
+	Penalis_Datetime::format_gmt( '2025-11-12 20:30:00', 'Y-m-d H:i' ),
+	'GMT MySQL strings are parsed as UTC and rendered in the site timezone.'
+);
+penalis_same(
+	'2025-11-12 20:30',
+	Penalis_Datetime::format_local( '2025-11-12 20:30:00', 'Y-m-d H:i' ),
+	'Local post_modified values are rendered without a timezone shift.'
+);
+penalis_same(
+	'2026-01-01 03:00',
+	Penalis_Datetime::format_gmt( '2025-12-31 20:00:00', 'Y-m-d H:i' ),
+	'UTC to Jakarta conversion rolls over into the next calendar year.'
+);
+penalis_same(
+	'2025-12-31 20:00',
+	Penalis_Datetime::format_local( '2025-12-31 20:00:00', 'Y-m-d H:i' ),
+	'Local fallback keeps the stored calendar day across a year boundary.'
+);
+penalis_same(
+	'2025-11-13 03:30',
+	Penalis_Datetime::format_gmt( '2025-11-12T20:30:00', 'Y-m-d H:i' ),
+	'ISO-style GMT strings without an offset are parsed as UTC.'
+);
+penalis_same(
+	$jakarta_timestamp,
+	Penalis_Datetime::parse_gmt( '2025-11-12T20:30:00Z' ),
+	'Explicit Z designators are parsed as UTC.'
+);
+penalis_same(
+	1762954200,
+	Penalis_Datetime::parse_gmt( '2025-11-12T20:30:00+07:00' ),
+	'Explicit numeric offsets are preserved instead of being treated as UTC.'
+);
+penalis_same( 0, Penalis_Datetime::parse_gmt( '2025-02-30 10:00:00' ), 'Impossible calendar dates are rejected.' );
+penalis_same( 0, Penalis_Datetime::parse_gmt( '' ), 'Empty GMT strings are rejected.' );
+penalis_same( '', Penalis_Datetime::format( 0 ), 'Zero timestamps render as an empty string.' );
+penalis_same( '', Penalis_Datetime::format_local( 'not-a-date' ), 'Unparseable local values render as an empty string.' );
+
+$jakarta_payload = Penalis_Datetime::site_timezone_payload( $jakarta_timestamp );
+penalis_same( 'Asia/Jakarta', $jakarta_payload['string'], 'Timezone payload exposes the IANA site timezone.' );
+penalis_same( 25200, $jakarta_payload['offsetSeconds'], 'Timezone payload exposes the Jakarta offset in seconds.' );
+penalis_same( 'WIB', $jakarta_payload['label'], 'Timezone payload exposes the short Jakarta label.' );
+
+// The wp-admin call shapes: site date/time formats applied to GMT columns.
+penalis_same( '13 Nov 2025', Penalis_Datetime::format_gmt( '2025-11-12 20:30:00', Penalis_Datetime::date_format() ), 'Admin date column uses the site date format in the site timezone.' );
+penalis_same( '03:30', Penalis_Datetime::format_gmt( '2025-11-12 20:30:00', Penalis_Datetime::time_format() ), 'Admin time column uses the site time format in the site timezone.' );
+penalis_same( '13 Nov 2025 03:30', Penalis_Datetime::format_gmt( '2025-11-12 20:30:00' ), 'Default format combines the site date and time formats.' );
+
+// Missing options fall back to the documented defaults.
+unset( $GLOBALS['penalis_test_options']['date_format'], $GLOBALS['penalis_test_options']['time_format'] );
+penalis_same( 'j M Y', Penalis_Datetime::date_format(), 'Missing date_format falls back to the default.' );
+penalis_same( 'H:i', Penalis_Datetime::time_format(), 'Missing time_format falls back to the default.' );
+$GLOBALS['penalis_test_options']['date_format'] = 'j M Y';
+$GLOBALS['penalis_test_options']['time_format'] = 'H:i';
+
+// Fixed-offset sites (no IANA timezone) fall back to gmt_offset.
+$GLOBALS['penalis_test_options']['timezone_string'] = '';
+$GLOBALS['penalis_test_options']['gmt_offset']      = 7;
+penalis_same(
+	'2025-11-13 03:30',
+	Penalis_Datetime::format_gmt( '2025-11-12 20:30:00', 'Y-m-d H:i' ),
+	'Fixed gmt_offset sites convert UTC values correctly.'
+);
+$offset_payload = Penalis_Datetime::site_timezone_payload( $jakarta_timestamp );
+penalis_same( '+07:00', $offset_payload['string'], 'Fixed-offset sites expose a numeric timezone string.' );
+penalis_same( 'UTC+07:00', $offset_payload['label'], 'Fixed-offset sites expose a UTC-prefixed label.' );
+
+// Half-hour offsets must not be truncated to whole hours.
+$GLOBALS['penalis_test_options']['gmt_offset'] = 5.5;
+penalis_same(
+	'2025-11-13 02:00',
+	Penalis_Datetime::format_gmt( '2025-11-12 20:30:00', 'Y-m-d H:i' ),
+	'Half-hour gmt_offset sites keep their minutes.'
+);
+
+// Guard: wp-admin screens must not fall back to server-timezone formatting.
+// Comments are stripped first so documentation that names the legacy
+// functions does not trip the guard.
+$datetime_offenders = array();
+foreach ( glob( __DIR__ . '/../includes/*.php' ) as $datetime_file ) {
+	$datetime_code = '';
+	foreach ( token_get_all( (string) file_get_contents( $datetime_file ) ) as $datetime_token ) {
+		if ( is_array( $datetime_token ) && in_array( $datetime_token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ) {
+			continue;
+		}
+
+		$datetime_code .= is_array( $datetime_token ) ? $datetime_token[1] : $datetime_token;
+	}
+
+	if ( 1 === preg_match( '/\b(?:date_i18n|mysql2date)\s*\(/', $datetime_code ) ) {
+		$datetime_offenders[] = basename( $datetime_file );
+	}
+}
+penalis_same(
+	array(),
+	$datetime_offenders,
+	'No include file calls date_i18n() or mysql2date(); use Penalis_Datetime instead.'
+);
 
 /* -------------------------------------------------------------------------
  * Report

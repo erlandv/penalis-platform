@@ -378,6 +378,7 @@ final class Penalis_Dashboard {
 				'adminUrl'     => current_user_can( 'list_users' ) ? esc_url_raw( admin_url( 'admin.php?page=' . Penalis_Admin::PAGE_SLUG ) ) : '',
 				'reviewUrl'    => current_user_can( 'edit_others_posts' ) ? esc_url_raw( admin_url( 'admin.php?page=' . Penalis_Editorial_Admin::PAGE_SLUG ) ) : '',
 				'siteName'     => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
+				'siteTimezone' => Penalis_Datetime::site_timezone_payload(),
 				'isLoggedIn'   => $user_id > 0,
 				'registration' => Penalis_Registration::is_registration_enabled(),
 				'canWrite'     => $user_id > 0 ? Penalis_Account_Status::can_write( $user_id ) : false,

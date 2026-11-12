@@ -1082,6 +1082,59 @@ if ( ! function_exists( 'update_option' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_timezone' ) ) {
+	/**
+	 * Site timezone stub mirroring WordPress 5.3+ behaviour.
+	 *
+	 * Prefers the IANA `timezone_string` option and falls back to the fixed
+	 * `gmt_offset` option, exactly like core.
+	 *
+	 * @return DateTimeZone
+	 */
+	function wp_timezone() {
+		$timezone_string = (string) get_option( 'timezone_string' );
+
+		if ( '' !== $timezone_string ) {
+			try {
+				return new DateTimeZone( $timezone_string );
+			} catch ( Exception $exception ) {
+				unset( $exception );
+			}
+		}
+
+		$offset   = (float) get_option( 'gmt_offset', 0 );
+		$seconds  = (int) round( $offset * HOUR_IN_SECONDS );
+		$sign     = $seconds < 0 ? '-' : '+';
+		$absolute = abs( $seconds );
+		$hours    = intdiv( $absolute, HOUR_IN_SECONDS );
+		$minutes  = intdiv( $absolute % HOUR_IN_SECONDS, MINUTE_IN_SECONDS );
+
+		return new DateTimeZone( sprintf( '%s%02d:%02d', $sign, $hours, $minutes ) );
+	}
+}
+
+if ( ! function_exists( 'wp_date' ) ) {
+	/**
+	 * Date formatting stub mirroring WordPress core.
+	 *
+	 * Formats a Unix timestamp in the supplied timezone (site timezone when
+	 * omitted). Locale-aware month names are not simulated; the tests assert
+	 * numeric formats so the output stays deterministic.
+	 *
+	 * @param string            $format   Date format.
+	 * @param int|null          $timestamp Unix timestamp.
+	 * @param DateTimeZone|null $timezone  Timezone.
+	 * @return string|false
+	 */
+	function wp_date( $format, $timestamp = null, $timezone = null ) {
+		$timestamp = null === $timestamp ? time() : (int) $timestamp;
+		$timezone  = null === $timezone ? wp_timezone() : $timezone;
+		$date      = new DateTimeImmutable( '@' . $timestamp );
+
+		return $date->setTimezone( $timezone )->format( $format );
+	}
+}
+
 if ( ! function_exists( 'delete_option' ) ) {
 	/**
 	 * Delete option stub.
