@@ -1,6 +1,6 @@
 {
   "name": "penalis-platform",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Curated publishing workflow and React writing dashboard for the Penalis literary community on WordPress.",
   "type": "module",

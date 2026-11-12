@@ -3,7 +3,7 @@
  * Plugin Name:       Penalis Platform
  * Plugin URI:        https://github.com/erlandv/penalis-platform
  * Description:       Curated publishing workflow and React writing dashboard for the Penalis literary community on WordPress.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Requires at least: 6.0
  * Requires PHP:      8.2
  * Author:            Penalis
@@ -31,7 +31,7 @@ if ( version_compare( PHP_VERSION, '8.2', '<' ) ) {
 	return;
 }
 
-define( 'PENALIS_PLATFORM_VERSION', '1.1.0' );
+define( 'PENALIS_PLATFORM_VERSION', '1.2.0' );
 define( 'PENALIS_PLATFORM_FILE', __FILE__ );
 define( 'PENALIS_PLATFORM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PENALIS_PLATFORM_URL', plugin_dir_url( __FILE__ ) );

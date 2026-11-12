@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -109,6 +109,15 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 1.2.0 =
+* Feature: Implement timezone-aware date and time formatting via the new Penalis_Datetime class in PHP and enhanced frontend format utilities with site timezone context.
+* Feature: Update dashboard shell account menu to display user avatar, full name, email, and handle/role.
+* Feature: Redesign dashboard pagination component using icon buttons.
+* Feature: Improve registration collision handling and send email notifications for existing accounts and legacy contributor activations.
+* Refactor: Raise minimum PHP requirement from 7.4 to 8.2 across codebase, CI workflows, and runtime version guards.
+* Refactor: Remove standalone resend verification code form and related deeplink handling from authentication flow.
+* Maintenance: Upgrade TipTap editor dependencies to v3.33.1.
+
 = 1.1.0 =
 * Security: Restrict non-staff accounts (writers, contributors, subscribers) from accessing wp-admin and wp-login.php, automatically redirecting them to the frontend dashboard (/dashboard/).
 * Fix: Prevent CORS blocking for dashboard ES modules by enforcing same-origin asset URLs and adding crossorigin attribute to module scripts and preloads.
@@ -136,6 +145,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+Requires PHP 8.2+. Adds timezone-aware date formatting, improved user account menu and pagination in the dashboard, and enhanced registration collision handling.
 
 = 1.1.0 =
 Includes security hardening for wp-admin/wp-login access, dashboard performance improvements with editor lazy-loading, and module asset loading fixes.
