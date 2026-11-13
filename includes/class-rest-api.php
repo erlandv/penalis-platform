@@ -450,6 +450,40 @@ final class Penalis_Rest_Api {
 				'permission_callback' => array( __CLASS__, 'require_active_writer' ),
 			)
 		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/authors',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'handle_public_authors' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(
+					'search'   => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+					'sort'     => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+					'verified' => array(
+						'type'     => 'boolean',
+						'required' => false,
+					),
+					'page'     => array(
+						'type'     => 'integer',
+						'required' => false,
+						'default'  => 1,
+					),
+					'per_page' => array(
+						'type'     => 'integer',
+						'required' => false,
+						'default'  => Penalis_Policy::AUTHORS_PER_PAGE,
+					),
+				),
+			)
+		);
 	}
 
 	/**
@@ -1697,6 +1731,26 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
+	 * Return the public authors directory.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public static function handle_public_authors( $request ) {
+		$result = Penalis_Authors::query_authors(
+			array(
+				'search'   => $request->get_param( 'search' ),
+				'sort'     => $request->get_param( 'sort' ),
+				'verified' => $request->get_param( 'verified' ),
+				'page'     => $request->get_param( 'page' ),
+				'per_page' => $request->get_param( 'per_page' ),
+			)
+		);
+
+		return rest_ensure_response( $result );
+	}
+
+	/**
 	 * Add private cache headers to Penalis responses.
 	 *
 	 * @param WP_HTTP_Response $response Response.
@@ -1709,7 +1763,14 @@ final class Penalis_Rest_Api {
 			return $response;
 		}
 
-		if ( 0 !== strpos( (string) $request->get_route(), '/' . self::NAMESPACE_V1 ) ) {
+		$route = (string) $request->get_route();
+
+		if ( 0 !== strpos( $route, '/' . self::NAMESPACE_V1 ) ) {
+			return $response;
+		}
+
+		if ( '/' . self::NAMESPACE_V1 . '/authors' === $route ) {
+			$response->header( 'Cache-Control', 'public, max-age=120' );
 			return $response;
 		}
 

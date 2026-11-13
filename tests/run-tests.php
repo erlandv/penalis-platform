@@ -3789,6 +3789,87 @@ penalis_same(
 );
 
 /* -------------------------------------------------------------------------
+ * Public authors directory policy
+ * ---------------------------------------------------------------------- */
+
+penalis_same(
+	array( 'penalis_writer', 'contributor' ),
+	Penalis_Policy::public_author_roles(),
+	'Public author directory strictly includes penalis_writer and contributor roles.'
+);
+
+penalis_assert(
+	Penalis_Policy::is_public_author_eligible( array( 'penalis_writer' ), Penalis_Policy::STATUS_ACTIVE, 1 ),
+	'Active penalis_writer with >= 1 published post is eligible.'
+);
+penalis_assert(
+	Penalis_Policy::is_public_author_eligible( array( 'contributor' ), '', 3 ),
+	'Legacy contributor with >= 1 published post is eligible.'
+);
+penalis_assert(
+	! Penalis_Policy::is_public_author_eligible( array( 'penalis_writer' ), Penalis_Policy::STATUS_ACTIVE, 0 ),
+	'Writer with 0 published posts is excluded.'
+);
+penalis_assert(
+	! Penalis_Policy::is_public_author_eligible( array( 'penalis_writer' ), Penalis_Policy::STATUS_SUSPENDED, 25 ),
+	'Suspended writer is excluded even with many published posts.'
+);
+penalis_assert(
+	! Penalis_Policy::is_public_author_eligible( array( 'contributor' ), Penalis_Policy::STATUS_SUSPENDED, 5 ),
+	'Suspended legacy contributor is excluded.'
+);
+penalis_assert(
+	! Penalis_Policy::is_public_author_eligible( array( 'administrator' ), Penalis_Policy::STATUS_ACTIVE, 50 ),
+	'Administrator role is excluded from the public authors directory.'
+);
+penalis_assert(
+	! Penalis_Policy::is_public_author_eligible( array( 'editor' ), Penalis_Policy::STATUS_ACTIVE, 50 ),
+	'Editor role is excluded from the public authors directory.'
+);
+
+penalis_same( 100, Penalis_Policy::AUTHORS_PER_PAGE, 'Default authors per page is 100.' );
+penalis_assert(
+	Penalis_Policy::is_verified_author( array( 'penalis_writer' ), Penalis_Policy::STATUS_ACTIVE, true ),
+	'Active penalis_writer with access enabled qualifies for verified badge.'
+);
+penalis_assert(
+	! Penalis_Policy::is_verified_author( array( 'penalis_writer' ), Penalis_Policy::STATUS_ACTIVE, false ),
+	'Writer without access enabled is not verified.'
+);
+penalis_assert(
+	! Penalis_Policy::is_verified_author( array( 'penalis_writer' ), Penalis_Policy::STATUS_PENDING_VERIFICATION, true ),
+	'Pending verification writer is not verified.'
+);
+penalis_assert(
+	! Penalis_Policy::is_verified_author( array( 'contributor' ), Penalis_Policy::STATUS_ACTIVE, true ),
+	'Legacy contributor is not verified until activated as penalis_writer.'
+);
+penalis_assert(
+	! Penalis_Policy::is_verified_author( array( 'contributor' ), '', false ),
+	'Unactivated legacy contributor is not verified.'
+);
+
+penalis_same( 'most_posts', Penalis_Policy::normalize_authors_sort( 'invalid' ), 'Invalid sort falls back to most_posts.' );
+penalis_same( 'name_asc', Penalis_Policy::normalize_authors_sort( 'name_asc' ), 'Valid sort mode is preserved.' );
+
+$unsorted_authors = array(
+	array( 'id' => 1, 'displayName' => 'Citra', 'postCount' => 5 ),
+	array( 'id' => 2, 'displayName' => 'Adi', 'postCount' => 20 ),
+	array( 'id' => 3, 'displayName' => 'Budi', 'postCount' => 20 ),
+);
+$sorted_most = Penalis_Policy::sort_public_authors( $unsorted_authors, 'most_posts' );
+penalis_same( array( 'Adi', 'Budi', 'Citra' ), array_column( $sorted_most, 'displayName' ), 'most_posts sorts descending by postCount then ascending by displayName.' );
+
+$sorted_least = Penalis_Policy::sort_public_authors( $unsorted_authors, 'least_posts' );
+penalis_same( array( 'Citra', 'Adi', 'Budi' ), array_column( $sorted_least, 'displayName' ), 'least_posts sorts ascending by postCount then ascending by displayName.' );
+
+$sorted_az = Penalis_Policy::sort_public_authors( $unsorted_authors, 'name_asc' );
+penalis_same( array( 'Adi', 'Budi', 'Citra' ), array_column( $sorted_az, 'displayName' ), 'name_asc sorts alphabetically A-Z.' );
+
+$sorted_za = Penalis_Policy::sort_public_authors( $unsorted_authors, 'name_desc' );
+penalis_same( array( 'Citra', 'Budi', 'Adi' ), array_column( $sorted_za, 'displayName' ), 'name_desc sorts alphabetically Z-A.' );
+
+/* -------------------------------------------------------------------------
  * Report
  * ---------------------------------------------------------------------- */
 

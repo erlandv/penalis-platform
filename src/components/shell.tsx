@@ -16,7 +16,7 @@ import {
 import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
 import type { Account, AccountStatus, ViewName } from '../lib/types';
-import { Icon, type IconName } from './icons';
+import { Icon, VerifiedBadgeIcon, type IconName } from './icons';
 import { OtpForm } from './OtpForm';
 import { Notice } from './ui';
 import { preloadEditor } from '../features/editor/editorLoader';
@@ -381,7 +381,18 @@ function AccountMenu({
             ref={menuRef}
           >
             <div className="penalis-account__header" role="presentation">
-              <div className="penalis-account__header-name">{account.displayName}</div>
+              <div className="penalis-account__header-name">
+                <span>{account.displayName}</span>
+                {account.status === 'active' && account.canWrite && !account.isReviewer ? (
+                  <span
+                    className="penalis-verified-badge"
+                    title="Penulis Aktif terverifikasi"
+                    aria-label="Penulis Aktif terverifikasi"
+                  >
+                    <VerifiedBadgeIcon size={15} />
+                  </span>
+                ) : null}
+              </div>
               <div className="penalis-account__header-meta">
                 {account.isAdministrator ? (
                   <span className="penalis-account__badge">Admin</span>

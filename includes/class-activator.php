@@ -48,6 +48,7 @@ final class Penalis_Activator {
 		}
 
 		self::ensure_dashboard_page();
+		flush_rewrite_rules( false );
 
 		set_transient( 'penalis_activation_notice', '1', 60 );
 

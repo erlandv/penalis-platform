@@ -41,6 +41,9 @@ final class Penalis_Policy {
 	public const MAX_INSTAGRAM    = 30;
 	public const AVATAR_MIN_EDGE  = 100;
 
+	public const AUTHORS_PER_PAGE     = 100;
+	public const AUTHORS_MAX_PER_PAGE = 100;
+
 	/**
 	 * Multibyte-safe string length with a non-mbstring fallback.
 	 *
@@ -808,5 +811,131 @@ final class Penalis_Policy {
 	 */
 	public static function is_allowed_post_status( $status ) {
 		return is_string( $status ) && in_array( $status, self::allowed_post_statuses(), true );
+	}
+
+	/**
+	 * Roles eligible for the public authors directory.
+	 *
+	 * @return string[]
+	 */
+	public static function public_author_roles() {
+		return array( 'penalis_writer', 'contributor' );
+	}
+
+	/**
+	 * Whether a user is eligible to appear in the public authors directory.
+	 *
+	 * Strictly includes `penalis_writer` and `contributor` roles with at least
+	 * one published post, and excludes suspended accounts.
+	 *
+	 * @param string[] $roles      User role slugs.
+	 * @param string   $status     Account status meta value.
+	 * @param int      $post_count Published post count.
+	 * @return bool
+	 */
+	public static function is_public_author_eligible( $roles, $status, $post_count ) {
+		if ( ! is_array( $roles ) || (int) $post_count < 1 ) {
+			return false;
+		}
+
+		if ( self::STATUS_SUSPENDED === (string) $status ) {
+			return false;
+		}
+
+		return ! empty( array_intersect( $roles, self::public_author_roles() ) );
+	}
+
+	/**
+	 * Whether an author qualifies for the verified badge.
+	 *
+	 * An author is verified when they are an active writer (`penalis_writer`
+	 * role, `active` account status, and access enabled).
+	 *
+	 * @param string[] $roles          User role slugs.
+	 * @param string   $status         Account status meta value.
+	 * @param bool     $access_enabled Whether plugin access is enabled.
+	 * @return bool
+	 */
+	public static function is_verified_author( $roles, $status, $access_enabled ) {
+		if ( ! is_array( $roles ) || ! $access_enabled ) {
+			return false;
+		}
+
+		return self::STATUS_ACTIVE === (string) $status && in_array( 'penalis_writer', $roles, true );
+	}
+
+	/**
+	 * Normalize the sort key for the public authors directory.
+	 *
+	 * @param mixed $sort Requested sort mode.
+	 * @return string
+	 */
+	public static function normalize_authors_sort( $sort ) {
+		$allowed = array( 'most_posts', 'least_posts', 'name_asc', 'name_desc' );
+		if ( is_string( $sort ) && in_array( $sort, $allowed, true ) ) {
+			return $sort;
+		}
+
+		return 'most_posts';
+	}
+
+	/**
+	 * Sort normalized public author records deterministically.
+	 *
+	 * @param array<int,array<string,mixed>> $authors Author records.
+	 * @param string                         $sort    Normalized sort mode.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function sort_public_authors( $authors, $sort ) {
+		$mode = self::normalize_authors_sort( $sort );
+
+		usort(
+			$authors,
+			static function ( $a, $b ) use ( $mode ) {
+				$name_a  = isset( $a['displayName'] ) ? (string) $a['displayName'] : '';
+				$name_b  = isset( $b['displayName'] ) ? (string) $b['displayName'] : '';
+				$count_a = isset( $a['postCount'] ) ? (int) $a['postCount'] : 0;
+				$count_b = isset( $b['postCount'] ) ? (int) $b['postCount'] : 0;
+				$id_a    = isset( $a['id'] ) ? (int) $a['id'] : 0;
+				$id_b    = isset( $b['id'] ) ? (int) $b['id'] : 0;
+
+				$name_cmp = strnatcasecmp( $name_a, $name_b );
+
+				if ( 'name_asc' === $mode ) {
+					if ( 0 !== $name_cmp ) {
+						return $name_cmp;
+					}
+					return $id_a <=> $id_b;
+				}
+
+				if ( 'name_desc' === $mode ) {
+					if ( 0 !== $name_cmp ) {
+						return -$name_cmp;
+					}
+					return $id_a <=> $id_b;
+				}
+
+				if ( 'least_posts' === $mode ) {
+					if ( $count_a !== $count_b ) {
+						return $count_a <=> $count_b;
+					}
+					if ( 0 !== $name_cmp ) {
+						return $name_cmp;
+					}
+					return $id_a <=> $id_b;
+				}
+
+				// Default: most_posts.
+				if ( $count_a !== $count_b ) {
+					return $count_b <=> $count_a;
+				}
+				if ( 0 !== $name_cmp ) {
+					return $name_cmp;
+				}
+				return $id_a <=> $id_b;
+			}
+		);
+
+		return $authors;
 	}
 }

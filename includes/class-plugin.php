@@ -63,6 +63,7 @@ final class Penalis_Plugin {
 		Penalis_Editorial_Notifications::init();
 		Penalis_Rest_Api::init();
 		Penalis_Dashboard::init();
+		Penalis_Authors::init();
 		Penalis_Author_History::init();
 		Penalis_Avatar::register_provider();
 

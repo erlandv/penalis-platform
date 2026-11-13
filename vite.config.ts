@@ -12,7 +12,10 @@ export default defineConfig({
     manifest: 'manifest.json',
     sourcemap: false,
     rollupOptions: {
-      input: 'src/app/index.tsx',
+      input: {
+        dashboard: 'src/app/index.tsx',
+        authors: 'src/authors/index.tsx',
+      },
       output: {
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
