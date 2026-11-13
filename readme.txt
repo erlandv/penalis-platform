@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -109,6 +109,11 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 1.3.0 =
+* Feature: Add public authors directory shortcode (`[penalis_authors]`) with separate Vite bundle, search, status filter (`Semua` / `Verified`), sorting, URL query sync, and server-side pagination (`GET /penalis/v1/authors`, default 100 per page).
+* Feature: Introduce verified active writer badge for active `penalis_writer` accounts across the public authors directory, dashboard overview & account menu, post author boxes, Elementor author profile headings, and `[penalis_verified_badge]` shortcode.
+* Feature: Add Terms of Service and Privacy Policy links to the registration form.
+
 = 1.2.0 =
 * Feature: Implement timezone-aware date and time formatting via the new Penalis_Datetime class in PHP and enhanced frontend format utilities with site timezone context.
 * Feature: Update dashboard shell account menu to display user avatar, full name, email, and handle/role.
@@ -145,6 +150,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 1.3.0 =
+Adds the public authors directory shortcode (`[penalis_authors]`), verified active writer badges across public profiles, post author boxes, and the dashboard, and Terms of Service / Privacy Policy links in registration.
 
 = 1.2.0 =
 Requires PHP 8.2+. Adds timezone-aware date formatting, improved user account menu and pagination in the dashboard, and enhanced registration collision handling.

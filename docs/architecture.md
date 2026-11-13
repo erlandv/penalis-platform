@@ -62,6 +62,7 @@ penalis-platform/
 │   ├── class-author-history.php          Historical author slug reservation and 301 redirects
 │   ├── class-avatar.php                  Avatar storage and fallback provider (One User Avatar compatible)
 │   ├── class-dashboard.php               Dashboard page, shortcode, template, Vite manifest loader
+│   ├── class-authors.php                 Public authors directory ([penalis_authors]) and verified badge integration
 │   ├── class-emails.php                  Transactional emails and failure tracking
 │   ├── class-email-template.php          Branded responsive HTML email layout
 │   └── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting
@@ -69,9 +70,11 @@ penalis-platform/
 │   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis)
 │   └── js/admin-review.js                Confirmation dialogs and inline validation for wp-admin actions
 ├── templates/
-│   └── dashboard.php                     Minimal theme-compatible wrapper for [penalis_dashboard]
+│   ├── dashboard.php                     Minimal theme-compatible wrapper for [penalis_dashboard]
+│   └── authors.php                       Minimal theme-compatible wrapper for [penalis_authors]
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
+│   ├── authors/                          Separate public React entry point for [penalis_authors] directory
 │   ├── components/                       Shared UI primitives, Dialog, ConfirmDialog, MediaSelection, PasswordInput
 │   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings
 │   ├── lib/                              Typed API client, validation, deeplinks, HTML/profile helpers
@@ -96,7 +99,8 @@ On `plugins_loaded`, `Penalis_Plugin::run()` initializes components in order:
 3. `Penalis_Author_History::init()`
 4. `Penalis_Rest_Api::init()`
 5. `Penalis_Dashboard::init()`
-6. `Penalis_Editorial_Notifications::init()`
+6. `Penalis_Authors::init()`
+7. `Penalis_Editorial_Notifications::init()`
 7. `Penalis_Avatar::register_provider()` (on `init`)
 8. `Penalis_Admin::init()` and `Penalis_Editorial_Admin::init()` (when `is_admin()`)
 
