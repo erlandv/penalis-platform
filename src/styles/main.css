@@ -1239,6 +1239,16 @@
   line-height: 1.5;
 }
 
+.penalis-checkbox a {
+  color: var(--penalis-accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.penalis-checkbox a:hover {
+  color: var(--penalis-accent);
+}
+
 /*
  * The theme resets the appearance of form controls (it does the same for
  * selects) and some browsers give checkboxes inconsistent default sizing and

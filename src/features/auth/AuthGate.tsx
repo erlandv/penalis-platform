@@ -439,7 +439,27 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           aria-invalid={Boolean(errors.penalis_consent)}
           aria-describedby={describedBy(errors.penalis_consent && 'penalis_consent-error')}
         />
-        <span>Telah membaca dan menyetujui Ketentuan Layanan dan Kebijakan Privasi.</span>
+        <span>
+          Telah membaca dan menyetujui{' '}
+          <a
+            href="/ketentuan-layanan/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            Ketentuan Layanan
+          </a>{' '}
+          dan{' '}
+          <a
+            href="/kebijakan-privasi/"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            Kebijakan Privasi
+          </a>
+          .
+        </span>
       </label>
       <FieldError errors={errors} name="penalis_consent" />
 
