@@ -352,6 +352,19 @@
   text-decoration: underline;
 }
 
+.penalis-link-button:disabled {
+  color: var(--penalis-muted);
+  cursor: default;
+  text-decoration: none;
+}
+
+.penalis-otp-resend {
+  margin: 0;
+  color: var(--penalis-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 /*
  * Sidebar width is a range, not a fixed track: 232px is the comfortable width
  * for the longest label ("Daftar Karya") plus its icon, and the column is
@@ -1166,6 +1179,47 @@
   border-style: dashed;
   color: var(--penalis-muted);
   cursor: text;
+}
+
+/**
+ * Six-box OTP verification code input (one box per digit).
+ *
+ * Uses the same `(0,3,1)` selector pattern as `.penalis-input--readonly` to
+ * override the generic `input[type='text']` width and padding rules.
+ */
+.penalis-otp-input {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 3rem));
+  gap: 0.55rem;
+}
+
+.penalis-dashboard-root input[type='text'].penalis-otp-input__box {
+  width: 100%;
+  height: 3.25rem;
+  padding: 0;
+  text-align: center;
+  font-size: max(18px, 1.25rem);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  caret-color: var(--penalis-accent);
+}
+
+.penalis-dashboard-root input[type='text'].penalis-otp-input__box:disabled {
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-muted);
+  cursor: not-allowed;
+}
+
+@media (max-width: 420px) {
+  .penalis-otp-input {
+    gap: 0.4rem;
+  }
+
+  .penalis-dashboard-root input[type='text'].penalis-otp-input__box {
+    height: 2.85rem;
+    font-size: max(16px, 1.1rem);
+  }
 }
 
 /**

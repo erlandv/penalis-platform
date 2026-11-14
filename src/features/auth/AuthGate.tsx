@@ -41,7 +41,7 @@ const DESCRIPTIONS: Record<Mode, string> = {
   verify: 'Masukkan kode OTP yang kami kirim ke email kamu untuk mengaktifkan akun.',
   forgot: 'Masukkan alamat email yang terdaftar dengan akun Penalis kamu untuk mengatur ulang password.',
   activate: 'Sudah pernah mengirim karya tulis dan menjadi kontributor Penalis sebelumnya?',
-  activateVerify: 'Masukkan kode dari email kamu, lalu buat password untuk akun tersebut.',
+  activateVerify: 'Masukkan kode OTP yang kami kirim ke email kamu, lalu buat password baru.',
 };
 
 /**
@@ -496,7 +496,7 @@ function RegistrationVerifyForm({
       <div className="penalis-form">
         <Notice tone="success">{message}</Notice>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Lanjut login ke Dashboard
+          Lanjut Login ke Dashboard
         </button>
       </div>
     );
@@ -587,7 +587,7 @@ function ActivateVerifyForm({
           digunakan di dashboard penulis.
         </p>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Lanjut login ke Dashboard
+          Lanjut Login ke Dashboard
         </button>
       </div>
     );
@@ -604,7 +604,7 @@ function ActivateVerifyForm({
       onResend={resend}
       error={error}
       busy={busy}
-      verifyLabel="Verifikasi dan aktifkan akun"
+      verifyLabel="Verifikasi dan Aktifkan Akun"
     >
       <div className="penalis-field">
         <label htmlFor="activate_password">Password Baru</label>

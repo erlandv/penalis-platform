@@ -104,6 +104,13 @@ final class Penalis_Email_Template {
 				continue;
 			}
 
+			// Standalone six-digit verification code on its own line becomes a highlighted OTP box.
+			if ( 1 === count( $lines ) && preg_match( '/\A\d{6}\z/', trim( $lines[0] ) ) ) {
+				$code  = esc_html( trim( $lines[0] ) );
+				$html .= '<p style="display:inline-block;margin:0 0 16px;padding:10px 14px 10px 18px;border-radius:6px;border:1px solid #e5e5e5;background-color:#f0f0f0;color:#333333;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\'Liberation Mono\',\'Courier New\',monospace;font-size:18px;font-weight:700;line-height:1.2;letter-spacing:4px;-webkit-user-select:all;user-select:all;">' . $code . '</p>';
+				continue;
+			}
+
 			$escaped_lines = array();
 			foreach ( $lines as $line ) {
 				$escaped_lines[] = self::render_line( $line );

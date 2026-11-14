@@ -3423,6 +3423,12 @@ penalis_assert( false !== strpos( $html_raw_url, 'href="https://penalis.com/pand
 $html_safe = Penalis_Email_Template::render( '[Klik Disini](javascript:alert(1))' );
 penalis_assert( false === strpos( $html_safe, 'href="javascript:' ), 'Unsafe link scheme in markdown is rejected.' );
 
+$html_otp_box = Penalis_Email_Template::render( "Kode verifikasi kamu:\n\n779137\n\nBerlaku 10 menit." );
+penalis_assert( false !== strpos( $html_otp_box, 'user-select:all' ) && false !== strpos( $html_otp_box, '>779137</p>' ), 'Standalone six-digit OTP code renders as a highlighted code box.' );
+
+$html_inline_digits = Penalis_Email_Template::render( 'Nomor referensi 123456 bukan kode OTP.' );
+penalis_assert( false === strpos( $html_inline_digits, 'user-select:all' ), 'Inline six-digit numbers inside prose are not promoted to an OTP box.' );
+
 // 2. Penalis_Email_Settings registry & capabilities
 penalis_same( 16, count( Penalis_Email_Settings::get_registry() ), 'There are exactly 16 configurable email templates in the registry.' );
 

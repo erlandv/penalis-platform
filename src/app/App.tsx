@@ -81,7 +81,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
           <>
             <Notice tone="success">{message}</Notice>
             <a className="penalis-button penalis-button--primary" href={bootstrap.loginUrl}>
-              Lanjut login ke Dashboard
+              Lanjut Login ke Dashboard
             </a>
           </>
         ) : (

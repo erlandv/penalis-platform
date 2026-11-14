@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatCountdown, isOtpCodeComplete, normalizeOtpCode, secondsUntil } from './otp';
+import {
+  applyOtpInput,
+  applyOtpPaste,
+  createEmptyOtpDigits,
+  formatCountdown,
+  isOtpCodeComplete,
+  normalizeOtpCode,
+  secondsUntil,
+} from './otp';
 
 describe('normalizeOtpCode', () => {
   it('keeps digits and drops separators', () => {
@@ -49,5 +57,63 @@ describe('secondsUntil and formatCountdown', () => {
     expect(formatCountdown(60)).toBe('1:00');
     expect(formatCountdown(9)).toBe('0:09');
     expect(formatCountdown(0)).toBe('0:00');
+  });
+});
+
+describe('createEmptyOtpDigits', () => {
+  it('creates six empty slots', () => {
+    expect(createEmptyOtpDigits()).toEqual(['', '', '', '', '', '']);
+  });
+});
+
+describe('applyOtpInput', () => {
+  it('fills a single digit and advances focus to the next box', () => {
+    const result = applyOtpInput(['', '', '', '', '', ''], 0, '4');
+    expect(result.digits).toEqual(['4', '', '', '', '', '']);
+    expect(result.nextFocusIndex).toBe(1);
+  });
+
+  it('replaces an existing digit when another digit is typed', () => {
+    const result = applyOtpInput(['1', '2', '', '', '', ''], 0, '19');
+    expect(result.digits).toEqual(['9', '2', '', '', '', '']);
+    expect(result.nextFocusIndex).toBe(1);
+  });
+
+  it('ignores non-digit characters without advancing focus', () => {
+    const result = applyOtpInput(['1', '', '', '', '', ''], 0, '1a');
+    expect(result.digits).toEqual(['1', '', '', '', '', '']);
+    expect(result.nextFocusIndex).toBe(0);
+  });
+
+  it('distributes a full 6-digit autofill across all boxes', () => {
+    const result = applyOtpInput(['', '', '', '', '', ''], 0, '654321');
+    expect(result.digits).toEqual(['6', '5', '4', '3', '2', '1']);
+    expect(result.nextFocusIndex).toBe(5);
+  });
+
+  it('clamps focus to the last box when typing into box 5', () => {
+    const result = applyOtpInput(['1', '2', '3', '4', '5', ''], 5, '6');
+    expect(result.digits).toEqual(['1', '2', '3', '4', '5', '6']);
+    expect(result.nextFocusIndex).toBe(5);
+  });
+});
+
+describe('applyOtpPaste', () => {
+  it('pastes a full 6-digit code from index 0 even when pasted into a middle box', () => {
+    const result = applyOtpPaste(['', '', '', '', '', ''], 2, ' 123-456 ');
+    expect(result.digits).toEqual(['1', '2', '3', '4', '5', '6']);
+    expect(result.nextFocusIndex).toBe(5);
+  });
+
+  it('pastes a partial code starting at the focused box', () => {
+    const result = applyOtpPaste(['1', '', '', '', '', ''], 1, '234');
+    expect(result.digits).toEqual(['1', '2', '3', '4', '', '']);
+    expect(result.nextFocusIndex).toBe(4);
+  });
+
+  it('ignores non-numeric clipboard content', () => {
+    const result = applyOtpPaste(['1', '', '', '', '', ''], 1, 'hello');
+    expect(result.digits).toEqual(['1', '', '', '', '', '']);
+    expect(result.nextFocusIndex).toBe(1);
   });
 });

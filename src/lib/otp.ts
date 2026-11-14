@@ -81,3 +81,86 @@ export function formatCountdown(seconds: number): string {
 
   return `${minutes}:${String(rest).padStart(2, '0')}`;
 }
+
+/**
+ * Create an empty array of OTP digit slots.
+ */
+export function createEmptyOtpDigits(): string[] {
+  return Array.from({ length: OTP_LENGTH }, () => '');
+}
+
+/**
+ * Apply a change event value from one OTP digit box and compute the next focus index.
+ */
+export function applyOtpInput(
+  digits: readonly string[],
+  index: number,
+  rawValue: string
+): { digits: string[]; nextFocusIndex: number } {
+  const nextDigits = [...digits];
+  const rawDigits = rawValue.replace(/\D/g, '');
+  const current = digits[index] ?? '';
+
+  if (rawDigits.length === 0) {
+    nextDigits[index] = '';
+    return { digits: nextDigits, nextFocusIndex: index };
+  }
+
+  if (rawDigits.length === 1) {
+    nextDigits[index] = rawDigits;
+    const shouldAdvance = rawValue === rawDigits || current === '';
+    return {
+      digits: nextDigits,
+      nextFocusIndex: shouldAdvance ? Math.min(index + 1, OTP_LENGTH - 1) : index,
+    };
+  }
+
+  if (rawDigits.length === 2 && current !== '') {
+    const newDigit = rawDigits[0] === current ? (rawDigits[1] ?? '') : (rawDigits[0] ?? '');
+    nextDigits[index] = newDigit;
+    return {
+      digits: nextDigits,
+      nextFocusIndex: Math.min(index + 1, OTP_LENGTH - 1),
+    };
+  }
+
+  const start = rawDigits.length >= OTP_LENGTH ? 0 : index;
+  const slice = rawDigits.slice(0, OTP_LENGTH - start);
+
+  for (let offset = 0; offset < slice.length; offset += 1) {
+    nextDigits[start + offset] = slice[offset] ?? '';
+  }
+
+  return {
+    digits: nextDigits,
+    nextFocusIndex: Math.min(start + slice.length, OTP_LENGTH - 1),
+  };
+}
+
+/**
+ * Apply a pasted OTP string into the digit boxes and compute the next focus index.
+ */
+export function applyOtpPaste(
+  digits: readonly string[],
+  index: number,
+  rawValue: string
+): { digits: string[]; nextFocusIndex: number } {
+  const pasted = normalizeOtpCode(rawValue);
+
+  if (!pasted) {
+    return { digits: [...digits], nextFocusIndex: index };
+  }
+
+  const nextDigits = [...digits];
+  const start = pasted.length >= OTP_LENGTH ? 0 : index;
+  const slice = pasted.slice(0, OTP_LENGTH - start);
+
+  for (let offset = 0; offset < slice.length; offset += 1) {
+    nextDigits[start + offset] = slice[offset] ?? '';
+  }
+
+  return {
+    digits: nextDigits,
+    nextFocusIndex: Math.min(start + slice.length, OTP_LENGTH - 1),
+  };
+}

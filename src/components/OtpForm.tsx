@@ -5,10 +5,18 @@
  * `localStorage` or `sessionStorage`, so closing the tab discards the flow.
  */
 
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 
 import { describedBy } from '../lib/a11y';
-import { formatCountdown, isOtpCodeComplete, normalizeOtpCode, secondsUntil } from '../lib/otp';
+import {
+  applyOtpInput,
+  applyOtpPaste,
+  createEmptyOtpDigits,
+  formatCountdown,
+  isOtpCodeComplete,
+  OTP_LENGTH,
+  secondsUntil,
+} from '../lib/otp';
 import { ErrorBanner, FieldHint, Notice, Spinner } from './ui';
 
 export interface OtpFormProps {
@@ -41,27 +49,102 @@ export function OtpForm({
   email,
   resendAfter,
   expiresIn = 600,
-  maxAttempts = 5,
   onVerify,
   onResend,
   error = '',
   busy = false,
-  verifyLabel = 'Verifikasi kode',
+  verifyLabel = 'Verifikasi Kode',
   children,
 }: OtpFormProps) {
   const fieldId = useId();
-  const [code, setCode] = useState('');
+  const [digits, setDigits] = useState<string[]>(() => createEmptyOtpDigits());
+  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [deadline, setDeadline] = useState(() => Date.now() + resendAfter * 1000);
   const [now, setNow] = useState(() => Date.now());
   const [resending, setResending] = useState(false);
   const [resendError, setResendError] = useState('');
   const [resendNotice, setResendNotice] = useState('');
 
+  const code = digits.join('');
+
   // A new challenge restarts the cooldown and clears the previous code.
   useEffect(() => {
     setDeadline(Date.now() + resendAfter * 1000);
-    setCode('');
+    setDigits(createEmptyOtpDigits());
   }, [challengeId, resendAfter]);
+
+  const focusBox = (index: number) => {
+    const target = inputRefs.current[index];
+    if (target) {
+      target.focus();
+      target.select();
+    }
+  };
+
+  const handleBoxChange = (index: number, rawValue: string) => {
+    const result = applyOtpInput(digits, index, rawValue);
+    setDigits(result.digits);
+    if (result.nextFocusIndex !== index) {
+      focusBox(result.nextFocusIndex);
+    }
+  };
+
+  const handleBoxPaste = (index: number, event: ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    const result = applyOtpPaste(digits, index, event.clipboardData.getData('text'));
+    setDigits(result.digits);
+    focusBox(result.nextFocusIndex);
+  };
+
+  const handleBoxKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      if (digits[index]) {
+        const nextDigits = [...digits];
+        nextDigits[index] = '';
+        setDigits(nextDigits);
+      } else if (index > 0) {
+        const nextDigits = [...digits];
+        nextDigits[index - 1] = '';
+        setDigits(nextDigits);
+        focusBox(index - 1);
+      }
+      return;
+    }
+
+    if (event.key === 'Delete') {
+      event.preventDefault();
+      if (digits[index]) {
+        const nextDigits = [...digits];
+        nextDigits[index] = '';
+        setDigits(nextDigits);
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowLeft' && index > 0) {
+      event.preventDefault();
+      focusBox(index - 1);
+      return;
+    }
+
+    if (event.key === 'ArrowRight' && index < OTP_LENGTH - 1) {
+      event.preventDefault();
+      focusBox(index + 1);
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      focusBox(0);
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      focusBox(OTP_LENGTH - 1);
+    }
+  };
 
   const remaining = secondsUntil(deadline, now);
   const coolingDown = remaining > 0;
@@ -117,35 +200,49 @@ export function OtpForm({
     <form className="penalis-form" onSubmit={submit} noValidate>
       <p className="penalis-muted">
         Kami mengirim kode enam digit ke <strong>{email}</strong>. Kode berlaku {Math.round(expiresIn / 60)}{' '}
-        menit dan hanya dapat dicoba {maxAttempts} kali.
-      </p>
-
-      <p className="penalis-muted">
-        Kode tidak masuk dalam beberapa menit? Kirim ulang atau hubungi admin Penalis.
+        menit, jangan bagikan kode kepada siapa pun.
       </p>
       {error ? <ErrorBanner message={error} /> : null}
       {resendError ? <ErrorBanner message={resendError} /> : null}
       {resendNotice ? <Notice tone="success">{resendNotice}</Notice> : null}
 
       <div className="penalis-field">
-        <label htmlFor={fieldId}>Kode Verifikasi</label>
-        <input
-          id={fieldId}
-          type="text"
-          value={code}
-          onChange={(event) => setCode(normalizeOtpCode(event.target.value))}
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="[0-9]*"
-          maxLength={6}
-          placeholder="000000"
-          autoFocus
-          aria-invalid={Boolean(error)}
+        <span id={`${fieldId}-label`} className="penalis-field-label">
+          Kode Verifikasi
+        </span>
+        <div
+          className="penalis-otp-input"
+          role="group"
+          aria-labelledby={`${fieldId}-label`}
           aria-describedby={describedBy(`${fieldId}-hint`, error && `${fieldId}-error`)}
-          disabled={busy}
-        />
+        >
+          {digits.map((digit, index) => (
+            <input
+              key={index}
+              ref={(element) => {
+                inputRefs.current[index] = element;
+              }}
+              id={index === 0 ? fieldId : undefined}
+              type="text"
+              className="penalis-otp-input__box"
+              value={digit}
+              onChange={(event) => handleBoxChange(index, event.target.value)}
+              onPaste={(event) => handleBoxPaste(index, event)}
+              onKeyDown={(event) => handleBoxKeyDown(index, event)}
+              onFocus={(event) => event.currentTarget.select()}
+              inputMode="numeric"
+              autoComplete={index === 0 ? 'one-time-code' : 'off'}
+              pattern="[0-9]*"
+              maxLength={OTP_LENGTH}
+              autoFocus={index === 0}
+              aria-label={`Digit ${index + 1} dari ${OTP_LENGTH}`}
+              aria-invalid={Boolean(error)}
+              disabled={busy}
+            />
+          ))}
+        </div>
         <FieldHint id={`${fieldId}-hint`}>
-          Tempel atau ketik kode dari email. Jangan bagikan kode ini kepada siapa pun.
+          Tempel atau ketik kode dari email.
         </FieldHint>
         {error ? (
           <p className="penalis-field-error" id={`${fieldId}-error`}>
@@ -164,10 +261,11 @@ export function OtpForm({
         {busy ? <Spinner label="Memverifikasi…" /> : verifyLabel}
       </button>
 
-      <div className="penalis-form__actions">
+      <p className="penalis-otp-resend">
+        Belum menerima kode?{' '}
         <button
           type="button"
-          className="penalis-button penalis-button--ghost"
+          className="penalis-link-button"
           onClick={() => void resend()}
           disabled={remaining > 0 || resending}
         >
@@ -175,9 +273,9 @@ export function OtpForm({
             ? 'Mengirim…'
             : remaining > 0
               ? `Kirim ulang dalam ${formatCountdown(remaining)}`
-              : 'Kirim ulang kode'}
+              : 'Kirim ulang'}
         </button>
-      </div>
+      </p>
     </form>
   );
 }
