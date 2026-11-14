@@ -403,17 +403,20 @@ Transactional emails can be adjusted by non-technical administrators via
 ### 7.6 Post Views Counter Integration
 Penalis Platform integrates with the [Post Views Counter](https://wordpress.org/plugins/post-views-counter/)
 plugin to surface article view statistics inside the `/dashboard/` React SPA
-(`Overview.tsx`, `Articles.tsx`, and `Editor.tsx`).
+(`Overview.tsx`, `Articles.tsx`, and `Editor.tsx`) as well as the public
+contributors directory (`[penalis_authors]` / `AuthorsDirectory.tsx`).
 - **Per-Article Views:** `Penalis_Rest_Api::get_post_views()` reads lifetime
   totals via `pvc_get_post_views( $post_id )` for published posts
   (`post_status === 'publish'`). Unpublished articles (`draft`,
   `pending_review`, `changes_requested`, `rejected`) always return `0` so
   internal admin previews or stray database rows never leak into writer stats.
-- **Author Total Views:** `Penalis_Rest_Api::author_total_views()` fetches the
-  IDs of all published posts owned by the writer and passes the `int[]` array to
-  `pvc_get_post_views( $post_ids )`, computing `counts.views` in a single
-  aggregate SQL query (`WHERE id IN (...) AND type = 4 AND period = 'total'`)
-  cached in the `pvc-get_post_views` object-cache group.
+- **Author Total Views:** `Penalis_Rest_Api::author_total_views()` and
+  `Penalis_Authors::get_author_views_map()` fetch the IDs of all published posts
+  owned by the writer(s) and pass the `int[]` array to
+  `pvc_get_post_views( $post_ids )`, computing total views in an aggregate SQL
+  query (`WHERE id IN (...) AND type = 4 AND period = 'total'`) cached in the
+  `pvc-get_post_views` object-cache group (and in the public authors directory
+  transient).
 - **Graceful Degradation:** Every call is guarded by
   `function_exists( 'pvc_get_post_views' )`. When Post Views Counter is
   deactivated or absent, all view counts safely fall back to `0`.

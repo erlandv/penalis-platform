@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { VerifiedBadgeIcon } from '../components/icons';
+import { formatNumber } from '../lib/format';
 import {
   buildAuthorsApiUrl,
   buildAuthorsSearchString,
@@ -216,8 +217,11 @@ export function AuthorsDirectory(): React.ReactElement {
             >
               <option value="most_posts">Karya terbanyak</option>
               <option value="least_posts">Karya paling sedikit</option>
-              <option value="name_asc">Abjad A–Z</option>
-              <option value="name_desc">Abjad Z–A</option>
+              <option value="most_views">Views terbanyak</option>
+              <option value="least_views">Views paling sedikit</option>
+              <option value="name_asc">Abjad A-Z</option>
+              <option value="name_desc">Abjad Z-A</option>
+              <option value="random">Penulis paling cakep 🗿</option>
             </select>
           </div>
         </div>
@@ -297,7 +301,9 @@ export function AuthorsDirectory(): React.ReactElement {
                       </span>
                     )}
                   </div>
-                  <div className="penalis-authors-count">{author.postCount} karya tulis</div>
+                  <div className="penalis-authors-count">
+                    {formatNumber(author.postCount)} karya · {formatNumber(author.views)} views
+                  </div>
                 </div>
               </a>
             ))}

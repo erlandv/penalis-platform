@@ -1770,7 +1770,7 @@ final class Penalis_Rest_Api {
 			return $response;
 		}
 
-		if ( '/' . self::NAMESPACE_V1 . '/authors' === $route ) {
+		if ( '/' . self::NAMESPACE_V1 . '/authors' === $route && 'random' !== $request->get_param( 'sort' ) ) {
 			$response->header( 'Cache-Control', 'public, max-age=120' );
 			return $response;
 		}

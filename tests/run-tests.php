@@ -3858,11 +3858,14 @@ penalis_assert(
 
 penalis_same( 'most_posts', Penalis_Policy::normalize_authors_sort( 'invalid' ), 'Invalid sort falls back to most_posts.' );
 penalis_same( 'name_asc', Penalis_Policy::normalize_authors_sort( 'name_asc' ), 'Valid sort mode is preserved.' );
+penalis_same( 'most_views', Penalis_Policy::normalize_authors_sort( 'most_views' ), 'most_views sort mode is preserved.' );
+penalis_same( 'least_views', Penalis_Policy::normalize_authors_sort( 'least_views' ), 'least_views sort mode is preserved.' );
+penalis_same( 'random', Penalis_Policy::normalize_authors_sort( 'random' ), 'random sort mode is preserved.' );
 
 $unsorted_authors = array(
-	array( 'id' => 1, 'displayName' => 'Citra', 'postCount' => 5 ),
-	array( 'id' => 2, 'displayName' => 'Adi', 'postCount' => 20 ),
-	array( 'id' => 3, 'displayName' => 'Budi', 'postCount' => 20 ),
+	array( 'id' => 1, 'displayName' => 'Citra', 'postCount' => 5, 'views' => 500 ),
+	array( 'id' => 2, 'displayName' => 'Adi', 'postCount' => 20, 'views' => 100 ),
+	array( 'id' => 3, 'displayName' => 'Budi', 'postCount' => 20, 'views' => 1200 ),
 );
 $sorted_most = Penalis_Policy::sort_public_authors( $unsorted_authors, 'most_posts' );
 penalis_same( array( 'Adi', 'Budi', 'Citra' ), array_column( $sorted_most, 'displayName' ), 'most_posts sorts descending by postCount then ascending by displayName.' );
@@ -3870,11 +3873,23 @@ penalis_same( array( 'Adi', 'Budi', 'Citra' ), array_column( $sorted_most, 'disp
 $sorted_least = Penalis_Policy::sort_public_authors( $unsorted_authors, 'least_posts' );
 penalis_same( array( 'Citra', 'Adi', 'Budi' ), array_column( $sorted_least, 'displayName' ), 'least_posts sorts ascending by postCount then ascending by displayName.' );
 
+$sorted_most_views = Penalis_Policy::sort_public_authors( $unsorted_authors, 'most_views' );
+penalis_same( array( 'Budi', 'Citra', 'Adi' ), array_column( $sorted_most_views, 'displayName' ), 'most_views sorts descending by views then ascending by displayName.' );
+
+$sorted_least_views = Penalis_Policy::sort_public_authors( $unsorted_authors, 'least_views' );
+penalis_same( array( 'Adi', 'Citra', 'Budi' ), array_column( $sorted_least_views, 'displayName' ), 'least_views sorts ascending by views then ascending by displayName.' );
+
 $sorted_az = Penalis_Policy::sort_public_authors( $unsorted_authors, 'name_asc' );
 penalis_same( array( 'Adi', 'Budi', 'Citra' ), array_column( $sorted_az, 'displayName' ), 'name_asc sorts alphabetically A-Z.' );
 
 $sorted_za = Penalis_Policy::sort_public_authors( $unsorted_authors, 'name_desc' );
 penalis_same( array( 'Citra', 'Budi', 'Adi' ), array_column( $sorted_za, 'displayName' ), 'name_desc sorts alphabetically Z-A.' );
+
+$sorted_random = Penalis_Policy::sort_public_authors( $unsorted_authors, 'random' );
+penalis_same( 3, count( $sorted_random ), 'random sort preserves all author records.' );
+$random_ids = array_column( $sorted_random, 'id' );
+sort( $random_ids );
+penalis_same( array( 1, 2, 3 ), $random_ids, 'random sort preserves the exact set of author IDs.' );
 
 /* -------------------------------------------------------------------------
  * Post Views Counter integration in REST API

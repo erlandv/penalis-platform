@@ -10,8 +10,11 @@ describe('authors query helpers', () => {
   it('normalizes sort modes with safe fallback', () => {
     expect(normalizeAuthorsSort('most_posts')).toBe('most_posts');
     expect(normalizeAuthorsSort('least_posts')).toBe('least_posts');
+    expect(normalizeAuthorsSort('most_views')).toBe('most_views');
+    expect(normalizeAuthorsSort('least_views')).toBe('least_views');
     expect(normalizeAuthorsSort('name_asc')).toBe('name_asc');
     expect(normalizeAuthorsSort('name_desc')).toBe('name_desc');
+    expect(normalizeAuthorsSort('random')).toBe('random');
     expect(normalizeAuthorsSort('unknown')).toBe('most_posts');
     expect(normalizeAuthorsSort(null)).toBe('most_posts');
   });

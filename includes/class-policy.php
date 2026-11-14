@@ -859,7 +859,15 @@ final class Penalis_Policy {
 	 * @return string
 	 */
 	public static function normalize_authors_sort( $sort ) {
-		$allowed = array( 'most_posts', 'least_posts', 'name_asc', 'name_desc' );
+		$allowed = array(
+			'most_posts',
+			'least_posts',
+			'most_views',
+			'least_views',
+			'name_asc',
+			'name_desc',
+			'random',
+		);
 		if ( is_string( $sort ) && in_array( $sort, $allowed, true ) ) {
 			return $sort;
 		}
@@ -868,14 +876,22 @@ final class Penalis_Policy {
 	}
 
 	/**
-	 * Sort normalized public author records deterministically.
+	 * Sort normalized public author records.
 	 *
 	 * @param array<int,array<string,mixed>> $authors Author records.
 	 * @param string                         $sort    Normalized sort mode.
 	 * @return array<int,array<string,mixed>>
 	 */
 	public static function sort_public_authors( $authors, $sort ) {
-		$mode = self::normalize_authors_sort( $sort );
+		$mode    = self::normalize_authors_sort( $sort );
+		$authors = array_values( $authors );
+
+		if ( 'random' === $mode ) {
+			if ( count( $authors ) > 1 ) {
+				shuffle( $authors );
+			}
+			return $authors;
+		}
 
 		usort(
 			$authors,
@@ -884,6 +900,8 @@ final class Penalis_Policy {
 				$name_b  = isset( $b['displayName'] ) ? (string) $b['displayName'] : '';
 				$count_a = isset( $a['postCount'] ) ? (int) $a['postCount'] : 0;
 				$count_b = isset( $b['postCount'] ) ? (int) $b['postCount'] : 0;
+				$views_a = isset( $a['views'] ) ? (int) $a['views'] : 0;
+				$views_b = isset( $b['views'] ) ? (int) $b['views'] : 0;
 				$id_a    = isset( $a['id'] ) ? (int) $a['id'] : 0;
 				$id_b    = isset( $b['id'] ) ? (int) $b['id'] : 0;
 
@@ -906,6 +924,26 @@ final class Penalis_Policy {
 				if ( 'least_posts' === $mode ) {
 					if ( $count_a !== $count_b ) {
 						return $count_a <=> $count_b;
+					}
+					if ( 0 !== $name_cmp ) {
+						return $name_cmp;
+					}
+					return $id_a <=> $id_b;
+				}
+
+				if ( 'most_views' === $mode ) {
+					if ( $views_a !== $views_b ) {
+						return $views_b <=> $views_a;
+					}
+					if ( 0 !== $name_cmp ) {
+						return $name_cmp;
+					}
+					return $id_a <=> $id_b;
+				}
+
+				if ( 'least_views' === $mode ) {
+					if ( $views_a !== $views_b ) {
+						return $views_a <=> $views_b;
 					}
 					if ( 0 !== $name_cmp ) {
 						return $name_cmp;

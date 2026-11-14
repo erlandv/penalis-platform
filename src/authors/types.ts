@@ -1,4 +1,11 @@
-export type AuthorsSortMode = 'most_posts' | 'least_posts' | 'name_asc' | 'name_desc';
+export type AuthorsSortMode =
+  | 'most_posts'
+  | 'least_posts'
+  | 'most_views'
+  | 'least_views'
+  | 'name_asc'
+  | 'name_desc'
+  | 'random';
 
 export interface PublicAuthorItem {
   id: number;
@@ -7,6 +14,7 @@ export interface PublicAuthorItem {
   avatarUrl: string;
   authorUrl: string;
   postCount: number;
+  views: number;
   isVerified: boolean;
 }
 

@@ -9,8 +9,11 @@ export interface AuthorsFilterState {
 const VALID_SORTS: ReadonlyArray<AuthorsSortMode> = [
   'most_posts',
   'least_posts',
+  'most_views',
+  'least_views',
   'name_asc',
   'name_desc',
+  'random',
 ];
 
 export function normalizeAuthorsSort(value: string | null | undefined): AuthorsSortMode {
