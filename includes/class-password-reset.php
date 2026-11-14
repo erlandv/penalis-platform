@@ -35,7 +35,7 @@ final class Penalis_Password_Reset {
 	 *
 	 * The wording never confirms whether an address is registered.
 	 */
-	public const GENERIC_MESSAGE = 'Jika alamat tersebut terdaftar, kami telah mengirim link untuk reset password.';
+	public const GENERIC_MESSAGE = 'Jika alamat email tersebut terdaftar, kami telah mengirim link untuk reset password akun Penalis kamu.';
 
 	/**
 	 * Request a reset link.
@@ -193,17 +193,8 @@ final class Penalis_Password_Reset {
 	 * @return bool
 	 */
 	private static function is_reset_allowed( $user ) {
-		$status = Penalis_Account_Status::get_status( $user->ID );
-
-		if ( '' !== $status ) {
-			if ( ! Penalis_Policy::can_reset_password( $status, Penalis_Account_Status::is_access_enabled( $user->ID ) ) ) {
-				return false;
-			}
-		} elseif ( in_array( 'contributor', (array) $user->roles, true ) ) {
-			// Legacy contributor profiles were never intended for login.
-			if ( ! Penalis_Account_Status::is_access_enabled( $user->ID ) ) {
-				return false;
-			}
+		if ( ! Penalis_Account_Status::is_password_reset_allowed( $user ) ) {
+			return false;
 		}
 
 		/**

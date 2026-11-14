@@ -4,8 +4,8 @@
 
 import type { ReactNode } from 'react';
 
-import { Icon } from './icons';
-import type { FieldErrors } from '../lib/types';
+import { Icon, VerifiedBadgeIcon } from './icons';
+import type { Account, FieldErrors } from '../lib/types';
 import { statusLabel, statusTone } from '../lib/format';
 
 export function Spinner({ label = 'Memuat…' }: { label?: string }) {
@@ -58,6 +58,28 @@ export function StatusBadge({ status, label }: { status: string; label?: string 
   );
 }
 
+export function VerifiedWriterBadge({
+  account,
+  size = 15,
+}: {
+  account: Pick<Account, 'status' | 'canWrite' | 'isReviewer'>;
+  size?: number;
+}) {
+  if (account.status !== 'active' || !account.canWrite || account.isReviewer) {
+    return null;
+  }
+
+  return (
+    <span
+      className="penalis-verified-badge"
+      title="Penulis Aktif terverifikasi"
+      aria-label="Penulis Aktif terverifikasi"
+    >
+      <VerifiedBadgeIcon size={size} />
+    </span>
+  );
+}
+
 /**
  * Persistent hint text for a field.
  *
@@ -82,6 +104,32 @@ export function FieldError({ errors, name }: { errors: FieldErrors; name: string
     <p className="penalis-field-error" id={`${name}-error`}>
       {message}
     </p>
+  );
+}
+
+/**
+ * Hidden honeypot field for public forms. Must remain empty for human visitors.
+ */
+export function HoneypotField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="penalis-honeypot" aria-hidden="true">
+      <label>
+        Website
+        <input
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+    </div>
   );
 }
 

@@ -164,10 +164,11 @@ Invariants that must never be broken:
 penalis-platform.php        Plugin header, constants, Penalis_ autoloader, activation hooks
 uninstall.php               Opt-in cleanup only
 includes/                   PHP classes (Penalis_ prefix, one concern per file)
-assets/css/admin.css        Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis)
-assets/js/admin-review.js   Confirmation modals and inline validation for wp-admin actions
+assets/css/admin.css        Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email)
+assets/js/admin-review.js   Confirmation modals (createModalController) and inline validation for wp-admin actions
 templates/dashboard.php     Minimal theme wrapper for [penalis_dashboard]
-src/                        React SPA (app/, components/, features/, lib/, styles/)
+templates/authors.php       Minimal theme wrapper for [penalis_authors]
+src/                        React SPAs (app/, authors/, components/, features/, lib/, styles/)
 build/                      Generated Vite output and manifest.json (gitignored)
 tests/                      Plain-PHP unit/workflow tests (run-tests.php) and WP stubs (wp-stubs.php)
 docs/                       Developer documentation (architecture, rest-api, security, development)
@@ -176,13 +177,40 @@ readme.txt                  WordPress plugin readme and changelog
 
 - **Admin screens (`wp-admin`):** Top-level menu **Penalis**
   (`admin.php?page=penalis-platform`) with submenus **Ringkasan**
-  (`penalis-platform`), **Review Karya Tulis** (`penalis-review`), and
-  **Penulis Penalis** (`penalis-writers`). All admin styles live in
+  (`penalis-platform`), **Review Karya Tulis** (`penalis-review`),
+  **Penulis Penalis** (`penalis-writers`), and **Pengaturan Email**
+  (`penalis-email-settings`, administrators only). All admin styles live in
   `assets/css/admin.css` and confirmation dialog logic in
-  `assets/js/admin-review.js` — do not inline large CSS or JS blocks inside PHP
-  classes.
-- **Password inputs:** Always use `src/components/PasswordInput.tsx` in the
-  React dashboard so the accessible show/hide toggle stays consistent.
+  `assets/js/admin-review.js` (`createModalController()`) — do not inline large
+  CSS or JS blocks inside PHP classes. Use
+  `Penalis_Admin::render_confirm_modal()`, `format_menu_label()`, and
+  `resolve_asset_meta()` for shared admin UI patterns.
+- **Shared PHP helpers (reuse instead of duplicating):**
+  - **Vite & SPA mounting (`Penalis_Dashboard`):** `enqueue_vite_entry()`,
+    `ensure_same_origin_url()`, `format_module_script_tag()`,
+    `resolve_bundled_template()`, and `render_spa_mount()` are shared by
+    `Penalis_Dashboard` and `Penalis_Authors`.
+  - **MySQL advisory locks (`Penalis_Account_Status`):** Use
+    `Penalis_Account_Status::with_advisory_lock()` (used by `Penalis_Otp`,
+    `Penalis_Username_Change`, and `Penalis_Editorial_Workflow`) so `GET_LOCK`
+    and `RELEASE_LOCK` stay paired in a `try / finally` block.
+  - **Editorial queries & counts (`Penalis_Editorial_Workflow`):** Use
+    `state_query_clauses()` and `count_matching_posts()` in both REST and
+    `wp-admin` list/count queries.
+  - **Account eligibility (`Penalis_Account_Status`):** Use `can_change_email()`,
+    `can_change_username()`, and `is_password_reset_allowed()`.
+  - **Transactional emails (`Penalis_Emails`, `Penalis_Email_Settings`):** Use
+    `Penalis_Emails::send_template()` for template resolution, user-meta failure
+    tracking, and `wp_mail()` dispatch, and `Penalis_Email_Settings::otp_definition()`
+    for OTP email template definitions.
+- **Shared React primitives (reuse instead of duplicating):**
+  - Always use `src/components/PasswordInput.tsx` for password fields so the
+    accessible show/hide toggle stays consistent.
+  - Use `<MediaPickerDialog>` in `src/components/MediaSelection.tsx` for media
+    upload/selection modals, `<HoneypotField>` and `<VerifiedWriterBadge>` in
+    `src/components/ui.tsx`, `validatePasswordPair()` in `src/lib/validation.ts`,
+    `toActiveChallenge()` in `src/lib/otp.ts`, and `isStaleEditorialError()` in
+    `src/lib/api.ts`.
 - **Two token worlds (never mix them):**
   - Email verification codes (`Penalis_Otp`): six digits from `random_int()`,
     bound to a purpose (`registration`, `legacy`, `email_change`) and an opaque

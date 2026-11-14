@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { ApiError, articlesApi } from '../../lib/api';
+import { ApiError, articlesApi, isStaleEditorialError } from '../../lib/api';
 import type { ArticleList, ArticleSummary } from '../../lib/types';
 import { editorialStateLabel, formatDate, truncate } from '../../lib/format';
 import { Icon } from '../../components/icons';
@@ -78,50 +78,29 @@ export function Articles({
     setPage(1);
   };
 
-  const isStaleEditorialError = (caught: unknown): boolean => {
-    if (!(caught instanceof ApiError)) {
-      return false;
-    }
-
-    return (
-      caught.status === 409 ||
-      caught.code === 'penalis_editorial_denied' ||
-      caught.code === 'penalis_editorial_locked' ||
-      caught.code === 'penalis_editorial_busy'
-    );
-  };
-
-  const submitForReview = async (id: number) => {
+  const runEditorialSubmit = async (id: number, mode: 'submit' | 'resubmit') => {
+    const isResubmit = mode === 'resubmit';
     setBusyId(id);
     setError('');
     setNotice('');
     try {
-      const result = await articlesApi.submit(id);
-      setNotice(result.message || 'Karya tulis kamu telah di-submit dan sedang menunggu review admin.');
+      const result = isResubmit ? await articlesApi.resubmit(id) : await articlesApi.submit(id);
+      setNotice(
+        result.message ||
+          (isResubmit
+            ? 'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.'
+            : 'Karya tulis kamu telah di-submit dan sedang menunggu review admin.'),
+      );
       setPending(null);
       await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Karya tulis tidak dapat di-submit untuk di-review.');
-      setPending(null);
-      if (isStaleEditorialError(caught)) {
-        await load();
-      }
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const resubmitForReview = async (id: number) => {
-    setBusyId(id);
-    setError('');
-    setNotice('');
-    try {
-      const result = await articlesApi.resubmit(id);
-      setNotice(result.message || 'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.');
-      setPending(null);
-      await load();
-    } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Revisi karya tulis tidak dapat di-submit ulang.');
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : isResubmit
+            ? 'Revisi karya tulis tidak dapat di-submit ulang.'
+            : 'Karya tulis tidak dapat di-submit untuk di-review.',
+      );
       setPending(null);
       if (isStaleEditorialError(caught)) {
         await load();
@@ -350,7 +329,7 @@ export function Articles({
           confirmLabel="Submit Review"
           tone="warning"
           busy={busyId === pending.article.id}
-          onConfirm={() => void submitForReview(pending.article.id)}
+          onConfirm={() => void runEditorialSubmit(pending.article.id, 'submit')}
           onCancel={() => setPending(null)}
         />
       ) : null}
@@ -372,7 +351,7 @@ export function Articles({
           confirmLabel="Submit Ulang"
           tone="warning"
           busy={busyId === pending.article.id}
-          onConfirm={() => void resubmitForReview(pending.article.id)}
+          onConfirm={() => void runEditorialSubmit(pending.article.id, 'resubmit')}
           onCancel={() => setPending(null)}
         />
       ) : null}

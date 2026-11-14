@@ -7,8 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { articlesApi, notificationsApi, ApiError } from '../../lib/api';
 import type { Account, ArticleList, DashboardNotification, NotificationList } from '../../lib/types';
 import { editorialStateLabel, formatDate, formatDateTime } from '../../lib/format';
-import { VerifiedBadgeIcon } from '../../components/icons';
-import { EmptyState, ErrorBanner, Spinner, StatusBadge } from '../../components/ui';
+import { EmptyState, ErrorBanner, Spinner, StatusBadge, VerifiedWriterBadge } from '../../components/ui';
 
 const INITIAL_VISIBLE_NOTIFICATIONS = 5;
 
@@ -139,8 +138,6 @@ export function Overview({
       : notifications.items.slice(0, INITIAL_VISIBLE_NOTIFICATIONS)
     : [];
 
-  const isVerifiedWriter = account.status === 'active' && account.canWrite && !account.isReviewer;
-
   return (
     <div className="penalis-stack">
       <section className="penalis-hero">
@@ -148,15 +145,7 @@ export function Overview({
           <p className="penalis-eyebrow">Halo sahabat Penalis</p>
           <h2 className="penalis-hero__name">
             <span>{account.displayName}</span>
-            {isVerifiedWriter ? (
-              <span
-                className="penalis-verified-badge"
-                title="Penulis Aktif terverifikasi"
-                aria-label="Penulis Aktif terverifikasi"
-              >
-                <VerifiedBadgeIcon size={20} />
-              </span>
-            ) : null}
+            <VerifiedWriterBadge account={account} size={20} />
           </h2>
           <p className="penalis-muted">
             {account.canWrite

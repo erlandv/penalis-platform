@@ -157,64 +157,54 @@ JS;
 	}
 
 	/**
+	 * Build a definition entry for a six-digit OTP verification email.
+	 *
+	 * @param string $title       Admin template title.
+	 * @param string $description Admin template description.
+	 * @param string $heading     Subject suffix and first body line.
+	 * @return array<string,mixed>
+	 */
+	private static function otp_definition( $title, $description, $heading ) {
+		return array(
+			'title'           => $title,
+			'description'     => $description,
+			'group'           => 'verifikasi',
+			'default_subject' => '[Penalis] ' . $heading,
+			'default_body'    => $heading . "\n\nKode verifikasi kamu:\n\n{kode_otp}\n\nMasukkan kode ini di dashboard Penalis. Berlaku {menit_berlaku} menit, maksimal {maksimal_percobaan} percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.",
+			'default_footer'  => 'Email ini dikirim otomatis. Kamu menerima email ini karena ada permintaan verifikasi pada akun Penalis yang terhubung ke alamat ini. Jangan bagikan kode verifikasi kepada siapa pun, termasuk yang mengaku sebagai admin Penalis. Jika kamu tidak meminta kode ini, abaikan email ini dan kode akan kedaluwarsa dengan sendirinya. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.',
+			'tags'            => array(
+				'{kode_otp}'           => '6 digit kode verifikasi rahasia (Wajib)',
+				'{menit_berlaku}'      => 'Masa berlaku kode (contoh: 10)',
+				'{maksimal_percobaan}' => 'Batas percobaan input kode (contoh: 5)',
+				'{nama_penulis}'       => 'Nama tampilan penulis',
+				'{nama_situs}'         => 'Nama website situs',
+				'{link_dashboard}'     => 'URL halaman dashboard penulis',
+			),
+			'required_tags'   => array( '{kode_otp}' ),
+		);
+	}
+
+	/**
 	 * Registry of all email template definitions and their defaults.
 	 *
 	 * @return array<string,array<string,mixed>>
 	 */
 	public static function get_registry() {
-		$site_default = get_bloginfo( 'name' );
-
 		return array(
-			'otp_registration'          => array(
-				'title'           => 'Verifikasi Pendaftaran Penulis Baru',
-				'description'     => 'Dikirim ke calon penulis yang mendaftar di dashboard untuk memverifikasi alamat email menggunakan kode OTP 6 digit.',
-				'group'           => 'verifikasi',
-				'default_subject' => '[Penalis] Verifikasi pendaftaran',
-				'default_body'    => "Verifikasi pendaftaran\n\nKode verifikasi kamu:\n\n{kode_otp}\n\nMasukkan kode ini di dashboard Penalis. Berlaku {menit_berlaku} menit, maksimal {maksimal_percobaan} percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.",
-				'default_footer'  => 'Email ini dikirim otomatis. Kamu menerima email ini karena ada permintaan verifikasi pada akun Penalis yang terhubung ke alamat ini. Jangan bagikan kode verifikasi kepada siapa pun, termasuk yang mengaku sebagai admin Penalis. Jika kamu tidak meminta kode ini, abaikan email ini dan kode akan kedaluwarsa dengan sendirinya. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.',
-				'tags'            => array(
-					'{kode_otp}'           => '6 digit kode verifikasi rahasia (Wajib)',
-					'{menit_berlaku}'      => 'Masa berlaku kode (contoh: 10)',
-					'{maksimal_percobaan}' => 'Batas percobaan input kode (contoh: 5)',
-					'{nama_penulis}'       => 'Nama tampilan penulis',
-					'{nama_situs}'         => 'Nama website situs',
-					'{link_dashboard}'     => 'URL halaman dashboard penulis',
-				),
-				'required_tags'   => array( '{kode_otp}' ),
+			'otp_registration'          => self::otp_definition(
+				'Verifikasi Pendaftaran Penulis Baru',
+				'Dikirim ke calon penulis yang mendaftar di dashboard untuk memverifikasi alamat email menggunakan kode OTP 6 digit.',
+				'Verifikasi pendaftaran'
 			),
-			'otp_legacy'                => array(
-				'title'           => 'Aktivasi Akun Penulis Lama',
-				'description'     => 'Dikirim saat penulis/kontributor lama meminta aktivasi akun atau diaktivasi oleh administrator.',
-				'group'           => 'verifikasi',
-				'default_subject' => '[Penalis] Aktivasi akun lama',
-				'default_body'    => "Aktivasi akun lama\n\nKode verifikasi kamu:\n\n{kode_otp}\n\nMasukkan kode ini di dashboard Penalis. Berlaku {menit_berlaku} menit, maksimal {maksimal_percobaan} percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.",
-				'default_footer'  => 'Email ini dikirim otomatis. Kamu menerima email ini karena ada permintaan verifikasi pada akun Penalis yang terhubung ke alamat ini. Jangan bagikan kode verifikasi kepada siapa pun, termasuk yang mengaku sebagai admin Penalis. Jika kamu tidak meminta kode ini, abaikan email ini dan kode akan kedaluwarsa dengan sendirinya. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.',
-				'tags'            => array(
-					'{kode_otp}'           => '6 digit kode verifikasi rahasia (Wajib)',
-					'{menit_berlaku}'      => 'Masa berlaku kode (contoh: 10)',
-					'{maksimal_percobaan}' => 'Batas percobaan input kode (contoh: 5)',
-					'{nama_penulis}'       => 'Nama tampilan penulis',
-					'{nama_situs}'         => 'Nama website situs',
-					'{link_dashboard}'     => 'URL halaman dashboard penulis',
-				),
-				'required_tags'   => array( '{kode_otp}' ),
+			'otp_legacy'                => self::otp_definition(
+				'Aktivasi Akun Penulis Lama',
+				'Dikirim saat penulis/kontributor lama meminta aktivasi akun atau diaktivasi oleh administrator.',
+				'Aktivasi akun lama'
 			),
-			'otp_email_change'          => array(
-				'title'           => 'Konfirmasi Penggantian Alamat Email',
-				'description'     => 'Dikirim ke alamat email baru yang diajukan oleh penulis untuk memverifikasi kepemilikan email baru.',
-				'group'           => 'verifikasi',
-				'default_subject' => '[Penalis] Konfirmasi email baru',
-				'default_body'    => "Konfirmasi email baru\n\nKode verifikasi kamu:\n\n{kode_otp}\n\nMasukkan kode ini di dashboard Penalis. Berlaku {menit_berlaku} menit, maksimal {maksimal_percobaan} percobaan. Jangan bagikan kode ini kepada siapa pun. Jika bukan kamu yang meminta, abaikan email ini.",
-				'default_footer'  => 'Email ini dikirim otomatis. Kamu menerima email ini karena ada permintaan verifikasi pada akun Penalis yang terhubung ke alamat ini. Jangan bagikan kode verifikasi kepada siapa pun, termasuk yang mengaku sebagai admin Penalis. Jika kamu tidak meminta kode ini, abaikan email ini dan kode akan kedaluwarsa dengan sendirinya. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.',
-				'tags'            => array(
-					'{kode_otp}'           => '6 digit kode verifikasi rahasia (Wajib)',
-					'{menit_berlaku}'      => 'Masa berlaku kode (contoh: 10)',
-					'{maksimal_percobaan}' => 'Batas percobaan input kode (contoh: 5)',
-					'{nama_penulis}'       => 'Nama tampilan penulis',
-					'{nama_situs}'         => 'Nama website situs',
-					'{link_dashboard}'     => 'URL halaman dashboard penulis',
-				),
-				'required_tags'   => array( '{kode_otp}' ),
+			'otp_email_change'          => self::otp_definition(
+				'Konfirmasi Penggantian Alamat Email',
+				'Dikirim ke alamat email baru yang diajukan oleh penulis untuk memverifikasi kepemilikan email baru.',
+				'Konfirmasi email baru'
 			),
 			'duplicate_notice'          => array(
 				'title'           => 'Pemberitahuan Percobaan Pendaftaran Akun Ganda',
@@ -323,7 +313,6 @@ JS;
 				'default_body'    => "Ada karya tulis baru di {nama_situs} yang menunggu review tim editorial.\n\nJudul Karya: {judul_karya}\nPenulis: {nama_penulis} ({username_penulis})\nReview cycle: #{review_cycle}\n\nReview karya tulis melalui WordPress Admin:\n\n{link_review_admin}",
 				'default_footer'  => 'Email ini dikirim otomatis untuk tim editorial Penalis sebagai pemberitahuan bahwa ada karya tulis yang menunggu review.',
 				'tags'            => array(
-					'{judul_karya}',
 					'{judul_karya}'       => 'Judul karya tulis yang di-submit',
 					'{nama_penulis}'      => 'Nama tampilan penulis karya',
 					'{username_penulis}'  => 'Username penulis',

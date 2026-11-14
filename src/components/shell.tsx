@@ -16,9 +16,10 @@ import {
 import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
 import type { Account, AccountStatus, ViewName } from '../lib/types';
-import { Icon, VerifiedBadgeIcon, type IconName } from './icons';
+import { toActiveChallenge, type ActiveChallenge } from '../lib/otp';
+import { Icon, type IconName } from './icons';
 import { OtpForm } from './OtpForm';
-import { Notice } from './ui';
+import { Notice, VerifiedWriterBadge } from './ui';
 import { preloadEditor } from '../features/editor/editorLoader';
 
 /**
@@ -78,12 +79,7 @@ export function StatusBanner({
  * already knows.
  */
 function ResendBanner({ email }: { email: string }) {
-  const [challenge, setChallenge] = useState<{
-    challengeId: string;
-    resendAfter: number;
-    expiresIn: number;
-    maxAttempts: number;
-  } | null>(null);
+  const [challenge, setChallenge] = useState<ActiveChallenge | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -108,12 +104,7 @@ function ResendBanner({ email }: { email: string }) {
 
   const resend = async () => {
     const result = await registrationApi.resend(email);
-    const next = {
-      challengeId: result.challenge_id,
-      resendAfter: result.resend_after,
-      expiresIn: result.expires_in,
-      maxAttempts: result.max_attempts,
-    };
+    const next = toActiveChallenge(result, email);
     setChallenge(next);
 
     return { challenge_id: next.challengeId, resend_after: next.resendAfter };
@@ -383,15 +374,7 @@ function AccountMenu({
             <div className="penalis-account__header" role="presentation">
               <div className="penalis-account__header-name">
                 <span>{account.displayName}</span>
-                {account.status === 'active' && account.canWrite && !account.isReviewer ? (
-                  <span
-                    className="penalis-verified-badge"
-                    title="Penulis Aktif terverifikasi"
-                    aria-label="Penulis Aktif terverifikasi"
-                  >
-                    <VerifiedBadgeIcon size={15} />
-                  </span>
-                ) : null}
+                <VerifiedWriterBadge account={account} size={15} />
               </div>
               <div className="penalis-account__header-meta">
                 {account.isAdministrator ? (

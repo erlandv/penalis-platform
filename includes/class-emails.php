@@ -37,7 +37,8 @@ final class Penalis_Emails {
 		$user    = get_userdata( (int) $user_id );
 		$minutes = (int) round( Penalis_Policy::OTP_TTL / 60 );
 
-		$rendered = Penalis_Email_Settings::render(
+		return self::send_template(
+			(string) $email,
 			$template_key,
 			array(
 				'{kode_otp}'           => (string) $code,
@@ -45,21 +46,10 @@ final class Penalis_Emails {
 				'{maksimal_percobaan}' => (string) Penalis_Policy::OTP_MAX_ATTEMPTS,
 				'{nama_penulis}'       => $user ? $user->display_name : 'Penulis',
 				'{email}'              => (string) $email,
-			)
+			),
+			(int) $user_id,
+			(string) $purpose
 		);
-
-		$sent = self::send_mail(
-			$email,
-			$rendered['subject'],
-			$rendered['body'],
-			$rendered['footer']
-		);
-
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, $purpose );
-		}
-
-		return (bool) $sent;
 	}
 
 	/**
@@ -87,26 +77,16 @@ final class Penalis_Emails {
 			Penalis_Dashboard::registration_url()
 		);
 
-		$rendered = Penalis_Email_Settings::render(
+		return self::send_template(
+			$user->user_email,
 			'password_reset',
 			array(
 				'{nama_penulis}'        => $user->display_name,
 				'{link_reset_password}' => $reset_url,
-			)
+			),
+			(int) $user_id,
+			'password_reset'
 		);
-
-		$sent = self::send_mail(
-			$user->user_email,
-			$rendered['subject'],
-			$rendered['body'],
-			$rendered['footer']
-		);
-
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'password_reset' );
-		}
-
-		return (bool) $sent;
 	}
 
 	/**
@@ -131,27 +111,17 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$rendered = Penalis_Email_Settings::render(
+		return self::send_template(
+			$email,
 			'username_change',
 			array(
 				'{nama_penulis}'  => $user->display_name,
 				'{username_baru}' => (string) $new_login,
 				'{username_lama}' => (string) $old_login,
-			)
+			),
+			(int) $user_id,
+			'username_change_notice'
 		);
-
-		$sent = self::send_mail(
-			$email,
-			$rendered['subject'],
-			$rendered['body'],
-			$rendered['footer']
-		);
-
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'username_change_notice' );
-		}
-
-		return (bool) $sent;
 	}
 
 	/**
@@ -168,27 +138,17 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$rendered = Penalis_Email_Settings::render(
+		return self::send_template(
+			$old_email,
 			'email_change',
 			array(
 				'{nama_penulis}' => $user->display_name,
 				'{email_lama}'   => (string) $old_email,
 				'{email_baru}'   => (string) $new_email,
-			)
+			),
+			(int) $user_id,
+			'email_change_notice'
 		);
-
-		$sent = self::send_mail(
-			$old_email,
-			$rendered['subject'],
-			$rendered['body'],
-			$rendered['footer']
-		);
-
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'email_change_notice' );
-		}
-
-		return (bool) $sent;
 	}
 
 	/**
@@ -210,26 +170,16 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$rendered = Penalis_Email_Settings::render(
+		return self::send_template(
+			$user->user_email,
 			$key,
 			array(
 				'{nama_penulis}' => $user->display_name,
 				'{email_admin}'  => (string) get_option( 'admin_email' ),
-			)
+			),
+			(int) $user_id,
+			'status_notification'
 		);
-
-		$sent = self::send_mail(
-			$user->user_email,
-			$rendered['subject'],
-			$rendered['body'],
-			$rendered['footer']
-		);
-
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $user_id, 'status_notification' );
-		}
-
-		return (bool) $sent;
 	}
 
 	/**
@@ -374,8 +324,10 @@ final class Penalis_Emails {
 		);
 		$public_url = get_permalink( (int) $post->ID );
 
-		$key      = 'editorial_' . $action;
-		$rendered = Penalis_Email_Settings::render(
+		$key = 'editorial_' . $action;
+
+		return self::send_template(
+			$author->user_email,
 			$key,
 			array(
 				'{nama_penulis}'      => $author->display_name,
@@ -383,18 +335,34 @@ final class Penalis_Emails {
 				'{catatan_review}'    => '' !== $clean_note ? $clean_note : '',
 				'{link_editor}'       => $editor_url,
 				'{link_karya_terbit}' => is_string( $public_url ) ? $public_url : '',
-			)
+			),
+			$author_id,
+			$key
 		);
+	}
 
-		$sent = self::send_mail(
-			$author->user_email,
+	/**
+	 * Render a configured email template, send it to `$recipient`, and optionally
+	 * record a delivery failure on `$failure_user_id`.
+	 *
+	 * @param string               $recipient       Destination email address.
+	 * @param string               $template_key    Email settings registry key.
+	 * @param array<string,string> $vars            Placeholder replacements.
+	 * @param int                  $failure_user_id Optional user ID to record mail failure on.
+	 * @param string               $failure_context Optional failure context key.
+	 * @return bool
+	 */
+	public static function send_template( $recipient, $template_key, $vars = array(), $failure_user_id = 0, $failure_context = '' ) {
+		$rendered = Penalis_Email_Settings::render( $template_key, $vars );
+		$sent     = self::send_mail(
+			$recipient,
 			$rendered['subject'],
 			$rendered['body'],
 			$rendered['footer']
 		);
 
-		if ( ! $sent ) {
-			Penalis_Account_Status::record_email_failure( $author_id, 'editorial_' . $action );
+		if ( ! $sent && $failure_user_id > 0 && '' !== $failure_context ) {
+			Penalis_Account_Status::record_email_failure( (int) $failure_user_id, $failure_context );
 		}
 
 		return (bool) $sent;
@@ -407,10 +375,7 @@ final class Penalis_Emails {
 	 * @return string
 	 */
 	private static function safe_article_title( $post ) {
-		$title = wp_strip_all_tags( wp_specialchars_decode( (string) $post->post_title, ENT_QUOTES ) );
-		$title = trim( preg_replace( '/\s+/', ' ', $title ) );
-
-		return '' !== $title ? $title : 'Tanpa judul';
+		return Penalis_Editorial_Notifications::safe_title( $post );
 	}
 
 	/**
@@ -419,8 +384,8 @@ final class Penalis_Emails {
 	 * The content-type header is scoped to this message; no global mail filter
 	 * can accidentally change messages sent by WordPress or another plugin.
 	 *
-	 * @param string $to      Recipient.
-	 * @param string $subject Subject.
+	 * @param string $to             Recipient.
+	 * @param string $subject        Subject.
 	 * @param string $message        Plain-text source content.
 	 * @param string $footer_context Purpose-specific recipient guidance.
 	 * @return bool Whether wp_mail accepted the message.
@@ -428,15 +393,5 @@ final class Penalis_Emails {
 	public static function send_mail( $to, $subject, $message, $footer_context = '' ) {
 		$html = Penalis_Email_Template::render( (string) $message, (string) $subject, (string) $footer_context );
 		return (bool) wp_mail( $to, $subject, $html, array( 'Content-Type: text/html; charset=UTF-8' ) );
-	}
-
-	/**
-	 * Greeting line.
-	 *
-	 * @param WP_User $user User.
-	 * @return string
-	 */
-	private static function greeting( $user ) {
-		return 'Halo ' . $user->display_name . ',';
 	}
 }

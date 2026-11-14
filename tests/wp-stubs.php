@@ -868,6 +868,18 @@ if ( ! function_exists( 'esc_html' ) ) {
 	}
 }
 
+if ( ! function_exists( 'esc_attr' ) ) {
+	/**
+	 * Escape HTML attribute value.
+	 *
+	 * @param string $value Value.
+	 * @return string
+	 */
+	function esc_attr( $value ) {
+		return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
+	}
+}
+
 if ( ! function_exists( 'esc_html__' ) ) {
 	/**
 	 * Translate and escape.

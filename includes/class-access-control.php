@@ -241,25 +241,11 @@ final class Penalis_Access_Control {
 	 */
 	public static function block_password_reset( $allow, $user_id ) {
 		$user = get_userdata( (int) $user_id );
-		if ( ! $user ) {
+		if ( ! $user || self::is_administrator( $user ) ) {
 			return $allow;
 		}
 
-		if ( self::is_administrator( $user ) ) {
-			return $allow;
-		}
-
-		$status = Penalis_Account_Status::get_status( $user->ID );
-
-		if ( '' !== $status ) {
-			return Penalis_Policy::can_login( $status, Penalis_Account_Status::is_access_enabled( $user->ID ) );
-		}
-
-		if ( in_array( 'contributor', (array) $user->roles, true ) ) {
-			return Penalis_Account_Status::is_access_enabled( $user->ID );
-		}
-
-		return $allow;
+		return Penalis_Account_Status::is_password_reset_allowed( $user, $allow );
 	}
 
 	/**

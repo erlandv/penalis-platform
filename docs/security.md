@@ -56,8 +56,10 @@ cannot enumerate account existence or status.
   - `POST /penalis/v1/password/forgot` accepts an **email address only**
     (`user_email`). Because usernames are public on `/author/<username>/`
     archives, usernames are never accepted as a reset handle.
-  - `allow_password_reset` is filtered so dormant legacy contributors and
-    `suspended` accounts cannot reset passwords to regain access.
+  - `allow_password_reset` and `POST /penalis/v1/password/forgot` / `reset` share
+    `Penalis_Account_Status::is_password_reset_allowed()` (delegating to
+    `Penalis_Policy::can_reset_password()` / `can_login()`), so dormant legacy
+    contributors and `suspended` accounts cannot reset passwords to regain access.
 
 ---
 
@@ -121,10 +123,10 @@ unauthorized publishing:
   Any post with `post_status === 'publish'` is treated as `published` regardless
   of post meta, preventing writers from editing live articles.
 - **Per-Post Advisory Lock for Review Decisions:** `Penalis_Editorial_Workflow::apply()`
-  acquires a MySQL advisory lock (`GET_LOCK`, 5-second timeout) per post,
-  re-reads the post and `_penalis_review_cycle` inside the lock, and rejects
-  stale or concurrent decisions (`penalis_editorial_denied` or
-  `penalis_editorial_busy`).
+  acquires a MySQL advisory lock (`GET_LOCK`, 5-second timeout) per post via
+  `Penalis_Account_Status::with_advisory_lock()`, re-reads the post and
+  `_penalis_review_cycle` inside the lock, and rejects stale or concurrent
+  decisions (`penalis_editorial_denied` or `penalis_editorial_busy`).
 - **IDOR & Information Disclosure Prevention:**
   - `GET /penalis/v1/articles/{id}` and `GET /penalis/v1/articles/{id}/review`
     return `404 penalis_not_found` (never `403`) when accessed by another
@@ -154,8 +156,8 @@ changes:
 - **Purpose Binding:** A registration code cannot confirm an email change, and
   an email-change code cannot activate an account.
 - **Concurrency:** Issuance, attempt counting, and consumption run inside a
-  MySQL advisory lock (`GET_LOCK`), so parallel requests cannot exceed the
-  attempt budget or consume a code twice.
+  MySQL advisory lock (`GET_LOCK` via `Penalis_Account_Status::with_advisory_lock()`),
+  so parallel requests cannot exceed the attempt budget or consume a code twice.
 - **Issuance Budgets:** 60-second resend cooldown plus 5 issues/hour and 10
   issues/day per account and per address, and 20 issues/hour per IP. Budgets
   survive replacement challenges, so resending cannot reset the limit.
@@ -190,8 +192,10 @@ changes:
 - Requires current password re-authentication (`POST /penalis/v1/account/username`).
 - Validates strict username format (`3–50` lowercase ASCII alphanumeric, `_`,
   or `-`; no dots; never silently normalized).
-- Executes inside a MySQL advisory lock (`GET_LOCK('penalis_username_change')`)
-  to prevent race conditions on `user_login` and `user_nicename`.
+- Executes inside a MySQL advisory lock
+  (`GET_LOCK('penalis_login_' . md5($wpdb->users))` via
+  `Penalis_Account_Status::with_advisory_lock()`) to prevent race conditions on
+  `user_login` and `user_nicename`.
 - Records the old slug in `_penalis_author_history` (serving a 301 redirect for
   old author archive URLs) and `_penalis_author_history_reserved` (blocking
   other users from claiming the old username).

@@ -101,85 +101,79 @@ final class Penalis_Username_Change {
 		// update. It is best effort: native registration, other plugins and
 		// direct SQL do not take it. Fail closed when the database cannot
 		// provide it rather than silently dropping the protection.
-		$lock = 'penalis_login_' . md5( (string) $wpdb->users );
+		return Penalis_Account_Status::with_advisory_lock(
+			'penalis_login_' . md5( (string) $wpdb->users ),
+			0,
+			static function () use ( $wpdb, $user, $user_id, $username ) {
+				// Read the authoritative row inside the lock. A cached lookup could
+				// miss a row another connection committed a moment ago.
+				$existing = Penalis_Author_History::unavailable( $username, $user_id );
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Advisory lock is the serialization primitive; it is not cacheable.
-		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', $lock ) ) ) {
-			return self::unavailable();
-		}
+				if ( $existing ) {
+					return self::unavailable();
+				}
 
-		try {
-			// Read the authoritative row inside the lock. A cached lookup could
-			// miss a row another connection committed a moment ago.
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Must read the authoritative row while holding the lock.
-			$existing = Penalis_Author_History::unavailable( $username, $user_id );
+				$old_login = (string) $user->user_login;
+				$old_slug  = (string) $user->user_nicename;
 
-			if ( $existing ) {
-				return self::unavailable();
-			}
+				// The old slug only needs a redirect when it is actually going
+				// away. Reserving the slug we are about to take would block the
+				// next writer for no reason.
+				$remembered = $old_slug === $username || Penalis_Author_History::remember( $user_id, $old_slug, true );
 
-			$old_login = (string) $user->user_login;
-			$old_slug  = (string) $user->user_nicename;
+				if ( ! $remembered ||
+					( $old_login !== $old_slug && $old_login !== $username && ! Penalis_Author_History::remember( $user_id, $old_login, false ) ) ) {
+					return self::unavailable();
+				}
+				$data = array(
+					'user_login'    => $username,
+					'user_nicename' => $username,
+				);
 
-			// The old slug only needs a redirect when it is actually going
-			// away. Reserving the slug we are about to take would block the
-			// next writer for no reason.
-			$remembered = $old_slug === $username || Penalis_Author_History::remember( $user_id, $old_slug, true );
+				// Only a public name derived from the login follows it. A custom pen
+				// name, or a first/last name composition, must not change.
+				if ( 'username' === Penalis_Account_Status::get_display_name_mode( $user_id ) ) {
+					$data['display_name'] = $username;
+				}
 
-			if ( ! $remembered ||
-				( $old_login !== $old_slug && $old_login !== $username && ! Penalis_Author_History::remember( $user_id, $old_login, false ) ) ) {
-				return self::unavailable();
-			}
-			$data = array(
-				'user_login'    => $username,
-				'user_nicename' => $username,
-			);
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Core has no API for changing user_login.
+				$updated = $wpdb->update(
+					$wpdb->users,
+					$data,
+					array(
+						'ID'         => $user_id,
+						'user_login' => $old_login,
+					)
+				);
 
-			// Only a public name derived from the login follows it. A custom pen
-			// name, or a first/last name composition, must not change.
-			if ( 'username' === Penalis_Account_Status::get_display_name_mode( $user_id ) ) {
-				$data['display_name'] = $username;
-			}
+				if ( false === $updated ) {
+					return self::unavailable();
+				}
 
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Core has no API for changing user_login.
-			$updated = $wpdb->update(
-				$wpdb->users,
-				$data,
-				array(
-					'ID'         => $user_id,
-					'user_login' => $old_login,
-				)
-			);
+				// A case-only change is a no-op for a case-insensitive collation, so
+				// zero affected rows is not proof of failure. Re-read the row.
+				if ( 0 === (int) $updated && ! self::login_is( $user_id, $username ) ) {
+					return self::unavailable();
+				}
 
-			if ( false === $updated ) {
-				return self::unavailable();
-			}
+				self::flush_caches( $user, $old_login, $username );
 
-			// A case-only change is a no-op for a case-insensitive collation, so
-			// zero affected rows is not proof of failure. Re-read the row.
-			if ( 0 === (int) $updated && ! self::login_is( $user_id, $username ) ) {
-				return self::unavailable();
-			}
+				// The login is a credential: every session must be re-established
+				// with the new one, including the browser that made the change.
+				WP_Session_Tokens::get_instance( $user_id )->destroy_all();
 
-			self::flush_caches( $user, $old_login, $username );
+				if ( get_current_user_id() === $user_id ) {
+					wp_clear_auth_cookie();
+				}
 
-			// The login is a credential: every session must be re-established
-			// with the new one, including the browser that made the change.
-			WP_Session_Tokens::get_instance( $user_id )->destroy_all();
+				Penalis_Emails::send_username_change_notice( $user_id, $user->user_email, $old_login, $username );
 
-			if ( get_current_user_id() === $user_id ) {
-				wp_clear_auth_cookie();
-			}
-
-			Penalis_Emails::send_username_change_notice( $user_id, $user->user_email, $old_login, $username );
-
-			return array(
-				'message' => 'Username kamu telah diperbarui. Semua sesi diakhiri; login kembali dengan username baru.',
-			);
-		} finally {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Releases the advisory lock taken above.
-			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock ) );
-		}
+				return array(
+					'message' => 'Username kamu telah diperbarui. Semua sesi diakhiri; login kembali dengan username baru.',
+				);
+			},
+			self::unavailable()
+		);
 	}
 
 	/**
@@ -192,14 +186,7 @@ final class Penalis_Username_Change {
 	 * @return bool
 	 */
 	private static function can_change( $user_id ) {
-		if ( user_can( (int) $user_id, 'manage_options' ) ) {
-			return true;
-		}
-
-		return Penalis_Policy::can_change_username(
-			Penalis_Account_Status::get_status( $user_id ),
-			Penalis_Account_Status::is_access_enabled( $user_id )
-		);
+		return Penalis_Account_Status::can_change_username( $user_id );
 	}
 
 	/**

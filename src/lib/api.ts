@@ -36,22 +36,38 @@ export class ApiError extends Error {
   }
 }
 
+export function isStaleEditorialError(caught: unknown): boolean {
+  if (!(caught instanceof ApiError)) {
+    return false;
+  }
+
+  return (
+    caught.status === 409 ||
+    caught.code === 'penalis_editorial_denied' ||
+    caught.code === 'penalis_editorial_locked' ||
+    caught.code === 'penalis_editorial_busy'
+  );
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   absoluteUrl?: string;
+  fallbackMessage?: string;
+  networkMessage?: string;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const bootstrap = getBootstrap();
   const base = options.absoluteUrl ?? bootstrap.restUrl;
   const url = `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
   };
 
-  if (options.body !== undefined) {
+  if (options.body !== undefined && !isFormData) {
     headers['Content-Type'] = 'application/json';
   }
 
@@ -66,11 +82,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       method: options.method ?? 'GET',
       credentials: 'same-origin',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.body === undefined
+          ? undefined
+          : isFormData
+            ? (options.body as FormData)
+            : JSON.stringify(options.body),
     });
   } catch {
     throw new ApiError(
-      'Server tidak dapat dihubungi. Periksa koneksi kamu lalu coba lagi.',
+      options.networkMessage ?? 'Server tidak dapat dihubungi. Periksa koneksi kamu lalu coba lagi.',
       'network_error',
       0,
     );
@@ -90,7 +111,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const message =
       typeof shape.message === 'string' && shape.message.length > 0
         ? stripTags(shape.message)
-        : 'Terjadi kesalahan. Silakan coba lagi.';
+        : (options.fallbackMessage ?? 'Terjadi kesalahan. Silakan coba lagi.');
 
     throw new ApiError(
       message,
@@ -361,31 +382,39 @@ export const taxonomyApi = {
 
 /* -------------------------------- Media ------------------------------ */
 
+interface WpMediaPayload {
+  id: number;
+  title?: { rendered?: string };
+  mime_type?: string;
+  source_url?: string;
+  date_gmt?: string;
+  media_details?: { sizes?: { thumbnail?: { source_url?: string } } };
+}
+
+function mapWpMedia(media: WpMediaPayload, fallbackTitle = '', fallbackMime = ''): MediaItem {
+  const sourceUrl = media.source_url ?? '';
+  return {
+    id: media.id,
+    title: media.title?.rendered ?? fallbackTitle,
+    mime: media.mime_type ?? fallbackMime,
+    url: sourceUrl,
+    thumbnail: media.media_details?.sizes?.thumbnail?.source_url ?? sourceUrl,
+    full: sourceUrl,
+    date: media.date_gmt ?? '',
+  };
+}
+
 export const mediaApi = {
   list: (page: number) => request<MediaList>(`/media?page=${page}&per_page=20`),
 
   /** Fetch a single attachment (used for the featured-image preview). */
   get: async (id: number): Promise<MediaItem> => {
-    const media = await request<{
-      id: number;
-      title?: { rendered?: string };
-      mime_type?: string;
-      source_url?: string;
-      date_gmt?: string;
-      media_details?: { sizes?: { thumbnail?: { source_url?: string } } };
-    }>(`/media/${id}?_fields=id,title,mime_type,source_url,date_gmt,media_details`, {
-      absoluteUrl: getBootstrap().wpRestUrl,
-    });
+    const media = await request<WpMediaPayload>(
+      `/media/${id}?_fields=id,title,mime_type,source_url,date_gmt,media_details`,
+      { absoluteUrl: getBootstrap().wpRestUrl },
+    );
 
-    return {
-      id: media.id,
-      title: media.title?.rendered ?? '',
-      mime: media.mime_type ?? '',
-      url: media.source_url ?? '',
-      thumbnail: media.media_details?.sizes?.thumbnail?.source_url ?? media.source_url ?? '',
-      full: media.source_url ?? '',
-      date: media.date_gmt ?? '',
-    };
+    return mapWpMedia(media);
   },
 
   /**
@@ -395,54 +424,17 @@ export const mediaApi = {
    * sent as multipart/form-data, which the REST API expects for uploads.
    */
   upload: async (file: File): Promise<MediaItem> => {
-    const bootstrap = getBootstrap();
     const form = new FormData();
     form.append('file', file, file.name);
 
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    if (bootstrap.nonce) {
-      headers['X-WP-Nonce'] = bootstrap.nonce;
-    }
+    const media = await request<WpMediaPayload>('/media', {
+      method: 'POST',
+      body: form,
+      absoluteUrl: getBootstrap().wpRestUrl,
+      fallbackMessage: 'Gambar tidak dapat di-upload.',
+      networkMessage: 'Gambar tidak dapat di-upload. Periksa koneksi kamu.',
+    });
 
-    let response: Response;
-    try {
-      response = await fetch(`${bootstrap.wpRestUrl.replace(/\/$/, '')}/media`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers,
-        body: form,
-      });
-    } catch {
-      throw new ApiError('Gambar tidak dapat di-upload. Periksa koneksi kamu.', 'network_error', 0);
-    }
-
-    const payload: unknown = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      const shape = (payload ?? {}) as ApiErrorShape;
-      throw new ApiError(
-        typeof shape.message === 'string' ? stripTags(shape.message) : 'Gambar tidak dapat di-upload.',
-        shape.code ?? 'upload_failed',
-        response.status,
-      );
-    }
-
-    const media = payload as {
-      id: number;
-      title?: { rendered?: string };
-      mime_type?: string;
-      source_url?: string;
-      date_gmt?: string;
-    };
-
-    return {
-      id: media.id,
-      title: media.title?.rendered ?? file.name,
-      mime: media.mime_type ?? file.type,
-      url: media.source_url ?? '',
-      thumbnail: media.source_url ?? '',
-      full: media.source_url ?? '',
-      date: media.date_gmt ?? '',
-    };
+    return mapWpMedia(media, file.name, file.type);
   },
 };

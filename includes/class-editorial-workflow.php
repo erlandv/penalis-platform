@@ -123,6 +123,97 @@ final class Penalis_Editorial_Workflow {
 	}
 
 	/**
+	 * Build `post_status` and optional `meta_query` clauses for an editorial filter or state.
+	 *
+	 * Shared by the writer dashboard REST API and the `wp-admin` review queue so
+	 * `draft`, `changes_requested`, `rejected`, `pending_review`, and `published`
+	 * always resolve through a single definition.
+	 *
+	 * @param string $filter Requested editorial state or post status filter.
+	 * @return array<string,mixed>
+	 */
+	public static function state_query_clauses( $filter ) {
+		$filter = (string) $filter;
+
+		if ( 'publish' === $filter || Penalis_Editorial_Policy::STATE_PUBLISHED === $filter ) {
+			return array(
+				'post_status' => array( 'publish' ),
+			);
+		}
+
+		if ( 'pending' === $filter || Penalis_Editorial_Policy::STATE_PENDING_REVIEW === $filter ) {
+			return array(
+				'post_status' => array( 'pending' ),
+			);
+		}
+
+		if (
+			Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED === $filter
+			|| Penalis_Editorial_Policy::STATE_REJECTED === $filter
+		) {
+			return array(
+				'post_status' => array( 'draft' ),
+				'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					array(
+						'key'   => Penalis_Editorial_Policy::META_STATE,
+						'value' => $filter,
+					),
+				),
+			);
+		}
+
+		if ( Penalis_Editorial_Policy::STATE_DRAFT === $filter ) {
+			// Drafts that predate V2 or have not yet entered review carry no
+			// editorial state meta; include both alongside explicit `draft`.
+			return array(
+				'post_status' => array( 'draft' ),
+				'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+					'relation' => 'OR',
+					array(
+						'key'     => Penalis_Editorial_Policy::META_STATE,
+						'compare' => 'NOT EXISTS',
+					),
+					array(
+						'key'   => Penalis_Editorial_Policy::META_STATE,
+						'value' => Penalis_Editorial_Policy::STATE_DRAFT,
+					),
+				),
+			);
+		}
+
+		if ( 'future' === $filter ) {
+			return array(
+				'post_status' => array( 'future' ),
+			);
+		}
+
+		return array(
+			'post_status' => array( 'publish', 'draft', 'pending', 'future' ),
+		);
+	}
+
+	/**
+	 * Count posts matching a `WP_Query` argument array using a lightweight IDs-only query.
+	 *
+	 * @param array<string,mixed> $args Base `WP_Query` arguments.
+	 * @return int
+	 */
+	public static function count_matching_posts( $args ) {
+		$query = new WP_Query(
+			array_merge(
+				$args,
+				array(
+					'fields'         => 'ids',
+					'no_found_rows'  => false,
+					'posts_per_page' => 1,
+				)
+			)
+		);
+
+		return (int) $query->found_posts;
+	}
+
+	/**
 	 * Whether the given user may edit the post.
 	 *
 	 * Writers may edit only their own post while its editorial state allows it.
@@ -223,17 +314,21 @@ final class Penalis_Editorial_Workflow {
 			}
 		}
 
-		$lock = self::acquire_lock( (int) $post->ID );
+		$post_id = (int) $post->ID;
 
-		if ( is_wp_error( $lock ) ) {
-			return $lock;
-		}
-
-		try {
-			return self::apply_locked( (int) $post->ID, $action, $args, $actor );
-		} finally {
-			self::release_lock( (int) $post->ID );
-		}
+		return Penalis_Account_Status::with_advisory_lock(
+			self::lock_name( $post_id ),
+			5,
+			static function () use ( $post_id, $action, $args, $actor ) {
+				return self::apply_locked( $post_id, $action, $args, $actor );
+			},
+			new WP_Error(
+				'penalis_editorial_busy',
+				'Karya tulis ini sedang diproses admin lain. Coba lagi sebentar lagi.',
+				array( 'status' => 409 )
+			),
+			true
+		);
 	}
 
 	/**
@@ -406,64 +501,6 @@ final class Penalis_Editorial_Workflow {
 	 */
 	private static function lock_name( $post_id ) {
 		return 'penalis_editorial_' . (int) $post_id;
-	}
-
-	/**
-	 * Acquire the per-post advisory lock.
-	 *
-	 * Two reviewers can open the same submission at once. The review cycle
-	 * guard rejects a *stale* decision, but it cannot stop two requests that both
-	 * read the same cycle. The lock serializes the decision itself: the second
-	 * request waits for the first to finish, then re-reads the post and is
-	 * rejected by the cycle check.
-	 *
-	 * Fails closed: if the database cannot hand out the lock, the decision is
-	 * refused rather than applied unserialized.
-	 *
-	 * A test/bootstrap environment without `$wpdb` proceeds unlocked; a real
-	 * WordPress request always has it.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return true|WP_Error
-	 */
-	private static function acquire_lock( $post_id ) {
-		global $wpdb;
-
-		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) ) {
-			return true;
-		}
-
-		$lock = self::lock_name( $post_id );
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Advisory lock is the serialization primitive; it is not cacheable.
-		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $lock ) );
-
-		if ( '1' !== (string) $acquired ) {
-			return new WP_Error(
-				'penalis_editorial_busy',
-				'Karya tulis ini sedang diproses admin lain. Coba lagi sebentar lagi.',
-				array( 'status' => 409 )
-			);
-		}
-
-		return true;
-	}
-
-	/**
-	 * Release the per-post advisory lock.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return void
-	 */
-	private static function release_lock( $post_id ) {
-		global $wpdb;
-
-		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) ) {
-			return;
-		}
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Releases the advisory lock taken above.
-		$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', self::lock_name( $post_id ) ) );
 	}
 
 	/**

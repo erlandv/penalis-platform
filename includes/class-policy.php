@@ -214,19 +214,7 @@ final class Penalis_Policy {
 	 * @return bool
 	 */
 	public static function can_reset_password( $status, $access_enabled ) {
-		if ( self::STATUS_PENDING_VERIFICATION === $status ) {
-			return true;
-		}
-
-		if ( self::STATUS_ACTIVE === $status ) {
-			return (bool) $access_enabled;
-		}
-
-		if ( '' === $status || null === $status ) {
-			return (bool) $access_enabled;
-		}
-
-		return false;
+		return self::can_login( $status, $access_enabled );
 	}
 
 	/**

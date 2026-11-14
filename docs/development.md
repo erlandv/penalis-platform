@@ -44,9 +44,10 @@ npm run check      # Run lint + typecheck + test + build
 
 The production build generates:
 - `build/manifest.json`
-- `build/assets/index-<hash>.js` (main dashboard shell)
+- `build/assets/dashboard-<hash>.js` and `build/assets/dashboard-<hash>.css` (writer dashboard shell)
+- `build/assets/authors-<hash>.js` and `build/assets/authors-<hash>.css` (public `[penalis_authors]` directory)
 - `build/assets/RichTextEditor-<hash>.js` (lazy-loaded TipTap editor chunk)
-- `build/assets/index-<hash>.css`
+- `build/assets/icons-<hash>.js` (shared SVG icon chunk)
 
 > **Important:** `build/` is gitignored. After modifying any file under `src/`,
 > run `npm run build` so WordPress loads the updated bundle from
@@ -78,13 +79,16 @@ composer check           # Run composer lint + php tests/run-tests.php
   timezone-aware date formatting (`Penalis_Datetime` with IANA and fixed-offset
   site timezones, including Jakarta and year rollover).
 
-### 3.2 Frontend Unit Tests (`src/lib/*.test.ts`)
+### 3.2 Frontend Unit Tests (`src/lib/*.test.ts`, `src/authors/*.test.ts`)
 - Runs via Vitest in the `node` environment.
-- Tests pure logic in `src/lib/`: validation rules (`validation.test.ts`),
-  deeplink parsing and token shape checks (`deeplink.test.ts`), verification
-  code normalization and countdown formatting (`otp.test.ts`), HTML
-  normalization (`html.test.ts`), formatting (`format.test.ts`), and public
-  display name derivation (`profile.test.ts`).
+- Tests pure logic across `src/lib/` and `src/authors/`: validation rules
+  including `validatePasswordPair()` (`validation.test.ts`), deeplink parsing and
+  token shape checks (`deeplink.test.ts`), verification code normalization,
+  countdown formatting, and `toActiveChallenge()` (`otp.test.ts`), HTML
+  normalization (`html.test.ts`), formatting (`format.test.ts`), public display
+  name derivation (`profile.test.ts`), image crop math (`crop.test.ts`),
+  lazy-chunk retry/preload helpers (`lazyWithRetry.test.ts`), and public authors
+  URL query state (`src/authors/query.test.ts`).
 - Date/time tests pass an explicit `timeZone` option (`Asia/Jakarta`, `UTC`) so
   assertions are deterministic regardless of the machine running the suite.
 
@@ -180,8 +184,8 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
 1. **Activation & Admin Console**
    - Activate **Penalis Platform**, save **Settings → Permalinks**, and verify
      that `/dashboard/` loads and the top-level **Penalis** menu appears in
-     `wp-admin` with submenus **Ringkasan**, **Review Karya Tulis**, and
-     **Penulis Penalis**.
+     `wp-admin` with submenus **Ringkasan**, **Review Karya Tulis**,
+     **Penulis Penalis**, and **Pengaturan Email** (administrators only).
 2. **Registration & Email Verification**
    - Register a new account from `/dashboard/?penalis_register=1` (including an
      optional **Username Instagram**).

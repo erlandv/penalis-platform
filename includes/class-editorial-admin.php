@@ -45,15 +45,7 @@ final class Penalis_Editorial_Admin {
 	 */
 	public static function register_menu() {
 		$pending    = self::pending_review_count();
-		$menu_title = 'Review Karya Tulis';
-
-		if ( $pending > 0 ) {
-			$menu_title .= sprintf(
-				' <span class="awaiting-mod update-plugins count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
-				$pending,
-				number_format_i18n( $pending )
-			);
-		}
+		$menu_title = Penalis_Admin::format_menu_label( 'Review Karya Tulis', $pending );
 
 		add_submenu_page(
 			Penalis_Admin::MENU_SLUG,
@@ -572,34 +564,15 @@ final class Penalis_Editorial_Admin {
 				</div>
 			<?php endif; ?>
 
-			<div id="penalis-confirm-modal" class="penalis-confirm-modal" hidden>
-				<div class="penalis-confirm-modal__backdrop" data-penalis-confirm-close></div>
-				<div
-					class="penalis-confirm-modal__dialog"
-					role="dialog"
-					aria-modal="true"
-					aria-labelledby="penalis-confirm-title"
-					aria-describedby="penalis-confirm-desc"
-				>
-					<div class="penalis-confirm-modal__head">
-						<span id="penalis-confirm-badge" class="penalis-badge">Konfirmasi</span>
-						<h4 id="penalis-confirm-title" class="penalis-confirm-modal__title">Konfirmasi Keputusan Review</h4>
-					</div>
-					<p id="penalis-confirm-desc" class="penalis-confirm-modal__desc"></p>
-					<div id="penalis-confirm-feedback-box" class="penalis-confirm-modal__feedback">
-						<span class="penalis-confirm-modal__feedback-label">Catatan untuk penulis:</span>
-						<div id="penalis-confirm-feedback-text" class="penalis-confirm-modal__feedback-text"></div>
-					</div>
-					<div class="penalis-confirm-modal__actions">
-						<button type="button" id="penalis-confirm-cancel" class="button">
-							Batal
-						</button>
-						<button type="button" id="penalis-confirm-submit" class="button button-primary">
-							Ya, Lanjutkan
-						</button>
-					</div>
-				</div>
-			</div>
+			<?php
+			Penalis_Admin::render_confirm_modal(
+				'penalis-confirm',
+				'Konfirmasi Keputusan Review',
+				'Catatan untuk penulis:',
+				'penalis-confirm-feedback-box',
+				'penalis-confirm-feedback-text'
+			);
+			?>
 		</form>
 		<?php
 	}
@@ -833,27 +806,16 @@ final class Penalis_Editorial_Admin {
 	 * @return array<string,mixed>
 	 */
 	private static function query_args( $state, $paged, $per_page ) {
-		$args = array(
-			'post_type'      => 'post',
-			'post_status'    => Penalis_Editorial_Policy::post_status_for_state( $state ),
-			'posts_per_page' => $per_page,
-			'paged'          => $paged,
-			'orderby'        => 'modified',
-			'order'          => 'DESC',
+		return array_merge(
+			array(
+				'post_type'      => 'post',
+				'posts_per_page' => $per_page,
+				'paged'          => $paged,
+				'orderby'        => 'modified',
+				'order'          => 'DESC',
+			),
+			Penalis_Editorial_Workflow::state_query_clauses( $state )
 		);
-
-		// `changes_requested` and `rejected` share the `draft` post status, so
-		// the distinction only exists in metadata.
-		if ( in_array( $state, array( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, Penalis_Editorial_Policy::STATE_REJECTED ), true ) ) {
-			$args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-				array(
-					'key'   => Penalis_Editorial_Policy::META_STATE,
-					'value' => $state,
-				),
-			);
-		}
-
-		return $args;
 	}
 
 	/**
@@ -863,17 +825,6 @@ final class Penalis_Editorial_Admin {
 	 * @return int
 	 */
 	private static function count_state( $state ) {
-		$query = new WP_Query(
-			array_merge(
-				self::query_args( $state, 1, 1 ),
-				array(
-					'fields'         => 'ids',
-					'no_found_rows'  => false,
-					'posts_per_page' => 1,
-				)
-			)
-		);
-
-		return (int) $query->found_posts;
+		return Penalis_Editorial_Workflow::count_matching_posts( self::query_args( $state, 1, 1 ) );
 	}
 }

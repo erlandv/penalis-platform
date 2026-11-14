@@ -10,8 +10,9 @@ import { getBootstrap } from '../../lib/bootstrap';
 import type { Account, FieldErrors } from '../../lib/types';
 import { formatDate } from '../../lib/format';
 import { describedBy } from '../../lib/a11y';
+import { toActiveChallenge, type ActiveChallenge } from '../../lib/otp';
 import { previewAuthorUrl } from '../../lib/profile';
-import { validateEmail, validateUsername } from '../../lib/validation';
+import { PASSWORD_MIN_LENGTH, validateEmail, validateUsername } from '../../lib/validation';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
@@ -117,13 +118,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
   const [emailSaving, setEmailSaving] = useState(false);
   // The pending code challenge. It lives in component state only, so leaving
   // the page discards the flow and the code must be requested again.
-  const [emailChallenge, setEmailChallenge] = useState<{
-    challengeId: string;
-    email: string;
-    resendAfter: number;
-    expiresIn: number;
-    maxAttempts: number;
-  } | null>(null);
+  const [emailChallenge, setEmailChallenge] = useState<ActiveChallenge | null>(null);
   const [emailCodeError, setEmailCodeError] = useState('');
   const [emailVerifying, setEmailVerifying] = useState(false);
 
@@ -132,8 +127,8 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
     setError('');
     setNotice('');
 
-    if (newPassword.length < 12) {
-      setError('Password baru minimal 12 karakter.');
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      setError(`Password baru minimal ${PASSWORD_MIN_LENGTH} karakter.`);
       return;
     }
 
@@ -193,13 +188,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
       setEmailNotice(result.message);
       setEmailPassword('');
       setNewEmail('');
-      setEmailChallenge({
-        challengeId: result.challenge_id,
-        email: result.pendingEmail,
-        resendAfter: result.resend_after,
-        expiresIn: result.expires_in,
-        maxAttempts: result.max_attempts,
-      });
+      setEmailChallenge(toActiveChallenge(result, result.pendingEmail));
 
       // The server now reports the address as pending. Refresh so the panel
       // shows it without a manual reload; a failed refresh must not turn a
@@ -262,13 +251,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
     // browser to repeat it (or the password).
     const result = await accountApi.resendEmailChange();
 
-    const next = {
-      challengeId: result.challenge_id,
-      email: emailChallenge.email,
-      resendAfter: result.resend_after,
-      expiresIn: result.expires_in,
-      maxAttempts: result.max_attempts,
-    };
+    const next = toActiveChallenge(result, emailChallenge.email);
     setEmailChallenge(next);
 
     return { challenge_id: next.challengeId, resend_after: next.resendAfter };

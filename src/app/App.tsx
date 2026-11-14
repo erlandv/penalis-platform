@@ -8,7 +8,7 @@ import { accountApi, ApiError, passwordApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
 import { DEEPLINK, readParam } from '../lib/deeplink';
 import type { Account, FieldErrors, ViewName } from '../lib/types';
-import { PASSWORD_MIN_LENGTH } from '../lib/validation';
+import { hasErrors, PASSWORD_MIN_LENGTH, validatePasswordPair } from '../lib/validation';
 import { describedBy } from '../lib/a11y';
 import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../components/ui';
 import { PasswordInput } from '../components/PasswordInput';
@@ -42,14 +42,8 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
     setFormError('');
     setErrors({});
 
-    const clientErrors: FieldErrors = {};
-    if (password.length < PASSWORD_MIN_LENGTH) {
-      clientErrors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
-    }
-    if (password !== confirm) {
-      clientErrors.confirm_password = 'Password tidak cocok.';
-    }
-    if (Object.keys(clientErrors).length > 0) {
+    const clientErrors = validatePasswordPair(password, confirm);
+    if (hasErrors(clientErrors)) {
       setErrors(clientErrors);
       return;
     }
@@ -81,7 +75,6 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
   return (
     <div className="penalis-auth">
       <div className="penalis-auth__panel">
-        <p className="penalis-eyebrow">{bootstrap.siteName}</p>
         <h1>Atur Ulang Password</h1>
 
         {message ? (
@@ -130,13 +123,13 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
               </div>
 
               <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-                {submitting ? 'Menyimpan…' : 'Simpan password baru'}
+                {submitting ? 'Menyimpan…' : 'Simpan Password Baru'}
               </button>
             </form>
 
-            <p className="penalis-fineprint">
+            {/* <p className="penalis-fineprint">
               <a href={bootstrap.lostPassword}>Minta link baru</a>
-            </p>
+            </p> */}
           </>
         )}
       </div>

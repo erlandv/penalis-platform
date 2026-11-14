@@ -113,14 +113,16 @@ before the Vite module executes. The TypeScript contract lives in
 | `logoutUrl` | `string` | Nonce-signed logout URL redirecting back to `/dashboard/` |
 | `lostPassword` | `string` | Native fallback lost-password URL |
 | `homeUrl` | `string` | Public site home URL |
-| `adminUrl` | `string` | Link to `admin.php?page=penalis-platform` (populated only for users with `list_users`) |
+| `adminUrl` | `string` | Link to `admin.php?page=penalis-writers` (populated only for users with `list_users`) |
+| `reviewUrl` | `string` | Link to `admin.php?page=penalis-review` (populated for users with `edit_others_posts`) |
 | `siteName` | `string` | WordPress blog name |
+| `siteTimezone` | `object` | Site timezone metadata from `Penalis_Datetime::site_timezone_payload()` (`timezone`, `offsetSeconds`, `label`) |
 | `isLoggedIn` | `boolean` | Whether the visitor is authenticated |
 | `registration` | `boolean` | Value of `penalis_registration_enabled` |
 | `canWrite` | `boolean` | Result of `Penalis_Account_Status::can_write()` |
 | `status` | `AccountStatus` | Current account status (`active`, `pending_verification`, etc.) |
 | `statusLabel` | `string` | Indonesian label for the current account status |
-| `user` | `object \| null` | Profile fields (`id`, `username`, `displayName`, `firstName`, `lastName`, `displayNameMode`, `avatarId`, `avatarUrl`, `email`, `description`, `instagram`, `authorUrl`) |
+| `user` | `object \| null` | Profile fields (`id`, `displayName`, `firstName`, `lastName`, `displayNameMode`, `avatarId`, `avatarUrl`, `email`, `description`, `instagram`, `authorUrl`) |
 
 ---
 

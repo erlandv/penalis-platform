@@ -6,7 +6,33 @@
  * duration of the form.
  */
 
+import type { ChallengeResponse } from './types';
+
 export const OTP_LENGTH = 6;
+
+/**
+ * Active verification code challenge held in component state.
+ */
+export interface ActiveChallenge {
+  challengeId: string;
+  email: string;
+  resendAfter: number;
+  expiresIn: number;
+  maxAttempts: number;
+}
+
+/**
+ * Normalize a server `ChallengeResponse` payload into an `ActiveChallenge` state object.
+ */
+export function toActiveChallenge(result: ChallengeResponse, email: string): ActiveChallenge {
+  return {
+    challengeId: result.challenge_id,
+    email,
+    resendAfter: result.resend_after,
+    expiresIn: result.expires_in,
+    maxAttempts: result.max_attempts,
+  };
+}
 
 /**
  * Keep only digits and cap the value at the code length.

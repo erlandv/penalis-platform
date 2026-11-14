@@ -300,17 +300,85 @@ final class Penalis_Dashboard {
 			return $template;
 		}
 
-		$custom = locate_template( 'penalis-dashboard.php' );
+		return self::resolve_bundled_template(
+			$template,
+			'penalis-dashboard.php',
+			'dashboard.php'
+		);
+	}
+
+	/**
+	 * Resolve a theme-overridable or bundled plugin template.
+	 *
+	 * @param string $template         Current WordPress template path.
+	 * @param string $theme_template   Template filename looked up in the active theme.
+	 * @param string $bundled_template Template filename inside the plugin's `templates/` directory.
+	 * @return string
+	 */
+	public static function resolve_bundled_template( $template, $theme_template, $bundled_template ) {
+		$custom = locate_template( $theme_template );
 		if ( $custom ) {
 			return $custom;
 		}
 
-		$bundled = PENALIS_PLATFORM_DIR . 'templates/dashboard.php';
+		$bundled = PENALIS_PLATFORM_DIR . 'templates/' . ltrim( (string) $bundled_template, '/' );
 		if ( is_readable( $bundled ) ) {
 			return $bundled;
 		}
 
 		return $template;
+	}
+
+	/**
+	 * Enqueue CSS and JS assets for a Vite manifest entry.
+	 *
+	 * @param string $entry_key Vite manifest entry key (e.g. `src/app/index.tsx`).
+	 * @param string $handle    WordPress script/style handle prefix.
+	 * @return bool True when the entry script was enqueued.
+	 */
+	public static function enqueue_vite_entry( $entry_key, $handle ) {
+		$asset_file = PENALIS_PLATFORM_DIR . 'build/manifest.json';
+
+		if ( ! is_readable( $asset_file ) ) {
+			return false;
+		}
+
+		$manifest = json_decode( (string) file_get_contents( $asset_file ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		if ( ! is_array( $manifest ) || ! isset( $manifest[ $entry_key ] ) || ! is_array( $manifest[ $entry_key ] ) ) {
+			return false;
+		}
+
+		$entry = $manifest[ $entry_key ];
+		if ( empty( $entry['file'] ) ) {
+			return false;
+		}
+
+		$base = self::asset_base_url();
+
+		if ( ! empty( $entry['css'] ) && is_array( $entry['css'] ) ) {
+			foreach ( $entry['css'] as $index => $css_file ) {
+				wp_enqueue_style(
+					$handle . '-' . $index,
+					$base . ltrim( (string) $css_file, '/' ),
+					array(),
+					PENALIS_PLATFORM_VERSION
+				);
+			}
+		}
+
+		// Vite emits an ES module. WordPress's `wp_enqueue_script()` prints a
+		// classic <script> tag, which cannot parse `import.meta` or `export` and
+		// fails with "Cannot use 'import.meta' outside a module", leaving the
+		// root empty. `format_module_script_tag()` adds type="module".
+		wp_enqueue_script(
+			$handle,
+			$base . ltrim( (string) $entry['file'], '/' ),
+			array(),
+			PENALIS_PLATFORM_VERSION,
+			true
+		);
+
+		return true;
 	}
 
 	/**
@@ -323,42 +391,9 @@ final class Penalis_Dashboard {
 			return;
 		}
 
-		$asset_file = PENALIS_PLATFORM_DIR . 'build/manifest.json';
-
-		if ( ! is_readable( $asset_file ) ) {
+		if ( ! self::enqueue_vite_entry( 'src/app/index.tsx', 'penalis-dashboard' ) ) {
 			return;
 		}
-
-		$manifest = json_decode( (string) file_get_contents( $asset_file ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		if ( ! is_array( $manifest ) || ! isset( $manifest['src/app/index.tsx'] ) ) {
-			return;
-		}
-
-		$entry = $manifest['src/app/index.tsx'];
-		$base  = self::asset_base_url();
-
-		if ( ! empty( $entry['css'] ) && is_array( $entry['css'] ) ) {
-			foreach ( $entry['css'] as $index => $css_file ) {
-				wp_enqueue_style(
-					'penalis-dashboard-' . $index,
-					$base . ltrim( (string) $css_file, '/' ),
-					array(),
-					PENALIS_PLATFORM_VERSION
-				);
-			}
-		}
-
-		// Vite emits an ES module. WordPress's `wp_enqueue_script()` prints a
-		// classic <script> tag, which cannot parse `import.meta` or `export` and
-		// fails with "Cannot use 'import.meta' outside a module", leaving the
-		// dashboard root empty. `module_script_tag()` adds type="module".
-		wp_enqueue_script(
-			'penalis-dashboard',
-			$base . ltrim( (string) $entry['file'], '/' ),
-			array(),
-			PENALIS_PLATFORM_VERSION,
-			true
-		);
 
 		$user_id = get_current_user_id();
 		$user    = $user_id > 0 ? get_userdata( $user_id ) : null;
@@ -416,19 +451,7 @@ final class Penalis_Dashboard {
 	 * @return string
 	 */
 	public static function asset_base_url() {
-		$url = PENALIS_PLATFORM_URL . 'build/';
-
-		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
-		$url_host  = wp_parse_url( $url, PHP_URL_HOST );
-
-		if ( $home_host && $url_host && strtolower( (string) $home_host ) !== strtolower( (string) $url_host ) ) {
-			$url_path = wp_parse_url( $url, PHP_URL_PATH );
-			if ( $url_path ) {
-				$home_scheme = wp_parse_url( home_url(), PHP_URL_SCHEME );
-				$scheme      = $home_scheme ? $home_scheme : ( is_ssl() ? 'https' : 'http' );
-				$url         = $scheme . '://' . $home_host . $url_path;
-			}
-		}
+		$url = self::ensure_same_origin_url( PENALIS_PLATFORM_URL . 'build/' );
 
 		/**
 		 * Filter the asset base URL for the dashboard SPA.
@@ -436,6 +459,56 @@ final class Penalis_Dashboard {
 		 * @param string $url Base URL pointing to the build/ directory.
 		 */
 		return (string) apply_filters( 'penalis_dashboard_asset_base_url', $url );
+	}
+
+	/**
+	 * Ensure a build asset URL uses the site's origin (`home_url()`) when its host
+	 * differs, preventing cross-origin CDN CORS blocks on ES module scripts.
+	 *
+	 * @param string $url Asset URL.
+	 * @return string
+	 */
+	public static function ensure_same_origin_url( $url ) {
+		$url       = (string) $url;
+		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
+		$url_host  = wp_parse_url( $url, PHP_URL_HOST );
+
+		if ( $home_host && $url_host && strtolower( (string) $home_host ) !== strtolower( (string) $url_host ) ) {
+			$url_path  = wp_parse_url( $url, PHP_URL_PATH );
+			$url_query = wp_parse_url( $url, PHP_URL_QUERY );
+			if ( $url_path ) {
+				$home_scheme = wp_parse_url( home_url(), PHP_URL_SCHEME );
+				$scheme      = $home_scheme ? $home_scheme : ( is_ssl() ? 'https' : 'http' );
+				$url         = $scheme . '://' . $home_host . $url_path . ( $url_query ? '?' . $url_query : '' );
+			}
+		}
+
+		return $url;
+	}
+
+	/**
+	 * Rewrite an enqueued Vite script tag as `<script type="module">` when its handle matches.
+	 *
+	 * @param string $tag             Script tag HTML.
+	 * @param string $handle          Enqueued script handle.
+	 * @param string $src             Script source URL.
+	 * @param string $expected_handle Target handle to rewrite.
+	 * @return string
+	 */
+	public static function format_module_script_tag( $tag, $handle, $src, $expected_handle ) {
+		if ( $expected_handle !== $handle ) {
+			return $tag;
+		}
+
+		// Ensure the script source is same-origin even if a CDN plugin rewrote
+		// the script_loader_src filter, preventing CORS blocks.
+		$src = self::ensure_same_origin_url( $src );
+
+		return sprintf(
+			'<script type="module" crossorigin="anonymous" src="%s" id="%s-js"></script>' . "\n", // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag for an already-enqueued handle; wp_enqueue_script() cannot emit type="module".
+			esc_url( $src ),
+			esc_attr( $expected_handle )
+		);
 	}
 
 	/**
@@ -451,30 +524,39 @@ final class Penalis_Dashboard {
 	 * @param string $src    Script source URL.
 	 * @return string
 	 */
-	public static function module_script_tag( $tag, $handle, $src ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- Hook signature.
-		if ( 'penalis-dashboard' !== $handle ) {
-			return $tag;
+	public static function module_script_tag( $tag, $handle, $src ) {
+		return self::format_module_script_tag( $tag, $handle, $src, 'penalis-dashboard' );
+	}
+
+	/**
+	 * Render a frontend React mount point and an optional missing-build notice for admins.
+	 *
+	 * @param string $root_id               DOM ID and CSS class for the root container.
+	 * @param string $missing_build_heading Admin warning heading when `build/manifest.json` is absent.
+	 * @param string $noscript_text         Fallback text shown inside `<noscript>`.
+	 * @return string
+	 */
+	public static function render_spa_mount( $root_id, $missing_build_heading, $noscript_text ) {
+		$has_build = is_readable( PENALIS_PLATFORM_DIR . 'build/manifest.json' );
+
+		ob_start();
+
+		if ( ! $has_build && current_user_can( 'manage_options' ) ) {
+			?>
+			<div class="penalis-build-missing" style="max-width:720px;margin:2rem auto;padding:1.25rem;border:1px solid #f0c36d;background:#fff8e5;border-radius:8px;font-family:system-ui,sans-serif;">
+				<strong><?php echo esc_html( $missing_build_heading ); ?></strong>
+				<p><?php echo esc_html( 'Jalankan "npm ci && npm run build" di direktori plugin, lalu pasang folder build/ yang dihasilkan.' ); ?></p>
+			</div>
+			<?php
 		}
-
-		// Ensure the script source is same-origin even if a CDN plugin rewrote
-		// the script_loader_src filter, preventing CORS blocks.
-		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
-		$src_host  = wp_parse_url( $src, PHP_URL_HOST );
-
-		if ( $home_host && $src_host && strtolower( (string) $home_host ) !== strtolower( (string) $src_host ) ) {
-			$src_path  = wp_parse_url( $src, PHP_URL_PATH );
-			$src_query = wp_parse_url( $src, PHP_URL_QUERY );
-			if ( $src_path ) {
-				$home_scheme = wp_parse_url( home_url(), PHP_URL_SCHEME );
-				$scheme      = $home_scheme ? $home_scheme : ( is_ssl() ? 'https' : 'http' );
-				$src         = $scheme . '://' . $home_host . $src_path . ( $src_query ? '?' . $src_query : '' );
-			}
-		}
-
-		return sprintf(
-			'<script type="module" crossorigin="anonymous" src="%s" id="penalis-dashboard-js"></script>' . "\n", // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag for an already-enqueued handle; wp_enqueue_script() cannot emit type="module".
-			esc_url( $src )
-		);
+		?>
+		<div id="<?php echo esc_attr( $root_id ); ?>" class="<?php echo esc_attr( $root_id ); ?>">
+			<noscript>
+				<p><?php echo esc_html( $noscript_text ); ?></p>
+			</noscript>
+		</div>
+		<?php
+		return (string) ob_get_clean();
 	}
 
 	/**
@@ -483,25 +565,10 @@ final class Penalis_Dashboard {
 	 * @return string
 	 */
 	public static function render_shortcode() {
-		$has_build = is_readable( PENALIS_PLATFORM_DIR . 'build/manifest.json' );
-
-		ob_start();
-
-		if ( ! $has_build && current_user_can( 'manage_options' ) ) {
-			?>
-			<div class="penalis-build-missing" style="max-width:720px;margin:2rem auto;padding:1.25rem;border:1px solid #f0c36d;background:#fff8e5;border-radius:8px;font-family:system-ui,sans-serif;">
-				<strong><?php echo esc_html( 'Aset dashboard Penalis tidak ditemukan.' ); ?></strong>
-				<p><?php echo esc_html( 'Jalankan "npm ci && npm run build" di direktori plugin, lalu pasang folder build/ yang dihasilkan.' ); ?></p>
-			</div>
-			<?php
-		}
-		?>
-		<div id="penalis-dashboard-root" class="penalis-dashboard-root">
-			<noscript>
-				<p><?php echo esc_html( 'Dashboard Penulis memerlukan JavaScript.' ); ?></p>
-			</noscript>
-		</div>
-		<?php
-		return (string) ob_get_clean();
+		return self::render_spa_mount(
+			'penalis-dashboard-root',
+			'Aset dashboard Penalis tidak ditemukan.',
+			'Dashboard Penulis memerlukan JavaScript.'
+		);
 	}
 }

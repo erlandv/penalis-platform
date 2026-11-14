@@ -45,13 +45,14 @@ penalis-platform/
 │   ├── class-deactivator.php             Transient cleanup on deactivation
 │   ├── class-roles.php                   penalis_writer role definition and promotion/demotion
 │   ├── class-policy.php                  Pure account lifecycle, validation, and challenge rules
-│   ├── class-account-status.php          Account status persistence, transitions, audit log
+│   ├── class-account-status.php          Account status persistence, transitions, eligibility & advisory lock helpers, audit log
 │   ├── class-otp.php                     Purpose-bound six-digit verification challenges
 │   ├── class-editorial-policy.php        Pure editorial state machine, review cycle, notification rules
-│   ├── class-editorial-workflow.php      Serialized editorial transitions and post meta persistence
+│   ├── class-editorial-workflow.php      Serialized editorial transitions, shared state query/count helpers, and post meta persistence
 │   ├── class-editorial-notifications.php Bounded dashboard notifications and editorial email dispatch
 │   ├── class-editorial-admin.php         Penalis → Review Karya Tulis admin review workspace
-│   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen
+│   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen, shared modal & asset helpers
+│   ├── class-email-settings.php          Penalis → Pengaturan Email customizable transactional email registry & admin console
 │   ├── class-access-control.php          Login gate, capability filters, REST guards, upload validation
 │   ├── class-rest-api.php                penalis/v1 REST endpoints
 │   ├── class-registration.php            Self-service writer registration and email verification
@@ -61,24 +62,25 @@ penalis-platform/
 │   ├── class-username-change.php         Re-authenticated login rename with advisory lock
 │   ├── class-author-history.php          Historical author slug reservation and 301 redirects
 │   ├── class-avatar.php                  Avatar storage and fallback provider (One User Avatar compatible)
-│   ├── class-dashboard.php               Dashboard page, shortcode, template, Vite manifest loader
+│   ├── class-datetime.php                Site timezone-aware date and time formatting helpers
+│   ├── class-dashboard.php               Dashboard page, shortcode, template, shared Vite manifest/module loader & SPA mount helper
 │   ├── class-authors.php                 Public authors directory ([penalis_authors]) and verified badge integration
-│   ├── class-emails.php                  Transactional emails and failure tracking
-│   ├── class-email-template.php          Branded responsive HTML email layout
+│   ├── class-emails.php                  Centralized template-driven transactional email dispatcher and failure tracking
+│   ├── class-email-template.php          Branded responsive HTML email layout and Markdown renderer
 │   └── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting
 ├── assets/
-│   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis)
-│   └── js/admin-review.js                Confirmation dialogs and inline validation for wp-admin actions
+│   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email)
+│   └── js/admin-review.js                Shared modal controller (createModalController) and inline validation for wp-admin actions
 ├── templates/
 │   ├── dashboard.php                     Minimal theme-compatible wrapper for [penalis_dashboard]
 │   └── authors.php                       Minimal theme-compatible wrapper for [penalis_authors]
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
 │   ├── authors/                          Separate public React entry point for [penalis_authors] directory
-│   ├── components/                       Shared UI primitives, Dialog, ConfirmDialog, MediaSelection, PasswordInput
+│   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput
 │   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings
-│   ├── lib/                              Typed API client, validation, deeplinks, HTML/profile helpers
-│   └── styles/                           Scoped dashboard CSS (main.css)
+│   ├── lib/                              Typed API client, validation, OTP challenge helpers, deeplinks, HTML/profile/crop helpers
+│   └── styles/                           Scoped dashboard and authors directory CSS (main.css, authors.css)
 ├── build/                                Generated production Vite bundle and manifest (gitignored)
 ├── tests/
 │   ├── run-tests.php                     Zero-dependency PHP unit and workflow test suite
@@ -96,13 +98,13 @@ production.
 On `plugins_loaded`, `Penalis_Plugin::run()` initializes components in order:
 1. `Penalis_Plugin::maybe_upgrade()`
 2. `Penalis_Access_Control::init()`
-3. `Penalis_Author_History::init()`
+3. `Penalis_Editorial_Notifications::init()`
 4. `Penalis_Rest_Api::init()`
 5. `Penalis_Dashboard::init()`
 6. `Penalis_Authors::init()`
-7. `Penalis_Editorial_Notifications::init()`
-7. `Penalis_Avatar::register_provider()` (on `init`)
-8. `Penalis_Admin::init()` and `Penalis_Editorial_Admin::init()` (when `is_admin()`)
+7. `Penalis_Author_History::init()`
+8. `Penalis_Avatar::register_provider()`
+9. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, and `Penalis_Email_Settings::init()` (when `is_admin()`)
 
 ---
 
@@ -347,11 +349,14 @@ No custom database tables are created.
 ## 7. Key Technical Decisions
 
 ### 7.1 Vite Instead of `@wordpress/scripts`
-The writer dashboard is a standalone React SPA mounted on `/dashboard/`, not a
-Gutenberg plugin inside `wp-admin`. Vite produces a compact bundle, splits the
-editor into a lazy-loaded chunk, and outputs `build/manifest.json`.
-`Penalis_Dashboard::maybe_enqueue_assets()` reads the manifest and adds
-`type="module"` via `script_loader_tag`.
+The writer dashboard (`/dashboard/`) and the public authors directory
+(`[penalis_authors]`) are standalone React SPAs, not Gutenberg plugins inside
+`wp-admin`. Vite builds both entry points (`src/app/index.tsx` and
+`src/authors/index.tsx`), splits the TipTap editor into a lazy-loaded chunk, and
+outputs `build/manifest.json`. Both SPAs share the manifest/asset helpers on
+`Penalis_Dashboard` (`enqueue_vite_entry()`, `ensure_same_origin_url()`,
+`format_module_script_tag()`, `resolve_bundled_template()`, and
+`render_spa_mount()`).
 
 ### 7.2 TipTap Instead of Gutenberg
 Running Gutenberg outside `wp-admin` requires the `@wordpress/*` block registry

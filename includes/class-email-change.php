@@ -294,15 +294,6 @@ final class Penalis_Email_Change {
 	 * @return bool
 	 */
 	private static function can_change( $user_id ) {
-		// Administrators keep native WordPress behaviour; the writer gate does
-		// not apply to them.
-		if ( user_can( (int) $user_id, 'manage_options' ) ) {
-			return true;
-		}
-
-		return Penalis_Policy::can_change_email(
-			Penalis_Account_Status::get_status( $user_id ),
-			Penalis_Account_Status::is_access_enabled( $user_id )
-		);
+		return Penalis_Account_Status::can_change_email( $user_id );
 	}
 }

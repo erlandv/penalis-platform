@@ -400,7 +400,7 @@ final class Penalis_Editorial_Notifications {
 	 * @param WP_Post $post Post object.
 	 * @return string
 	 */
-	private static function safe_title( $post ) {
+	public static function safe_title( $post ) {
 		$title = self::safe_text( (string) $post->post_title );
 
 		return '' !== $title ? $title : 'Tanpa judul';

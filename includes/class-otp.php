@@ -30,20 +30,16 @@ final class Penalis_Otp {
 	 */
 	private static function locked( $operation ) {
 		global $wpdb;
+		$busy = new WP_Error( 'penalis_busy', 'Server sedang sibuk. Coba sesaat lagi.', array( 'status' => 503 ) );
 		if ( ! is_object( $wpdb ) ) {
-			return new WP_Error( 'penalis_busy', 'Server sedang sibuk. Coba sesaat lagi.', array( 'status' => 503 ) );
+			return $busy;
 		}
-		$name = 'penalis_otp_' . md5( $wpdb->users );
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Advisory locks cannot be cached.
-		if ( '1' !== (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $name ) ) ) {
-			return new WP_Error( 'penalis_busy', 'Server sedang sibuk. Coba sesaat lagi.', array( 'status' => 503 ) );
-		}
-		try {
-			return $operation();
-		} finally {
-			// phpcs:ignore WordPress.DB.DirectDatabaseQuery -- Release serialization lock.
-			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $name ) );
-		}
+		return Penalis_Account_Status::with_advisory_lock(
+			'penalis_otp_' . md5( (string) $wpdb->users ),
+			5,
+			$operation,
+			$busy
+		);
 	}
 
 	/**

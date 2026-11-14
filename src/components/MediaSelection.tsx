@@ -11,9 +11,13 @@
  * meaning for "confirm".
  */
 
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 
+import { ApiError, mediaApi } from '../lib/api';
 import type { MediaItem } from '../lib/types';
+import { Dialog } from './Dialog';
+import { ImageDropzone } from './ImageDropzone';
+import { ErrorBanner, Spinner } from './ui';
 
 export function MediaSelection({
   items,
@@ -88,5 +92,131 @@ export function MediaSelection({
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Shared modal dialog for browsing the writer's media library, uploading a new
+ * image, and confirming a selection.
+ */
+export function MediaPickerDialog({
+  label,
+  title,
+  description,
+  dropzoneHint = 'Hanya dapat upload file JPEG, PNG, GIF, atau WebP.',
+  emptyMessage = 'Kamu belum upload media apa pun. Gunakan kontrol upload di atas untuk menambahkan gambar pertama.',
+  externalError = '',
+  busy = false,
+  onFile,
+  onConfirm,
+  onClose,
+}: {
+  label: string;
+  title: string;
+  description?: string;
+  dropzoneHint?: string;
+  emptyMessage?: string;
+  externalError?: string;
+  busy?: boolean;
+  onFile?: (file: File) => void;
+  onConfirm: (item: MediaItem) => void;
+  onClose: () => void;
+}) {
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(true);
+  const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    setMediaLoading(true);
+
+    mediaApi
+      .list(1)
+      .then((list) => {
+        if (!cancelled) {
+          setMedia(list.items);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMedia([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setMediaLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleFile = async (file: File) => {
+    setUploadError('');
+    if (onFile) {
+      onFile(file);
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const uploaded = await mediaApi.upload(file);
+      setMedia((current) => [uploaded, ...current]);
+    } catch (caught) {
+      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat di-upload.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const isBusy = busy || uploading;
+
+  return (
+    <Dialog label={label} onClose={onClose}>
+      <div className="penalis-modal__content">
+        <div className="penalis-modal__header">
+          <div>
+            <h3>{title}</h3>
+            {description ? <p className="penalis-muted penalis-media-picker__hint">{description}</p> : null}
+          </div>
+        </div>
+
+        <ImageDropzone
+          onFile={(file) => void handleFile(file)}
+          onReject={setUploadError}
+          busy={isBusy}
+          title="Letakkan gambar di sini"
+          subtitle="atau klik untuk memilih file"
+          hint={dropzoneHint}
+        />
+
+        {uploadError ? <ErrorBanner message={uploadError} /> : null}
+        {externalError ? <ErrorBanner message={externalError} /> : null}
+
+        {mediaLoading ? (
+          <Spinner label="Memuat media…" />
+        ) : media.length === 0 ? (
+          <p className="penalis-muted">{emptyMessage}</p>
+        ) : (
+          <MediaSelection
+            items={media}
+            selectedId={selectedMediaId}
+            onSelect={setSelectedMediaId}
+            onConfirm={() => {
+              const item = media.find((entry) => entry.id === selectedMediaId);
+              if (item) {
+                onConfirm(item);
+              }
+            }}
+            onCancel={onClose}
+            busy={isBusy}
+          />
+        )}
+      </div>
+    </Dialog>
   );
 }

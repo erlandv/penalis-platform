@@ -7,6 +7,20 @@ import type { FieldErrors } from './types';
 
 export const PASSWORD_MIN_LENGTH = 12;
 
+export function validatePasswordPair(password: string, confirmPassword: string): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    errors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
+  }
+
+  if (password !== confirmPassword) {
+    errors.confirm_password = 'Password tidak cocok.';
+  }
+
+  return errors;
+}
+
 export function validateRegistration(input: {
   display_name: string;
   user_login: string;
@@ -32,13 +46,7 @@ export function validateRegistration(input: {
     errors.user_email = 'Masukkan alamat email yang valid.';
   }
 
-  if (input.password.length < PASSWORD_MIN_LENGTH) {
-    errors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
-  }
-
-  if (input.password !== input.confirm_password) {
-    errors.confirm_password = 'Password tidak cocok.';
-  }
+  Object.assign(errors, validatePasswordPair(input.password, input.confirm_password));
 
   if (input.instagram !== undefined && input.instagram.trim() !== '') {
     const instagramMessage = validateInstagram(input.instagram);

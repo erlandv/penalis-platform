@@ -201,19 +201,13 @@ final class Penalis_Registration {
 			return;
 		}
 
-		$rendered = Penalis_Email_Settings::render(
+		Penalis_Emails::send_template(
+			$user->user_email,
 			'legacy_register_notice',
 			array(
 				'{nama_penulis}'  => $user->display_name,
 				'{link_aktivasi}' => add_query_arg( 'penalis_activate', '1', Penalis_Dashboard::dashboard_url() ),
 			)
-		);
-
-		Penalis_Emails::send_mail(
-			$user->user_email,
-			$rendered['subject'],
-			$rendered['body'],
-			$rendered['footer']
 		);
 	}
 
@@ -231,19 +225,13 @@ final class Penalis_Registration {
 			return;
 		}
 
-		$rendered = Penalis_Email_Settings::render(
+		Penalis_Emails::send_template(
+			$user->user_email,
 			'duplicate_notice',
 			array(
 				'{nama_penulis}'   => $user->display_name,
 				'{link_dashboard}' => Penalis_Dashboard::dashboard_url(),
 			)
-		);
-
-		Penalis_Emails::send_mail(
-			$user->user_email,
-			$rendered['subject'],
-			$rendered['body'],
-			$rendered['footer']
 		);
 	}
 

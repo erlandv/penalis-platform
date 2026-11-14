@@ -4,15 +4,13 @@
 
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
 import { AvatarCropper } from '../../components/AvatarCropper';
-import { Dialog } from '../../components/Dialog';
-import { ImageDropzone } from '../../components/ImageDropzone';
-import { MediaSelection } from '../../components/MediaSelection';
+import { MediaPickerDialog } from '../../components/MediaSelection';
 
 import { accountApi, ApiError, mediaApi } from '../../lib/api';
 import { displayNameOptions } from '../../lib/profile';
-import type { Account, DisplayNameMode, FieldErrors, MediaItem } from '../../lib/types';
+import type { Account, DisplayNameMode, FieldErrors } from '../../lib/types';
 import { validateInstagram } from '../../lib/validation';
-import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../components/ui';
+import { ErrorBanner, FieldError, FieldHint, Notice } from '../../components/ui';
 
 export function Profile({
   account,
@@ -36,10 +34,6 @@ export function Profile({
   const [avatarError, setAvatarError] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [cropTarget, setCropTarget] = useState<File | string | null>(null);
-  const [media, setMedia] = useState<MediaItem[]>([]);
-  const [mediaLoading, setMediaLoading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
-  const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
   const closePicker = useCallback(() => {
     setPickerOpen(false);
     setCropTarget(null);
@@ -93,21 +87,9 @@ export function Profile({
     }
   };
 
-  const openPicker = async () => {
-    setPickerOpen(true);
-    setSelectedMediaId(null);
+  const openPicker = () => {
     setAvatarError('');
-    setMediaLoading(true);
-    setUploadError('');
-
-    try {
-      const list = await mediaApi.list(1);
-      setMedia(list.items);
-    } catch {
-      setMedia([]);
-    } finally {
-      setMediaLoading(false);
-    }
+    setPickerOpen(true);
   };
 
   const handleCroppedAvatar = async (croppedFile: File) => {
@@ -116,7 +98,6 @@ export function Profile({
 
     try {
       const uploaded = await mediaApi.upload(croppedFile);
-      setMedia((current) => [uploaded, ...current]);
       const updated = await accountApi.setAvatar(uploaded.id);
       onUpdated(updated);
       setCropTarget(null);
@@ -169,7 +150,7 @@ export function Profile({
             <button
               type="button"
               className="penalis-button penalis-button--ghost"
-              onClick={() => void openPicker()}
+              onClick={openPicker}
               disabled={avatarBusy}
             >
               Ganti foto
@@ -296,47 +277,17 @@ export function Profile({
           busy={avatarBusy}
         />
       ) : pickerOpen ? (
-        <Dialog label="Pilih foto profil" onClose={closePicker}>
-          <div className="penalis-modal__content">
-            <div className="penalis-modal__header">
-              <h3>Pilih Foto Profil</h3>
-            </div>
-
-            <ImageDropzone
-              onFile={(file) => setCropTarget(file)}
-              onReject={setUploadError}
-              busy={avatarBusy}
-              title="Letakkan gambar di sini"
-              subtitle="atau klik untuk memilih file"
-              hint="JPEG, PNG, GIF, atau WebP, minimal 100 x 100 piksel."
-            />
-
-            {uploadError ? <ErrorBanner message={uploadError} /> : null}
-            {avatarError ? <ErrorBanner message={avatarError} /> : null}
-
-            {mediaLoading ? (
-              <Spinner label="Memuat media…" />
-            ) : media.length === 0 ? (
-              <p className="penalis-muted">Kamu belum upload gambar apa pun. Gunakan kontrol upload di atas.</p>
-            ) : (
-              <MediaSelection
-                items={media}
-                selectedId={selectedMediaId}
-                onSelect={setSelectedMediaId}
-                onConfirm={() => {
-                  if (selectedMediaId !== null) {
-                    const item = media.find((m) => m.id === selectedMediaId);
-                    if (item) {
-                      setCropTarget(item.full || item.thumbnail);
-                    }
-                  }
-                }}
-                onCancel={closePicker}
-                busy={avatarBusy}
-              />
-            )}
-          </div>
-        </Dialog>
+        <MediaPickerDialog
+          label="Pilih foto profil"
+          title="Pilih Foto Profil"
+          dropzoneHint="JPEG, PNG, GIF, atau WebP, minimal 100 x 100 piksel."
+          emptyMessage="Kamu belum upload gambar apa pun. Gunakan kontrol upload di atas."
+          externalError={avatarError}
+          busy={avatarBusy}
+          onFile={(file) => setCropTarget(file)}
+          onConfirm={(item) => setCropTarget(item.full || item.thumbnail)}
+          onClose={closePicker}
+        />
       ) : null}
     </div>
   );

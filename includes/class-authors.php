@@ -87,24 +87,13 @@ final class Penalis_Authors {
 			return $template;
 		}
 
-		$custom = locate_template( 'penalis-authors.php' );
-		if ( $custom ) {
-			return $custom;
-		}
-
-		$bundled = PENALIS_PLATFORM_DIR . 'templates/authors.php';
-		if ( is_readable( $bundled ) ) {
-			return $bundled;
-		}
-
-		return $template;
+		return Penalis_Dashboard::resolve_bundled_template(
+			$template,
+			'penalis-authors.php',
+			'authors.php'
+		);
 	}
 
-	/**
-	 * Minimum published posts required for the verified author badge.
-	 *
-	 * @return int
-	 */
 	/**
 	 * Enqueue the public authors directory assets only when needed.
 	 *
@@ -115,37 +104,9 @@ final class Penalis_Authors {
 			return;
 		}
 
-		$asset_file = PENALIS_PLATFORM_DIR . 'build/manifest.json';
-		if ( ! is_readable( $asset_file ) ) {
+		if ( ! Penalis_Dashboard::enqueue_vite_entry( 'src/authors/index.tsx', 'penalis-authors' ) ) {
 			return;
 		}
-
-		$manifest = json_decode( (string) file_get_contents( $asset_file ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-		if ( ! is_array( $manifest ) || ! isset( $manifest['src/authors/index.tsx'] ) ) {
-			return;
-		}
-
-		$entry = $manifest['src/authors/index.tsx'];
-		$base  = Penalis_Dashboard::asset_base_url();
-
-		if ( ! empty( $entry['css'] ) && is_array( $entry['css'] ) ) {
-			foreach ( $entry['css'] as $index => $css_file ) {
-				wp_enqueue_style(
-					'penalis-authors-' . $index,
-					$base . ltrim( (string) $css_file, '/' ),
-					array(),
-					PENALIS_PLATFORM_VERSION
-				);
-			}
-		}
-
-		wp_enqueue_script(
-			'penalis-authors',
-			$base . ltrim( (string) $entry['file'], '/' ),
-			array(),
-			PENALIS_PLATFORM_VERSION,
-			true
-		);
 
 		wp_localize_script(
 			'penalis-authors',
@@ -166,28 +127,8 @@ final class Penalis_Authors {
 	 * @param string $src    Script source URL.
 	 * @return string
 	 */
-	public static function module_script_tag( $tag, $handle, $src ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- Hook signature.
-		if ( 'penalis-authors' !== $handle ) {
-			return $tag;
-		}
-
-		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
-		$src_host  = wp_parse_url( $src, PHP_URL_HOST );
-
-		if ( $home_host && $src_host && strtolower( (string) $home_host ) !== strtolower( (string) $src_host ) ) {
-			$src_path  = wp_parse_url( $src, PHP_URL_PATH );
-			$src_query = wp_parse_url( $src, PHP_URL_QUERY );
-			if ( $src_path ) {
-				$home_scheme = wp_parse_url( home_url(), PHP_URL_SCHEME );
-				$scheme      = $home_scheme ? $home_scheme : ( is_ssl() ? 'https' : 'http' );
-				$src         = $scheme . '://' . $home_host . $src_path . ( $src_query ? '?' . $src_query : '' );
-			}
-		}
-
-		return sprintf(
-			'<script type="module" crossorigin="anonymous" src="%s" id="penalis-authors-js"></script>' . "\n", // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag for an already-enqueued handle; wp_enqueue_script() cannot emit type="module".
-			esc_url( $src )
-		);
+	public static function module_script_tag( $tag, $handle, $src ) {
+		return Penalis_Dashboard::format_module_script_tag( $tag, $handle, $src, 'penalis-authors' );
 	}
 
 	/**
@@ -196,26 +137,11 @@ final class Penalis_Authors {
 	 * @return string
 	 */
 	public static function render_shortcode() {
-		$has_build = is_readable( PENALIS_PLATFORM_DIR . 'build/manifest.json' );
-
-		ob_start();
-
-		if ( ! $has_build && current_user_can( 'manage_options' ) ) {
-			?>
-			<div class="penalis-build-missing" style="max-width:720px;margin:2rem auto;padding:1.25rem;border:1px solid #f0c36d;background:#fff8e5;border-radius:8px;font-family:system-ui,sans-serif;">
-				<strong><?php echo esc_html( 'Aset direktori penulis Penalis tidak ditemukan.' ); ?></strong>
-				<p><?php echo esc_html( 'Jalankan "npm ci && npm run build" di direktori plugin, lalu pasang folder build/ yang dihasilkan.' ); ?></p>
-			</div>
-			<?php
-		}
-		?>
-		<div id="penalis-authors-root" class="penalis-authors-root">
-			<noscript>
-				<p><?php echo esc_html( 'Halaman Kontributor Penalis memerlukan JavaScript.' ); ?></p>
-			</noscript>
-		</div>
-		<?php
-		return (string) ob_get_clean();
+		return Penalis_Dashboard::render_spa_mount(
+			'penalis-authors-root',
+			'Aset direktori penulis Penalis tidak ditemukan.',
+			'Halaman Kontributor Penalis memerlukan JavaScript.'
+		);
 	}
 
 	/**
@@ -426,6 +352,24 @@ final class Penalis_Authors {
 	}
 
 	/**
+	 * Resolve the author user ID from the current WordPress query context.
+	 *
+	 * @param string|string[] $singular_post_types Optional post type filter for `is_singular()`.
+	 * @return int
+	 */
+	private static function resolve_context_author_id( $singular_post_types = '' ) {
+		if ( is_author() ) {
+			return (int) get_queried_object_id();
+		}
+
+		if ( is_singular( $singular_post_types ) ) {
+			return (int) get_post_field( 'post_author', get_queried_object_id() );
+		}
+
+		return 0;
+	}
+
+	/**
 	 * Render the [penalis_verified_badge] shortcode.
 	 *
 	 * @param array<string,mixed> $atts Shortcode attributes.
@@ -436,11 +380,7 @@ final class Penalis_Authors {
 		$user_id = (int) $atts['user_id'];
 
 		if ( $user_id <= 0 ) {
-			if ( is_author() ) {
-				$user_id = (int) get_queried_object_id();
-			} elseif ( is_singular() ) {
-				$user_id = (int) get_post_field( 'post_author', get_queried_object_id() );
-			}
+			$user_id = self::resolve_context_author_id();
 		}
 
 		if ( ! self::is_user_verified( $user_id ) ) {
@@ -457,13 +397,7 @@ final class Penalis_Authors {
 	 * @return void
 	 */
 	public static function render_profile_verified_badge() {
-		$author_id = 0;
-
-		if ( is_author() ) {
-			$author_id = (int) get_queried_object_id();
-		} elseif ( is_singular( 'post' ) ) {
-			$author_id = (int) get_post_field( 'post_author', get_queried_object_id() );
-		}
+		$author_id = self::resolve_context_author_id( 'post' );
 
 		if ( ! self::is_user_verified( $author_id ) ) {
 			return;

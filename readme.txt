@@ -48,8 +48,9 @@ Key features:
   settings (password change, verified email change, and re-authenticated
   username change with 301 author-archive redirects).
 * **Unified WordPress admin console (`Penalis`).** Groups **Ringkasan**,
-  **Review Karya Tulis**, and **Penulis Penalis** under one top-level menu with
-  pending notification badges and confirmation dialogs on all administrative
+  **Review Karya Tulis**, **Penulis Penalis**, and **Pengaturan Email** under
+  one top-level menu with pending notification badges, customizable
+  transactional email templates, and confirmation dialogs on all administrative
   actions.
 
 == Installation ==

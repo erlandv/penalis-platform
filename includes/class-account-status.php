@@ -172,6 +172,67 @@ final class Penalis_Account_Status {
 	}
 
 	/**
+	 * Whether the user may change their email address.
+	 *
+	 * Administrators keep native WordPress behavior; writer accounts follow
+	 * `Penalis_Policy::can_change_email()`.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function can_change_email( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		return Penalis_Policy::can_change_email( self::get_status( $user_id ), self::is_access_enabled( $user_id ) );
+	}
+
+	/**
+	 * Whether the user may change their username.
+	 *
+	 * Administrators keep native WordPress behavior; writer accounts follow
+	 * `Penalis_Policy::can_change_username()`.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function can_change_username( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return true;
+		}
+
+		return Penalis_Policy::can_change_username( self::get_status( $user_id ), self::is_access_enabled( $user_id ) );
+	}
+
+	/**
+	 * Whether the account is eligible to reset its password under Penalis rules.
+	 *
+	 * @param WP_User $user          User object.
+	 * @param bool    $default_allow Fallback value for unmanaged non-contributor accounts.
+	 * @return bool
+	 */
+	public static function is_password_reset_allowed( $user, $default_allow = true ) {
+		if ( ! $user instanceof WP_User ) {
+			return (bool) $default_allow;
+		}
+
+		$status = self::get_status( $user->ID );
+
+		if ( '' !== $status ) {
+			return Penalis_Policy::can_reset_password( $status, self::is_access_enabled( $user->ID ) );
+		}
+
+		if ( in_array( 'contributor', (array) $user->roles, true ) ) {
+			return self::is_access_enabled( $user->ID );
+		}
+
+		return (bool) $default_allow;
+	}
+
+	/**
 	 * Whether the account still needs its owner to set a password.
 	 *
 	 * Legacy accounts converted by an administrator ("vouched") skip the email
@@ -526,5 +587,37 @@ final class Penalis_Account_Status {
 		);
 
 		return (int) $query->get_total();
+	}
+
+	/**
+	 * Execute a callback while holding a MySQL `GET_LOCK` advisory lock.
+	 *
+	 * @param string   $lock_name          Lock identifier.
+	 * @param int      $timeout            Wait timeout in seconds passed to `GET_LOCK`.
+	 * @param callable $callback           Operation executed while holding the lock.
+	 * @param WP_Error $busy_error         Error returned when the lock cannot be acquired.
+	 * @param bool     $allow_missing_wpdb Whether unit tests without `$wpdb` may run unlocked.
+	 * @return mixed
+	 */
+	public static function with_advisory_lock( $lock_name, $timeout, $callback, $busy_error, $allow_missing_wpdb = false ) {
+		global $wpdb;
+
+		if ( ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_var' ) ) {
+			return $allow_missing_wpdb ? $callback() : $busy_error;
+		}
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Advisory lock is a non-cacheable serialization primitive.
+		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', (string) $lock_name, max( 0, (int) $timeout ) ) );
+
+		if ( '1' !== (string) $acquired ) {
+			return $busy_error;
+		}
+
+		try {
+			return $callback();
+		} finally {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Releases the advisory lock taken above.
+			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', (string) $lock_name ) );
+		}
 	}
 }

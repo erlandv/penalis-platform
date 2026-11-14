@@ -120,27 +120,145 @@
 		} );
 	}
 
+	function createModalController( options ) {
+		var prefix = options.prefix;
+		var modal = document.getElementById( prefix + '-modal' );
+		if ( ! modal ) {
+			return null;
+		}
+
+		var badgeEl = document.getElementById( prefix + '-badge' );
+		var titleEl = document.getElementById( prefix + '-title' );
+		var descEl = document.getElementById( prefix + '-desc' );
+		var cancelBtn = document.getElementById( prefix + '-cancel' );
+		var submitBtn = document.getElementById( prefix + '-submit' );
+
+		var pendingPayload = null;
+		var lastTrigger = null;
+		var isSubmitting = false;
+
+		function open( config, triggerEl, payload ) {
+			pendingPayload = payload;
+			lastTrigger = triggerEl || null;
+
+			if ( badgeEl ) {
+				badgeEl.textContent = config.badge;
+				badgeEl.className = config.badgeClass;
+			}
+			if ( titleEl ) {
+				titleEl.textContent = config.title;
+			}
+			if ( descEl ) {
+				descEl.textContent = config.description;
+			}
+			if ( typeof options.onOpen === 'function' ) {
+				options.onOpen( config, triggerEl, payload );
+			}
+			if ( submitBtn ) {
+				submitBtn.textContent = config.confirmLabel;
+				submitBtn.className = config.confirmClass;
+				submitBtn.disabled = false;
+			}
+			if ( cancelBtn ) {
+				cancelBtn.disabled = false;
+			}
+
+			modal.hidden = false;
+			document.body.classList.add( 'penalis-modal-open' );
+
+			if ( cancelBtn ) {
+				cancelBtn.focus();
+			}
+		}
+
+		function close() {
+			if ( isSubmitting ) {
+				return;
+			}
+			modal.hidden = true;
+			document.body.classList.remove( 'penalis-modal-open' );
+			pendingPayload = null;
+
+			if ( lastTrigger && typeof lastTrigger.focus === 'function' ) {
+				lastTrigger.focus();
+			}
+		}
+
+		if ( cancelBtn ) {
+			cancelBtn.addEventListener( 'click', close );
+		}
+
+		var closeTargets = modal.querySelectorAll( '[data-' + prefix + '-close]' );
+		for ( var i = 0; i < closeTargets.length; i++ ) {
+			closeTargets[ i ].addEventListener( 'click', close );
+		}
+
+		if ( submitBtn ) {
+			submitBtn.addEventListener( 'click', function () {
+				if ( ! pendingPayload || isSubmitting ) {
+					return;
+				}
+				isSubmitting = true;
+				submitBtn.disabled = true;
+				submitBtn.textContent = 'Memproses...';
+				if ( cancelBtn ) {
+					cancelBtn.disabled = true;
+				}
+				options.onConfirm( pendingPayload );
+			} );
+		}
+
+		trapModalKeys( modal, cancelBtn, submitBtn, close );
+
+		return {
+			open: open,
+			close: close
+		};
+	}
+
 	function initReviewConfirmation() {
 		var form = document.getElementById( 'penalis-decision-form' );
-		var modal = document.getElementById( 'penalis-confirm-modal' );
-		if ( ! form || ! modal ) {
+		if ( ! form ) {
 			return;
 		}
 
 		var feedbackInput = document.getElementById( 'penalis-review-feedback' );
 		var feedbackError = document.getElementById( 'penalis-review-feedback-error' );
 		var confirmedInput = document.getElementById( 'penalis-confirmed-action' );
-		var badgeEl = document.getElementById( 'penalis-confirm-badge' );
-		var titleEl = document.getElementById( 'penalis-confirm-title' );
-		var descEl = document.getElementById( 'penalis-confirm-desc' );
 		var feedbackBox = document.getElementById( 'penalis-confirm-feedback-box' );
 		var feedbackText = document.getElementById( 'penalis-confirm-feedback-text' );
-		var cancelBtn = document.getElementById( 'penalis-confirm-cancel' );
-		var submitBtn = document.getElementById( 'penalis-confirm-submit' );
 
-		var pendingAction = '';
-		var lastTrigger = null;
-		var isSubmitting = false;
+		var controller = createModalController( {
+			prefix: 'penalis-confirm',
+			onOpen: function ( config, triggerEl, payload ) {
+				if ( ! feedbackBox || ! feedbackText ) {
+					return;
+				}
+				if ( config.showFeedbackBox ) {
+					feedbackBox.hidden = false;
+					if ( payload.note !== '' ) {
+						feedbackText.textContent = payload.note;
+						feedbackText.classList.remove( 'is-empty' );
+					} else {
+						feedbackText.textContent = 'Tanpa catatan tambahan untuk penulis.';
+						feedbackText.classList.add( 'is-empty' );
+					}
+				} else {
+					feedbackBox.hidden = true;
+				}
+			},
+			onConfirm: function ( payload ) {
+				if ( confirmedInput ) {
+					confirmedInput.disabled = false;
+					confirmedInput.value = payload.actionKey;
+				}
+				form.submit();
+			}
+		} );
+
+		if ( ! controller ) {
+			return;
+		}
 
 		function clearFeedbackError() {
 			if ( feedbackError ) {
@@ -173,137 +291,30 @@
 			} );
 		}
 
-		function openModal( actionKey, triggerEl ) {
-			var config = REVIEW_ACTION_CONFIG[ actionKey ];
-			if ( ! config ) {
-				return;
-			}
-
-			var note = feedbackInput ? feedbackInput.value.trim() : '';
-			if ( config.requiresFeedback && note === '' ) {
-				showFeedbackError( config.emptyFeedbackError );
-				return;
-			}
-
-			clearFeedbackError();
-			pendingAction = actionKey;
-			lastTrigger = triggerEl || null;
-
-			if ( badgeEl ) {
-				badgeEl.textContent = config.badge;
-				badgeEl.className = config.badgeClass;
-			}
-			if ( titleEl ) {
-				titleEl.textContent = config.title;
-			}
-			if ( descEl ) {
-				descEl.textContent = config.description;
-			}
-
-			if ( feedbackBox && feedbackText ) {
-				if ( config.showFeedbackBox ) {
-					feedbackBox.hidden = false;
-					if ( note !== '' ) {
-						feedbackText.textContent = note;
-						feedbackText.classList.remove( 'is-empty' );
-					} else {
-						feedbackText.textContent = 'Tanpa catatan tambahan untuk penulis.';
-						feedbackText.classList.add( 'is-empty' );
-					}
-				} else {
-					feedbackBox.hidden = true;
-				}
-			}
-
-			if ( submitBtn ) {
-				submitBtn.textContent = config.confirmLabel;
-				submitBtn.className = config.confirmClass;
-				submitBtn.disabled = false;
-			}
-			if ( cancelBtn ) {
-				cancelBtn.disabled = false;
-			}
-
-			modal.hidden = false;
-			document.body.classList.add( 'penalis-modal-open' );
-
-			if ( cancelBtn ) {
-				cancelBtn.focus();
-			}
-		}
-
-		function closeModal() {
-			if ( isSubmitting ) {
-				return;
-			}
-			modal.hidden = true;
-			document.body.classList.remove( 'penalis-modal-open' );
-			pendingAction = '';
-
-			if ( lastTrigger && typeof lastTrigger.focus === 'function' ) {
-				lastTrigger.focus();
-			}
-		}
-
 		var decisionButtons = form.querySelectorAll( '[data-penalis-decision]' );
 		for ( var i = 0; i < decisionButtons.length; i++ ) {
 			decisionButtons[ i ].addEventListener( 'click', function ( event ) {
 				var actionKey = this.getAttribute( 'data-penalis-decision' );
-				if ( ! actionKey || ! REVIEW_ACTION_CONFIG[ actionKey ] ) {
+				var config = actionKey ? REVIEW_ACTION_CONFIG[ actionKey ] : null;
+				if ( ! config ) {
 					return;
 				}
 				event.preventDefault();
-				openModal( actionKey, this );
-			} );
-		}
 
-		if ( cancelBtn ) {
-			cancelBtn.addEventListener( 'click', closeModal );
-		}
-
-		var closeTargets = modal.querySelectorAll( '[data-penalis-confirm-close]' );
-		for ( var j = 0; j < closeTargets.length; j++ ) {
-			closeTargets[ j ].addEventListener( 'click', closeModal );
-		}
-
-		if ( submitBtn ) {
-			submitBtn.addEventListener( 'click', function () {
-				if ( ! pendingAction || isSubmitting ) {
+				var note = feedbackInput ? feedbackInput.value.trim() : '';
+				if ( config.requiresFeedback && note === '' ) {
+					showFeedbackError( config.emptyFeedbackError );
 					return;
 				}
-				isSubmitting = true;
-				submitBtn.disabled = true;
-				submitBtn.textContent = 'Memproses...';
-				if ( cancelBtn ) {
-					cancelBtn.disabled = true;
-				}
-				if ( confirmedInput ) {
-					confirmedInput.disabled = false;
-					confirmedInput.value = pendingAction;
-				}
-				form.submit();
+
+				clearFeedbackError();
+				controller.open( config, this, { actionKey: actionKey, note: note } );
 			} );
 		}
-
-		trapModalKeys( modal, cancelBtn, submitBtn, closeModal );
 	}
 
 	function initWriterConfirmation() {
-		var modal = document.getElementById( 'penalis-writer-confirm-modal' );
-		if ( ! modal ) {
-			return;
-		}
-
-		var badgeEl = document.getElementById( 'penalis-writer-confirm-badge' );
-		var titleEl = document.getElementById( 'penalis-writer-confirm-title' );
-		var descEl = document.getElementById( 'penalis-writer-confirm-desc' );
 		var accountText = document.getElementById( 'penalis-writer-confirm-account-text' );
-		var cancelBtn = document.getElementById( 'penalis-writer-confirm-cancel' );
-		var submitBtn = document.getElementById( 'penalis-writer-confirm-submit' );
-
-		var pendingForm = null;
-		var lastTrigger = null;
-		var isSubmitting = false;
 
 		function formatAccountSummary( triggerEl ) {
 			var name = triggerEl.getAttribute( 'data-penalis-writer-name' ) || '';
@@ -323,96 +334,34 @@
 			return identity || 'Akun terpilih';
 		}
 
-		function openModal( actionKey, triggerEl ) {
-			var config = WRITER_ACTION_CONFIG[ actionKey ];
-			var targetForm = triggerEl ? triggerEl.form : null;
-			if ( ! config || ! targetForm ) {
-				return;
+		var controller = createModalController( {
+			prefix: 'penalis-writer-confirm',
+			onOpen: function ( config, triggerEl ) {
+				if ( accountText && triggerEl ) {
+					accountText.textContent = formatAccountSummary( triggerEl );
+				}
+			},
+			onConfirm: function ( targetForm ) {
+				targetForm.submit();
 			}
+		} );
 
-			pendingForm = targetForm;
-			lastTrigger = triggerEl;
-
-			if ( badgeEl ) {
-				badgeEl.textContent = config.badge;
-				badgeEl.className = config.badgeClass;
-			}
-			if ( titleEl ) {
-				titleEl.textContent = config.title;
-			}
-			if ( descEl ) {
-				descEl.textContent = config.description;
-			}
-			if ( accountText ) {
-				accountText.textContent = formatAccountSummary( triggerEl );
-			}
-			if ( submitBtn ) {
-				submitBtn.textContent = config.confirmLabel;
-				submitBtn.className = config.confirmClass;
-				submitBtn.disabled = false;
-			}
-			if ( cancelBtn ) {
-				cancelBtn.disabled = false;
-			}
-
-			modal.hidden = false;
-			document.body.classList.add( 'penalis-modal-open' );
-
-			if ( cancelBtn ) {
-				cancelBtn.focus();
-			}
-		}
-
-		function closeModal() {
-			if ( isSubmitting ) {
-				return;
-			}
-			modal.hidden = true;
-			document.body.classList.remove( 'penalis-modal-open' );
-			pendingForm = null;
-
-			if ( lastTrigger && typeof lastTrigger.focus === 'function' ) {
-				lastTrigger.focus();
-			}
+		if ( ! controller ) {
+			return;
 		}
 
 		var writerButtons = document.querySelectorAll( '[data-penalis-writer-action]' );
 		for ( var i = 0; i < writerButtons.length; i++ ) {
 			writerButtons[ i ].addEventListener( 'click', function ( event ) {
 				var actionKey = this.getAttribute( 'data-penalis-writer-action' );
-				if ( ! actionKey || ! WRITER_ACTION_CONFIG[ actionKey ] ) {
+				var config = actionKey ? WRITER_ACTION_CONFIG[ actionKey ] : null;
+				if ( ! config || ! this.form ) {
 					return;
 				}
 				event.preventDefault();
-				openModal( actionKey, this );
+				controller.open( config, this, this.form );
 			} );
 		}
-
-		if ( cancelBtn ) {
-			cancelBtn.addEventListener( 'click', closeModal );
-		}
-
-		var closeTargets = modal.querySelectorAll( '[data-penalis-writer-confirm-close]' );
-		for ( var j = 0; j < closeTargets.length; j++ ) {
-			closeTargets[ j ].addEventListener( 'click', closeModal );
-		}
-
-		if ( submitBtn ) {
-			submitBtn.addEventListener( 'click', function () {
-				if ( ! pendingForm || isSubmitting ) {
-					return;
-				}
-				isSubmitting = true;
-				submitBtn.disabled = true;
-				submitBtn.textContent = 'Memproses...';
-				if ( cancelBtn ) {
-					cancelBtn.disabled = true;
-				}
-				pendingForm.submit();
-			} );
-		}
-
-		trapModalKeys( modal, cancelBtn, submitBtn, closeModal );
 	}
 
 	function initAll() {

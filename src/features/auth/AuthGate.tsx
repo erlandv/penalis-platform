@@ -8,28 +8,23 @@ import { ApiError, legacyApi, passwordApi, registrationApi } from '../../lib/api
 import { getBootstrap } from '../../lib/bootstrap';
 import { DEEPLINK, hasParam } from '../../lib/deeplink';
 import type { FieldErrors } from '../../lib/types';
-import { hasErrors, validateEmail, validateRegistration, validateResetEmail } from '../../lib/validation';
-import { PASSWORD_MIN_LENGTH } from '../../lib/validation';
+import {
+  hasErrors,
+  PASSWORD_MIN_LENGTH,
+  validateEmail,
+  validatePasswordPair,
+  validateRegistration,
+  validateResetEmail,
+} from '../../lib/validation';
 import { describedBy } from '../../lib/a11y';
-import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../../components/ui';
+import { toActiveChallenge, type ActiveChallenge } from '../../lib/otp';
+import { ErrorBanner, FieldError, FieldHint, HoneypotField, Notice, Spinner } from '../../components/ui';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
 
 type Mode = 'login' | 'register' | 'verify' | 'forgot' | 'activate' | 'activateVerify';
 
-/**
- * A verification code that was just issued.
- *
- * The challenge ID is an opaque locator, not a secret. It lives in component
- * state only, so closing the tab discards the flow.
- */
-interface Challenge {
-  challengeId: string;
-  email: string;
-  resendAfter: number;
-  expiresIn: number;
-  maxAttempts: number;
-}
+type Challenge = ActiveChallenge;
 
 const HEADINGS: Record<Mode, string> = {
   login: 'Login ke Dashboard',
@@ -43,8 +38,8 @@ const HEADINGS: Record<Mode, string> = {
 const DESCRIPTIONS: Record<Mode, string> = {
   login: 'Login ke dashboard dengan akun Penalis untuk mengelola karya tulis.',
   register: 'Buat akun Penalis untuk mengakses dashboard dan mulai menulis di Penalis.',
-  verify: 'Masukkan kode enam digit yang kami kirim ke email kamu untuk mengaktifkan akun.',
-  forgot: 'Masukkan email kamu. Kami akan mengirim link untuk reset password.',
+  verify: 'Masukkan kode OTP yang kami kirim ke email kamu untuk mengaktifkan akun.',
+  forgot: 'Masukkan alamat email yang terdaftar dengan akun Penalis kamu untuk mengatur ulang password.',
   activate: 'Sudah pernah mengirim karya tulis dan menjadi kontributor Penalis sebelumnya?',
   activateVerify: 'Masukkan kode dari email kamu, lalu buat password untuk akun tersebut.',
 };
@@ -294,13 +289,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
         penalis_website: '',
       });
 
-      onChallenge({
-        challengeId: result.challenge_id,
-        email: values.user_email.trim(),
-        resendAfter: result.resend_after,
-        expiresIn: result.expires_in,
-        maxAttempts: result.max_attempts,
-      });
+      onChallenge(toActiveChallenge(result, values.user_email.trim()));
     } catch (error) {
       if (error instanceof ApiError) {
         setErrors(error.fields);
@@ -417,19 +406,10 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
         <FieldError errors={errors} name="confirm_password" />
       </div>
 
-      {/* Honeypot: hidden from users, must remain empty. */}
-      <div className="penalis-honeypot" aria-hidden="true">
-        <label>
-          Website
-          <input
-            type="text"
-            tabIndex={-1}
-            autoComplete="off"
-            value={values.penalis_website}
-            onChange={(event) => update('penalis_website', event.target.value)}
-          />
-        </label>
-      </div>
+      <HoneypotField
+        value={values.penalis_website}
+        onChange={(value) => update('penalis_website', value)}
+      />
 
       <label className="penalis-checkbox">
         <input
@@ -505,13 +485,7 @@ function RegistrationVerifyForm({
 
   const resend = async () => {
     const result = await registrationApi.resend(challenge.email);
-    const next = {
-      challengeId: result.challenge_id,
-      email: challenge.email,
-      resendAfter: result.resend_after,
-      expiresIn: result.expires_in,
-      maxAttempts: result.max_attempts,
-    };
+    const next = toActiveChallenge(result, challenge.email);
     onChallenge(next);
 
     return { challenge_id: next.challengeId, resend_after: next.resendAfter };
@@ -569,14 +543,8 @@ function ActivateVerifyForm({
     setError('');
     setErrors({});
 
-    const clientErrors: FieldErrors = {};
-    if (password.length < PASSWORD_MIN_LENGTH) {
-      clientErrors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
-    }
-    if (password !== confirm) {
-      clientErrors.confirm_password = 'Password tidak cocok.';
-    }
-    if (Object.keys(clientErrors).length > 0) {
+    const clientErrors = validatePasswordPair(password, confirm);
+    if (hasErrors(clientErrors)) {
       setErrors(clientErrors);
       return;
     }
@@ -604,13 +572,7 @@ function ActivateVerifyForm({
 
   const resend = async () => {
     const result = await legacyApi.request(challenge.email);
-    const next = {
-      challengeId: result.challenge_id,
-      email: challenge.email,
-      resendAfter: result.resend_after,
-      expiresIn: result.expires_in,
-      maxAttempts: result.max_attempts,
-    };
+    const next = toActiveChallenge(result, challenge.email);
     onChallenge(next);
 
     return { challenge_id: next.challengeId, resend_after: next.resendAfter };
@@ -754,27 +716,15 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
           required
         />
         <FieldHint id="forgot_email-hint">
-          Gunakan email yang terdaftar di akun kamu. Username tidak dapat dipakai untuk reset password.
+          Gunakan email yang terdaftar di akun kamu.
         </FieldHint>
         <FieldError errors={{ forgot_email: fieldError }} name="forgot_email" />
       </div>
 
-      {/* Honeypot: hidden from users, must remain empty. */}
-      <div className="penalis-honeypot" aria-hidden="true">
-        <label>
-          Website
-          <input
-            type="text"
-            tabIndex={-1}
-            autoComplete="off"
-            value={honeypot}
-            onChange={(event) => setHoneypot(event.target.value)}
-          />
-        </label>
-      </div>
+      <HoneypotField value={honeypot} onChange={setHoneypot} />
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Link Reset Password'}
+        {submitting ? <Spinner label="Memproses…" /> : 'Reset Password'}
       </button>
     </form>
   );
@@ -814,13 +764,7 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
 
     try {
       const result = await legacyApi.request(email.trim(), honeypot);
-      onChallenge({
-        challengeId: result.challenge_id,
-        email: email.trim(),
-        resendAfter: result.resend_after,
-        expiresIn: result.expires_in,
-        maxAttempts: result.max_attempts,
-      });
+      onChallenge(toActiveChallenge(result, email.trim()));
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
     } finally {
@@ -860,19 +804,7 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
         <FieldError errors={{ activate_email: fieldError }} name="activate_email" />
       </div>
 
-      {/* Honeypot: hidden from users, must remain empty. */}
-      <div className="penalis-honeypot" aria-hidden="true">
-        <label>
-          Website
-          <input
-            type="text"
-            tabIndex={-1}
-            autoComplete="off"
-            value={honeypot}
-            onChange={(event) => setHoneypot(event.target.value)}
-          />
-        </label>
-      </div>
+      <HoneypotField value={honeypot} onChange={setHoneypot} />
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
         {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Kode Aktivasi'}

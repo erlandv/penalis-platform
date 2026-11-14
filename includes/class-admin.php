@@ -80,15 +80,7 @@ final class Penalis_Admin {
 	 */
 	public static function register_menu() {
 		$pending_reviews = class_exists( 'Penalis_Editorial_Admin' ) ? Penalis_Editorial_Admin::pending_review_count() : 0;
-
-		$menu_title = 'Penalis';
-		if ( $pending_reviews > 0 ) {
-			$menu_title .= sprintf(
-				' <span class="awaiting-mod update-plugins count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
-				$pending_reviews,
-				number_format_i18n( $pending_reviews )
-			);
-		}
+		$menu_title      = self::format_menu_label( 'Penalis', $pending_reviews );
 
 		add_menu_page(
 			'Penalis Platform',
@@ -183,19 +175,56 @@ final class Penalis_Admin {
 	}
 
 	/**
-	 * Register and enqueue `assets/css/admin.css`.
+	 * Format an admin menu label with an optional WordPress count bubble.
 	 *
-	 * @return void
+	 * @param string $label Menu label.
+	 * @param int    $count Pending count.
+	 * @return string
 	 */
-	public static function enqueue_stylesheet() {
-		$rel_path = 'assets/css/admin.css';
+	public static function format_menu_label( $label, $count ) {
+		$label = (string) $label;
+		$count = (int) $count;
+
+		if ( $count > 0 ) {
+			$label .= sprintf(
+				' <span class="awaiting-mod update-plugins count-%1$d"><span class="pending-count" aria-hidden="true">%2$s</span></span>',
+				$count,
+				number_format_i18n( $count )
+			);
+		}
+
+		return $label;
+	}
+
+	/**
+	 * Resolve the asset URL and cache-busting version for a bundled relative path.
+	 *
+	 * @param string $rel_path Path relative to the plugin root.
+	 * @return array{url:string,version:string}
+	 */
+	public static function resolve_asset_meta( $rel_path ) {
+		$rel_path = ltrim( (string) $rel_path, '/' );
 		$abs_path = defined( 'PENALIS_PLATFORM_DIR' ) ? PENALIS_PLATFORM_DIR . $rel_path : '';
 		$url      = defined( 'PENALIS_PLATFORM_URL' ) ? PENALIS_PLATFORM_URL . $rel_path : '';
 		$version  = ( '' !== $abs_path && file_exists( $abs_path ) )
 			? (string) filemtime( $abs_path )
 			: ( defined( 'PENALIS_PLATFORM_VERSION' ) ? PENALIS_PLATFORM_VERSION : '1.0.0' );
 
-		wp_enqueue_style( 'penalis-admin', $url, array(), $version );
+		return array(
+			'url'     => $url,
+			'version' => $version,
+		);
+	}
+
+	/**
+	 * Register and enqueue `assets/css/admin.css`.
+	 *
+	 * @return void
+	 */
+	public static function enqueue_stylesheet() {
+		$asset = self::resolve_asset_meta( 'assets/css/admin.css' );
+
+		wp_enqueue_style( 'penalis-admin', $asset['url'], array(), $asset['version'] );
 	}
 
 	/**
@@ -208,14 +237,9 @@ final class Penalis_Admin {
 			return;
 		}
 
-		$rel_path = 'assets/js/admin-review.js';
-		$abs_path = defined( 'PENALIS_PLATFORM_DIR' ) ? PENALIS_PLATFORM_DIR . $rel_path : '';
-		$url      = defined( 'PENALIS_PLATFORM_URL' ) ? PENALIS_PLATFORM_URL . $rel_path : '';
-		$version  = ( '' !== $abs_path && file_exists( $abs_path ) )
-			? (string) filemtime( $abs_path )
-			: ( defined( 'PENALIS_PLATFORM_VERSION' ) ? PENALIS_PLATFORM_VERSION : '1.0.0' );
+		$asset = self::resolve_asset_meta( 'assets/js/admin-review.js' );
 
-		wp_enqueue_script( 'penalis-admin-review', $url, array(), $version, true );
+		wp_enqueue_script( 'penalis-admin-review', $asset['url'], array(), $asset['version'], true );
 	}
 
 	/**
@@ -606,17 +630,7 @@ JS;
 
 		if ( $is_legacy_view ) {
 			$args['role']       = 'contributor';
-			$args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-				'relation' => 'AND',
-				array(
-					'key'     => Penalis_Account_Status::META_STATUS,
-					'compare' => 'NOT EXISTS',
-				),
-				array(
-					'key'     => Penalis_Account_Status::META_ACCESS,
-					'compare' => 'NOT EXISTS',
-				),
-			);
+			$args['meta_query'] = self::legacy_contributor_meta_query(); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 		} elseif ( '' !== $status && Penalis_Policy::is_valid_status( $status ) ) {
 			$args['meta_key']   = Penalis_Account_Status::META_STATUS; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 			$args['meta_value'] = $status; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
@@ -947,36 +961,67 @@ JS;
 			</div>
 			<?php endif; ?>
 
-			<?php if ( $can_manage ) : ?>
-			<div id="penalis-writer-confirm-modal" class="penalis-confirm-modal" hidden>
-				<div class="penalis-confirm-modal__backdrop" data-penalis-writer-confirm-close></div>
-				<div
-					class="penalis-confirm-modal__dialog"
-					role="dialog"
-					aria-modal="true"
-					aria-labelledby="penalis-writer-confirm-title"
-					aria-describedby="penalis-writer-confirm-desc"
-				>
-					<div class="penalis-confirm-modal__head">
-						<span id="penalis-writer-confirm-badge" class="penalis-badge">Konfirmasi</span>
-						<h4 id="penalis-writer-confirm-title" class="penalis-confirm-modal__title">Konfirmasi Tindakan Akun</h4>
-					</div>
-					<p id="penalis-writer-confirm-desc" class="penalis-confirm-modal__desc"></p>
-					<div id="penalis-writer-confirm-account" class="penalis-confirm-modal__feedback">
-						<span class="penalis-confirm-modal__feedback-label">Akun penulis:</span>
-						<div id="penalis-writer-confirm-account-text" class="penalis-confirm-modal__feedback-text"></div>
-					</div>
-					<div class="penalis-confirm-modal__actions">
-						<button type="button" id="penalis-writer-confirm-cancel" class="button">
-							Batal
-						</button>
-						<button type="button" id="penalis-writer-confirm-submit" class="button button-primary">
-							Ya, Lanjutkan
-						</button>
-					</div>
+			<?php
+			if ( $can_manage ) {
+				self::render_confirm_modal(
+					'penalis-writer-confirm',
+					'Konfirmasi Tindakan Akun',
+					'Akun penulis:',
+					'penalis-writer-confirm-account',
+					'penalis-writer-confirm-account-text'
+				);
+			}
+			?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render a shared accessible confirmation modal dialog for wp-admin actions.
+	 *
+	 * @param string $prefix          ID and data-attribute prefix (`penalis-confirm` or `penalis-writer-confirm`).
+	 * @param string $title           Default modal heading.
+	 * @param string $context_label   Label for the context summary box.
+	 * @param string $context_box_id  DOM ID for the context summary wrapper.
+	 * @param string $context_text_id DOM ID for the context summary text container.
+	 * @return void
+	 */
+	public static function render_confirm_modal( $prefix, $title, $context_label, $context_box_id, $context_text_id ) {
+		$modal_id   = $prefix . '-modal';
+		$close_attr = 'data-' . $prefix . '-close';
+		$badge_id   = $prefix . '-badge';
+		$title_id   = $prefix . '-title';
+		$desc_id    = $prefix . '-desc';
+		$cancel_id  = $prefix . '-cancel';
+		$submit_id  = $prefix . '-submit';
+		?>
+		<div id="<?php echo esc_attr( $modal_id ); ?>" class="penalis-confirm-modal" hidden>
+			<div class="penalis-confirm-modal__backdrop" <?php echo esc_attr( $close_attr ); ?>></div>
+			<div
+				class="penalis-confirm-modal__dialog"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="<?php echo esc_attr( $title_id ); ?>"
+				aria-describedby="<?php echo esc_attr( $desc_id ); ?>"
+			>
+				<div class="penalis-confirm-modal__head">
+					<span id="<?php echo esc_attr( $badge_id ); ?>" class="penalis-badge">Konfirmasi</span>
+					<h4 id="<?php echo esc_attr( $title_id ); ?>" class="penalis-confirm-modal__title"><?php echo esc_html( $title ); ?></h4>
+				</div>
+				<p id="<?php echo esc_attr( $desc_id ); ?>" class="penalis-confirm-modal__desc"></p>
+				<div id="<?php echo esc_attr( $context_box_id ); ?>" class="penalis-confirm-modal__feedback">
+					<span class="penalis-confirm-modal__feedback-label"><?php echo esc_html( $context_label ); ?></span>
+					<div id="<?php echo esc_attr( $context_text_id ); ?>" class="penalis-confirm-modal__feedback-text"></div>
+				</div>
+				<div class="penalis-confirm-modal__actions">
+					<button type="button" id="<?php echo esc_attr( $cancel_id ); ?>" class="button">
+						Batal
+					</button>
+					<button type="button" id="<?php echo esc_attr( $submit_id ); ?>" class="button button-primary">
+						Ya, Lanjutkan
+					</button>
 				</div>
 			</div>
-			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -1003,23 +1048,32 @@ JS;
 				'number'      => 1,
 				'count_total' => true,
 				'role'        => 'contributor',
-				'meta_query'  => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-					'relation' => 'AND',
-					array(
-						'key'     => Penalis_Account_Status::META_STATUS,
-						'compare' => 'NOT EXISTS',
-					),
-					array(
-						'key'     => Penalis_Account_Status::META_ACCESS,
-						'compare' => 'NOT EXISTS',
-					),
-				),
+				'meta_query'  => self::legacy_contributor_meta_query(), // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
 			)
 		);
 
 		$counts['legacy'] = (int) $legacy->get_total();
 
 		return $counts;
+	}
+
+	/**
+	 * Build the user meta query matching unmanaged pre-plugin contributor accounts.
+	 *
+	 * @return array<int|string,mixed>
+	 */
+	private static function legacy_contributor_meta_query() {
+		return array(
+			'relation' => 'AND',
+			array(
+				'key'     => Penalis_Account_Status::META_STATUS,
+				'compare' => 'NOT EXISTS',
+			),
+			array(
+				'key'     => Penalis_Account_Status::META_ACCESS,
+				'compare' => 'NOT EXISTS',
+			),
+		);
 	}
 
 	/**

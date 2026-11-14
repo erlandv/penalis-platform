@@ -32,11 +32,16 @@ authentication store.
   (with raw HTML escape hatch), media library, writer profile & avatar picker,
   compact editorial notifications, and re-authenticated credential settings
   (password, verified email change, and 301-redirected username rename).
+- **Public Authors Directory & Verified Badges** — `[penalis_authors]` React
+  directory with search, verified filter, sorting, and pagination, plus verified
+  active writer badges (`[penalis_verified_badge]`) across author profiles,
+  article author boxes, and the writer dashboard.
 - **Unified WordPress Admin Console (`Penalis`)** — Centralized `wp-admin` menu
   with **Ringkasan** (overview metrics and pending queues), **Review Karya Tulis**
   (2-column article review workspace with serialized per-post locking and
-  confirmation dialogs), and **Penulis Penalis** (writer account curation and
-  default profile photo).
+  confirmation dialogs), **Penulis Penalis** (writer account curation and
+  default profile photo), and **Pengaturan Email** (customizable transactional
+  email templates with Markdown support and placeholder safety nets).
 
 ---
 

@@ -755,8 +755,8 @@ final class Penalis_Rest_Api {
 				'avatarUrl'           => Penalis_Avatar::get_url( $user_id ),
 				'email'               => $user->user_email,
 				'pendingEmail'        => $pending_email,
-				'canChangeEmail'      => $is_admin || Penalis_Policy::can_change_email( $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
-				'canChangeUsername'   => $is_admin || Penalis_Policy::can_change_username( $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
+				'canChangeEmail'      => Penalis_Account_Status::can_change_email( $user_id ),
+				'canChangeUsername'   => Penalis_Account_Status::can_change_username( $user_id ),
 				'description'         => (string) get_user_meta( $user_id, 'description', true ),
 				'instagram'           => Penalis_Account_Status::get_instagram( $user_id ),
 				'authorUrl'           => get_author_posts_url( $user_id ),
@@ -1086,68 +1086,19 @@ final class Penalis_Rest_Api {
 	 * @return array<string,mixed>
 	 */
 	public static function editorial_query_args( $user_id, $filter = 'all', $page = 1, $per_page = 10 ) {
-		$filter = (string) $filter;
-		$args   = array(
-			'post_type'           => 'post',
-			'author'              => (int) $user_id,
-			'posts_per_page'      => max( 1, (int) $per_page ),
-			'paged'               => max( 1, (int) $page ),
-			'orderby'             => 'modified',
-			'order'               => 'DESC',
-			'ignore_sticky_posts' => true,
-			'no_found_rows'       => false,
+		return array_merge(
+			array(
+				'post_type'           => 'post',
+				'author'              => (int) $user_id,
+				'posts_per_page'      => max( 1, (int) $per_page ),
+				'paged'               => max( 1, (int) $page ),
+				'orderby'             => 'modified',
+				'order'               => 'DESC',
+				'ignore_sticky_posts' => true,
+				'no_found_rows'       => false,
+			),
+			Penalis_Editorial_Workflow::state_query_clauses( (string) $filter )
 		);
-
-		if ( 'publish' === $filter || Penalis_Editorial_Policy::STATE_PUBLISHED === $filter ) {
-			$args['post_status'] = array( 'publish' );
-			return $args;
-		}
-
-		if ( 'pending' === $filter || Penalis_Editorial_Policy::STATE_PENDING_REVIEW === $filter ) {
-			$args['post_status'] = array( 'pending' );
-			return $args;
-		}
-
-		if (
-			Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED === $filter
-			|| Penalis_Editorial_Policy::STATE_REJECTED === $filter
-		) {
-			$args['post_status'] = array( 'draft' );
-			$args['meta_query']  = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-				array(
-					'key'   => Penalis_Editorial_Policy::META_STATE,
-					'value' => $filter,
-				),
-			);
-			return $args;
-		}
-
-		if ( Penalis_Editorial_Policy::STATE_DRAFT === $filter ) {
-			$args['post_status'] = array( 'draft' );
-			// Drafts that predate V2 or have not yet entered review carry no
-			// editorial state meta; include both alongside explicit `draft`.
-			$args['meta_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-				'relation' => 'OR',
-				array(
-					'key'     => Penalis_Editorial_Policy::META_STATE,
-					'compare' => 'NOT EXISTS',
-				),
-				array(
-					'key'   => Penalis_Editorial_Policy::META_STATE,
-					'value' => Penalis_Editorial_Policy::STATE_DRAFT,
-				),
-			);
-			return $args;
-		}
-
-		if ( 'future' === $filter ) {
-			$args['post_status'] = array( 'future' );
-			return $args;
-		}
-
-		$args['post_status'] = array( 'publish', 'draft', 'pending', 'future' );
-
-		return $args;
 	}
 
 	/**
@@ -1481,6 +1432,17 @@ final class Penalis_Rest_Api {
 	 * @return WP_Post|WP_Error
 	 */
 	private static function get_owned_article( $post_id ) {
+		return self::get_readable_article( $post_id, false );
+	}
+
+	/**
+	 * Fetch an article readable in the dashboard by the owner or (optionally) a reviewer.
+	 *
+	 * @param int  $post_id        Post ID.
+	 * @param bool $allow_reviewer Whether reviewers (`edit_others_posts`) may access non-owned articles.
+	 * @return WP_Post|WP_Error
+	 */
+	private static function get_readable_article( $post_id, $allow_reviewer = true ) {
 		$user_id = get_current_user_id();
 		$post    = get_post( (int) $post_id );
 
@@ -1492,7 +1454,9 @@ final class Penalis_Rest_Api {
 			);
 		}
 
-		if ( (int) $post->post_author !== (int) $user_id ) {
+		$is_owner = (int) $post->post_author === (int) $user_id;
+
+		if ( ! $is_owner && ( ! $allow_reviewer || ! Penalis_Editorial_Workflow::can_review( $user_id ) ) ) {
 			// Return 404 rather than 403 to avoid disclosing the existence of
 			// another writer's article.
 			return new WP_Error(
@@ -1506,82 +1470,12 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
-	 * Fetch an article readable in the dashboard by the owner or an administrator reviewer.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return WP_Post|WP_Error
-	 */
-	private static function get_readable_article( $post_id ) {
-		$user_id = get_current_user_id();
-		$post    = get_post( (int) $post_id );
-
-		if ( ! $post || 'post' !== $post->post_type ) {
-			return new WP_Error(
-				'penalis_not_found',
-				'Karya tulis tidak ditemukan.',
-				array( 'status' => 404 )
-			);
-		}
-
-		if ( (int) $post->post_author !== (int) $user_id && ! Penalis_Editorial_Workflow::can_review( $user_id ) ) {
-			return new WP_Error(
-				'penalis_not_found',
-				'Karya tulis tidak ditemukan.',
-				array( 'status' => 404 )
-			);
-		}
-
-		return $post;
-	}
-
-	/**
-	 * Prepare a small article summary.
+	 * Prepare shared editorial state, capability flags, and timestamps for an article.
 	 *
 	 * @param WP_Post $post Post.
 	 * @return array<string,mixed>
 	 */
-	private static function prepare_article_summary( $post ) {
-		$thumbnail    = get_the_post_thumbnail_url( $post, 'thumbnail' );
-		$user_id      = get_current_user_id();
-		$is_owner     = (int) $post->post_author === (int) $user_id;
-		$state        = Penalis_Editorial_Workflow::get_state( $post );
-		$submitted_at = Penalis_Editorial_Workflow::get_submitted_at( $post );
-		$reviewed_at  = Penalis_Editorial_Workflow::get_reviewed_at( $post );
-
-		return array(
-			'id'                  => (int) $post->ID,
-			'title'               => $post->post_title,
-			'excerpt'             => wp_trim_words( wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : $post->post_content ), 30 ),
-			'status'              => $post->post_status,
-			'editorialState'      => $state,
-			'editorialStateLabel' => Penalis_Editorial_Policy::state_label( $state ),
-			'canEdit'             => Penalis_Editorial_Workflow::can_writer_edit( $post, $user_id ),
-			'canSubmit'           => $is_owner && Penalis_Editorial_Policy::can_transition( $state, Penalis_Editorial_Policy::ACTION_SUBMIT ),
-			'canResubmit'         => $is_owner && Penalis_Editorial_Policy::can_transition( $state, Penalis_Editorial_Policy::ACTION_RESUBMIT ),
-			'feedback'            => Penalis_Editorial_Workflow::get_feedback( $post ),
-			'reviewCycle'         => Penalis_Editorial_Workflow::get_review_cycle( $post ),
-			'submittedAt'         => $submitted_at > 0 ? gmdate( 'Y-m-d H:i:s', $submitted_at ) : '',
-			'reviewedAt'          => $reviewed_at > 0 ? gmdate( 'Y-m-d H:i:s', $reviewed_at ) : '',
-			'date'                => $post->post_date_gmt,
-			'modified'            => $post->post_modified_gmt,
-			'link'                => 'publish' === $post->post_status ? get_permalink( $post ) : '',
-			'editUrl'             => Penalis_Dashboard::dashboard_url(
-				array(
-					'view' => 'editor',
-					'id'   => (int) $post->ID,
-				)
-			),
-			'thumbnail'           => $thumbnail ? $thumbnail : '',
-		);
-	}
-
-	/**
-	 * Prepare the editorial review state and history payload for a single article.
-	 *
-	 * @param WP_Post $post Post.
-	 * @return array<string,mixed>
-	 */
-	private static function prepare_article_review( $post ) {
+	private static function prepare_editorial_fields( $post ) {
 		$user_id      = get_current_user_id();
 		$is_owner     = (int) $post->post_author === (int) $user_id;
 		$state        = Penalis_Editorial_Workflow::get_state( $post );
@@ -1600,7 +1494,49 @@ final class Penalis_Rest_Api {
 			'reviewCycle'         => Penalis_Editorial_Workflow::get_review_cycle( $post ),
 			'submittedAt'         => $submitted_at > 0 ? gmdate( 'Y-m-d H:i:s', $submitted_at ) : '',
 			'reviewedAt'          => $reviewed_at > 0 ? gmdate( 'Y-m-d H:i:s', $reviewed_at ) : '',
-			'reviewHistory'       => self::prepare_review_history( $post ),
+		);
+	}
+
+	/**
+	 * Prepare a small article summary.
+	 *
+	 * @param WP_Post $post Post.
+	 * @return array<string,mixed>
+	 */
+	private static function prepare_article_summary( $post ) {
+		$thumbnail = get_the_post_thumbnail_url( $post, 'thumbnail' );
+
+		return array_merge(
+			self::prepare_editorial_fields( $post ),
+			array(
+				'title'     => $post->post_title,
+				'excerpt'   => wp_trim_words( wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : $post->post_content ), 30 ),
+				'date'      => $post->post_date_gmt,
+				'modified'  => $post->post_modified_gmt,
+				'link'      => 'publish' === $post->post_status ? get_permalink( $post ) : '',
+				'editUrl'   => Penalis_Dashboard::dashboard_url(
+					array(
+						'view' => 'editor',
+						'id'   => (int) $post->ID,
+					)
+				),
+				'thumbnail' => $thumbnail ? $thumbnail : '',
+			)
+		);
+	}
+
+	/**
+	 * Prepare the editorial review state and history payload for a single article.
+	 *
+	 * @param WP_Post $post Post.
+	 * @return array<string,mixed>
+	 */
+	private static function prepare_article_review( $post ) {
+		return array_merge(
+			self::prepare_editorial_fields( $post ),
+			array(
+				'reviewHistory' => self::prepare_review_history( $post ),
+			)
 		);
 	}
 
@@ -1681,17 +1617,13 @@ final class Penalis_Rest_Api {
 		$raw_drafts = 0;
 
 		foreach ( array( 'publish', 'draft', 'pending' ) as $status ) {
-			$query = new WP_Query(
+			$found = Penalis_Editorial_Workflow::count_matching_posts(
 				array(
-					'post_type'      => 'post',
-					'post_status'    => $status,
-					'author'         => (int) $user_id,
-					'posts_per_page' => 1,
-					'fields'         => 'ids',
-					'no_found_rows'  => false,
+					'post_type'   => 'post',
+					'post_status' => $status,
+					'author'      => (int) $user_id,
 				)
 			);
-			$found = (int) $query->found_posts;
 
 			if ( 'draft' === $status ) {
 				$raw_drafts = $found;
@@ -1708,18 +1640,9 @@ final class Penalis_Rest_Api {
 				Penalis_Editorial_Policy::STATE_REJECTED,
 			) as $editorial_state
 		) {
-			$state_query = new WP_Query(
-				array_merge(
-					self::editorial_query_args( $user_id, $editorial_state, 1, 1 ),
-					array(
-						'fields'         => 'ids',
-						'no_found_rows'  => false,
-						'posts_per_page' => 1,
-					)
-				)
+			$counts[ $editorial_state ] = Penalis_Editorial_Workflow::count_matching_posts(
+				self::editorial_query_args( $user_id, $editorial_state, 1, 1 )
 			);
-
-			$counts[ $editorial_state ] = (int) $state_query->found_posts;
 		}
 
 		$counts['draft'] = max(

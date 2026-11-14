@@ -7,7 +7,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
-import { ApiError, articlesApi, mediaApi, taxonomyApi } from '../../lib/api';
+import { ApiError, articlesApi, isStaleEditorialError, mediaApi, taxonomyApi } from '../../lib/api';
 import { editorialStateLabel as formatEditorialStateLabel, formatDateTime, formatTime } from '../../lib/format';
 import { trimTrailingEmptyParagraphs } from '../../lib/html';
 import type {
@@ -24,8 +24,7 @@ import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../com
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
-import { ImageDropzone } from '../../components/ImageDropzone';
-import { MediaSelection } from '../../components/MediaSelection';
+import { MediaPickerDialog } from '../../components/MediaSelection';
 import { Icon } from '../../components/icons';
 import { editorLoader } from './editorLoader';
 import type { RichTextEditorHandle } from './RichTextEditor';
@@ -124,7 +123,6 @@ export function Editor({
   const [tagSuggestions, setTagSuggestions] = useState<Term[]>([]);
   const [featuredMedia, setFeaturedMedia] = useState(0);
   const [featuredPreview, setFeaturedPreview] = useState('');
-  const [media, setMedia] = useState<MediaItem[]>([]);
   /**
    * Why the media picker is open, or `null` when it is closed.
    *
@@ -135,10 +133,6 @@ export function Editor({
    * decide which one to press on every thumbnail.
    */
   const [mediaIntent, setMediaIntent] = useState<MediaIntent | null>(null);
-  const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
-  const [mediaLoading, setMediaLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState('');
   const [previewOpen, setPreviewOpen] = useState(false);
 
   /**
@@ -314,45 +308,9 @@ export function Editor({
    */
   const closeMedia = useCallback(() => {
     setMediaIntent(null);
-    setSelectedMediaId(null);
   }, []);
   const closePreview = useCallback(() => setPreviewOpen(false), []);
   const closeSubmitConfirm = useCallback(() => setSubmitConfirmOpen(false), []);
-
-  /**
-   * Open the media picker for a specific purpose.
-   *
-   * The intent is captured here rather than inferred later, so the confirm
-   * button always knows what to do even if the writer uploads a new image or
-   * switches selection while the dialog is open.
-   */
-  const openMediaPicker = async (intent: MediaIntent) => {
-    setMediaIntent(intent);
-    setSelectedMediaId(null);
-    setMediaLoading(true);
-    try {
-      const list = await mediaApi.list(1);
-      setMedia(list.items);
-    } catch {
-      setMedia([]);
-    } finally {
-      setMediaLoading(false);
-    }
-  };
-
-  const uploadImage = async (file: File) => {
-    setUploading(true);
-    setUploadError('');
-
-    try {
-      const uploaded = await mediaApi.upload(file);
-      setMedia((current) => [uploaded, ...current]);
-    } catch (caught) {
-      setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat di-upload.');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   /**
    * Apply the selected image according to why the picker was opened.
@@ -360,12 +318,7 @@ export function Editor({
    * One handler for both flows keeps the dialog's confirm button identical; the
    * only difference is what happens to the chosen item.
    */
-  const confirmMediaSelection = () => {
-    const item = media.find((entry) => entry.id === selectedMediaId);
-    if (!item) {
-      return;
-    }
-
+  const confirmMediaSelection = (item: MediaItem) => {
     if (mediaIntent === 'featured') {
       setFeaturedMedia(item.id);
       setFeaturedPreview(item.thumbnail || item.url);
@@ -401,19 +354,6 @@ export function Editor({
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Tag tidak dapat dibuat.');
     }
-  };
-
-  const isStaleEditorialError = (caught: unknown): boolean => {
-    if (!(caught instanceof ApiError)) {
-      return false;
-    }
-
-    return (
-      caught.status === 409 ||
-      caught.code === 'penalis_editorial_denied' ||
-      caught.code === 'penalis_editorial_locked' ||
-      caught.code === 'penalis_editorial_busy'
-    );
   };
 
   const saveDraft = async () => {
@@ -833,7 +773,7 @@ export function Editor({
                   ref={editorRef}
                   value={content}
                   onChange={setContent}
-                  onRequestImage={() => void openMediaPicker('insert')}
+                  onRequestImage={() => setMediaIntent('insert')}
                   invalid={Boolean(errors.content)}
                   errorId={errors.content ? 'content-error' : undefined}
                   labelledBy="penalis-content-label"
@@ -947,7 +887,7 @@ export function Editor({
               <button
                 type="button"
                 className="penalis-button penalis-button--ghost"
-                onClick={() => void openMediaPicker('featured')}
+                onClick={() => setMediaIntent('featured')}
               >
                 Pilih dari pustaka media
               </button>
@@ -1044,43 +984,17 @@ export function Editor({
       </div>
 
       {mediaIntent ? (
-        <Dialog label="Pustaka media" onClose={closeMedia}>
-          <div className="penalis-modal__content">
-            <div className="penalis-modal__header">
-              <div>
-                <h3>Pustaka media</h3>
-                <p className="penalis-muted penalis-media-picker__hint">
-                  {mediaIntent === 'featured'
-                    ? 'Pilih gambar untuk dijadikan thumbnail karya tulis ini.'
-                    : 'Pilih gambar untuk disisipkan ke dalam karya tulis.'}
-                </p>
-              </div>
-            </div>
-
-            <ImageDropzone
-              onFile={(file) => void uploadImage(file)}
-              onReject={setUploadError}
-              busy={uploading}
-              title="Letakkan gambar di sini"
-              subtitle="atau klik untuk memilih file"
-              hint="Hanya dapat upload file JPEG, PNG, GIF, atau WebP."
-            />
-
-            {uploadError ? <ErrorBanner message={uploadError} /> : null}
-
-            {mediaLoading ? (
-              <Spinner label="Memuat media…" />
-            ) : media.length === 0 ? (
-              <p className="penalis-muted">
-                Kamu belum upload media apa pun. Gunakan kontrol upload di atas untuk menambahkan gambar pertama.
-              </p>
-            ) : (
-
-              <MediaSelection items={media} selectedId={selectedMediaId} onSelect={setSelectedMediaId}
-                onConfirm={confirmMediaSelection} onCancel={closeMedia} busy={uploading} />
-            )}
-          </div>
-        </Dialog>
+        <MediaPickerDialog
+          label="Pustaka media"
+          title="Pustaka media"
+          description={
+            mediaIntent === 'featured'
+              ? 'Pilih gambar untuk dijadikan thumbnail karya tulis ini.'
+              : 'Pilih gambar untuk disisipkan ke dalam karya tulis.'
+          }
+          onConfirm={confirmMediaSelection}
+          onClose={closeMedia}
+        />
       ) : null}
 
       {previewOpen ? (
