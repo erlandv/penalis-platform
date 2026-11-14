@@ -114,6 +114,7 @@ function penalis_reset() {
 	$GLOBALS['penalis_test_reset_key_users'] = array();
 	$GLOBALS['penalis_test_password_resets'] = array();
 	$GLOBALS['penalis_test_posts']           = array();
+	$GLOBALS['penalis_test_post_views']      = array();
 	$GLOBALS['penalis_test_post_updates']    = array();
 	$GLOBALS['penalis_test_password_notifications'] = array();
 	$GLOBALS['penalis_test_actions']         = array(
@@ -3874,6 +3875,77 @@ penalis_same( array( 'Adi', 'Budi', 'Citra' ), array_column( $sorted_az, 'displa
 
 $sorted_za = Penalis_Policy::sort_public_authors( $unsorted_authors, 'name_desc' );
 penalis_same( array( 'Citra', 'Budi', 'Adi' ), array_column( $sorted_za, 'displayName' ), 'name_desc sorts alphabetically Z-A.' );
+
+/* -------------------------------------------------------------------------
+ * Post Views Counter integration in REST API
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_writer( 11 );
+
+// Writer 10 has two published posts, one draft, and one pending submission.
+penalis_editorial_post( 701, 10, 'publish' );
+$GLOBALS['penalis_test_posts'][701]->post_title = 'Puisi Terbit Pertama';
+penalis_editorial_post( 702, 10, 'publish' );
+$GLOBALS['penalis_test_posts'][702]->post_title = 'Esai Terbit Kedua';
+penalis_editorial_post( 703, 10, 'draft' );
+$GLOBALS['penalis_test_posts'][703]->post_title = 'Draft Belum Terbit';
+penalis_editorial_post( 704, 10, 'pending' );
+$GLOBALS['penalis_test_posts'][704]->post_title = 'Naskah Menunggu Review';
+
+// Writer 11 has one published post with views that must not bleed into writer 10's totals.
+penalis_editorial_post( 705, 11, 'publish' );
+
+// Populate Post Views Counter totals, including stray counts on unpublished posts.
+$GLOBALS['penalis_test_post_views'] = array(
+	701 => 1250,
+	702 => 340,
+	703 => 99,
+	704 => 45,
+	705 => 5000,
+);
+
+$GLOBALS['penalis_test_current_user'] = 10;
+
+// 1. Single published article exposes its view count.
+$article_701_resp = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/penalis/v1/articles/701', array( 'id' => 701 ) ) );
+penalis_assert( $article_701_resp instanceof WP_REST_Response, 'Published article 701 can be fetched.' );
+penalis_same( 1250, $article_701_resp->get_data()['views'], 'Single published article returns its Post Views Counter total.' );
+
+// 2. Unpublished articles always report 0 views even if stray view rows exist.
+$article_703_resp = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/penalis/v1/articles/703', array( 'id' => 703 ) ) );
+penalis_same( 0, $article_703_resp->get_data()['views'], 'Draft article always reports 0 views.' );
+
+$article_704_resp = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/penalis/v1/articles/704', array( 'id' => 704 ) ) );
+penalis_same( 0, $article_704_resp->get_data()['views'], 'Pending review article always reports 0 views.' );
+
+// 3. Article list summaries include per-article views and author-scoped total published views.
+$list_resp = Penalis_Rest_Api::list_articles(
+	new WP_REST_Request(
+		'GET',
+		'/penalis/v1/articles',
+		array(
+			'page'   => 1,
+			'status' => 'all',
+		)
+	)
+);
+penalis_assert( $list_resp instanceof WP_REST_Response, 'GET /articles returns a response.' );
+$list_data     = $list_resp->get_data();
+$views_by_post = array();
+foreach ( $list_data['items'] as $summary_item ) {
+	$views_by_post[ $summary_item['id'] ] = $summary_item['views'];
+}
+penalis_same( 1250, $views_by_post[701], 'List summary for published post 701 reports 1250 views.' );
+penalis_same( 340, $views_by_post[702], 'List summary for published post 702 reports 340 views.' );
+penalis_same( 0, $views_by_post[703], 'List summary for draft post 703 reports 0 views.' );
+penalis_same( 0, $views_by_post[704], 'List summary for pending post 704 reports 0 views.' );
+penalis_same( 1590, $list_data['counts']['views'], 'counts.views sums only published articles owned by the current writer (1250 + 340).' );
+
+// 4. Account payload also includes counts.views for the Overview summary card.
+$account_views_resp = Penalis_Rest_Api::get_account();
+penalis_same( 1590, $account_views_resp->get_data()['counts']['views'], 'GET /account includes counts.views across published articles.' );
 
 /* -------------------------------------------------------------------------
  * Report

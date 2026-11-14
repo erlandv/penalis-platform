@@ -1146,6 +1146,7 @@ final class Penalis_Rest_Api {
 					'date'          => $post->post_date_gmt,
 					'modified'      => $post->post_modified_gmt,
 					'link'          => 'publish' === $post->post_status ? get_permalink( $post ) : '',
+					'views'         => self::get_post_views( $post ),
 					'featuredMedia' => (int) get_post_thumbnail_id( $post ),
 					'categories'    => $categories,
 					'tags'          => $tags,
@@ -1514,6 +1515,7 @@ final class Penalis_Rest_Api {
 				'date'      => $post->post_date_gmt,
 				'modified'  => $post->post_modified_gmt,
 				'link'      => 'publish' === $post->post_status ? get_permalink( $post ) : '',
+				'views'     => self::get_post_views( $post ),
 				'editUrl'   => Penalis_Dashboard::dashboard_url(
 					array(
 						'view' => 'editor',
@@ -1612,6 +1614,7 @@ final class Penalis_Rest_Api {
 			'pending'           => 0,
 			'changes_requested' => 0,
 			'rejected'          => 0,
+			'views'             => 0,
 		);
 
 		$raw_drafts = 0;
@@ -1650,7 +1653,82 @@ final class Penalis_Rest_Api {
 			$raw_drafts - $counts['changes_requested'] - $counts['rejected']
 		);
 
+		$counts['views'] = self::author_total_views( (int) $user_id );
+
 		return $counts;
+	}
+
+	/**
+	 * Return the lifetime view count for a single post via Post Views Counter.
+	 *
+	 * Unpublished articles always report 0 views, and the helper degrades to 0
+	 * when the Post Views Counter plugin (`pvc_get_post_views()`) is inactive.
+	 *
+	 * @param WP_Post|int $post Post or post ID.
+	 * @return int
+	 */
+	private static function get_post_views( $post ) {
+		$post_obj = $post instanceof WP_Post ? $post : get_post( (int) $post );
+
+		if ( ! $post_obj || (int) $post_obj->ID <= 0 || 'publish' !== $post_obj->post_status ) {
+			return 0;
+		}
+
+		if ( ! function_exists( 'pvc_get_post_views' ) ) {
+			return 0;
+		}
+
+		return max( 0, (int) pvc_get_post_views( (int) $post_obj->ID ) );
+	}
+
+	/**
+	 * Return the total lifetime views across all published posts owned by a user.
+	 *
+	 * Uses a single `pvc_get_post_views( int[] )` aggregate query over the
+	 * writer's published post IDs so the dashboard overview never issues N+1
+	 * queries. Degrades to 0 when Post Views Counter is inactive or the user
+	 * has no published articles.
+	 *
+	 * @param int $user_id User ID.
+	 * @return int
+	 */
+	private static function author_total_views( $user_id ) {
+		$user_id = (int) $user_id;
+
+		if ( $user_id <= 0 || ! function_exists( 'pvc_get_post_views' ) ) {
+			return 0;
+		}
+
+		$query = new WP_Query(
+			array(
+				'post_type'           => 'post',
+				'post_status'         => array( 'publish' ),
+				'author'              => $user_id,
+				'fields'              => 'ids',
+				'posts_per_page'      => -1,
+				'no_found_rows'       => true,
+				'ignore_sticky_posts' => true,
+			)
+		);
+
+		if ( empty( $query->posts ) || ! is_array( $query->posts ) ) {
+			return 0;
+		}
+
+		$post_ids = array_values(
+			array_filter(
+				array_map( 'intval', $query->posts ),
+				static function ( $post_id ) {
+					return $post_id > 0;
+				}
+			)
+		);
+
+		if ( empty( $post_ids ) ) {
+			return 0;
+		}
+
+		return max( 0, (int) pvc_get_post_views( $post_ids ) );
 	}
 
 	/**

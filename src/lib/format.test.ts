@@ -5,6 +5,7 @@ import {
   editorialStateLabel,
   formatDate,
   formatDateTime,
+  formatNumber,
   formatTime,
   parseDateValue,
   statusLabel,
@@ -168,5 +169,23 @@ describe('editorialStateLabel and statusTone', () => {
     expect(statusTone('rejected')).toBe('danger');
     expect(statusTone('reject')).toBe('danger');
     expect(statusTone('draft')).toBe('neutral');
+  });
+});
+
+describe('formatNumber', () => {
+  it('formats non-negative integers with Indonesian thousands separators', () => {
+    expect(formatNumber(0)).toBe('0');
+    expect(formatNumber(42)).toBe('42');
+    expect(formatNumber(1250)).toBe('1.250');
+    expect(formatNumber(1000000)).toBe('1.000.000');
+    expect(formatNumber(1250.9)).toBe('1.250');
+  });
+
+  it('returns 0 for negative, non-finite, or missing values', () => {
+    expect(formatNumber(-5)).toBe('0');
+    expect(formatNumber(Number.NaN)).toBe('0');
+    expect(formatNumber(Number.POSITIVE_INFINITY)).toBe('0');
+    expect(formatNumber(null)).toBe('0');
+    expect(formatNumber(undefined)).toBe('0');
   });
 });

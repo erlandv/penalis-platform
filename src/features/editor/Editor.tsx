@@ -8,7 +8,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { ApiError, articlesApi, isStaleEditorialError, mediaApi, taxonomyApi } from '../../lib/api';
-import { editorialStateLabel as formatEditorialStateLabel, formatDateTime, formatTime } from '../../lib/format';
+import {
+  editorialStateLabel as formatEditorialStateLabel,
+  formatDateTime,
+  formatNumber,
+  formatTime,
+} from '../../lib/format';
 import { trimTrailingEmptyParagraphs } from '../../lib/html';
 import type {
   Article,
@@ -114,6 +119,7 @@ export function Editor({
   const [reviewedAt, setReviewedAt] = useState('');
   const [reviewHistory, setReviewHistory] = useState<ReviewHistoryEntry[]>([]);
   const [link, setLink] = useState('');
+  const [views, setViews] = useState(0);
   const [staleReview, setStaleReview] = useState(false);
 
   const [categories, setCategories] = useState<Term[]>([]);
@@ -207,6 +213,7 @@ export function Editor({
       setReviewedAt(article.reviewedAt ?? '');
       setReviewHistory(article.reviewHistory ?? []);
       setLink(article.link ?? '');
+      setViews(article.views ?? 0);
       setSelectedCategories(article.categories.map((term) => term.id));
       setSelectedTags(article.tags);
 
@@ -800,6 +807,12 @@ export function Editor({
                 <dt>Review cycle</dt>
                 <dd>{reviewCycle > 0 ? `Cycle ${reviewCycle}` : 'Belum submit'}</dd>
               </div>
+              {editorialState === 'published' ? (
+                <div>
+                  <dt>Views</dt>
+                  <dd>{formatNumber(views)}</dd>
+                </div>
+              ) : null}
               {submittedAt ? (
                 <div>
                   <dt>Terakhir di-submit</dt>

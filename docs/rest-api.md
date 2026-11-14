@@ -44,7 +44,7 @@ have no Penalis writer status, so `/account` reports `isReviewer: true`,
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
-| `/account` | `GET` | `get_account` | Return account status, capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), `instagram`, article counts by editorial state, and `unreadNotifications` count |
+| `/account` | `GET` | `get_account` | Return account status, capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), `instagram`, article counts by editorial state (plus total published `counts.views`), and `unreadNotifications` count |
 | `/account/profile` | `POST` | `update_profile` | Update `first_name`, `last_name`, `display_name_mode`, custom `display_name`, `description`, and optional `instagram` |
 | `/account/password` | `POST` | `update_password` | Change own password (requires `current_password`, `new_password` >= 12 chars) |
 | `/account/username` | `POST` | `change_username` | Re-authenticated `user_login` change inside a MySQL advisory lock; records 301 redirect and ends sessions |
@@ -62,8 +62,8 @@ Accessible to active writers (`_penalis_account_status = active` and
 
 | Route | Method | Handler | Access & Behavior |
 | --- | --- | --- | --- |
-| `/articles` | `GET` | `list_articles` | Paginated list of the current writer's articles (`status`: `all`, `draft`, `pending_review`, `changes_requested`, `rejected`, `published`) |
-| `/articles/(?P<id>\d+)` | `GET` | `get_article` | Single article with editorial metadata; readable only by the article owner or a reviewer (`edit_others_posts`, i.e. administrator or editor) (`404` otherwise) |
+| `/articles` | `GET` | `list_articles` | Paginated list of the current writer's articles (`status`: `all`, `draft`, `pending_review`, `changes_requested`, `rejected`, `published`); includes per-article `views` (`0` for unpublished articles) and author-wide `counts.views` via Post Views Counter |
+| `/articles/(?P<id>\d+)` | `GET` | `get_article` | Single article with editorial metadata and lifetime `views` (`0` when unpublished); readable only by the article owner or a reviewer (`edit_others_posts`, i.e. administrator or editor) (`404` otherwise) |
 | `/articles/(?P<id>\d+)/review` | `GET` | `get_article_review` | Editorial state, capability flags (`canEdit`, `canSubmit`, `canResubmit`), active feedback, review cycle, and bounded review history |
 | `/articles/(?P<id>\d+)/submit` | `POST` | `submit_article` | Owner-only: submit a complete `draft` article (`title` and `content` required) to `pending_review` |
 | `/articles/(?P<id>\d+)/resubmit` | `POST` | `resubmit_article` | Owner-only: resubmit a `changes_requested` article to `pending_review` |

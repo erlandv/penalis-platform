@@ -66,6 +66,7 @@ export interface AccountCounts {
   pending: number;
   changes_requested?: number;
   rejected?: number;
+  views?: number;
 }
 
 export type EditorialState =
@@ -181,6 +182,7 @@ export interface ArticleSummary {
   date: string;
   modified: string;
   link: string;
+  views: number;
   editUrl: string;
   thumbnail: string;
 }
@@ -218,6 +220,7 @@ export interface Article {
   date: string;
   modified: string;
   link: string;
+  views: number;
   featuredMedia: number;
   categories: ArticleTerm[];
   tags: ArticleTerm[];

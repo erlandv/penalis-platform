@@ -218,6 +218,21 @@ export function truncate(value: string, length = 160): string {
   return `${text.slice(0, length - 1)}…`;
 }
 
+/**
+ * Format a non-negative integer using Indonesian thousands separators (`1.250`).
+ *
+ * Non-finite, negative, or missing inputs safely render as `'0'`.
+ *
+ * @param value Numeric count.
+ */
+export function formatNumber(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return '0';
+  }
+
+  return new Intl.NumberFormat(LOCALE).format(Math.trunc(value));
+}
+
 const NAMED_ENTITIES: Record<string, string> = {
   amp: '&',
   lt: '<',

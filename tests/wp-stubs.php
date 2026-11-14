@@ -1762,8 +1762,154 @@ if ( ! class_exists( 'WP_Query' ) ) {
 		 * @param array<string,mixed> $args Query arguments.
 		 */
 		public function __construct( $args = array() ) {
-			unset( $args );
+			$all_posts = isset( $GLOBALS['penalis_test_posts'] ) && is_array( $GLOBALS['penalis_test_posts'] )
+				? $GLOBALS['penalis_test_posts']
+				: array();
+
+			if ( empty( $all_posts ) ) {
+				return;
+			}
+
+			$post_type = isset( $args['post_type'] ) ? (string) $args['post_type'] : 'post';
+			$author    = isset( $args['author'] ) ? (int) $args['author'] : 0;
+			$statuses  = isset( $args['post_status'] ) ? (array) $args['post_status'] : array();
+			$matched   = array();
+
+			foreach ( $all_posts as $post ) {
+				if ( ! $post instanceof WP_Post ) {
+					continue;
+				}
+
+				if ( '' !== $post_type && $post->post_type !== $post_type ) {
+					continue;
+				}
+
+				if ( $author > 0 && (int) $post->post_author !== $author ) {
+					continue;
+				}
+
+				if ( ! empty( $statuses ) && ! in_array( (string) $post->post_status, $statuses, true ) ) {
+					continue;
+				}
+
+				if ( isset( $args['meta_query'] ) && is_array( $args['meta_query'] ) && ! self::matches_meta_query( $post, $args['meta_query'] ) ) {
+					continue;
+				}
+
+				$matched[] = $post;
+			}
+
+			$this->found_posts = count( $matched );
+
+			$per_page = isset( $args['posts_per_page'] ) ? (int) $args['posts_per_page'] : 10;
+			$paged    = isset( $args['paged'] ) ? max( 1, (int) $args['paged'] ) : 1;
+
+			if ( $per_page > 0 ) {
+				$this->max_num_pages = (int) ceil( $this->found_posts / $per_page );
+				$matched             = array_slice( $matched, ( $paged - 1 ) * $per_page, $per_page );
+			} else {
+				$this->max_num_pages = $this->found_posts > 0 ? 1 : 0;
+			}
+
+			if ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) {
+				$this->posts = array_map(
+					static function ( $post ) {
+						return (int) $post->ID;
+					},
+					$matched
+				);
+			} else {
+				$this->posts = array_values( $matched );
+			}
 		}
+
+		/**
+		 * Evaluate a simple meta_query against a WP_Post double.
+		 *
+		 * @param WP_Post             $post       Post object.
+		 * @param array<int|string,mixed> $meta_query Meta query array.
+		 * @return bool
+		 */
+		private static function matches_meta_query( $post, $meta_query ) {
+			$relation = isset( $meta_query['relation'] ) && 'OR' === strtoupper( (string) $meta_query['relation'] ) ? 'OR' : 'AND';
+			$clauses  = array();
+
+			foreach ( $meta_query as $key => $clause ) {
+				if ( 'relation' === $key || ! is_array( $clause ) || ! isset( $clause['key'] ) ) {
+					continue;
+				}
+				$clauses[] = $clause;
+			}
+
+			if ( empty( $clauses ) ) {
+				return true;
+			}
+
+			foreach ( $clauses as $clause ) {
+				$meta_key = (string) $clause['key'];
+				$compare  = isset( $clause['compare'] ) ? strtoupper( (string) $clause['compare'] ) : '=';
+				$exists   = isset( $post->meta[ $meta_key ] ) && ! empty( $post->meta[ $meta_key ] );
+				$actual   = $exists ? (string) reset( $post->meta[ $meta_key ] ) : '';
+
+				if ( 'NOT EXISTS' === $compare ) {
+					$clause_match = ! $exists;
+				} else {
+					$expected     = isset( $clause['value'] ) ? (string) $clause['value'] : '';
+					$clause_match = $exists && $actual === $expected;
+				}
+
+				if ( 'OR' === $relation && $clause_match ) {
+					return true;
+				}
+
+				if ( 'AND' === $relation && ! $clause_match ) {
+					return false;
+				}
+			}
+
+			return 'AND' === $relation;
+		}
+	}
+}
+
+if ( ! function_exists( 'pvc_get_post_views' ) ) {
+	/**
+	 * Post Views Counter pvc_get_post_views() stub.
+	 *
+	 * Mirrors the real plugin signature and behaviour: accepts a single post ID
+	 * or an array of post IDs and returns the total view count across them.
+	 *
+	 * @param int|int[]           $post_id Post ID or array of post IDs.
+	 * @param string              $period  Count period.
+	 * @param array<string,mixed> $args    Optional arguments.
+	 * @return int
+	 */
+	function pvc_get_post_views( $post_id = 0, $period = 'total', $args = array() ) {
+		unset( $period, $args );
+
+		$views_map = isset( $GLOBALS['penalis_test_post_views'] ) && is_array( $GLOBALS['penalis_test_post_views'] )
+			? $GLOBALS['penalis_test_post_views']
+			: array();
+
+		if ( is_array( $post_id ) ) {
+			$total   = 0;
+			$seen_id = array();
+			foreach ( $post_id as $id ) {
+				$id = (int) $id;
+				if ( $id <= 0 || isset( $seen_id[ $id ] ) ) {
+					continue;
+				}
+				$seen_id[ $id ] = true;
+				if ( isset( $views_map[ $id ] ) ) {
+					$total += (int) $views_map[ $id ];
+				}
+			}
+			return $total;
+		}
+
+		$id = (int) $post_id;
+
+		return isset( $views_map[ $id ] ) ? (int) $views_map[ $id ] : 0;
 	}
 }
 

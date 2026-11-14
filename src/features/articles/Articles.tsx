@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, articlesApi, isStaleEditorialError } from '../../lib/api';
 import type { ArticleList, ArticleSummary } from '../../lib/types';
-import { editorialStateLabel, formatDate, truncate } from '../../lib/format';
+import { editorialStateLabel, formatDate, formatNumber, truncate } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import {
@@ -185,6 +185,7 @@ export function Articles({
               <tr>
                 <th scope="col">Judul Karya</th>
                 <th scope="col">Status</th>
+                <th scope="col">Views</th>
                 <th scope="col">Diubah</th>
                 <th scope="col">Tindakan</th>
               </tr>
@@ -212,6 +213,7 @@ export function Articles({
                       ) : null}
                     </div>
                   </td>
+                  <td data-label="Views">{formatNumber(article.views)}</td>
                   <td data-label="Diubah">{formatDate(article.modified)}</td>
                   <td data-label="Tindakan">
 

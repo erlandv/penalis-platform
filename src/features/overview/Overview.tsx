@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { articlesApi, notificationsApi, ApiError } from '../../lib/api';
 import type { Account, ArticleList, DashboardNotification, NotificationList } from '../../lib/types';
-import { editorialStateLabel, formatDate, formatDateTime } from '../../lib/format';
+import { editorialStateLabel, formatDate, formatDateTime, formatNumber } from '../../lib/format';
+import { Icon } from '../../components/icons';
 import { EmptyState, ErrorBanner, Spinner, StatusBadge, VerifiedWriterBadge } from '../../components/ui';
 
 const INITIAL_VISIBLE_NOTIFICATIONS = 5;
@@ -162,6 +163,7 @@ export function Overview({
 
       <section className="penalis-cards" aria-label="Ringkasan karya tulis">
         <StatCard label="Total karya" value={counts.all} />
+        <StatCard label="Total views" value={counts.views ?? 0} />
         <StatCard label="Diterbitkan" value={counts.publish} />
         <StatCard label="Review" value={counts.pending} />
         <StatCard label="Draft" value={counts.draft} />
@@ -317,6 +319,12 @@ export function Overview({
                     status={article.editorialState}
                     label={article.editorialStateLabel || editorialStateLabel(article.editorialState)}
                   />
+                  {article.editorialState === 'published' ? (
+                    <span className="penalis-article-views" aria-label={`${formatNumber(article.views)} views`}>
+                      <Icon name="eye" />
+                      <span>{formatNumber(article.views)} views</span>
+                    </span>
+                  ) : null}
                   <span>{formatDate(article.modified)}</span>
                 </div>
               </li>
@@ -331,7 +339,7 @@ export function Overview({
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="penalis-card">
-      <span className="penalis-card__value">{value}</span>
+      <span className="penalis-card__value">{formatNumber(value)}</span>
       <span className="penalis-card__label">{label}</span>
     </div>
   );

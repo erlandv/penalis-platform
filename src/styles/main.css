@@ -1580,6 +1580,20 @@
   white-space: nowrap;
 }
 
+.penalis-article-views {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--penalis-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.penalis-article-views svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
 .penalis-tabs {
   display: flex;
   flex-wrap: wrap;
