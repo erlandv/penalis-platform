@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,6 +110,12 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 1.4.0 =
+* Feature: Integrate Post Views Counter for articles and display view counts across the dashboard UI.
+* Feature: Enhance the public authors directory (`[penalis_authors]`) with author views tracking and views-based sorting options.
+* Feature: Enhance OTP input handling with new UI and improved verification UX.
+* Refactor: Streamline OTP handling and validation logic.
+
 = 1.3.0 =
 * Feature: Add public authors directory shortcode (`[penalis_authors]`) with separate Vite bundle, search, status filter (`Semua` / `Verified`), sorting, URL query sync, and server-side pagination (`GET /penalis/v1/authors`, default 100 per page).
 * Feature: Introduce verified active writer badge for active `penalis_writer` accounts across the public authors directory, dashboard overview & account menu, post author boxes, Elementor author profile headings, and `[penalis_verified_badge]` shortcode.
@@ -151,6 +157,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 1.4.0 =
+Adds Post Views Counter integration across the dashboard and public authors directory, views-based sorting options, and an enhanced OTP verification input UI.
 
 = 1.3.0 =
 Adds the public authors directory shortcode (`[penalis_authors]`), verified active writer badges across public profiles, post author boxes, and the dashboard, and Terms of Service / Privacy Policy links in registration.
