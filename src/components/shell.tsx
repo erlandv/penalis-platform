@@ -185,11 +185,13 @@ function AccountMenu({
   adminUrl,
   reviewUrl,
   logoutUrl,
+  onNavigate,
 }: {
   account: Account;
   adminUrl?: string;
   reviewUrl?: string;
   logoutUrl: string;
+  onNavigate: (view: ViewName) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
@@ -395,23 +397,55 @@ function AccountMenu({
               rel="noreferrer noopener"
             >
               <Icon name="externalLink" />
-              <span>Lihat profil</span>
+              <span>Lihat profil publik</span>
             </a>
 
-            {adminUrl ? (
-              <a className="penalis-account__item" role="menuitem" href={adminUrl}>
-                <Icon name="users" />
-                <span>Kelola penulis</span>
-              </a>
+            <button
+              type="button"
+              className="penalis-account__item"
+              role="menuitem"
+              onClick={() => {
+                close();
+                onNavigate('profile');
+              }}
+            >
+              <Icon name="user" />
+              <span>Edit profil</span>
+            </button>
+
+            <button
+              type="button"
+              className="penalis-account__item"
+              role="menuitem"
+              onClick={() => {
+                close();
+                onNavigate('settings');
+              }}
+            >
+              <Icon name="settings" />
+              <span>Pengaturan akun</span>
+            </button>
+
+            {adminUrl || reviewUrl ? (
+              <>
+                <div className="penalis-account__divider" role="separator" />
+                {adminUrl ? (
+                  <a className="penalis-account__item" role="menuitem" href={adminUrl}>
+                    <Icon name="users" />
+                    <span>Kelola penulis</span>
+                  </a>
+                ) : null}
+
+                {reviewUrl ? (
+                  <a className="penalis-account__item" role="menuitem" href={reviewUrl}>
+                    <Icon name="fileText" />
+                    <span>Review karya tulis</span>
+                  </a>
+                ) : null}
+              </>
             ) : null}
 
-            {reviewUrl ? (
-              <a className="penalis-account__item" role="menuitem" href={reviewUrl}>
-                <Icon name="fileText" />
-                <span>Review karya tulis</span>
-              </a>
-            ) : null}
-
+            <div className="penalis-account__divider" role="separator" />
             <a
               className="penalis-account__item penalis-account__item--danger"
               role="menuitem"
@@ -453,6 +487,7 @@ export function Shell({
             adminUrl={bootstrap.adminUrl}
             reviewUrl={bootstrap.reviewUrl}
             logoutUrl={bootstrap.logoutUrl}
+            onNavigate={onNavigate}
           />
         </div>
       </header>
