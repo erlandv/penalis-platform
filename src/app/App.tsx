@@ -100,11 +100,12 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
-                  placeholder={`Minimal ${PASSWORD_MIN_LENGTH} karakter`}
                   aria-invalid={Boolean(errors.password)}
                   aria-describedby={describedBy('reset_password-hint', errors.password && 'password-error')}
                 />
-                <FieldHint id="reset_password-hint">Minimal {PASSWORD_MIN_LENGTH} karakter.</FieldHint>
+                <FieldHint id="reset_password-hint">
+                  Gunakan password yang kuat dan unik minimal {PASSWORD_MIN_LENGTH} karakter.
+                </FieldHint>
                 <FieldError errors={errors} name="password" />
               </div>
 
@@ -115,10 +116,12 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
-                  placeholder="Ulangi password baru"
                   aria-invalid={Boolean(errors.confirm_password)}
                   aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
                 />
+                <FieldHint id="reset_confirm_password-hint">
+                  Ketik ulang password baru untuk konfirmasi.
+                </FieldHint>
                 <FieldError errors={errors} name="confirm_password" />
               </div>
 
@@ -127,9 +130,14 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
               </button>
             </form>
 
-            {/* <p className="penalis-fineprint">
-              <a href={bootstrap.lostPassword}>Minta link baru</a>
-            </p> */}
+            <div className="penalis-auth__utility">
+              <p className="penalis-otp-resend">
+                Mengalami kendala?{' '}
+                <a className="penalis-link-button" href={bootstrap.lostPassword}>
+                  Minta link baru
+                </a>
+              </p>
+            </div>
           </>
         )}
       </div>

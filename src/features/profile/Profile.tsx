@@ -236,13 +236,12 @@ export function Profile({
         ) : null}
 
         <label className="penalis-field">
-          <span>Username Instagram (opsional)</span>
+          <span>Username Instagram</span>
           <input
             type="text"
             value={instagram}
             onChange={(event) => setInstagram(event.target.value)}
             maxLength={100}
-            placeholder="@username"
             aria-invalid={Boolean(errors.instagram)}
           />
           <FieldHint id="instagram-hint">

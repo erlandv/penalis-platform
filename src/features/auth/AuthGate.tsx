@@ -206,7 +206,6 @@ function LoginForm() {
           type="text"
           name="log"
           autoComplete="username"
-          placeholder="username atau email kamu"
           required
         />
       </div>
@@ -217,7 +216,6 @@ function LoginForm() {
           id="login_password"
           name="pwd"
           autoComplete="current-password"
-          placeholder="Password kamu"
           required
         />
       </div>
@@ -315,7 +313,6 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           onChange={(event) => update('display_name', event.target.value)}
           maxLength={80}
           autoComplete="name"
-          placeholder="Nama kamu"
           aria-invalid={Boolean(errors.display_name)}
           aria-describedby={describedBy('display_name-hint', errors.display_name && 'display_name-error')}
         />
@@ -332,7 +329,6 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           onChange={(event) => update('user_login', event.target.value)}
           maxLength={50}
           autoComplete="username"
-          placeholder="Username kamu"
           aria-invalid={Boolean(errors.user_login)}
           aria-describedby={describedBy('user_login-hint', errors.user_login && 'user_login-error')}
         />
@@ -351,7 +347,6 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           onChange={(event) => update('user_email', event.target.value)}
           maxLength={254}
           autoComplete="email"
-          placeholder="Email kamu"
           aria-invalid={Boolean(errors.user_email)}
           aria-describedby={describedBy('user_email-hint', errors.user_email && 'user_email-error')}
         />
@@ -367,7 +362,6 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           value={values.instagram}
           onChange={(event) => update('instagram', event.target.value)}
           maxLength={100}
-          placeholder="@username"
           aria-invalid={Boolean(errors.instagram)}
           aria-describedby={describedBy('instagram-hint', errors.instagram && 'instagram-error')}
         />
@@ -384,7 +378,6 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           value={values.password}
           onChange={(event) => update('password', event.target.value)}
           autoComplete="new-password"
-          placeholder="Password kamu"
           aria-invalid={Boolean(errors.password)}
           aria-describedby={describedBy('password-hint', errors.password && 'password-error')}
         />
@@ -399,10 +392,10 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           value={values.confirm_password}
           onChange={(event) => update('confirm_password', event.target.value)}
           autoComplete="new-password"
-          placeholder="Ulangi password kamu"
           aria-invalid={Boolean(errors.confirm_password)}
           aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
         />
+        <FieldHint id="confirm_password-hint">Ketik ulang password untuk konfirmasi.</FieldHint>
         <FieldError errors={errors} name="confirm_password" />
       </div>
 
@@ -628,7 +621,6 @@ function ActivateVerifyForm({
           value={confirm}
           onChange={(event) => setConfirm(event.target.value)}
           autoComplete="new-password"
-          placeholder="Ulangi password"
           aria-invalid={Boolean(errors.confirm_password)}
           aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
         />
@@ -710,7 +702,6 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
           }}
           autoComplete="email"
           maxLength={254}
-          placeholder="Email kamu"
           aria-invalid={Boolean(fieldError)}
           aria-describedby={describedBy('forgot_email-hint', fieldError && 'forgot_email-error')}
           required
@@ -793,7 +784,6 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
           }}
           autoComplete="email"
           maxLength={254}
-          placeholder="Email kamu"
           aria-invalid={Boolean(fieldError)}
           aria-describedby={describedBy('activate_email-hint', fieldError && 'activate_email-error')}
           required
