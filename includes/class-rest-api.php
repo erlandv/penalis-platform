@@ -40,31 +40,35 @@ final class Penalis_Rest_Api {
 				'callback'            => array( __CLASS__, 'handle_registration' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'display_name'    => array(
+					'display_name'          => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'user_login'      => array(
+					'user_login'            => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'user_email'      => array(
+					'user_email'            => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'password'        => array(
+					'password'              => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'instagram'       => array(
+					'instagram'             => array(
 						'type'     => 'string',
 						'required' => false,
 					),
-					'penalis_consent' => array(
+					'penalis_consent'       => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'penalis_website' => array(
+					'penalis_website'       => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+					'cf_turnstile_response' => array(
 						'type'     => 'string',
 						'required' => false,
 					),
@@ -116,11 +120,15 @@ final class Penalis_Rest_Api {
 				'callback'            => array( __CLASS__, 'handle_legacy_activate_request' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'user_email'      => array(
+					'user_email'            => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'penalis_website' => array(
+					'penalis_website'       => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+					'cf_turnstile_response' => array(
 						'type'     => 'string',
 						'required' => false,
 					),
@@ -160,11 +168,15 @@ final class Penalis_Rest_Api {
 				'callback'            => array( __CLASS__, 'handle_password_forgot' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'user_email'      => array(
+					'user_email'            => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'penalis_website' => array(
+					'penalis_website'       => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+					'cf_turnstile_response' => array(
 						'type'     => 'string',
 						'required' => false,
 					),
@@ -180,17 +192,21 @@ final class Penalis_Rest_Api {
 				'callback'            => array( __CLASS__, 'handle_password_reset' ),
 				'permission_callback' => '__return_true',
 				'args'                => array(
-					'key'      => array(
+					'key'                   => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'login'    => array(
+					'login'                 => array(
 						'type'     => 'string',
 						'required' => true,
 					),
-					'password' => array(
+					'password'              => array(
 						'type'     => 'string',
 						'required' => true,
+					),
+					'cf_turnstile_response' => array(
+						'type'     => 'string',
+						'required' => false,
 					),
 				),
 			)
@@ -562,6 +578,16 @@ final class Penalis_Rest_Api {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function handle_registration( $request ) {
+		$turnstile = Penalis_Turnstile::verify(
+			(string) $request->get_param( 'cf_turnstile_response' ),
+			'register',
+			'penalis-register'
+		);
+
+		if ( is_wp_error( $turnstile ) ) {
+			return $turnstile;
+		}
+
 		$data = array(
 			'display_name'    => $request->get_param( 'display_name' ),
 			'user_login'      => $request->get_param( 'user_login' ),
@@ -626,6 +652,16 @@ final class Penalis_Rest_Api {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function handle_legacy_activate_request( $request ) {
+		$turnstile = Penalis_Turnstile::verify(
+			(string) $request->get_param( 'cf_turnstile_response' ),
+			'activate',
+			'penalis-activate'
+		);
+
+		if ( is_wp_error( $turnstile ) ) {
+			return $turnstile;
+		}
+
 		$result = Penalis_Legacy_Activation::request(
 			array(
 				'user_email'      => $request->get_param( 'user_email' ),
@@ -674,6 +710,16 @@ final class Penalis_Rest_Api {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function handle_password_forgot( $request ) {
+		$turnstile = Penalis_Turnstile::verify(
+			(string) $request->get_param( 'cf_turnstile_response' ),
+			'forgot',
+			'penalis-forgot'
+		);
+
+		if ( is_wp_error( $turnstile ) ) {
+			return $turnstile;
+		}
+
 		$result = Penalis_Password_Reset::request(
 			array(
 				'user_email'      => $request->get_param( 'user_email' ),
@@ -695,6 +741,16 @@ final class Penalis_Rest_Api {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function handle_password_reset( $request ) {
+		$turnstile = Penalis_Turnstile::verify(
+			(string) $request->get_param( 'cf_turnstile_response' ),
+			'reset',
+			'penalis-reset'
+		);
+
+		if ( is_wp_error( $turnstile ) ) {
+			return $turnstile;
+		}
+
 		$result = Penalis_Password_Reset::reset(
 			array(
 				'key'      => $request->get_param( 'key' ),

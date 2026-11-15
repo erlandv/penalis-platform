@@ -260,6 +260,35 @@ Transient-based rate limits (`Penalis_Rate_Limiter`):
   schemes (e.g. `javascript:`, `data:`) and only permit `http`, `https`, or
   `mailto` URLs.
 
+### 7.2 Cloudflare Turnstile Integration (`Penalis_Turnstile`)
+
+Penalis Platform integrates optionally with the third-party **Simple Cloudflare
+Turnstile** plugin so administrators can enable CAPTCHA protection on
+`/dashboard/` auth screens from the existing Turnstile settings page without
+duplicating API keys:
+
+- **Option Mapping:** `cfturnstile_login` controls dashboard login (`LoginForm`);
+  `cfturnstile_register` controls writer registration (`RegistrationForm`) and
+  legacy activation (`ActivateForm`); `cfturnstile_reset` controls forgot/reset
+  password (`ForgotForm` and `ResetPasswordPage`). Sites can override per-form
+  behavior with the `penalis_turnstile_enabled` filter.
+- **Single-Use Token Safety on Login:** `Penalis_Dashboard::handle_login_post()`
+  validates `$_POST['cf-turnstile-response']` via `Penalis_Turnstile::verify()`
+  before calling `wp_signon()`, and temporarily enables the
+  `cfturnstile_wp_login_checks` bypass filter during `wp_signon()` so Simple
+  Cloudflare Turnstile's `authenticate` hook does not re-verify an already
+  consumed token.
+- **REST Endpoints:** `POST /penalis/v1/registration`,
+  `POST /penalis/v1/legacy/activate`, `POST /penalis/v1/password/forgot`, and
+  `POST /penalis/v1/password/reset` accept and verify `cf_turnstile_response`
+  before executing account or email operations.
+- **Graceful Degradation:** All calls to `cfturnstile_*` helpers are guarded by
+  `function_exists()`. When Simple Cloudflare Turnstile is inactive, missing
+  keys, marked `cfturnstile_tested === 'no'`, whitelisted via
+  `cfturnstile_whitelisted()`, or in `allow` failover mode, `Penalis_Turnstile`
+  disables the widget and falls back to Penalis's built-in rate limiter and
+  honeypot.
+
 ---
 
 ## 8. Production Operational Recommendations

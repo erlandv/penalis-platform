@@ -34,6 +34,8 @@ export const DEEPLINK = {
   signin: 'penalis_signin',
   /** Flag: a dashboard login attempt failed. */
   loginError: 'penalis_login_error',
+  /** Flag: a dashboard login Turnstile verification failed. */
+  turnstileError: 'penalis_turnstile_error',
 } as const;
 
 /**

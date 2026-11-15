@@ -67,7 +67,8 @@ penalis-platform/
 │   ├── class-authors.php                 Public authors directory ([penalis_authors]) and verified badge integration
 │   ├── class-emails.php                  Centralized template-driven transactional email dispatcher and failure tracking
 │   ├── class-email-template.php          Branded responsive HTML email layout and Markdown renderer
-│   └── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting
+│   ├── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting
+│   └── class-turnstile.php               Optional Cloudflare Turnstile adapter via Simple Cloudflare Turnstile
 ├── assets/
 │   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email)
 │   └── js/admin-review.js                Shared modal controller (createModalController) and inline validation for wp-admin actions
@@ -77,7 +78,7 @@ penalis-platform/
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
 │   ├── authors/                          Separate public React entry point for [penalis_authors] directory
-│   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput
+│   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, TurnstileWidget
 │   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings
 │   ├── lib/                              Typed API client, validation, OTP challenge helpers, deeplinks, HTML/profile/crop helpers
 │   └── styles/                           Scoped dashboard and authors directory CSS (main.css, authors.css)
@@ -105,6 +106,16 @@ On `plugins_loaded`, `Penalis_Plugin::run()` initializes components in order:
 7. `Penalis_Author_History::init()`
 8. `Penalis_Avatar::register_provider()`
 9. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, and `Penalis_Email_Settings::init()` (when `is_admin()`)
+
+### Optional Third-Party Integrations
+
+- **Simple Cloudflare Turnstile (`Penalis_Turnstile`):** When the third-party
+  *Simple Cloudflare Turnstile* plugin is active and configured (`cfturnstile_key`
+  and `cfturnstile_secret`), `Penalis_Turnstile` exposes its widget settings to
+  `window.penalisDashboard.turnstile` and validates tokens on `AuthGate`
+  (`LoginForm`, `RegistrationForm`, `ActivateForm`, `ForgotForm`) and
+  `ResetPasswordPage` (`Reset`). All calls are guarded with `function_exists()`
+  so Penalis Platform degrades gracefully when the plugin is absent or inactive.
 
 ---
 

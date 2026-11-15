@@ -37,6 +37,7 @@ require_once __DIR__ . '/../includes/class-registration.php';
 require_once __DIR__ . '/../includes/class-legacy-activation.php';
 require_once __DIR__ . '/../includes/class-otp.php';
 require_once __DIR__ . '/../includes/class-email-change.php';
+require_once __DIR__ . '/../includes/class-turnstile.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -3961,6 +3962,16 @@ penalis_same( 1590, $list_data['counts']['views'], 'counts.views sums only publi
 // 4. Account payload also includes counts.views for the Overview summary card.
 $account_views_resp = Penalis_Rest_Api::get_account();
 penalis_same( 1590, $account_views_resp->get_data()['counts']['views'], 'GET /account includes counts.views across published articles.' );
+
+/* -------------------------------------------------------------------------
+ * Turnstile adapter (graceful degradation when plugin is inactive)
+ * ---------------------------------------------------------------------- */
+
+penalis_same( false, Penalis_Turnstile::is_available(), 'Turnstile is unavailable when Simple Cloudflare Turnstile is not loaded.' );
+penalis_same( false, Penalis_Turnstile::is_enabled_for( 'login' ), 'Turnstile login check is disabled when plugin is inactive.' );
+penalis_same( false, Penalis_Turnstile::is_enabled_for( 'unknown' ), 'Unknown Turnstile context is always disabled.' );
+penalis_same( array( 'enabled' => false ), Penalis_Turnstile::frontend_config(), 'Frontend config disables Turnstile when plugin is inactive.' );
+penalis_same( true, Penalis_Turnstile::verify( '', 'register' ), 'Turnstile verification passes through when plugin is inactive.' );
 
 /* -------------------------------------------------------------------------
  * Report

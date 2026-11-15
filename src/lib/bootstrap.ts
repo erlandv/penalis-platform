@@ -5,7 +5,7 @@
  * from or written to localStorage.
  */
 
-import type { DashboardBootstrap } from './types';
+import type { DashboardBootstrap, TurnstileFormKey } from './types';
 
 declare global {
   interface Window {
@@ -36,4 +36,12 @@ const fallback: DashboardBootstrap = {
 
 export function getBootstrap(): DashboardBootstrap {
   return window.penalisDashboard ?? fallback;
+}
+
+/**
+ * Whether Cloudflare Turnstile is enabled for a specific AuthGate form.
+ */
+export function isTurnstileEnabledFor(form: TurnstileFormKey): boolean {
+  const config = getBootstrap().turnstile;
+  return Boolean(config?.enabled && config.siteKey && config.forms?.[form]);
 }

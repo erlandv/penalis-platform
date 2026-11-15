@@ -5,7 +5,7 @@
 import { useState, type FormEvent } from 'react';
 
 import { ApiError, legacyApi, passwordApi, registrationApi } from '../../lib/api';
-import { getBootstrap } from '../../lib/bootstrap';
+import { getBootstrap, isTurnstileEnabledFor } from '../../lib/bootstrap';
 import { DEEPLINK, hasParam } from '../../lib/deeplink';
 import type { FieldErrors } from '../../lib/types';
 import {
@@ -21,6 +21,9 @@ import { toActiveChallenge, type ActiveChallenge } from '../../lib/otp';
 import { ErrorBanner, FieldError, FieldHint, HoneypotField, Notice, Spinner } from '../../components/ui';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
+import { TurnstileWidget } from '../../components/TurnstileWidget';
+
+const TURNSTILE_REQUIRED_MESSAGE = 'Harap selesaikan verifikasi keamanan (CAPTCHA) terlebih dahulu.';
 
 type Mode = 'login' | 'register' | 'verify' | 'forgot' | 'activate' | 'activateVerify';
 
@@ -93,6 +96,19 @@ export function AuthGate() {
     return true;
   });
 
+  const [turnstileFailed] = useState(() => {
+    const url = new URL(window.location.href);
+
+    if (!url.searchParams.has(DEEPLINK.turnstileError)) {
+      return false;
+    }
+
+    url.searchParams.delete(DEEPLINK.turnstileError);
+    window.history.replaceState({}, '', url.toString());
+
+    return true;
+  });
+
   const startChallenge = (next: Challenge, nextMode: Mode) => {
     setChallenge(next);
     setMode(nextMode);
@@ -111,6 +127,9 @@ export function AuthGate() {
 
         {mode === 'login' && loginFailed ? (
           <ErrorBanner message="Username/email/password salah, atau akun ini belum bisa login." />
+        ) : null}
+        {mode === 'login' && turnstileFailed ? (
+          <ErrorBanner message="Verifikasi keamanan (CAPTCHA) gagal atau kedaluwarsa. Silakan coba lagi." />
         ) : null}
 
         {mode === 'login' ? <LoginForm /> : null}
@@ -188,12 +207,25 @@ export function AuthGate() {
 
 function LoginForm() {
   const bootstrap = getBootstrap();
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState('');
+  const turnstileRequired = isTurnstileEnabledFor('login');
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (turnstileRequired && !turnstileToken) {
+      event.preventDefault();
+      setTurnstileError(TURNSTILE_REQUIRED_MESSAGE);
+      return;
+    }
+    setTurnstileError('');
+  };
 
   return (
     <form
       className="penalis-form"
       method="post"
       action={bootstrap.dashboardUrl}
+      onSubmit={handleSubmit}
       noValidate
     >
       {/* Marks the submission as coming from the dashboard form. */}
@@ -225,6 +257,17 @@ function LoginForm() {
         <span>Simpan sesi login</span>
       </label>
 
+      <TurnstileWidget
+        form="login"
+        onTokenChange={(token) => {
+          setTurnstileToken(token);
+          if (token) {
+            setTurnstileError('');
+          }
+        }}
+        error={turnstileError}
+      />
+
       <button type="submit" className="penalis-button penalis-button--primary">
         Login ke Dashboard
       </button>
@@ -246,6 +289,10 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileRequired = isTurnstileEnabledFor('register');
 
   const update = (key: keyof typeof values, value: string | boolean) => {
     setValues((current) => ({ ...current, [key]: value }));
@@ -260,7 +307,13 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
       setErrors(clientErrors);
       return;
     }
+    if (turnstileRequired && !turnstileToken) {
+      setErrors({});
+      setTurnstileError(TURNSTILE_REQUIRED_MESSAGE);
+      return;
+    }
     setErrors({});
+    setTurnstileError('');
     setSubmitting(true);
 
     try {
@@ -272,6 +325,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
         password: values.password,
         penalis_consent: '1',
         penalis_website: values.penalis_website,
+        ...(turnstileToken ? { cf_turnstile_response: turnstileToken } : {}),
       });
 
       // The password is no longer needed: the account exists and only the
@@ -289,6 +343,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
 
       onChallenge(toActiveChallenge(result, values.user_email.trim()));
     } catch (error) {
+      setTurnstileResetKey((current) => current + 1);
       if (error instanceof ApiError) {
         setErrors(error.fields);
         setFormError(error.message);
@@ -435,6 +490,18 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
         </span>
       </label>
       <FieldError errors={errors} name="penalis_consent" />
+
+      <TurnstileWidget
+        form="register"
+        resetKey={turnstileResetKey}
+        onTokenChange={(token) => {
+          setTurnstileToken(token);
+          if (token) {
+            setTurnstileError('');
+          }
+        }}
+        error={turnstileError}
+      />
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
         {submitting ? 'Membuat akun…' : 'Buat Akun Penalis'}
@@ -645,6 +712,10 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileRequired = isTurnstileEnabledFor('forgot');
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -658,13 +729,20 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
       setFieldError(invalid);
       return;
     }
+    if (turnstileRequired && !turnstileToken) {
+      setFieldError('');
+      setTurnstileError(TURNSTILE_REQUIRED_MESSAGE);
+      return;
+    }
     setFieldError('');
+    setTurnstileError('');
     setSubmitting(true);
 
     try {
-      const result = await passwordApi.forgot(email.trim(), honeypot);
+      const result = await passwordApi.forgot(email.trim(), honeypot, turnstileToken);
       setMessage(result.message);
     } catch (caught) {
+      setTurnstileResetKey((current) => current + 1);
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
     } finally {
       setSubmitting(false);
@@ -714,6 +792,18 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
 
       <HoneypotField value={honeypot} onChange={setHoneypot} />
 
+      <TurnstileWidget
+        form="forgot"
+        resetKey={turnstileResetKey}
+        onTokenChange={(token) => {
+          setTurnstileToken(token);
+          if (token) {
+            setTurnstileError('');
+          }
+        }}
+        error={turnstileError}
+      />
+
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
         {submitting ? <Spinner label="Memproses…" /> : 'Reset Password'}
       </button>
@@ -738,6 +828,10 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
   const [fieldError, setFieldError] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileRequired = isTurnstileEnabledFor('activate');
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -750,13 +844,20 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
       setFieldError(invalid);
       return;
     }
+    if (turnstileRequired && !turnstileToken) {
+      setFieldError('');
+      setTurnstileError(TURNSTILE_REQUIRED_MESSAGE);
+      return;
+    }
     setFieldError('');
+    setTurnstileError('');
     setSubmitting(true);
 
     try {
-      const result = await legacyApi.request(email.trim(), honeypot);
+      const result = await legacyApi.request(email.trim(), honeypot, turnstileToken);
       onChallenge(toActiveChallenge(result, email.trim()));
     } catch (caught) {
+      setTurnstileResetKey((current) => current + 1);
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
     } finally {
       setSubmitting(false);
@@ -795,6 +896,18 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
       </div>
 
       <HoneypotField value={honeypot} onChange={setHoneypot} />
+
+      <TurnstileWidget
+        form="activate"
+        resetKey={turnstileResetKey}
+        onTokenChange={(token) => {
+          setTurnstileToken(token);
+          if (token) {
+            setTurnstileError('');
+          }
+        }}
+        error={turnstileError}
+      />
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
         {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Kode Aktivasi'}

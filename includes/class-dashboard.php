@@ -239,10 +239,24 @@ final class Penalis_Dashboard {
 		}
 
 		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Anonymous login; the password must not be sanitized before wp_signon().
-		$login    = isset( $_POST['log'] ) ? sanitize_user( wp_unslash( $_POST['log'] ) ) : '';
-		$password = isset( $_POST['pwd'] ) ? (string) wp_unslash( $_POST['pwd'] ) : '';
-		$remember = ! empty( $_POST['rememberme'] );
+		$login           = isset( $_POST['log'] ) ? sanitize_user( wp_unslash( $_POST['log'] ) ) : '';
+		$password        = isset( $_POST['pwd'] ) ? (string) wp_unslash( $_POST['pwd'] ) : '';
+		$remember        = ! empty( $_POST['rememberme'] );
+		$turnstile_token = isset( $_POST['cf-turnstile-response'] ) ? sanitize_text_field( wp_unslash( $_POST['cf-turnstile-response'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		$turnstile_check = Penalis_Turnstile::verify( $turnstile_token, 'login', 'penalis-login' );
+		if ( is_wp_error( $turnstile_check ) ) {
+			wp_safe_redirect( add_query_arg( 'penalis_turnstile_error', '1', self::dashboard_url() ) );
+			exit;
+		}
+
+		// Avoid double-verifying the single-use Turnstile token if Simple
+		// Cloudflare Turnstile's `authenticate` filter is active.
+		$bypass_cft_login = Penalis_Turnstile::is_enabled_for( 'login' );
+		if ( $bypass_cft_login ) {
+			add_filter( 'cfturnstile_wp_login_checks', '__return_true', 999 );
+		}
 
 		$user = wp_signon(
 			array(
@@ -252,6 +266,10 @@ final class Penalis_Dashboard {
 			),
 			is_ssl()
 		);
+
+		if ( $bypass_cft_login ) {
+			remove_filter( 'cfturnstile_wp_login_checks', '__return_true', 999 );
+		}
 
 		if ( is_wp_error( $user ) ) {
 			// The message stays generic so the form cannot be used to discover
@@ -398,6 +416,10 @@ final class Penalis_Dashboard {
 		$user_id = get_current_user_id();
 		$user    = $user_id > 0 ? get_userdata( $user_id ) : null;
 
+		if ( $user_id <= 0 ) {
+			Penalis_Turnstile::enqueue_scripts();
+		}
+
 		wp_localize_script(
 			'penalis-dashboard',
 			'penalisDashboard',
@@ -416,6 +438,7 @@ final class Penalis_Dashboard {
 				'siteTimezone' => Penalis_Datetime::site_timezone_payload(),
 				'isLoggedIn'   => $user_id > 0,
 				'registration' => Penalis_Registration::is_registration_enabled(),
+				'turnstile'    => $user_id > 0 ? array( 'enabled' => false ) : Penalis_Turnstile::frontend_config(),
 				'canWrite'     => $user_id > 0 ? Penalis_Account_Status::can_write( $user_id ) : false,
 				'status'       => $user_id > 0 ? Penalis_Account_Status::get_status( $user_id ) : '',
 				'statusLabel'  => $user_id > 0 ? Penalis_Policy::status_label( Penalis_Account_Status::get_status( $user_id ) ) : '',

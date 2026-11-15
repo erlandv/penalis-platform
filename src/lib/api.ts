@@ -204,6 +204,7 @@ export const registrationApi = {
     instagram?: string;
     penalis_consent: string;
     penalis_website: string;
+    cf_turnstile_response?: string;
   }) => request<ChallengeResponse>('/registration', { method: 'POST', body: payload }),
 
   resend: (email: string) =>
@@ -228,10 +229,14 @@ export const legacyApi = {
    * The server always answers generically, so the UI must not imply that the
    * address belongs to a legacy account.
    */
-  request: (email: string, honeypot = '') =>
+  request: (email: string, honeypot = '', turnstileToken = '') =>
     request<ChallengeResponse>('/legacy/activate', {
       method: 'POST',
-      body: { user_email: email, penalis_website: honeypot },
+      body: {
+        user_email: email,
+        penalis_website: honeypot,
+        ...(turnstileToken ? { cf_turnstile_response: turnstileToken } : {}),
+      },
     }),
 
   /** Consume the activation code and set the first password. */
@@ -252,14 +257,22 @@ export const passwordApi = {
    * archives, so they must not work as a reset handle. The server always
    * answers generically, so the UI must not imply that the address exists.
    */
-  forgot: (email: string, honeypot = '') =>
+  forgot: (email: string, honeypot = '', turnstileToken = '') =>
     request<{ message: string }>('/password/forgot', {
       method: 'POST',
-      body: { user_email: email, penalis_website: honeypot },
+      body: {
+        user_email: email,
+        penalis_website: honeypot,
+        ...(turnstileToken ? { cf_turnstile_response: turnstileToken } : {}),
+      },
     }),
 
-  reset: (payload: { key: string; login: string; password: string }) =>
-    request<{ message: string }>('/password/reset', { method: 'POST', body: payload }),
+  reset: (payload: {
+    key: string;
+    login: string;
+    password: string;
+    cf_turnstile_response?: string;
+  }) => request<{ message: string }>('/password/reset', { method: 'POST', body: payload }),
 };
 
 /* --------------------------- Notifications ---------------------------- */

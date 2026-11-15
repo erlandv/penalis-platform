@@ -18,7 +18,9 @@ the `X-WP-Nonce` header.
 
 Public routes use `__return_true` as their permission callback and enforce
 strict input validation, a honeypot field (`penalis_website`), per-IP/per-account
-rate limits, and generic responses that prevent account enumeration.
+rate limits, optional Cloudflare Turnstile verification (`cf_turnstile_response`
+when Simple Cloudflare Turnstile is active and enabled), and generic responses
+that prevent account enumeration.
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
@@ -119,6 +121,7 @@ before the Vite module executes. The TypeScript contract lives in
 | `siteTimezone` | `object` | Site timezone metadata from `Penalis_Datetime::site_timezone_payload()` (`timezone`, `offsetSeconds`, `label`) |
 | `isLoggedIn` | `boolean` | Whether the visitor is authenticated |
 | `registration` | `boolean` | Value of `penalis_registration_enabled` |
+| `turnstile` | `TurnstileConfig` | Optional Cloudflare Turnstile widget settings (`enabled`, `siteKey`, `theme`, `size`, `language`, `appearance`, `forms` per auth screen) |
 | `canWrite` | `boolean` | Result of `Penalis_Account_Status::can_write()` |
 | `status` | `AccountStatus` | Current account status (`active`, `pending_verification`, etc.) |
 | `statusLabel` | `string` | Indonesian label for the current account status |
@@ -139,6 +142,7 @@ directly from transactional emails and public links:
 | `penalis_activate=1` | Flag | Legacy contributor activation request form |
 | `penalis_reset=<key>&penalis_user=<login>` | Core reset key + login (also accepts legacy `penalis_login`) | Set new password form |
 | `penalis_login_error=<code>` | Error code | Sign-in form with localized error banner |
+| `penalis_turnstile_error=1` | Flag | Sign-in form with CAPTCHA verification failure banner |
 | `view=editor&id=<post_id>` | Signed-in view route | Opens a specific article in the dashboard editor |
 
 > **No bearer links for verification.** Registration, legacy activation, and

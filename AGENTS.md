@@ -234,9 +234,14 @@ Summary of rules that must always hold:
   `map_meta_cap`, `rest_pre_dispatch`, `rest_pre_insert_post`,
   `wp_insert_post_data`, query forcing, and upload validation).
 - Every public endpoint must enforce rate limits, check the `penalis_website`
-  honeypot where applicable, and return generic messages that do not leak
-  account existence (candidate emails on registration enforce anti-enumeration;
-  candidate usernames report taken status directly to avoid registration dead-ends).
+  honeypot where applicable, verify Cloudflare Turnstile via `Penalis_Turnstile`
+  when *Simple Cloudflare Turnstile* is active and enabled, and return generic
+  messages that do not leak account existence (candidate emails on registration
+  enforce anti-enumeration; candidate usernames report taken status directly to
+  avoid registration dead-ends).
+- In `Penalis_Dashboard::handle_login_post()`, verify the Turnstile token before
+  `wp_signon()` and temporarily bypass `cfturnstile_wp_login_checks` during
+  `wp_signon()` so the single-use Turnstile token is never verified twice.
 - Password reset requests (`POST /penalis/v1/password/forgot`) accept an **email
   address only**, never a username.
 - Verification codes are consumed only through an explicit `POST` with the

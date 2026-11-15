@@ -33,6 +33,18 @@ export interface SiteTimezone {
   label: string;
 }
 
+export type TurnstileFormKey = 'login' | 'register' | 'activate' | 'forgot' | 'reset';
+
+export interface TurnstileConfig {
+  enabled: boolean;
+  siteKey?: string;
+  theme?: 'auto' | 'light' | 'dark';
+  size?: 'normal' | 'compact' | 'flexible';
+  language?: string;
+  appearance?: 'always' | 'execute' | 'interaction-only';
+  forms?: Partial<Record<TurnstileFormKey, boolean>>;
+}
+
 export interface DashboardBootstrap {
   restUrl: string;
   wpRestUrl: string;
@@ -42,6 +54,7 @@ export interface DashboardBootstrap {
   status: AccountStatus;
   statusLabel: string;
   registration: boolean;
+  turnstile?: TurnstileConfig;
   dashboardUrl: string;
   loginUrl: string;
   logoutUrl: string;

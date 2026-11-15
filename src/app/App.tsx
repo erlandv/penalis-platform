@@ -5,13 +5,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { accountApi, ApiError, passwordApi } from '../lib/api';
-import { getBootstrap } from '../lib/bootstrap';
+import { getBootstrap, isTurnstileEnabledFor } from '../lib/bootstrap';
 import { DEEPLINK, readParam } from '../lib/deeplink';
 import type { Account, FieldErrors, ViewName } from '../lib/types';
 import { hasErrors, PASSWORD_MIN_LENGTH, validatePasswordPair } from '../lib/validation';
 import { describedBy } from '../lib/a11y';
 import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../components/ui';
 import { PasswordInput } from '../components/PasswordInput';
+import { TurnstileWidget } from '../components/TurnstileWidget';
 import { Shell } from '../components/shell';
 import { AuthGate } from '../features/auth/AuthGate';
 import { Overview } from '../features/overview/Overview';
@@ -36,6 +37,10 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
   const [formError, setFormError] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileError, setTurnstileError] = useState('');
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileRequired = isTurnstileEnabledFor('reset');
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -48,10 +53,21 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
       return;
     }
 
+    if (turnstileRequired && !turnstileToken) {
+      setTurnstileError('Harap selesaikan verifikasi keamanan (CAPTCHA) terlebih dahulu.');
+      return;
+    }
+
+    setTurnstileError('');
     setSubmitting(true);
 
     try {
-      const result = await passwordApi.reset({ key: resetKey, login, password });
+      const result = await passwordApi.reset({
+        key: resetKey,
+        login,
+        password,
+        ...(turnstileToken ? { cf_turnstile_response: turnstileToken } : {}),
+      });
       setMessage(result.message);
 
       // The key is single-use; drop it from the address bar and history.
@@ -61,6 +77,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
       url.searchParams.delete(DEEPLINK.legacyResetLogin);
       window.history.replaceState({}, '', url.toString());
     } catch (caught) {
+      setTurnstileResetKey((current) => current + 1);
       if (caught instanceof ApiError) {
         setErrors(caught.fields);
         setFormError(caught.message);
@@ -124,6 +141,18 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
                 </FieldHint>
                 <FieldError errors={errors} name="confirm_password" />
               </div>
+
+              <TurnstileWidget
+                form="reset"
+                resetKey={turnstileResetKey}
+                onTokenChange={(token) => {
+                  setTurnstileToken(token);
+                  if (token) {
+                    setTurnstileError('');
+                  }
+                }}
+                error={turnstileError}
+              />
 
               <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
                 {submitting ? 'Menyimpan…' : 'Simpan Password Baru'}
