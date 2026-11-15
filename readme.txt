@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 1.4.0
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,6 +110,13 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 1.5.0 =
+* Feature: Integrate Cloudflare Turnstile protection across authentication and account request forms.
+* Feature: Require thumbnail (featured image), non-uncategorized category, and at least one tag before submitting or resubmitting an article for review, while hiding Uncategorized from the editor category list.
+* Feature: Add `Perlu revisi` stat card to the writer dashboard overview.
+* Feature: Improve the dashboard account popover with email display, `Edit profil` and `Pengaturan akun` shortcuts, grouped dividers, and theme-safe styling.
+* Refactor: Remove redundant input placeholders and refine form field hints across authentication and profile views, plus compact thumbnail action controls in the editor.
+
 = 1.4.0 =
 * Feature: Integrate Post Views Counter for articles and display view counts across the dashboard UI.
 * Feature: Enhance the public authors directory (`[penalis_authors]`) with author views tracking and views-based sorting options.
@@ -157,6 +164,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 1.5.0 =
+Integrates Cloudflare Turnstile on authentication forms, enforces complete article metadata (thumbnail, category, and tags) on review submission, adds the `Perlu revisi` overview card, and improves the account menu and form hints.
 
 = 1.4.0 =
 Adds Post Views Counter integration across the dashboard and public authors directory, views-based sorting options, and an enhanced OTP verification input UI.
