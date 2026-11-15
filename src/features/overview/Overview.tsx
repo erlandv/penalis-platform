@@ -166,6 +166,7 @@ export function Overview({
         <StatCard label="Total views" value={counts.views ?? 0} />
         <StatCard label="Diterbitkan" value={counts.publish} />
         <StatCard label="Review" value={counts.pending} />
+        <StatCard label="Revisi" value={counts.changes_requested ?? 0} />
         <StatCard label="Draft" value={counts.draft} />
       </section>
 
