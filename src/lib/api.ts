@@ -7,6 +7,7 @@
 
 import { getBootstrap } from './bootstrap';
 import { decodeEntities } from './format';
+import { isUncategorizedTerm } from './validation';
 import type {
   Account,
   ApiErrorShape,
@@ -367,9 +368,9 @@ export const articlesApi = {
 
 export const taxonomyApi = {
   categories: () =>
-    request<Term[]>('/categories?per_page=100&orderby=name&order=asc&_fields=id,name,count,parent', {
+    request<Term[]>('/categories?per_page=100&orderby=name&order=asc&_fields=id,name,slug,count,parent', {
       absoluteUrl: getBootstrap().wpRestUrl,
-    }).then((terms) => terms.map(decodeTermName)),
+    }).then((terms) => terms.map(decodeTermName).filter((term) => !isUncategorizedTerm(term))),
 
   tags: (search: string) => {
     const params = new URLSearchParams({

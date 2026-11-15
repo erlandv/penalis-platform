@@ -24,7 +24,7 @@ import type {
   ReviewHistoryEntry,
   Term,
 } from '../../lib/types';
-import { hasErrors, validateArticle } from '../../lib/validation';
+import { hasErrors, isUncategorizedTerm, validateArticle, validateArticleSubmission } from '../../lib/validation';
 import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../components/ui';
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -214,7 +214,10 @@ export function Editor({
       setReviewHistory(article.reviewHistory ?? []);
       setLink(article.link ?? '');
       setViews(article.views ?? 0);
-      setSelectedCategories(article.categories.map((term) => term.id));
+      const initialCategoryIds = article.categories
+        .filter((term) => !isUncategorizedTerm(term))
+        .map((term) => term.id);
+      setSelectedCategories(initialCategoryIds);
       setSelectedTags(article.tags);
 
       if (article.featuredMedia > 0) {
@@ -236,7 +239,7 @@ export function Editor({
           title: article.title,
           content: article.content,
           status: article.status,
-          categories: article.categories.map((term) => term.id),
+          categories: initialCategoryIds,
           tags: article.tags.map((term) => term.id),
           featuredMedia: article.featuredMedia,
         }),
@@ -325,10 +328,22 @@ export function Editor({
    * One handler for both flows keeps the dialog's confirm button identical; the
    * only difference is what happens to the chosen item.
    */
+  const clearFieldError = (field: string) => {
+    setErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
+
   const confirmMediaSelection = (item: MediaItem) => {
     if (mediaIntent === 'featured') {
       setFeaturedMedia(item.id);
       setFeaturedPreview(item.thumbnail || item.url);
+      clearFieldError('featuredMedia');
     } else if (mediaIntent === 'insert') {
       // The rich text editor owns the caret, so insertion happens through its
       // imperative handle rather than by string-splicing the stored HTML.
@@ -345,6 +360,7 @@ export function Editor({
       }
       return [...current, term];
     });
+    clearFieldError('tags');
     setTagSearch('');
     setTagSuggestions([]);
   };
@@ -429,6 +445,49 @@ export function Editor({
     }
   };
 
+  const selectedCategoryTerms = useMemo(
+    () =>
+      selectedCategories.map(
+        (categoryId) =>
+          categories.find((category) => category.id === categoryId) ?? { id: categoryId, name: '' },
+      ),
+    [categories, selectedCategories],
+  );
+
+  const validateBeforeSubmit = () => {
+    const payloadContent = trimTrailingEmptyParagraphs(content);
+    const clientErrors = validateArticleSubmission({
+      title,
+      content: payloadContent,
+      featuredMedia,
+      categories: selectedCategoryTerms,
+      tags: selectedTags,
+    });
+    if (hasErrors(clientErrors)) {
+      setErrors(clientErrors);
+      setError(
+        'Lengkapi judul, isi karya tulis, thumbnail, kategori, dan minimal satu tag sebelum submit review.',
+      );
+      return null;
+    }
+    return payloadContent;
+  };
+
+  const requestSubmitConfirm = () => {
+    if (!canEdit || (!canSubmit && !canResubmit)) {
+      return;
+    }
+    setError('');
+    setNotice('');
+    setStaleReview(false);
+    if (!validateBeforeSubmit()) {
+      setSubmitConfirmOpen(false);
+      return;
+    }
+    setErrors({});
+    setSubmitConfirmOpen(true);
+  };
+
   const submitForReview = async () => {
     if (!canEdit || (!canSubmit && !canResubmit)) {
       return;
@@ -438,10 +497,8 @@ export function Editor({
     setNotice('');
     setStaleReview(false);
 
-    const payloadContent = trimTrailingEmptyParagraphs(content);
-    const clientErrors = validateArticle({ title, content: payloadContent });
-    if (hasErrors(clientErrors)) {
-      setErrors(clientErrors);
+    const payloadContent = validateBeforeSubmit();
+    if (payloadContent === null) {
       setSubmitConfirmOpen(false);
       return;
     }
@@ -647,7 +704,7 @@ export function Editor({
             <button
               type="button"
               className="penalis-button penalis-button--primary"
-              onClick={() => setSubmitConfirmOpen(true)}
+              onClick={requestSubmitConfirm}
               disabled={saving}
             >
               {canResubmit ? 'Submit Ulang' : 'Submit Review'}
@@ -879,32 +936,36 @@ export function Editor({
             {featuredMedia > 0 ? (
               <div className="penalis-featured">
                 {featuredPreview ? <img src={featuredPreview} alt="" /> : null}
-                {canEdit ? (
-                  <button
-                    type="button"
-                    className="penalis-button penalis-button--ghost"
-                    onClick={() => {
-                      setFeaturedMedia(0);
-                      setFeaturedPreview('');
-                    }}
-                  >
-                    Hapus
-                  </button>
-                ) : null}
               </div>
             ) : (
               <p className="penalis-muted">Belum ada thumbnail yang dipilih.</p>
             )}
 
             {canEdit ? (
-              <button
-                type="button"
-                className="penalis-button penalis-button--ghost"
-                onClick={() => setMediaIntent('featured')}
-              >
-                Pilih dari pustaka media
-              </button>
+              <div className="penalis-featured-actions">
+                <button
+                  type="button"
+                  className="penalis-compact-action"
+                  aria-describedby={errors.featuredMedia ? 'featuredMedia-error' : undefined}
+                  onClick={() => setMediaIntent('featured')}
+                >
+                  {featuredMedia > 0 ? 'Ganti thumbnail' : 'Pilih thumbnail'}
+                </button>
+                {featuredMedia > 0 ? (
+                  <button
+                    type="button"
+                    className="penalis-compact-action"
+                    onClick={() => {
+                      setFeaturedMedia(0);
+                      setFeaturedPreview('');
+                    }}
+                  >
+                    Hapus thumbnail
+                  </button>
+                ) : null}
+              </div>
             ) : null}
+            <FieldError errors={errors} name="featuredMedia" />
           </section>
 
           <section className="penalis-panel">
@@ -915,7 +976,10 @@ export function Editor({
             {categories.length === 0 ? (
               <p className="penalis-muted">Belum ada kategori.</p>
             ) : (
-              <div className="penalis-checklist">
+              <div
+                className="penalis-checklist"
+                aria-describedby={errors.categories ? 'categories-error' : undefined}
+              >
                 {categories.map((category) => (
                   <label key={category.id} className="penalis-checkbox">
                     <input
@@ -923,6 +987,7 @@ export function Editor({
                       checked={selectedCategories.includes(category.id)}
                       disabled={!canEdit}
                       onChange={(event) => {
+                        clearFieldError('categories');
                         setSelectedCategories((current) =>
                           event.target.checked
                             ? [...current, category.id]
@@ -935,6 +1000,7 @@ export function Editor({
                 ))}
               </div>
             )}
+            <FieldError errors={errors} name="categories" />
           </section>
 
           <section className="penalis-panel">
@@ -966,6 +1032,8 @@ export function Editor({
                   <input
                     type="text"
                     value={tagSearch}
+                    aria-invalid={Boolean(errors.tags)}
+                    aria-describedby={errors.tags ? 'tags-error' : undefined}
                     onChange={(event) => setTagSearch(event.target.value)}
                     placeholder="Cari atau buat tag"
                   />
@@ -992,6 +1060,7 @@ export function Editor({
             ) : selectedTags.length === 0 ? (
               <p className="penalis-muted">Belum ada tag yang dipilih.</p>
             ) : null}
+            <FieldError errors={errors} name="tags" />
           </section>
         </aside>
       </div>

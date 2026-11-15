@@ -260,6 +260,7 @@ export interface MediaList {
 export interface Term {
   id: number;
   name: string;
+  slug?: string;
   count?: number;
   parent?: number;
 }

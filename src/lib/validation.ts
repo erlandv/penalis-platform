@@ -3,7 +3,7 @@
  * The server always re-validates every value.
  */
 
-import type { FieldErrors } from './types';
+import type { FieldErrors, Term } from './types';
 
 export const PASSWORD_MIN_LENGTH = 12;
 
@@ -242,6 +242,44 @@ export function validateArticle(input: { title: string; content: string }): Fiel
 
   if (input.content.trim().length < 10) {
     errors.content = 'Tulis minimal satu paragraf singkat sebelum menyimpan.';
+  }
+
+  return errors;
+}
+
+export function isUncategorizedTerm(term: Pick<Term, 'name' | 'slug'>): boolean {
+  const slug = term.slug?.trim().toLowerCase() ?? '';
+  const name = term.name.trim().toLowerCase();
+  return slug === 'uncategorized' || name === 'uncategorized';
+}
+
+/**
+ * Validate an article before submitting or resubmitting for editorial review.
+ *
+ * Drafts only require title and content; review submission additionally
+ * requires a featured image, at least one non-uncategorized category, and
+ * at least one tag.
+ */
+export function validateArticleSubmission(input: {
+  title: string;
+  content: string;
+  featuredMedia: number;
+  categories: Term[];
+  tags: Term[];
+}): FieldErrors {
+  const errors = validateArticle({ title: input.title, content: input.content });
+
+  if (input.featuredMedia <= 0) {
+    errors.featuredMedia = 'Pilih thumbnail karya tulis terlebih dahulu.';
+  }
+
+  const validCategories = input.categories.filter((term) => !isUncategorizedTerm(term));
+  if (validCategories.length === 0) {
+    errors.categories = 'Pilih minimal satu kategori karya tulis.';
+  }
+
+  if (input.tags.length === 0) {
+    errors.tags = 'Tambahkan minimal satu tag karya tulis.';
   }
 
   return errors;

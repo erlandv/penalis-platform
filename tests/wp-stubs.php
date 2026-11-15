@@ -1641,7 +1641,22 @@ if ( ! function_exists( 'wp_get_post_terms' ) ) {
 	 * @return array
 	 */
 	function wp_get_post_terms( $post_id, $taxonomies = array(), $args = array() ) {
-		return array();
+		$post_id    = (int) $post_id;
+		$taxonomies = (array) $taxonomies;
+		$stored     = isset( $GLOBALS['penalis_test_post_terms'][ $post_id ] ) && is_array( $GLOBALS['penalis_test_post_terms'][ $post_id ] )
+			? $GLOBALS['penalis_test_post_terms'][ $post_id ]
+			: array();
+		$results    = array();
+
+		foreach ( $taxonomies as $taxonomy ) {
+			if ( isset( $stored[ $taxonomy ] ) && is_array( $stored[ $taxonomy ] ) ) {
+				foreach ( $stored[ $taxonomy ] as $term ) {
+					$results[] = $term;
+				}
+			}
+		}
+
+		return $results;
 	}
 }
 
@@ -1666,6 +1681,10 @@ if ( ! function_exists( 'get_post_thumbnail_id' ) ) {
 	 * @return int
 	 */
 	function get_post_thumbnail_id( $post ) {
+		$id = $post instanceof WP_Post ? (int) $post->ID : (int) $post;
+		if ( isset( $GLOBALS['penalis_test_post_meta'][ $id ]['_thumbnail_id'] ) ) {
+			return (int) $GLOBALS['penalis_test_post_meta'][ $id ]['_thumbnail_id'];
+		}
 		return 0;
 	}
 }

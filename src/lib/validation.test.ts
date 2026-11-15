@@ -5,6 +5,7 @@ import {
   normalizeInstagram,
   normalizeLinkHref,
   validateArticle,
+  validateArticleSubmission,
   validateEmail,
   validateInstagram,
   validateResetEmail,
@@ -101,6 +102,49 @@ describe('validateArticle', () => {
 
   it('rejects content that is too short', () => {
     expect(validateArticle({ title: 'A title', content: 'short' }).content).toBeDefined();
+  });
+});
+
+describe('validateArticleSubmission', () => {
+  const sastraCategory = { id: 2, name: 'Sastra', slug: 'sastra' };
+  const uncategorizedCategory = { id: 1, name: 'Uncategorized', slug: 'uncategorized' };
+  const puisiTag = { id: 10, name: 'Puisi' };
+
+  it('accepts a complete submission', () => {
+    const errors = validateArticleSubmission({
+      title: 'Senja di Pelabuhan',
+      content: 'Puisi tentang laut dan pulang.',
+      featuredMedia: 42,
+      categories: [sastraCategory],
+      tags: [puisiTag],
+    });
+    expect(hasErrors(errors)).toBe(false);
+  });
+
+  it('requires a featured image, non-uncategorized category, and at least one tag', () => {
+    const errors = validateArticleSubmission({
+      title: 'Senja di Pelabuhan',
+      content: 'Puisi tentang laut dan pulang.',
+      featuredMedia: 0,
+      categories: [],
+      tags: [],
+    });
+    expect(errors.featuredMedia).toBeDefined();
+    expect(errors.categories).toBeDefined();
+    expect(errors.tags).toBeDefined();
+  });
+
+  it('rejects Uncategorized when it is the only selected category', () => {
+    const errors = validateArticleSubmission({
+      title: 'Senja di Pelabuhan',
+      content: 'Puisi tentang laut dan pulang.',
+      featuredMedia: 42,
+      categories: [uncategorizedCategory],
+      tags: [puisiTag],
+    });
+    expect(errors.categories).toBeDefined();
+    expect(errors.featuredMedia).toBeUndefined();
+    expect(errors.tags).toBeUndefined();
   });
 });
 

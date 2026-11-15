@@ -1180,6 +1180,7 @@ final class Penalis_Rest_Api {
 					$categories[] = array(
 						'id'   => (int) $term->term_id,
 						'name' => $term->name,
+						'slug' => $term->slug,
 					);
 				} else {
 					$tags[] = array(
@@ -1276,15 +1277,10 @@ final class Penalis_Rest_Api {
 		$state = Penalis_Editorial_Workflow::get_state( $post );
 
 		if ( Penalis_Editorial_Policy::can_transition( $state, $action ) ) {
-			$title   = trim( wp_strip_all_tags( (string) $post->post_title ) );
-			$content = trim( wp_strip_all_tags( (string) $post->post_content ) );
+			$completeness_error = self::validate_submission_completeness( $post );
 
-			if ( '' === $title || '' === $content ) {
-				return new WP_Error(
-					'penalis_editorial_incomplete',
-					'Judul dan isi karya tulis wajib diisi sebelum di-submit untuk di-review.',
-					array( 'status' => 400 )
-				);
+			if ( is_wp_error( $completeness_error ) ) {
+				return $completeness_error;
 			}
 		}
 
@@ -1305,6 +1301,82 @@ final class Penalis_Rest_Api {
 		$payload['message'] = $message;
 
 		return new WP_REST_Response( $payload, 200 );
+	}
+
+	/**
+	 * Verify that an article has all required editorial fields before submission.
+	 *
+	 * Drafts may be saved incomplete; only submitting or resubmitting for review
+	 * requires title, content, featured image, a non-uncategorized category, and
+	 * at least one tag.
+	 *
+	 * @param WP_Post $post Article post.
+	 * @return true|WP_Error
+	 */
+	private static function validate_submission_completeness( $post ) {
+		$field_errors = array();
+		$missing      = array();
+
+		$title   = trim( wp_strip_all_tags( (string) $post->post_title ) );
+		$content = trim( wp_strip_all_tags( (string) $post->post_content ) );
+
+		if ( '' === $title ) {
+			$field_errors['title'] = 'Judul karya tulis wajib diisi.';
+			$missing[]             = 'judul';
+		}
+
+		if ( '' === $content ) {
+			$field_errors['content'] = 'Isi karya tulis wajib diisi.';
+			$missing[]               = 'isi karya tulis';
+		}
+
+		if ( (int) get_post_thumbnail_id( $post->ID ) <= 0 ) {
+			$field_errors['featuredMedia'] = 'Pilih thumbnail karya tulis terlebih dahulu.';
+			$missing[]                     = 'thumbnail';
+		}
+
+		$terms = wp_get_post_terms( $post->ID, array( 'category', 'post_tag' ), array( 'fields' => 'all' ) );
+		if ( is_wp_error( $terms ) ) {
+			$terms = array();
+		}
+
+		$valid_categories = 0;
+		$tag_count        = 0;
+
+		foreach ( $terms as $term ) {
+			if ( 'category' === $term->taxonomy ) {
+				$slug = strtolower( trim( (string) $term->slug ) );
+				$name = strtolower( trim( (string) $term->name ) );
+				if ( 'uncategorized' !== $slug && 'uncategorized' !== $name ) {
+					++$valid_categories;
+				}
+			} elseif ( 'post_tag' === $term->taxonomy ) {
+				++$tag_count;
+			}
+		}
+
+		if ( 0 === $valid_categories ) {
+			$field_errors['categories'] = 'Pilih minimal satu kategori karya tulis.';
+			$missing[]                  = 'kategori';
+		}
+
+		if ( 0 === $tag_count ) {
+			$field_errors['tags'] = 'Tambahkan minimal satu tag karya tulis.';
+			$missing[]            = 'minimal 1 tag';
+		}
+
+		if ( empty( $field_errors ) ) {
+			return true;
+		}
+
+		return new WP_Error(
+			'penalis_editorial_incomplete',
+			'Lengkapi ' . implode( ', ', $missing ) . ' sebelum di-submit untuk di-review.',
+			array(
+				'status'      => 400,
+				'fieldErrors' => $field_errors,
+			)
+		);
 	}
 
 	/**

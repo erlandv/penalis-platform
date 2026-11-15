@@ -115,6 +115,7 @@ function penalis_reset() {
 	$GLOBALS['penalis_test_reset_key_users'] = array();
 	$GLOBALS['penalis_test_password_resets'] = array();
 	$GLOBALS['penalis_test_posts']           = array();
+	$GLOBALS['penalis_test_post_terms']      = array();
 	$GLOBALS['penalis_test_post_views']      = array();
 	$GLOBALS['penalis_test_post_updates']    = array();
 	$GLOBALS['penalis_test_password_notifications'] = array();
@@ -2847,6 +2848,47 @@ penalis_same( 'draft', $GLOBALS['penalis_test_posts'][500]->post_status, 'A refu
 
 $GLOBALS['penalis_test_posts'][500]->post_title   = 'Senja di Pelabuhan';
 $GLOBALS['penalis_test_posts'][500]->post_content = '<p>Puisi tentang laut dan pulang.</p>';
+
+// Title + content alone is still incomplete without thumbnail, category, and tag.
+$missing_meta_submit = Penalis_Rest_Api::submit_article( new WP_REST_Request( 'POST', '/penalis/v1/articles/500/submit', array( 'id' => 500 ) ) );
+penalis_assert( is_wp_error( $missing_meta_submit ), 'Draft without thumbnail, category, and tag cannot be submitted.' );
+penalis_same( 'penalis_editorial_incomplete', $missing_meta_submit->get_error_code(), 'Missing media/taxonomy returns the incomplete error code.' );
+$missing_fields = $missing_meta_submit->get_error_data()['fieldErrors'];
+penalis_assert( isset( $missing_fields['featuredMedia'], $missing_fields['categories'], $missing_fields['tags'] ), 'Incomplete error reports missing featuredMedia, categories, and tags.' );
+
+// Uncategorized alone does not satisfy the category requirement.
+$GLOBALS['penalis_test_post_meta'][500]['_thumbnail_id'] = 901;
+$GLOBALS['penalis_test_post_terms'][500] = array(
+	'category' => array(
+		(object) array(
+			'term_id'  => 1,
+			'name'     => 'Uncategorized',
+			'slug'     => 'uncategorized',
+			'taxonomy' => 'category',
+		),
+	),
+	'post_tag' => array(
+		(object) array(
+			'term_id'  => 20,
+			'name'     => 'Puisi',
+			'slug'     => 'puisi',
+			'taxonomy' => 'post_tag',
+		),
+	),
+);
+
+$uncat_submit = Penalis_Rest_Api::submit_article( new WP_REST_Request( 'POST', '/penalis/v1/articles/500/submit', array( 'id' => 500 ) ) );
+penalis_assert( is_wp_error( $uncat_submit ), 'Uncategorized alone is rejected on submit.' );
+penalis_same( 'penalis_editorial_incomplete', $uncat_submit->get_error_code(), 'Uncategorized-only submission returns incomplete error.' );
+penalis_assert( isset( $uncat_submit->get_error_data()['fieldErrors']['categories'] ), 'Uncategorized-only submission flags the categories field.' );
+
+// Adding a real category makes the draft complete for submission.
+$GLOBALS['penalis_test_post_terms'][500]['category'][] = (object) array(
+	'term_id'  => 2,
+	'name'     => 'Sastra',
+	'slug'     => 'sastra',
+	'taxonomy' => 'category',
+);
 
 // Full REST lifecycle: draft -> submit -> admin request changes -> resubmit -> admin approve.
 $initial_article = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/penalis/v1/articles/500', array( 'id' => 500 ) ) );
