@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -109,6 +109,9 @@ by MIME type and by inspecting the image header (`getimagesize()`), so SVG and
 renamed executable files are rejected.
 
 == Changelog ==
+
+= 1.6.0 =
+* Feature: Change TipTap editor `Enter` behavior so a single `Enter` inserts a line break (`<br>`) and a double `Enter` starts a new paragraph (`<p>`), removing the redundant line-break toolbar button for faster mobile writing.
 
 = 1.5.0 =
 * Feature: Integrate Cloudflare Turnstile protection across authentication and account request forms.

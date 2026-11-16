@@ -376,6 +376,12 @@ lazy-loaded (`React.lazy`), and serializes directly to standard HTML in
 `post_content`, with a raw HTML toggle so existing markup is never silently
 rewritten. Server-side `wp_kses` remains the sole authority on allowed HTML.
 
+For mobile-first writing ergonomics, `EnterHardBreak`
+(`src/features/editor/enterHardBreak.ts`) overrides `Enter` inside non-empty
+paragraphs (outside lists) so a single `Enter` inserts a `<br>` line break and
+a double `Enter` splits into a new `<p>` paragraph, while headings, lists, and
+empty paragraphs keep default TipTap behavior.
+
 ### 7.3 One User Avatar Coexistence
 Profile photo attachment IDs are stored in `{prefix}user_avatar`, the exact
 meta key used by the One User Avatar plugin. While One User Avatar is active, it
