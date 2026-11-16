@@ -57,10 +57,13 @@ have no Penalis writer status, so `/account` reports `isReviewer: true`,
 | `/notifications/read` | `POST` | `mark_notifications_read` | Mark all of the signed-in user's notifications as read |
 | `/notifications/(?P<id>[a-zA-Z0-9_\-]+)/read` | `POST` | `mark_notifications_read` | Mark a single notification as read |
 
-### 1.3 Writer & Editorial Routes (`require_active_writer`)
+### 1.3 Writer & Editorial Routes (`require_active_writer` / `require_active_writer_or_reviewer`)
 
 Accessible to active writers (`_penalis_account_status = active` and
-`_penalis_access_enabled = 1`) and administrators.
+`_penalis_access_enabled = 1`). The read-only article detail and review routes
+(`/articles/(?P<id>\d+)` and `/articles/(?P<id>\d+)/review`) use
+`require_active_writer_or_reviewer` so reviewers (`edit_others_posts`, i.e.
+administrators and editors) without writer status can also read them.
 
 | Route | Method | Handler | Access & Behavior |
 | --- | --- | --- | --- |

@@ -2926,9 +2926,30 @@ penalis_same( 'penalis_not_found', $foreign_submit->get_error_code(), 'Cross-wri
 
 // An administrator may read the pending submission and its review state.
 $GLOBALS['penalis_test_current_user'] = 20;
+penalis_assert( true === Penalis_Rest_Api::require_active_writer_or_reviewer(), 'A reviewer without writer status passes the read-only article/review permission callback.' );
+$admin_writer_check = Penalis_Rest_Api::require_active_writer();
+penalis_assert( is_wp_error( $admin_writer_check ) && 'penalis_account_inactive' === $admin_writer_check->get_error_code(), 'A reviewer without writer status is still blocked from active-writer routes.' );
+
+$admin_article = Penalis_Rest_Api::get_article( new WP_REST_Request( 'GET', '/penalis/v1/articles/500', array( 'id' => 500 ) ) );
+penalis_assert( $admin_article instanceof WP_REST_Response, 'An administrator may read a pending submission detail.' );
+
 $admin_review = Penalis_Rest_Api::get_article_review( new WP_REST_Request( 'GET', '/penalis/v1/articles/500/review', array( 'id' => 500 ) ) );
 penalis_assert( $admin_review instanceof WP_REST_Response, 'An administrator may read a pending submission review.' );
 penalis_assert( false === $admin_review->get_data()['canSubmit'], 'A non-owner administrator does not get writer submit flags.' );
+
+// Active writers pass the combined permission callback, while pending and logged-out users are rejected.
+$GLOBALS['penalis_test_current_user'] = 10;
+penalis_assert( true === Penalis_Rest_Api::require_active_writer_or_reviewer(), 'An active writer passes the read-only article/review permission callback.' );
+
+$GLOBALS['penalis_test_current_user'] = 12;
+$pending_read_check = Penalis_Rest_Api::require_active_writer_or_reviewer();
+penalis_assert( is_wp_error( $pending_read_check ) && 'penalis_account_inactive' === $pending_read_check->get_error_code(), 'A pending writer fails the read-only article/review permission callback.' );
+
+$GLOBALS['penalis_test_current_user'] = 0;
+$anon_read_check = Penalis_Rest_Api::require_active_writer_or_reviewer();
+penalis_assert( is_wp_error( $anon_read_check ) && 'penalis_not_authenticated' === $anon_read_check->get_error_code(), 'A logged-out user fails the read-only article/review permission callback.' );
+
+$GLOBALS['penalis_test_current_user'] = 20;
 
 // Administrator requests changes; writer sees feedback and can edit + resubmit.
 Penalis_Editorial_Workflow::apply(

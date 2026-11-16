@@ -357,7 +357,7 @@ final class Penalis_Rest_Api {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( __CLASS__, 'get_article' ),
-				'permission_callback' => array( __CLASS__, 'require_active_writer' ),
+				'permission_callback' => array( __CLASS__, 'require_active_writer_or_reviewer' ),
 			)
 		);
 
@@ -367,7 +367,7 @@ final class Penalis_Rest_Api {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( __CLASS__, 'get_article_review' ),
-				'permission_callback' => array( __CLASS__, 'require_active_writer' ),
+				'permission_callback' => array( __CLASS__, 'require_active_writer_or_reviewer' ),
 			)
 		);
 
@@ -569,6 +569,27 @@ final class Penalis_Rest_Api {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Require an active writer or a reviewer (`edit_others_posts`).
+	 *
+	 * Used by read-only article detail and review endpoints so administrators and
+	 * editors without writer status can inspect submissions.
+	 *
+	 * @return true|WP_Error
+	 */
+	public static function require_active_writer_or_reviewer() {
+		$check = self::require_logged_in();
+		if ( is_wp_error( $check ) ) {
+			return $check;
+		}
+
+		if ( Penalis_Editorial_Workflow::can_review( get_current_user_id() ) ) {
+			return true;
+		}
+
+		return self::require_active_writer();
 	}
 
 	/**
