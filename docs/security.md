@@ -127,6 +127,13 @@ unauthorized publishing:
   `Penalis_Account_Status::with_advisory_lock()`, re-reads the post and
   `_penalis_review_cycle` inside the lock, and rejects stale or concurrent
   decisions (`penalis_editorial_denied` or `penalis_editorial_busy`).
+- **Serialized Notification Writes:** `_penalis_notifications` is one serialized
+  user-meta array, so `Penalis_Editorial_Notifications::record_for_user()` and
+  `mark_read()` run their read-modify-write cycle inside a per-recipient MySQL
+  advisory lock and re-read the list after the lock is granted. Without it, two
+  concurrent submissions for the same reviewer (or a read receipt racing an
+  incoming notification) would write back a stale snapshot and silently drop an
+  entry whose email had already been sent.
 - **IDOR & Information Disclosure Prevention:**
   - `GET /penalis/v1/articles/{id}` and `GET /penalis/v1/articles/{id}/review`
     return `404 penalis_not_found` (never `403`) when accessed by another

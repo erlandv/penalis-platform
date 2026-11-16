@@ -492,11 +492,11 @@ final class Penalis_Policy {
 	 */
 	public static function validate_password( $password ) {
 		if ( ! is_string( $password ) || strlen( $password ) < self::MIN_PASSWORD ) {
-			return 'Passwords must be at least ' . self::MIN_PASSWORD . ' characters long.';
+			return 'Password minimal ' . self::MIN_PASSWORD . ' karakter.';
 		}
 
 		if ( strlen( $password ) > self::MAX_PASSWORD ) {
-			return 'Passwords must be ' . self::MAX_PASSWORD . ' characters or fewer.';
+			return 'Password maksimal ' . self::MAX_PASSWORD . ' karakter.';
 		}
 
 		if ( trim( $password ) === '' ) {

@@ -144,7 +144,10 @@ function penalis_reset() {
 		$GLOBALS['penalis_test_updated_login'],
 		$GLOBALS['penalis_test_post_update_fails'],
 		$GLOBALS['penalis_test_current_user'],
-		$GLOBALS['penalis_test_mail_fails']
+		$GLOBALS['penalis_test_mail_fails'],
+		$GLOBALS['penalis_test_db_events'],
+		$GLOBALS['penalis_test_lock_queries'],
+		$GLOBALS['penalis_test_on_lock']
 	);
 }
 
@@ -3494,6 +3497,138 @@ penalis_same(
 );
 penalis_same( 2, Penalis_Editorial_Notifications::count_unread( 10 ), 'Dashboard notifications are still recorded when wp_mail fails.' );
 unset( $GLOBALS['penalis_test_mail_fails'] );
+
+/* -------------------------------------------------------------------------
+ * Notification concurrency
+ * ---------------------------------------------------------------------- */
+
+/*
+ * Notifications live in one serialized user-meta array, so every read-modify-
+ * write cycle must run inside a per-user advisory lock. Without it, two
+ * submissions for the same reviewer in the same second both read the same
+ * snapshot and the later write erases the earlier notification, while the
+ * email for the lost entry has already been sent.
+ */
+
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+penalis_editorial_writer( 60 );
+penalis_editorial_post( 700, 60, 'draft' );
+$GLOBALS['penalis_test_posts'][700]->post_title = 'Judul Notifikasi Bersamaan';
+
+$GLOBALS['penalis_test_db_events'] = array();
+penalis_assert(
+	Penalis_Editorial_Notifications::record_for_user( 60, 700, Penalis_Editorial_Policy::ACTION_SUBMIT ),
+	'A submission notification is stored for the article owner.'
+);
+penalis_same(
+	array( 'lock', 'meta:' . Penalis_Editorial_Policy::META_NOTIFICATIONS, 'unlock' ),
+	$GLOBALS['penalis_test_db_events'],
+	'Recording a notification reads and writes the stored list inside the per-user advisory lock.'
+);
+
+$GLOBALS['penalis_test_lock_queries'] = array();
+Penalis_Editorial_Notifications::record_for_user( 60, 700, Penalis_Editorial_Policy::ACTION_RESUBMIT );
+$owner_lock_query = isset( $GLOBALS['penalis_test_lock_queries'][0] ) ? (string) $GLOBALS['penalis_test_lock_queries'][0] : '';
+penalis_assert(
+	false !== strpos( $owner_lock_query, 'penalis_notif_' ),
+	'Notification writes take a Penalis notification advisory lock.'
+);
+
+// The lock name is scoped per recipient, so two reviewers never serialize on
+// each other's notification list.
+$GLOBALS['penalis_test_lock_queries'] = array();
+penalis_editorial_writer( 61 );
+penalis_editorial_post( 701, 61, 'draft' );
+Penalis_Editorial_Notifications::record_for_user( 61, 701, Penalis_Editorial_Policy::ACTION_SUBMIT );
+$other_lock_query = isset( $GLOBALS['penalis_test_lock_queries'][0] ) ? (string) $GLOBALS['penalis_test_lock_queries'][0] : '';
+penalis_assert(
+	'' !== $owner_lock_query && '' !== $other_lock_query && $owner_lock_query !== $other_lock_query,
+	'Each recipient serializes notification writes on their own advisory lock.'
+);
+unset( $GLOBALS['penalis_test_lock_queries'] );
+
+// Two notifications recorded in the same second for the same post and action
+// must both survive and must carry distinct IDs.
+$GLOBALS['penalis_test_db_events'] = array();
+Penalis_Editorial_Notifications::record_for_user( 60, 700, Penalis_Editorial_Policy::ACTION_REOPEN );
+$notif_ids = array();
+foreach ( Penalis_Editorial_Notifications::get_raw_for_user( 60 ) as $notif_entry ) {
+	$notif_ids[] = $notif_entry['id'];
+}
+penalis_same( 3, count( $notif_ids ), 'Every recorded notification is preserved instead of overwriting the previous one.' );
+penalis_same( 3, count( array_unique( $notif_ids ) ), 'Notification IDs stay unique within the same second.' );
+
+/*
+ * The decisive regression: another request commits a notification for the same
+ * recipient between our initial read and the lock grant. Because the list is
+ * re-read inside the lock, both entries survive; a read-before-lock
+ * implementation would write back the stale snapshot and lose the concurrent
+ * notification even though its email was already delivered.
+ */
+$GLOBALS['penalis_test_on_lock'] = static function () {
+	$existing   = get_user_meta( 60, Penalis_Editorial_Policy::META_NOTIFICATIONS, true );
+	$existing   = is_array( $existing ) ? $existing : array();
+	$existing[] = array(
+		'id'         => 'notif_concurrent_request',
+		'type'       => Penalis_Editorial_Policy::ACTION_SUBMIT,
+		'article_id' => 700,
+		'message'    => 'Notifikasi dari request lain.',
+		'created_at' => 1700000600,
+		'read_at'    => 0,
+	);
+
+	update_user_meta( 60, Penalis_Editorial_Policy::META_NOTIFICATIONS, $existing );
+};
+
+Penalis_Editorial_Notifications::record_for_user( 60, 700, Penalis_Editorial_Policy::ACTION_APPROVE );
+unset( $GLOBALS['penalis_test_on_lock'] );
+
+$concurrent_ids = array();
+foreach ( Penalis_Editorial_Notifications::get_raw_for_user( 60 ) as $notif_entry ) {
+	$concurrent_ids[] = $notif_entry['id'];
+}
+penalis_same( 5, count( $concurrent_ids ), 'A notification committed before the lock grant is preserved.' );
+penalis_assert(
+	in_array( 'notif_concurrent_request', $concurrent_ids, true ),
+	'The concurrently written notification is never clobbered by the lock holder.'
+);
+
+// A lock that cannot be acquired must not fall back to an unlocked write.
+$notif_before = get_user_meta( 60, Penalis_Editorial_Policy::META_NOTIFICATIONS, true );
+$GLOBALS['penalis_test_lock_available'] = false;
+penalis_assert(
+	false === Penalis_Editorial_Notifications::record_for_user( 60, 700, Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES ),
+	'A busy notification lock reports that nothing was stored.'
+);
+unset( $GLOBALS['penalis_test_lock_available'] );
+penalis_same(
+	$notif_before,
+	get_user_meta( 60, Penalis_Editorial_Policy::META_NOTIFICATIONS, true ),
+	'A busy notification lock leaves the stored list untouched.'
+);
+
+// Read receipts use the same lock, so they cannot revert a concurrent append.
+$GLOBALS['penalis_test_db_events'] = array();
+$marked_read = Penalis_Editorial_Notifications::mark_read( 60 );
+penalis_same( 0, $marked_read['unreadCount'], 'Marking all notifications read clears the unread count.' );
+penalis_same(
+	array( 'lock', 'meta:' . Penalis_Editorial_Policy::META_NOTIFICATIONS, 'unlock' ),
+	$GLOBALS['penalis_test_db_events'],
+	'Marking notifications read rewrites the stored list inside the per-user advisory lock.'
+);
+
+$GLOBALS['penalis_test_db_events'] = array();
+$GLOBALS['penalis_test_lock_available'] = false;
+$busy_read = Penalis_Editorial_Notifications::mark_read( 60, 'notif_any' );
+unset( $GLOBALS['penalis_test_lock_available'] );
+penalis_same(
+	array( 'lock' ),
+	$GLOBALS['penalis_test_db_events'],
+	'A busy notification lock performs no unlocked write and releases nothing on read receipts.'
+);
+penalis_same( 0, $busy_read['unreadCount'], 'A busy read receipt reports the unchanged unread count.' );
+unset( $GLOBALS['penalis_test_db_events'] );
 
 /* -------------------------------------------------------------------------
  * Self-service registration verification, legacy activation, and Instagram REST profile

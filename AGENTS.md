@@ -192,7 +192,8 @@ readme.txt                  WordPress plugin readme and changelog
     `Penalis_Dashboard` and `Penalis_Authors`.
   - **MySQL advisory locks (`Penalis_Account_Status`):** Use
     `Penalis_Account_Status::with_advisory_lock()` (used by `Penalis_Otp`,
-    `Penalis_Username_Change`, and `Penalis_Editorial_Workflow`) so `GET_LOCK`
+    `Penalis_Username_Change`, `Penalis_Editorial_Workflow`, and
+    `Penalis_Editorial_Notifications`) so `GET_LOCK`
     and `RELEASE_LOCK` stay paired in a `try / finally` block.
   - **Editorial queries & counts (`Penalis_Editorial_Workflow`):** Use
     `state_query_clauses()` and `count_matching_posts()` in both REST and

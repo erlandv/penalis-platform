@@ -258,6 +258,10 @@ if ( ! function_exists( 'update_user_meta' ) ) {
 			return false;
 		}
 
+		if ( isset( $GLOBALS['penalis_test_db_events'] ) && is_array( $GLOBALS['penalis_test_db_events'] ) ) {
+			$GLOBALS['penalis_test_db_events'][] = 'meta:' . $key;
+		}
+
 		if ( '' === $prev_value ) {
 			// Core replaces every row for the key when no previous value is given.
 			$user->meta[ $key ] = array( $value );
@@ -679,6 +683,20 @@ if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
 		 */
 		public function get_var( $query ) {
 			if ( false !== strpos( $query, 'GET_LOCK' ) || false !== strpos( $query, 'RELEASE_LOCK' ) ) {
+				if ( isset( $GLOBALS['penalis_test_db_events'] ) && is_array( $GLOBALS['penalis_test_db_events'] ) ) {
+					$GLOBALS['penalis_test_db_events'][] = false !== strpos( $query, 'GET_LOCK' ) ? 'lock' : 'unlock';
+				}
+
+				if ( false !== strpos( $query, 'GET_LOCK' ) && isset( $GLOBALS['penalis_test_lock_queries'] ) && is_array( $GLOBALS['penalis_test_lock_queries'] ) ) {
+					$GLOBALS['penalis_test_lock_queries'][] = $query;
+				}
+
+				if ( false !== strpos( $query, 'GET_LOCK' ) && isset( $GLOBALS['penalis_test_on_lock'] ) && is_callable( $GLOBALS['penalis_test_on_lock'] ) ) {
+					// Simulates another request writing between the caller's
+					// initial read and the moment the lock is granted.
+					call_user_func( $GLOBALS['penalis_test_on_lock'] );
+				}
+
 				return isset( $GLOBALS['penalis_test_lock_available'] ) && ! $GLOBALS['penalis_test_lock_available'] ? null : '1';
 			}
 

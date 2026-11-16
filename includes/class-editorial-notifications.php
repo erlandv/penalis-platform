@@ -86,6 +86,11 @@ final class Penalis_Editorial_Notifications {
 	 * before writing so another writer or non-reviewer account can never
 	 * receive a notification for a private submission.
 	 *
+	 * Notifications live in a single serialized user-meta array, so the read and
+	 * the write are serialized behind a per-user advisory lock. Two articles
+	 * submitted at the same time for the same reviewer would otherwise both read
+	 * the same snapshot and the second write would erase the first entry.
+	 *
 	 * @param int         $user_id  Recipient user ID.
 	 * @param WP_Post|int $post     Post or post ID.
 	 * @param string      $action   Workflow action.
@@ -133,10 +138,76 @@ final class Penalis_Editorial_Notifications {
 			return false;
 		}
 
-		$stored  = self::get_raw_for_user( $user_id );
-		$updated = Penalis_Editorial_Policy::append_notification( $stored, $entry );
+		// The stored list is re-read inside the lock so a notification written by
+		// a concurrent request is preserved instead of being overwritten.
+		return true === self::with_user_lock(
+			$user_id,
+			static function () use ( $user_id, $entry ) {
+				$updated = Penalis_Editorial_Policy::append_notification(
+					self::get_raw_for_user( $user_id ),
+					$entry
+				);
 
-		return (bool) update_user_meta( $user_id, Penalis_Editorial_Policy::META_NOTIFICATIONS, $updated );
+				return (bool) update_user_meta( $user_id, Penalis_Editorial_Policy::META_NOTIFICATIONS, $updated );
+			}
+		);
+	}
+
+	/**
+	 * Run a read-modify-write mutation of a recipient's notification list.
+	 *
+	 * The list is stored as one serialized user-meta array, so every mutation
+	 * reads the whole list and writes it back. Two articles submitted at the same
+	 * time for the same reviewer, or a read receipt racing an incoming
+	 * notification, would otherwise each write back the snapshot they read and
+	 * silently drop the other's change. A per-user advisory lock serializes the
+	 * whole cycle, and the list is re-read inside the lock.
+	 *
+	 * The lock is fail-closed when the database is available but the lock cannot
+	 * be acquired: the mutation is skipped instead of writing unlocked, so a busy
+	 * server never trades serialization for silent data loss. Skipping only the
+	 * notification is safe because a notification problem never rolls back the
+	 * editorial transition that already committed.
+	 *
+	 * Lock ordering: notifications are recorded while the per-post editorial lock
+	 * is held (`Penalis_Editorial_Workflow::apply()` -> `apply_locked()` ->
+	 * `penalis_editorial_action`), so the order is always post lock then user
+	 * lock. Nothing acquires a post lock while holding a user lock, so the two
+	 * lock families cannot deadlock.
+	 *
+	 * @param int      $user_id Recipient user ID.
+	 * @param callable $mutate  Mutation executed with the lock held.
+	 * @return mixed Result of the mutation, or `WP_Error` when the lock is busy.
+	 */
+	private static function with_user_lock( $user_id, $mutate ) {
+		return Penalis_Account_Status::with_advisory_lock(
+			self::user_lock_name( $user_id ),
+			5,
+			$mutate,
+			new WP_Error(
+				'penalis_notifications_busy',
+				'Notifikasi sedang diperbarui. Coba lagi sebentar lagi.',
+				array( 'status' => 409 )
+			),
+			true
+		);
+	}
+
+	/**
+	 * Advisory lock name for one recipient's notification metadata.
+	 *
+	 * Scoping the digest with the usermeta table keeps two installations that
+	 * share a database from blocking each other.
+	 *
+	 * @param int $user_id Recipient user ID.
+	 * @return string
+	 */
+	private static function user_lock_name( $user_id ) {
+		global $wpdb;
+
+		$table = is_object( $wpdb ) && isset( $wpdb->usermeta ) ? (string) $wpdb->usermeta : 'usermeta';
+
+		return 'penalis_notif_' . md5( $table . '|' . (int) $user_id );
 	}
 
 	/**
@@ -219,7 +290,13 @@ final class Penalis_Editorial_Notifications {
 	/**
 	 * Mark one notification or all notifications as read for a user.
 	 *
-	 * Operations are strictly scoped to `$user_id`'s own metadata.
+	 * Operations are strictly scoped to `$user_id`'s own metadata. The write is
+	 * serialized with `record_for_user()` behind the same per-user advisory lock
+	 * so a read receipt cannot revert a notification appended at the same time,
+	 * and a concurrent append cannot resurrect already-read entries.
+	 *
+	 * When the lock cannot be acquired the list is returned unchanged rather than
+	 * written unlocked, so a busy server never corrupts the stored state.
 	 *
 	 * @param int    $user_id         User ID.
 	 * @param string $notification_id Notification ID, or empty/'all' for all.
@@ -234,12 +311,24 @@ final class Penalis_Editorial_Notifications {
 			);
 		}
 
-		$stored = self::get_raw_for_user( $user_id );
-		$result = Penalis_Editorial_Policy::mark_notifications_read( $stored, (string) $notification_id, time() );
+		$notification_id = (string) $notification_id;
 
-		if ( $result['changed'] ) {
-			update_user_meta( $user_id, Penalis_Editorial_Policy::META_NOTIFICATIONS, $result['notifications'] );
-		}
+		self::with_user_lock(
+			$user_id,
+			static function () use ( $user_id, $notification_id ) {
+				$result = Penalis_Editorial_Policy::mark_notifications_read(
+					self::get_raw_for_user( $user_id ),
+					$notification_id,
+					time()
+				);
+
+				if ( ! $result['changed'] ) {
+					return false;
+				}
+
+				return (bool) update_user_meta( $user_id, Penalis_Editorial_Policy::META_NOTIFICATIONS, $result['notifications'] );
+			}
+		);
 
 		$items = self::get_for_user( $user_id );
 
@@ -378,6 +467,12 @@ final class Penalis_Editorial_Notifications {
 	/**
 	 * Generate a unique notification identifier.
 	 *
+	 * The per-request sequence counter is not enough on its own: two concurrent
+	 * requests recording a notification for the same post and action in the same
+	 * second would both emit sequence 1, and since `mark_read()` addresses entries
+	 * by ID a duplicate would mark both. The random suffix keeps IDs unique across
+	 * requests so read receipts stay precise.
+	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $action  Workflow action.
 	 * @return string
@@ -386,11 +481,12 @@ final class Penalis_Editorial_Notifications {
 		++self::$sequence;
 
 		return sprintf(
-			'notif_%d_%s_%d_%d',
+			'notif_%d_%s_%d_%d_%s',
 			(int) $post_id,
 			sanitize_key( (string) $action ),
 			time(),
-			self::$sequence
+			self::$sequence,
+			bin2hex( random_bytes( 4 ) )
 		);
 	}
 

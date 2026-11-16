@@ -252,7 +252,11 @@ Key invariants:
   `Penalis_Editorial_Notifications` records a bounded in-dashboard notification
   (`_penalis_notifications`, max 50 per user) and dispatches a branded HTML
   email via `Penalis_Emails`. Mail failures are recorded on the author's account
-  without rolling back the editorial transition.
+  without rolling back the editorial transition. Because the list is one
+  serialized user-meta array, `record_for_user()` and `mark_read()` perform
+  their read-modify-write cycle inside a per-recipient MySQL advisory lock
+  (`GET_LOCK`, 5-second timeout) and re-read the list inside it, so two
+  concurrent submissions for the same reviewer cannot drop each other's entry.
 
 ---
 
