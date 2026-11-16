@@ -3330,6 +3330,10 @@ penalis_assert(
 	false !== strpos( $admin_notifs[0]['reviewUrl'], 'page=penalis-review' ) && false !== strpos( $admin_notifs[0]['reviewUrl'], 'post_id=600' ),
 	'Admin notification links to the wp-admin editorial review detail view.'
 );
+penalis_assert(
+	false === strpos( $admin_notifs[0]['targetUrl'], 'penalis_focus' ),
+	'A submission notification without feedback does not deep-link to the revision notes.'
+);
 
 // 2. Request changes: emails the author only, records writer notification with editor link.
 Penalis_Editorial_Workflow::apply(
@@ -3356,6 +3360,10 @@ penalis_same( Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES, $writer_notifs[0
 penalis_assert(
 	false !== strpos( $writer_notifs[0]['targetUrl'], 'view=editor' ) && false !== strpos( $writer_notifs[0]['targetUrl'], 'id=600' ),
 	'Writer notification links directly to the dashboard editor for the article.'
+);
+penalis_assert(
+	false !== strpos( $writer_notifs[0]['targetUrl'], 'penalis_focus=feedback' ),
+	'A requested-changes notification deep-links to the revision notes panel.'
 );
 penalis_same( '', $writer_notifs[0]['reviewUrl'], 'Non-admin writer notification does not expose an admin reviewUrl.' );
 

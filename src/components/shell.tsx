@@ -15,12 +15,14 @@ import {
 
 import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
-import type { Account, AccountStatus, ViewName } from '../lib/types';
+import type { Account, AccountStatus, DashboardNotification, ViewName } from '../lib/types';
 import { toActiveChallenge, type ActiveChallenge } from '../lib/otp';
 import { Icon, type IconName } from './icons';
+import { NotificationBell } from './NotificationBell';
 import { OtpForm } from './OtpForm';
 import { Notice, VerifiedWriterBadge } from './ui';
 import { preloadEditor } from '../features/editor/editorLoader';
+import type { NotificationsController } from '../features/notifications/useNotifications';
 
 /**
  * Navigation entries carry an icon so the sidebar reads as a set of places
@@ -29,6 +31,7 @@ import { preloadEditor } from '../features/editor/editorLoader';
  */
 const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: IconName }> = [
   { view: 'overview', label: 'Ringkasan', icon: 'layoutDashboard' },
+  { view: 'notifications', label: 'Notifikasi', icon: 'bell' },
   { view: 'articles', label: 'Daftar Karya', icon: 'fileText' },
   { view: 'editor', label: 'Buat Karya', icon: 'edit' },
   { view: 'media', label: 'Media', icon: 'image' },
@@ -465,23 +468,41 @@ export function Shell({
   account,
   view,
   onNavigate,
+  notifications,
+  onOpenNotificationArticle,
   children,
 }: {
   account: Account;
   view: ViewName;
   onNavigate: (view: ViewName) => void;
+  notifications: NotificationsController;
+  onOpenNotificationArticle: (item: DashboardNotification) => void;
   children: ReactNode;
 }) {
   const bootstrap = getBootstrap();
   const canWrite = account.canWrite;
+  /*
+   * Only writers and reviewers ever receive editorial notifications, so a
+   * pending or suspended account must not see an always-empty bell or an
+   * always-empty Notifikasi page.
+   */
+  const canReceiveNotifications = canWrite || account.isAdministrator || account.isReviewer;
 
   return (
     <div className="penalis-app">
       <header className="penalis-header">
-        <div>
+        <div className="penalis-header__title">
           <h1>Dashboard Penulis</h1>
         </div>
         <div className="penalis-header__meta">
+          {canReceiveNotifications ? (
+            <NotificationBell
+              account={account}
+              controller={notifications}
+              onOpenArticle={onOpenNotificationArticle}
+              onViewAll={() => onNavigate('notifications')}
+            />
+          ) : null}
           <AccountMenu
             account={account}
             adminUrl={bootstrap.adminUrl}
@@ -514,10 +535,9 @@ export function Shell({
 
       <div className="penalis-layout">
         <nav className="penalis-nav" aria-label="Bagian dashboard">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter((item) => item.view !== 'notifications' || canReceiveNotifications).map((item) => {
             const disabled =
-              !canWrite && item.view !== 'overview' && item.view !== 'profile' && item.view !== 'settings';
-            const unreadCount = item.view === 'overview' ? (account.unreadNotifications ?? 0) : 0;
+              !canWrite && item.view !== 'overview' && item.view !== 'notifications' && item.view !== 'profile' && item.view !== 'settings';
             const disabledHint = account.isReviewer
               ? 'Hanya tersedia untuk akun penulis'
               : 'Tersedia setelah email kamu dikonfirmasi';
@@ -544,14 +564,6 @@ export function Shell({
               >
                 <Icon name={item.icon} />
                 <span>{item.label}</span>
-                {unreadCount > 0 ? (
-                  <span
-                    className="penalis-nav__badge"
-                    aria-label={`${unreadCount} notifikasi belum dibaca`}
-                  >
-                    {unreadCount}
-                  </span>
-                ) : null}
               </button>
             );
           })}

@@ -53,7 +53,7 @@ have no Penalis writer status, so `/account` reports `isReviewer: true`,
 | `/account/email` | `POST` | `request_email_change` | Re-authenticated request to change email; emails a six-digit code to the new address |
 | `/account/avatar` | `POST` | `set_avatar` | Set profile photo from an attachment owned by the current user (minimum 100x100px) |
 | `/account/avatar` | `DELETE` | `remove_avatar` | Remove the current user's profile photo |
-| `/notifications` | `GET` | `list_notifications` | Return the signed-in user's bounded editorial notifications (up to 50) and `unreadCount` |
+| `/notifications` | `GET` | `list_notifications` | Return the signed-in user's bounded editorial notifications (up to 50) and `unreadCount`. Each item carries `articleId`, `articleTitle`, `feedback`, `targetView`, `targetUrl`, and `reviewUrl`; `targetUrl` adds `penalis_focus=feedback` when the entry has revision notes |
 | `/notifications/read` | `POST` | `mark_notifications_read` | Mark all of the signed-in user's notifications as read |
 | `/notifications/(?P<id>[a-zA-Z0-9_\-]+)/read` | `POST` | `mark_notifications_read` | Mark a single notification as read |
 

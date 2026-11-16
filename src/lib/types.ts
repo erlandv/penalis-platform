@@ -97,6 +97,14 @@ export type EditorialAction =
   | 'reopen'
   | 'approve';
 
+/**
+ * Section of the editor a deep link should reveal on open.
+ *
+ * `feedback` targets the reviewer's revision notes so a notification about
+ * requested changes lands on the section the writer must act on.
+ */
+export type EditorFocus = 'feedback' | null;
+
 export interface ReviewHistoryEntry {
   action: EditorialAction | string;
   actionLabel: string;
@@ -295,6 +303,7 @@ export interface ApiErrorShape {
 
 export type ViewName =
   | 'overview'
+  | 'notifications'
   | 'articles'
   | 'editor'
   | 'profile'

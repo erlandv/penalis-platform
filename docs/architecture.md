@@ -257,6 +257,20 @@ Key invariants:
   their read-modify-write cycle inside a per-recipient MySQL advisory lock
   (`GET_LOCK`, 5-second timeout) and re-read the list inside it, so two
   concurrent submissions for the same reviewer cannot drop each other's entry.
+  `mark_read()` is fail-closed: when the lock is busy the stored list is left
+  untouched while the endpoint still answers `200`, so the dashboard replaces
+  its optimistic read receipt with the authoritative response instead of
+  assuming the write landed.
+- **Notification surfaces:** The dashboard exposes the same list in three
+  places, all fed by one `useNotifications()` controller in `App.tsx` so the
+  unread badge can never disagree with the feed: the header bell
+  (`NotificationBell.tsx`, a compact dropdown), the **Notifikasi** view
+  (`features/notifications/Notifications.tsx`, full feed with an all/unread
+  filter, bulk read receipt, and optional per-article grouping), and the
+  overview panel. The list refreshes on `focus`/`visibilitychange` rather than
+  on a timer, because `count_unread()` re-checks every stored entry against its
+  current post. A notification with revision notes deep-links to the editor's
+  feedback panel through `penalis_focus=feedback`.
 
 ---
 

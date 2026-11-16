@@ -87,8 +87,9 @@ composer check           # Run composer lint + php tests/run-tests.php
   countdown formatting, and `toActiveChallenge()` (`otp.test.ts`), HTML
   normalization (`html.test.ts`), formatting (`format.test.ts`), public display
   name derivation (`profile.test.ts`), image crop math (`crop.test.ts`),
-  lazy-chunk retry/preload helpers (`lazyWithRetry.test.ts`), and public authors
-  URL query state (`src/authors/query.test.ts`).
+  lazy-chunk retry/preload helpers (`lazyWithRetry.test.ts`), public authors
+  URL query state (`src/authors/query.test.ts`), and notification feed
+  filtering/grouping (`src/features/notifications/query.test.ts`).
 - Date/time tests pass an explicit `timeZone` option (`Asia/Jakarta`, `UTC`) so
   assertions are deterministic regardless of the machine running the suite.
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEEPLINK, isTokenShaped } from './deeplink';
+import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, isTokenShaped } from './deeplink';
 
 /**
  * A real token is 32 random bytes encoded as URL-safe base64 without padding,
@@ -75,5 +75,13 @@ describe('DEEPLINK', () => {
   it('uses penalis_user for password reset companion and retains legacy penalis_login', () => {
     expect(DEEPLINK.resetLogin).toBe('penalis_user');
     expect(DEEPLINK.legacyResetLogin).toBe('penalis_login');
+  });
+
+  it('exposes an editor focus parameter that is not token shaped', () => {
+    // The value is a plain section name, never a secret, so it must not be
+    // mistaken for a bearer token by isTokenShaped().
+    expect(DEEPLINK.editorFocus).toBe('penalis_focus');
+    expect(EDITOR_FOCUS_FEEDBACK).toBe('feedback');
+    expect(isTokenShaped(EDITOR_FOCUS_FEEDBACK)).toBe(false);
   });
 });

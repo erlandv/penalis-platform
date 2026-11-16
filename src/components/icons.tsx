@@ -34,6 +34,7 @@ export type IconName =
   | 'eyeOff'
   | 'send'
   | 'layoutDashboard'
+  | 'bell'
   | 'fileText'
   | 'user'
   | 'users'
@@ -199,6 +200,12 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="M22 2 11 13" />
       <path d="M22 2 15 22l-4-9-9-4Z" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      <path d="M10 21h4" />
     </>
   ),
   layoutDashboard: (

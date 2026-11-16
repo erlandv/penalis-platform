@@ -212,6 +212,13 @@ readme.txt                  WordPress plugin readme and changelog
     `src/components/ui.tsx`, `validatePasswordPair()` in `src/lib/validation.ts`,
     `toActiveChallenge()` in `src/lib/otp.ts`, and `isStaleEditorialError()` in
     `src/lib/api.ts`.
+  - Use the single `useNotifications()` controller
+    (`src/features/notifications/useNotifications.ts`) for every notification
+    surface — the header bell (`src/components/NotificationBell.tsx`), the
+    **Notifikasi** view, and the overview panel — and render rows with
+    `<NotificationList>` (`src/features/notifications/NotificationList.tsx`) so
+    the unread badge can never disagree with the feed. Never fetch
+    `/notifications` directly from a component.
 - **Two token worlds (never mix them):**
   - Email verification codes (`Penalis_Otp`): six digits from `random_int()`,
     bound to a purpose (`registration`, `legacy`, `email_change`) and an opaque

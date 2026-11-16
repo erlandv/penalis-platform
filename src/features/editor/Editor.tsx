@@ -19,6 +19,7 @@ import type {
   Article,
   ArticleReview,
   EditorialState,
+  EditorFocus,
   FieldErrors,
   MediaItem,
   ReviewHistoryEntry,
@@ -90,10 +91,12 @@ const EMPTY_SNAPSHOT = snapshotOf({
 
 export function Editor({
   articleId,
+  focus = null,
   onSaved,
   onCancel,
 }: {
   articleId?: number;
+  focus?: EditorFocus;
   onSaved: (id: number) => void;
   onCancel: () => void;
 }) {
@@ -156,6 +159,7 @@ export function Editor({
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   const editorRef = useRef<RichTextEditorHandle | null>(null);
+  const feedbackRef = useRef<HTMLElement | null>(null);
 
   const currentSnapshot = useMemo(
     () =>
@@ -605,6 +609,27 @@ export function Editor({
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [isDirty]);
 
+  /*
+   * A notification about requested changes deep-links here with
+   * `focus="feedback"`. The article loads asynchronously, so the reveal waits
+   * until the notes are actually rendered; otherwise the scroll would target an
+   * element that does not exist yet.
+   */
+  useEffect(() => {
+    if (focus !== 'feedback' || !feedback) {
+      return;
+    }
+
+    const target = feedbackRef.current;
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    // Move focus so a keyboard or screen-reader user lands on the notes too.
+    target.focus({ preventScroll: true });
+  }, [focus, feedback]);
+
   const previewDocument = useMemo(() => {
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>
       body{font-family:Georgia,serif;line-height:1.7;color:#1f2933;max-width:720px;margin:0 auto;padding:2rem;background:#fff}
@@ -775,7 +800,12 @@ export function Editor({
       <div className="penalis-editor">
         <div className="penalis-editor__main">
           {feedback ? (
-            <section className="penalis-panel penalis-editorial-feedback" aria-label="Catatan review admin">
+            <section
+              className="penalis-panel penalis-editorial-feedback"
+              aria-label="Catatan review admin"
+              ref={feedbackRef}
+              tabIndex={-1}
+            >
               <div className="penalis-panel__header">
                 <h3>Catatan review admin:</h3>
                 {reviewCycle > 0 ? (

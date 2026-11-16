@@ -36,7 +36,18 @@ export const DEEPLINK = {
   loginError: 'penalis_login_error',
   /** Flag: a dashboard login Turnstile verification failed. */
   turnstileError: 'penalis_turnstile_error',
+  /**
+   * Which part of the editor to reveal on open.
+   *
+   * `feedback` scrolls to the reviewer's revision notes, so a notification
+   * about requested changes can link straight to the section the writer must
+   * act on instead of dropping them at the top of a long article.
+   */
+  editorFocus: 'penalis_focus',
 } as const;
+
+/** Value of `DEEPLINK.editorFocus` that targets the revision notes. */
+export const EDITOR_FOCUS_FEEDBACK = 'feedback';
 
 /**
  * Whether a value looks like a plugin-issued token.

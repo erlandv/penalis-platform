@@ -240,13 +240,21 @@ final class Penalis_Editorial_Notifications {
 			$title      = $post ? self::safe_title( $post ) : ( isset( $entry['article_title'] ) ? self::safe_text( $entry['article_title'] ) : 'Tanpa judul' );
 			$read_at    = max( 0, (int) $entry['read_at'] );
 			$type       = (string) $entry['type'];
-			$target_url = add_query_arg(
-				array(
-					'view' => 'editor',
-					'id'   => $article_id,
-				),
-				Penalis_Dashboard::dashboard_url()
+			$feedback   = isset( $entry['feedback'] ) && is_string( $entry['feedback'] ) ? $entry['feedback'] : '';
+
+			$target_args = array(
+				'view' => 'editor',
+				'id'   => $article_id,
 			);
+
+			// A decision that carries revision notes deep-links to the feedback
+			// panel, so the writer lands on the section they must act on instead
+			// of the top of a long article.
+			if ( '' !== $feedback ) {
+				$target_args['penalis_focus'] = 'feedback';
+			}
+
+			$target_url = add_query_arg( $target_args, Penalis_Dashboard::dashboard_url() );
 
 			$items[] = array(
 				'id'           => (string) $entry['id'],
@@ -255,7 +263,7 @@ final class Penalis_Editorial_Notifications {
 				'articleId'    => $article_id,
 				'articleTitle' => '' !== $title ? $title : 'Tanpa judul',
 				'message'      => (string) $entry['message'],
-				'feedback'     => isset( $entry['feedback'] ) && is_string( $entry['feedback'] ) ? $entry['feedback'] : '',
+				'feedback'     => $feedback,
 				'createdAt'    => (int) $entry['created_at'],
 				'readAt'       => $read_at,
 				'isRead'       => $read_at > 0,

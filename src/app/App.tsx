@@ -6,8 +6,8 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { accountApi, ApiError, passwordApi } from '../lib/api';
 import { getBootstrap, isTurnstileEnabledFor } from '../lib/bootstrap';
-import { DEEPLINK, readParam } from '../lib/deeplink';
-import type { Account, FieldErrors, ViewName } from '../lib/types';
+import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, readParam } from '../lib/deeplink';
+import type { Account, DashboardNotification, EditorFocus, FieldErrors, ViewName } from '../lib/types';
 import { hasErrors, PASSWORD_MIN_LENGTH, validatePasswordPair } from '../lib/validation';
 import { describedBy } from '../lib/a11y';
 import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../components/ui';
@@ -22,6 +22,8 @@ import { preloadEditor } from '../features/editor/editorLoader';
 import { Profile } from '../features/profile/Profile';
 import { Settings } from '../features/settings/Settings';
 import { Media } from '../features/media/Media';
+import { Notifications } from '../features/notifications/Notifications';
+import { useNotifications } from '../features/notifications/useNotifications';
 
 /**
  * Password reset form reached from the reset email.
@@ -181,6 +183,7 @@ export function App() {
   const [error, setError] = useState('');
   const [view, setView] = useState<ViewName>('overview');
   const [editingId, setEditingId] = useState<number | undefined>(undefined);
+  const [editorFocus, setEditorFocus] = useState<EditorFocus>(null);
   const [signedOut, setSignedOut] = useState(!bootstrap.isLoggedIn);
   const [blocked, setBlocked] = useState(false);
 
@@ -234,10 +237,13 @@ export function App() {
     const requested = params.get('view');
     const requestedId = Number(params.get('id'));
 
-    if (requested === 'editor' || requested === 'articles' || requested === 'media' || requested === 'profile' || requested === 'settings') {
+    if (requested === 'editor' || requested === 'articles' || requested === 'media' || requested === 'profile' || requested === 'settings' || requested === 'notifications') {
       setView(requested);
       if (requested === 'editor' && Number.isFinite(requestedId) && requestedId > 0) {
         setEditingId(requestedId);
+        if (readParam(DEEPLINK.editorFocus) === EDITOR_FOCUS_FEEDBACK) {
+          setEditorFocus('feedback');
+        }
       }
     }
   }, []);
@@ -279,6 +285,19 @@ export function App() {
       return { ...prev, unreadNotifications: unreadCount };
     });
   }, []);
+
+  /*
+   * One controller owns the notification list for the whole dashboard: the
+   * header bell, the notifications page, and the overview panel all read it, so
+   * the unread badge can never disagree with the feed. It is enabled for
+   * writers and reviewers alike, because reviewers receive submission
+   * notifications too.
+   */
+  const notifications = useNotifications({
+    enabled: Boolean(account && (account.canWrite || account.isAdministrator || account.isReviewer)),
+    initialUnreadCount: account?.unreadNotifications ?? 0,
+    onUnreadChange: handleNotificationsChanged,
+  });
 
   if (resetKey) {
     return <ResetPasswordPage resetKey={resetKey} login={resetLogin} />;
@@ -329,12 +348,13 @@ export function App() {
   }
 
   const navigate = (next: ViewName) => {
-    if (!account.canWrite && !['overview', 'profile', 'settings'].includes(next)) {
+    if (!account.canWrite && !['overview', 'notifications', 'profile', 'settings'].includes(next)) {
       return;
     }
 
     if (next === 'editor') {
       setEditingId(undefined);
+      setEditorFocus(null);
     }
 
     setView(next);
@@ -342,18 +362,20 @@ export function App() {
     const url = new URL(window.location.href);
     url.searchParams.delete('view');
     url.searchParams.delete('id');
+    url.searchParams.delete(DEEPLINK.editorFocus);
     if (next !== 'overview') {
       url.searchParams.set('view', next);
     }
     window.history.replaceState({}, '', url.toString());
   };
 
-  const openEditor = (id?: number) => {
+  const openEditor = (id?: number, focus: EditorFocus = null) => {
     if (!account.canWrite) {
       return;
     }
 
     setEditingId(id);
+    setEditorFocus(focus);
     setView('editor');
 
     const url = new URL(window.location.href);
@@ -363,24 +385,57 @@ export function App() {
     } else {
       url.searchParams.delete('id');
     }
+    if (focus === 'feedback') {
+      url.searchParams.set(DEEPLINK.editorFocus, EDITOR_FOCUS_FEEDBACK);
+    } else {
+      url.searchParams.delete(DEEPLINK.editorFocus);
+    }
     window.history.replaceState({}, '', url.toString());
   };
 
   // If a deep link requested a writer-only view but the account cannot write,
   // fall back to the overview instead of rendering an empty page.
   const writeOnlyViews: ViewName[] = ['articles', 'editor', 'media'];
+  const canReceiveNotifications = account.canWrite || account.isAdministrator || account.isReviewer;
   const effectiveView =
-    !account.canWrite && writeOnlyViews.includes(view) ? 'overview' : view;
+    (!account.canWrite && writeOnlyViews.includes(view)) ||
+    (view === 'notifications' && !canReceiveNotifications)
+      ? 'overview'
+      : view;
+
+  /*
+   * A notification opens the writer's editor for the article, or the wp-admin
+   * review screen for a reviewer who has no writer capabilities.
+   */
+  const openNotificationArticle = (item: DashboardNotification) => {
+    if (account.canWrite) {
+      // A decision that carries revision notes opens the feedback panel.
+      openEditor(item.articleId, item.feedback ? 'feedback' : null);
+    } else if (item.reviewUrl) {
+      window.location.assign(item.reviewUrl);
+    }
+  };
 
   return (
-    <Shell account={account} view={effectiveView} onNavigate={navigate}>
+    <Shell
+      account={account}
+      view={effectiveView}
+      onNavigate={navigate}
+      notifications={notifications}
+      onOpenNotificationArticle={openNotificationArticle}
+    >
+      {effectiveView === 'notifications' ? (
+        <Notifications account={account} controller={notifications} onOpenArticle={openNotificationArticle} />
+      ) : null}
+
       {effectiveView === 'overview' ? (
         <Overview
           account={account}
+          notifications={notifications}
           onOpenEditor={() => openEditor()}
           onOpenArticle={(id) => openEditor(id)}
           onOpenArticles={() => navigate('articles')}
-          onNotificationsChanged={handleNotificationsChanged}
+          onOpenNotifications={() => navigate('notifications')}
         />
       ) : null}
 
@@ -390,8 +445,9 @@ export function App() {
 
       {effectiveView === 'editor' && account.canWrite ? (
         <Editor
-          key={editingId ?? 'new'}
+          key={`${editingId ?? 'new'}:${editorFocus ?? ''}`}
           articleId={editingId}
+          focus={editorFocus}
           onSaved={() => {
             void loadAccount();
           }}
