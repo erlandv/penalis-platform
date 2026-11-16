@@ -469,7 +469,7 @@ final class Penalis_Dashboard {
 	 *
 	 * To keep the dashboard resilient against CDN environments lacking CORS
 	 * headers, this method resolves the asset base URL to the site's origin
-	 * (`home_url()`) if the host differs.
+	 * (`home_url()`, including its port) when the origin differs.
 	 *
 	 * @return string
 	 */
@@ -479,34 +479,156 @@ final class Penalis_Dashboard {
 		/**
 		 * Filter the asset base URL for the dashboard SPA.
 		 *
+		 * Stylesheets honour this value as-is. The module script source is
+		 * re-normalised to the site origin by `format_module_script_tag()` so a
+		 * cross-origin CDN without CORS headers cannot blank the dashboard.
+		 *
 		 * @param string $url Base URL pointing to the build/ directory.
 		 */
 		return (string) apply_filters( 'penalis_dashboard_asset_base_url', $url );
 	}
 
 	/**
-	 * Ensure a build asset URL uses the site's origin (`home_url()`) when its host
-	 * differs, preventing cross-origin CDN CORS blocks on ES module scripts.
+	 * Ensure a build asset URL uses the site's origin when its own origin differs.
+	 *
+	 * Browsers compare origins, not hosts: `scheme://host[:port]`. A non-standard
+	 * port or an `http`/`https` mismatch is therefore a *different* origin even
+	 * when the host matches, and a cross-origin ES module without
+	 * `Access-Control-Allow-Origin` (or an `http` asset on an `https` page) is
+	 * blocked, leaving the dashboard and authors directory empty. Rebuilding from
+	 * `home_url()` preserves its scheme and port so installs on a non-standard
+	 * port keep loading their assets.
 	 *
 	 * @param string $url Asset URL.
-	 * @return string
+	 * @return string Same-origin asset URL, or the original URL when it has no host or path.
 	 */
 	public static function ensure_same_origin_url( $url ) {
-		$url       = (string) $url;
-		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
-		$url_host  = wp_parse_url( $url, PHP_URL_HOST );
+		return self::rewrite_origin( $url, self::origin_parts( home_url(), true ) );
+	}
 
-		if ( $home_host && $url_host && strtolower( (string) $home_host ) !== strtolower( (string) $url_host ) ) {
-			$url_path  = wp_parse_url( $url, PHP_URL_PATH );
-			$url_query = wp_parse_url( $url, PHP_URL_QUERY );
-			if ( $url_path ) {
-				$home_scheme = wp_parse_url( home_url(), PHP_URL_SCHEME );
-				$scheme      = $home_scheme ? $home_scheme : ( is_ssl() ? 'https' : 'http' );
-				$url         = $scheme . '://' . $home_host . $url_path . ( $url_query ? '?' . $url_query : '' );
+	/**
+	 * Rewrite a URL onto a target origin, keeping its path, query, and fragment.
+	 *
+	 * @param string                                            $url    Asset URL.
+	 * @param array{scheme:string,host:string,port:string}|null $origin Target origin parts.
+	 * @return string Rewritten URL, or the original URL when either origin is unavailable.
+	 */
+	private static function rewrite_origin( $url, $origin ) {
+		$url = (string) $url;
+
+		if ( ! is_array( $origin ) ) {
+			return $url;
+		}
+
+		$current = self::origin_parts( $url );
+
+		// Relative or host-less URLs already resolve against the site origin.
+		if ( null === $current ) {
+			return $url;
+		}
+
+		if (
+			$current['scheme'] === $origin['scheme']
+			&& $current['host'] === $origin['host']
+			&& $current['port'] === $origin['port']
+		) {
+			return $url;
+		}
+
+		$path = wp_parse_url( $url, PHP_URL_PATH );
+
+		// Without a path there is no asset to relocate, so keep the URL untouched.
+		if ( ! $path ) {
+			return $url;
+		}
+
+		$rebuilt = $origin['scheme'] . '://' . $origin['host'];
+		if ( '' !== $origin['port'] ) {
+			$rebuilt .= ':' . $origin['port'];
+		}
+		$rebuilt .= $path;
+
+		$query = wp_parse_url( $url, PHP_URL_QUERY );
+		if ( $query ) {
+			$rebuilt .= '?' . $query;
+		}
+
+		$fragment = wp_parse_url( $url, PHP_URL_FRAGMENT );
+		if ( $fragment ) {
+			$rebuilt .= '#' . $fragment;
+		}
+
+		return $rebuilt;
+	}
+
+	/**
+	 * Split a URL into a normalized origin (`scheme://host[:port]`).
+	 *
+	 * Default ports (80 for http, 443 for https) are dropped so an explicit
+	 * default port compares equal to an omitted one, matching how browsers
+	 * compare origins. A URL without a scheme falls back to the current request
+	 * protocol.
+	 *
+	 * @param string $url               URL.
+	 * @param bool   $upgrade_insecure Whether to upgrade an `http` origin to
+	 *                                 `https` on a TLS request. Only the target
+	 *                                 (site) origin should set this: leaving the
+	 *                                 compared URL on `http` lets the caller
+	 *                                 rewrite it, instead of returning mixed content.
+	 * @return array{scheme:string,host:string,port:string}|null Origin parts, or null when the URL has no host.
+	 */
+	private static function origin_parts( $url, $upgrade_insecure = false ) {
+		$url  = (string) $url;
+		$host = wp_parse_url( $url, PHP_URL_HOST );
+
+		if ( ! $host ) {
+			return null;
+		}
+
+		$scheme = strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
+		$port   = wp_parse_url( $url, PHP_URL_PORT );
+
+		if ( '' === $scheme ) {
+			$scheme = is_ssl() ? 'https' : 'http';
+		} elseif ( $upgrade_insecure && 'http' === $scheme && is_ssl() ) {
+			// A reverse proxy may terminate TLS while `home_url()` still reports
+			// http; assets loaded over http would be blocked as mixed content.
+			$scheme = 'https';
+			if ( 80 === (int) $port ) {
+				$port = null;
 			}
 		}
 
-		return $url;
+		return array(
+			'scheme' => $scheme,
+			'host'   => strtolower( (string) $host ),
+			'port'   => self::normalize_port( $scheme, $port ),
+		);
+	}
+
+	/**
+	 * Normalise a parsed port by dropping the default port for the scheme.
+	 *
+	 * @param string   $scheme Lowercase URL scheme.
+	 * @param int|null $port   Parsed port.
+	 * @return string Normalised port, or an empty string when absent or default.
+	 */
+	private static function normalize_port( $scheme, $port ) {
+		if ( null === $port || '' === $port ) {
+			return '';
+		}
+
+		$port     = (string) (int) $port;
+		$defaults = array(
+			'http'  => '80',
+			'https' => '443',
+		);
+
+		if ( isset( $defaults[ $scheme ] ) && $defaults[ $scheme ] === $port ) {
+			return '';
+		}
+
+		return $port;
 	}
 
 	/**
@@ -523,9 +645,14 @@ final class Penalis_Dashboard {
 			return $tag;
 		}
 
-		// Ensure the script source is same-origin even if a CDN plugin rewrote
-		// the script_loader_src filter, preventing CORS blocks.
-		$src = self::ensure_same_origin_url( $src );
+		// Re-normalise the source to the site origin: a CDN plugin may rewrite
+		// `script_loader_src` after `wp_enqueue_script()`, and a cross-origin ES
+		// module without CORS headers would be blocked.
+		$origin = self::origin_parts( self::asset_base_url(), true );
+		if ( null === $origin ) {
+			$origin = self::origin_parts( home_url(), true );
+		}
+		$src = self::rewrite_origin( $src, $origin );
 
 		return sprintf(
 			'<script type="module" crossorigin="anonymous" src="%s" id="%s-js"></script>' . "\n", // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag for an already-enqueued handle; wp_enqueue_script() cannot emit type="module".

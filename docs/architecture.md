@@ -369,6 +369,14 @@ outputs `build/manifest.json`. Both SPAs share the manifest/asset helpers on
 `format_module_script_tag()`, `resolve_bundled_template()`, and
 `render_spa_mount()`).
 
+`ensure_same_origin_url()` compares full origins (`scheme://host[:port]`), not
+bare hosts, and rebuilds from the complete `home_url()` origin, so an off-site
+CDN URL (`cdn.penalis.com`), a non-standard port, or an `http`/`https` mismatch
+is normalised to the site origin instead of being left cross-origin. Cross-origin
+ES modules are blocked without `Access-Control-Allow-Origin`, and an `http`
+module on an `https` page is blocked as mixed content; either case leaves the
+dashboard and authors directory root empty with no visible error.
+
 ### 7.2 TipTap Instead of Gutenberg
 Running Gutenberg outside `wp-admin` requires the `@wordpress/*` block registry
 and `unfiltered_html` for several blocks. TipTap is headless, MIT-licensed,

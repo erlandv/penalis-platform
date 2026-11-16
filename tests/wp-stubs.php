@@ -424,11 +424,29 @@ if ( ! function_exists( 'home_url' ) ) {
 	/**
 	 * Home URL double.
 	 *
+	 * Tests may set `$GLOBALS['penalis_test_home_url']` to exercise non-default
+	 * schemes and ports (for example `https://example.com:8443`).
+	 *
 	 * @param string $path Path.
 	 * @return string
 	 */
 	function home_url( $path = '' ) {
-		return 'https://example.com' . $path;
+		$home = isset( $GLOBALS['penalis_test_home_url'] ) ? (string) $GLOBALS['penalis_test_home_url'] : 'https://example.com';
+
+		return rtrim( $home, '/' ) . $path;
+	}
+}
+
+if ( ! function_exists( 'is_ssl' ) ) {
+	/**
+	 * SSL request double.
+	 *
+	 * Defaults to true so `home_url()` without a scheme resolves to https.
+	 *
+	 * @return bool
+	 */
+	function is_ssl() {
+		return isset( $GLOBALS['penalis_test_is_ssl'] ) ? (bool) $GLOBALS['penalis_test_is_ssl'] : true;
 	}
 }
 

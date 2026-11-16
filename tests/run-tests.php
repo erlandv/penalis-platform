@@ -12,6 +12,18 @@
  */
 
 require_once __DIR__ . '/wp-stubs.php';
+
+// The real bootstrap defines these; the unit tests include class files directly.
+if ( ! defined( 'PENALIS_PLATFORM_VERSION' ) ) {
+	define( 'PENALIS_PLATFORM_VERSION', '1.6.0' );
+}
+if ( ! defined( 'PENALIS_PLATFORM_DIR' ) ) {
+	define( 'PENALIS_PLATFORM_DIR', dirname( __DIR__ ) . '/' );
+}
+if ( ! defined( 'PENALIS_PLATFORM_URL' ) ) {
+	define( 'PENALIS_PLATFORM_URL', 'https://example.com/wp-content/plugins/penalis-platform/' );
+}
+
 require_once __DIR__ . '/../includes/class-policy.php';
 require_once __DIR__ . '/../includes/class-datetime.php';
 require_once __DIR__ . '/../includes/class-editorial-policy.php';
@@ -1006,6 +1018,123 @@ penalis_assert(
 	false !== strpos( $penalis_cdn_module_tag, 'src="https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0"' ),
 	'The module tag normalizes cross-origin CDN host to site origin to prevent CORS blocks.'
 );
+
+/*
+ * Browsers compare origins (`scheme://host[:port]`), not hosts. An off-site CDN
+ * URL on a non-standard port or with an http/https mismatch is a different
+ * origin even when the host matches, and a cross-origin ES module without CORS
+ * headers leaves the dashboard and authors directory empty. These assertions
+ * guard the origin comparison and the rebuilt origin.
+ */
+
+$penalis_default_home = isset( $GLOBALS['penalis_test_home_url'] ) ? $GLOBALS['penalis_test_home_url'] : null;
+$penalis_default_ssl  = isset( $GLOBALS['penalis_test_is_ssl'] ) ? $GLOBALS['penalis_test_is_ssl'] : null;
+
+$GLOBALS['penalis_test_is_ssl'] = true;
+
+$GLOBALS['penalis_test_home_url'] = 'https://example.com';
+penalis_same(
+	'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0' ),
+	'A same-origin asset URL is returned untouched.'
+);
+penalis_same(
+	'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://cdn.example.com/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'A cross-origin CDN URL is rebuilt on the site origin.'
+);
+penalis_same(
+	'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js#top',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://cdn.example.com/wp-content/plugins/penalis-platform/build/assets/index.js#top' ),
+	'Rebuilding a cross-origin URL preserves its fragment.'
+);
+penalis_same(
+	'/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( '/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'A relative asset URL already resolves against the site origin and is untouched.'
+);
+
+// The production incident: off-site CDN URL while the site is on a non-default port.
+$GLOBALS['penalis_test_home_url'] = 'https://penalis.com:8443';
+penalis_same(
+	'https://penalis.com:8443/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://cdn.penalis.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0' ),
+	'A rebuilt URL keeps the site port so non-standard-port installs still load their bundle.'
+);
+penalis_same(
+	'https://penalis.com:8443/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://penalis.com/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'A URL on the default port is a different origin than the site port and is rebuilt with it.'
+);
+penalis_same(
+	'https://penalis.com:8443/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://penalis.com:8443/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'A URL on the same host and port is returned untouched.'
+);
+
+$GLOBALS['penalis_test_home_url'] = 'https://example.com';
+penalis_same(
+	'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://example.com:8443/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'A non-default port on the same host is a different origin and is dropped.'
+);
+penalis_same(
+	'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'http://example.com/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'An http asset on an https site is rebuilt over https to avoid mixed content.'
+);
+penalis_same(
+	'https://EXAMPLE.com/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://EXAMPLE.com/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'Host comparison is case-insensitive and the URL is kept untouched.'
+);
+
+$GLOBALS['penalis_test_home_url'] = 'https://example.com:443';
+penalis_same(
+	'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'An explicit default https port compares equal to an omitted one.'
+);
+
+// A reverse proxy may terminate TLS while `home_url()` still reports http.
+$GLOBALS['penalis_test_home_url'] = 'http://example.com';
+penalis_same(
+	'https://example.com/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'http://cdn.example.com/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'A rebuilt URL is upgraded to https when the request is served over TLS.'
+);
+
+$GLOBALS['penalis_test_is_ssl'] = false;
+$GLOBALS['penalis_test_home_url'] = 'http://example.com';
+penalis_same(
+	'http://example.com/wp-content/plugins/penalis-platform/build/assets/index.js',
+	Penalis_Dashboard::ensure_same_origin_url( 'http://cdn.example.com/wp-content/plugins/penalis-platform/build/assets/index.js' ),
+	'A plain http site keeps rebuilding over http.'
+);
+
+$GLOBALS['penalis_test_is_ssl'] = true;
+$GLOBALS['penalis_test_home_url'] = 'https://example.com:8443';
+$penalis_port_module_tag = Penalis_Dashboard::module_script_tag(
+	'<script src="https://cdn.example.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0"></script>',
+	'penalis-dashboard',
+	'https://cdn.example.com/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0'
+);
+penalis_assert(
+	false !== strpos( $penalis_port_module_tag, 'src="https://example.com:8443/wp-content/plugins/penalis-platform/build/assets/index.js?ver=1.0.0"' ),
+	'The module tag keeps the site port when normalizing a CDN source.'
+);
+
+if ( null === $penalis_default_home ) {
+	unset( $GLOBALS['penalis_test_home_url'] );
+} else {
+	$GLOBALS['penalis_test_home_url'] = $penalis_default_home;
+}
+
+if ( null === $penalis_default_ssl ) {
+	unset( $GLOBALS['penalis_test_is_ssl'] );
+} else {
+	$GLOBALS['penalis_test_is_ssl'] = $penalis_default_ssl;
+}
 
 /* -------------------------------------------------------------------------
  * Username changes
