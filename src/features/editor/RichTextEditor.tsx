@@ -19,6 +19,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { Icon } from '../../components/icons';
 import { trimTrailingEmptyParagraphs } from '../../lib/html';
 import { normalizeLinkHref } from '../../lib/validation';
+import { EnterHardBreak } from './enterHardBreak';
 
 export type RichTextEditorHandle = {
   /** Insert an image at the current caret position. */
@@ -112,6 +113,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       Placeholder.configure({
         placeholder: 'Mulai tulis karya kamu di sini…',
       }),
+      EnterHardBreak,
     ],
     content: value,
     editorProps: {
@@ -458,14 +460,6 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         </ToolbarButton>
 
         <ToolbarButton
-          label="Baris baru"
-          title="Baris baru (Shift+Enter)"
-          onClick={() => editor?.chain().focus().setHardBreak().run()}
-        >
-          <Icon name="hardBreak" />
-        </ToolbarButton>
-
-        <ToolbarButton
           label="Link"
           title="Tambah atau ubah link"
           toggle
@@ -571,16 +565,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
       </div>
 
       <p className="penalis-editor-hint" id="penalis-content-hint">
-        Tips: Gunakan <kbd>Enter</kbd> untuk paragraf baru, gunakan{' '}
-        <span
-          className="penalis-editor-hint__icon"
-          role="img"
-          aria-label="tombol Baris baru"
-          title="Baris baru (Shift+Enter)"
-        >
-          <Icon name="hardBreak" />
-        </span>{' '}
-        untuk baris baru.
+        Tips: Gunakan <kbd>Enter</kbd> 1x untuk baris baru, <kbd>Enter</kbd> 2x untuk paragraf baru.
       </p>
     </>
   );

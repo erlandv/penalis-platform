@@ -20,7 +20,6 @@ export type IconName =
   | 'bulletList'
   | 'orderedList'
   | 'quote'
-  | 'hardBreak'
   | 'link'
   | 'image'
   | 'undo'
@@ -114,12 +113,6 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M21 12H8" />
       <path d="M21 18H8" />
       <path d="M3 12v6" />
-    </>
-  ),
-  hardBreak: (
-    <>
-      <path d="m9 10-5 5 5 5" />
-      <path d="M20 4v7a4 4 0 0 1-4 4H4" />
     </>
   ),
   link: (

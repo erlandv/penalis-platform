@@ -1947,24 +1947,6 @@
   line-height: 1.2;
 }
 
-.penalis-editor-hint__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.35rem;
-  height: 1.35rem;
-  border: 1px solid var(--penalis-border);
-  border-radius: 4px;
-  background: var(--penalis-surface-alt);
-  color: var(--penalis-text);
-  vertical-align: middle;
-}
-
-.penalis-editor-hint__icon svg {
-  width: 13px;
-  height: 13px;
-}
-
 .penalis-featured img {
   width: 100%;
   height: auto;
