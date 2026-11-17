@@ -7,7 +7,10 @@
 
 import type { DashboardNotification } from '../../lib/types';
 
-export type NotificationFilter = 'all' | 'unread';
+export type NotificationFilter = 'all' | 'unread' | 'read';
+
+/** Number of notifications rendered per page of the full feed. */
+export const NOTIFICATION_PAGE_SIZE = 20;
 
 export interface ArticleNotificationGroup {
   articleId: number;
@@ -24,7 +27,43 @@ export function filterNotifications(
   items: DashboardNotification[],
   filter: NotificationFilter,
 ): DashboardNotification[] {
-  return filter === 'unread' ? items.filter((item) => !item.isRead) : items;
+  if (filter === 'unread') {
+    return items.filter((item) => !item.isRead);
+  }
+
+  if (filter === 'read') {
+    return items.filter((item) => item.isRead);
+  }
+
+  return items;
+}
+
+/**
+ * Build the feed shown on the notifications page.
+ *
+ * Unread entries always come first so the actionable items stay above the
+ * fold; read history is appended only when the reader opts in. The server
+ * already returns newest-first, so filtering preserves recency inside each
+ * group. Capping at `limit` keeps a bounded 50-entry list from turning into a
+ * single very long page — the caller reveals more with an explicit action.
+ */
+export function selectNotifications(
+  items: DashboardNotification[],
+  showHistory: boolean,
+  limit: number,
+): DashboardNotification[] {
+  const unread = filterNotifications(items, 'unread');
+  if (!showHistory) {
+    return unread.slice(0, limit);
+  }
+
+  const read = filterNotifications(items, 'read');
+  return [...unread, ...read].slice(0, limit);
+}
+
+/** Total entries the current view can reveal before the cap. */
+export function countForView(items: DashboardNotification[], showHistory: boolean): number {
+  return showHistory ? items.length : filterNotifications(items, 'unread').length;
 }
 
 /**

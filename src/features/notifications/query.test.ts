@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { DashboardNotification } from '../../lib/types';
-import { filterNotifications, groupNotificationsByArticle } from './query';
+import {
+  countForView,
+  filterNotifications,
+  groupNotificationsByArticle,
+  selectNotifications,
+} from './query';
 
 function notification(overrides: Partial<DashboardNotification>): DashboardNotification {
   return {
@@ -37,6 +42,60 @@ describe('notification query helpers', () => {
     ];
 
     expect(filterNotifications(items, 'unread').map((item) => item.id)).toEqual(['a', 'c']);
+  });
+
+  it('keeps only read items for the read filter', () => {
+    const items = [
+      notification({ id: 'a' }),
+      notification({ id: 'b', isRead: true }),
+      notification({ id: 'c', isRead: true }),
+    ];
+
+    expect(filterNotifications(items, 'read').map((item) => item.id)).toEqual(['b', 'c']);
+  });
+
+  it('shows unread first and hides history by default', () => {
+    const items = [
+      notification({ id: 'read_new', isRead: true, createdAt: 300 }),
+      notification({ id: 'unread_old', createdAt: 100 }),
+      notification({ id: 'read_old', isRead: true, createdAt: 200 }),
+      notification({ id: 'unread_new', createdAt: 400 }),
+    ];
+
+    expect(selectNotifications(items, false, 20).map((item) => item.id)).toEqual([
+      'unread_old',
+      'unread_new',
+    ]);
+    expect(selectNotifications(items, true, 20).map((item) => item.id)).toEqual([
+      'unread_old',
+      'unread_new',
+      'read_new',
+      'read_old',
+    ]);
+  });
+
+  it('caps the visible feed at the requested limit', () => {
+    const items = Array.from({ length: 8 }, (_, index) =>
+      notification({ id: `n${index}`, createdAt: index }),
+    );
+
+    expect(selectNotifications(items, false, 3).map((item) => item.id)).toEqual([
+      'n0',
+      'n1',
+      'n2',
+    ]);
+    expect(countForView(items, false)).toBe(8);
+  });
+
+  it('counts only unread entries while history is hidden', () => {
+    const items = [
+      notification({ id: 'a' }),
+      notification({ id: 'b', isRead: true }),
+      notification({ id: 'c' }),
+    ];
+
+    expect(countForView(items, false)).toBe(2);
+    expect(countForView(items, true)).toBe(3);
   });
 
   it('groups by article while preserving newest-first order', () => {

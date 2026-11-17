@@ -3222,6 +3222,55 @@
   cursor: pointer;
 }
 
+.penalis-dashboard-root .penalis-notification-switch input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 1.15rem;
+  margin: 0;
+  border: 1px solid var(--penalis-border);
+  border-radius: 999px;
+  background: var(--penalis-surface-alt);
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.penalis-dashboard-root .penalis-notification-switch input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0.15rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: var(--penalis-muted);
+  transform: translateY(-50%);
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.penalis-dashboard-root .penalis-notification-switch input[type='checkbox']:checked {
+  background: var(--penalis-accent);
+  border-color: var(--penalis-accent);
+}
+
+.penalis-dashboard-root .penalis-notification-switch input[type='checkbox']:checked::after {
+  background: #fff;
+  transform: translate(0.85rem, -50%);
+}
+
+.penalis-dashboard-root .penalis-notification-switch input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--penalis-accent-strong);
+  outline-offset: 2px;
+}
+
+.penalis-notification-more {
+  display: flex;
+  justify-content: center;
+  padding-top: 0.35rem;
+}
+
 .penalis-notification-groups {
   display: flex;
   flex-direction: column;
