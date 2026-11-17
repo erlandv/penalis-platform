@@ -1,0 +1,186 @@
+.penalis-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-surface);
+}
+
+.penalis-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.penalis-table th,
+.penalis-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--penalis-border);
+}
+
+.penalis-table th {
+  background: var(--penalis-surface-alt);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--penalis-muted);
+}
+
+.penalis-table tr:last-child td { border-bottom: 0; }
+
+.penalis-table td p { margin: 0.2rem 0 0; }
+
+/**
+ * Article table as stacked cards on narrow screens.
+ *
+ * A four-column table cannot fit a phone: at 390px the title column collapsed
+ * to 125px and a 100-character excerpt rendered one word per line, making a
+ * single row 327px tall, while the action buttons stacked vertically in a
+ * 137px column. Horizontal scrolling technically worked but the result was
+ * unreadable, so below 640px each row becomes a card and the header row is
+ * dropped. `data-label` on the cells supplies the column name that the header
+ * used to provide.
+ */
+@media (max-width: 640px) {
+  .penalis-table-wrap {
+    overflow-x: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .penalis-table,
+  .penalis-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .penalis-table thead {
+    /* Hidden visually; the labels below carry the same information. */
+    display: none;
+  }
+
+  .penalis-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .penalis-table tr {
+    display: block;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--penalis-border);
+    border-radius: var(--penalis-radius);
+    background: var(--penalis-surface);
+  }
+
+  .penalis-table td {
+    display: block;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .penalis-table td + td {
+    margin-top: 0.65rem;
+  }
+
+  .penalis-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--penalis-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  /* The title cell is the card heading, so it needs no label of its own. */
+  .penalis-table td:first-child strong {
+    display: block;
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  .penalis-table .penalis-row-actions {
+    gap: 0.4rem;
+  }
+}
+
+.penalis-article-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.penalis-article-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--penalis-border);
+}
+
+.penalis-article-row:last-child { border-bottom: 0; }
+
+.penalis-article-row .penalis-muted {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  font-size: 0.78rem;
+}
+
+.penalis-article-row__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  color: var(--penalis-muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.penalis-article-views {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--penalis-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.penalis-article-views svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.penalis-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--penalis-border);
+  padding-bottom: 0.6rem;
+}
+
+.penalis-tab {
+  border: 0;
+  background: transparent;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--penalis-muted);
+  cursor: pointer;
+}
+
+.penalis-tab.is-active {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+  font-weight: 700;
+}

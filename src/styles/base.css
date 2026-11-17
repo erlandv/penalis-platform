@@ -1,0 +1,401 @@
+/* ==========================================================================
+   Penalis writing dashboard
+   Scoped to .penalis-dashboard-root so it does not disturb the public theme.
+
+   Shared tokens live in styles/tokens.css; only the neutral scale that is
+   specific to the standalone dashboard is declared here.
+   ========================================================================== */
+
+.penalis-dashboard-root {
+  --penalis-border: #e4ded6;
+  --penalis-text: #241f1a;
+  --penalis-muted: #6f655b;
+
+  color: var(--penalis-text);
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.55;
+  background: var(--penalis-bg);
+  min-height: 100vh;
+  padding: 0;
+  margin: 0;
+}
+
+.penalis-dashboard-root *,
+.penalis-dashboard-root *::before,
+.penalis-dashboard-root *::after {
+  box-sizing: border-box;
+}
+
+.penalis-dashboard-root h1,
+.penalis-dashboard-root h2,
+.penalis-dashboard-root h3 {
+  font-family: inherit;
+  line-height: 1.2;
+  margin: 0 0 0.35em;
+  color: var(--penalis-text);
+}
+
+.penalis-dashboard-root h1 { font-size: clamp(1.6rem, 3vw, 2.1rem); }
+.penalis-dashboard-root h2 { font-size: clamp(1.35rem, 2.4vw, 1.75rem); }
+.penalis-dashboard-root h3 { font-size: 1.05rem; }
+
+.penalis-dashboard-root p { margin: 0 0 0.75em; }
+
+.penalis-dashboard-root a {
+  color: var(--penalis-accent-strong);
+}
+
+/**
+ * Neutralise theme element defaults inside the dashboard.
+ *
+ * The active theme applies `margin-bottom: 35px` to every `button`, `form`,
+ * `figure`, `table`, `dl` and list element, and pins `height: 45px` plus a
+ * computed `line-height` on every `button`. Those rules are element-level, so
+ * they leak into dashboard controls that are not `.penalis-button`: nav items,
+ * status tabs, editor toolbar buttons, tag chips and quiet text links all grew
+ * a 35px gap, and the tag chip's "×" button became 45px tall.
+ *
+ * `:where()` keeps this reset at class specificity (0,1,0) so every component
+ * rule below still wins, while still outranking the theme's element selectors.
+ * `display` and `line-height` are restored because the theme forces
+ * `inline-flex` on buttons, which turns inline text links into flex boxes.
+ */
+.penalis-dashboard-root :where(button, form, figure, table, dl, ul, ol, li, fieldset, input, select, textarea) {
+  margin: 0;
+}
+
+.penalis-dashboard-root :where(strong, b) {
+  display: inline;
+  font-weight: 700;
+}
+
+.penalis-dashboard-root :where(button) {
+  display: inline-block;
+  height: auto;
+  line-height: inherit;
+  /*
+   * The theme animates `all` on buttons, which makes the focus ring fade in
+   * over 200ms — a keyboard user sees nothing for the first frames. Limit the
+   * transition to the properties that should animate.
+   */
+  transition-property: background-color, border-color, color, transform, opacity;
+}
+
+/**
+ * Visible keyboard focus.
+ *
+ * The theme sets `outline: 0` on every button and link, so without this rule a
+ * keyboard user cannot tell which control is focused. `:focus-visible` keeps
+ * the ring off mouse clicks while still showing it for Tab navigation.
+ */
+.penalis-dashboard-root :where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
+}
+
+.penalis-app {
+  /*
+   * 1280px instead of 1180px: the article table needs four columns plus a
+   * title column wide enough for a 100-character excerpt. At the old width the
+   * sidebar left the table ~900px, which pushed the excerpt to three lines per
+   * row and made the action column the widest thing on screen.
+   */
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.penalis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--penalis-border);
+  margin-bottom: 1rem;
+}
+
+.penalis-header h1 { margin-bottom: 0; }
+
+.penalis-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  font-size: 0.9rem;
+}
+
+/*
+ * Account flyout.
+ *
+ * The trigger presents the user avatar and a chevron. The full name, username,
+ * and account actions live in a popover. The wrapper is the hover/focus boundary,
+ * so the popover stays open while the pointer travels from the trigger into the
+ * menu — a gap between the two would otherwise close it mid-move.
+ */
+.penalis-account {
+  position: relative;
+}
+
+.penalis-account__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  /* 44px keeps the trigger a comfortable touch target on a phone. */
+  min-height: 44px;
+  padding: 0.25rem 0.45rem 0.25rem 0.3rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--penalis-text);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.penalis-account__trigger:hover,
+.penalis-account__trigger.is-open {
+  background: var(--penalis-surface);
+  border-color: var(--penalis-border);
+}
+
+.penalis-account__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--penalis-surface-alt);
+  border: 1px solid var(--penalis-border);
+  flex-shrink: 0;
+  display: block;
+}
+
+.penalis-account__avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--penalis-muted);
+}
+
+.penalis-account__avatar--fallback svg {
+  width: 20px;
+  height: 20px;
+}
+
+/*
+ * The chevron is the affordance that says "this opens something".
+ */
+.penalis-account__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--penalis-muted);
+  transition: transform 120ms ease;
+}
+
+.penalis-account__chevron svg {
+  display: block;
+}
+
+.penalis-account__trigger.is-open .penalis-account__chevron {
+  transform: rotate(180deg);
+}
+
+/*
+ * `padding-top` on the popover, not `margin`, so the hover boundary is
+ * continuous between the trigger and the first menu item.
+ */
+.penalis-account__popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  padding-top: 0.4rem;
+}
+
+.penalis-account__menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 15.5rem;
+  max-width: 18rem;
+  padding: 0.35rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 12px;
+  background: var(--penalis-surface);
+  box-shadow: var(--penalis-shadow);
+  animation: penalis-popover-in 0.14s ease-out;
+}
+
+@keyframes penalis-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .penalis-account__menu {
+    animation: none;
+  }
+}
+
+.penalis-account__header {
+  padding: 0.6rem 0.75rem 0.5rem;
+}
+
+.penalis-account__header-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--penalis-text);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.penalis-hero__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.penalis-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: #1d9bf0;
+}
+
+.penalis-account__header-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--penalis-muted);
+  margin-top: 0.2rem;
+  line-height: 1.3;
+}
+
+.penalis-account__header-email {
+  font-size: 0.78rem;
+  color: var(--penalis-muted);
+  margin-top: 0.15rem;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.penalis-account__badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+  line-height: 1.2;
+}
+
+.penalis-account__divider {
+  height: 1px;
+  background: var(--penalis-border);
+  margin: 0.25rem 0 0.35rem;
+}
+
+.penalis-dashboard-root .penalis-account__item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.65rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--penalis-text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.penalis-dashboard-root .penalis-account__item svg {
+  flex: 0 0 auto;
+  color: var(--penalis-muted);
+}
+
+.penalis-dashboard-root .penalis-account__item:hover,
+.penalis-dashboard-root .penalis-account__item:focus-visible {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-dashboard-root .penalis-account__item:hover svg,
+.penalis-dashboard-root .penalis-account__item:focus-visible svg {
+  color: currentColor;
+}
+
+.penalis-dashboard-root .penalis-account__item--danger {
+  color: var(--penalis-danger);
+}
+
+.penalis-dashboard-root .penalis-account__item--danger svg {
+  color: currentColor;
+}
+
+.penalis-dashboard-root .penalis-account__item--danger:hover,
+.penalis-dashboard-root .penalis-account__item--danger:focus-visible {
+  background: var(--penalis-danger-soft);
+  color: var(--penalis-danger);
+}
+
+.penalis-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--penalis-accent-strong);
+  margin: 0 0 0.4em;
+}
+
+.penalis-muted {
+  color: var(--penalis-muted);
+  font-size: 0.92rem;
+}
+
+.penalis-link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: var(--penalis-accent-strong);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.penalis-link-button:disabled {
+  color: var(--penalis-muted);
+  cursor: default;
+  text-decoration: none;
+}
+
+.penalis-otp-resend {
+  margin: 0;
+  color: var(--penalis-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}

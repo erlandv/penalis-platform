@@ -9,10 +9,15 @@
  */
 
 /* ==========================================================================
-   1. Shared Account Status Pill (.penalis-status)
+   1. Shared primitives
+
+   The account status column and the review state badge are the same pill with
+   different state names. Keeping one rule per colour here means a new state
+   only needs one mapping instead of two that can drift apart.
    ========================================================================== */
 
-.penalis-status {
+.penalis-status,
+.penalis-review .penalis-review__state {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
@@ -25,7 +30,13 @@
 	white-space: nowrap;
 }
 
-.penalis-status__dot {
+/* The review state keeps its slightly wider pill from before the consolidation. */
+.penalis-review .penalis-review__state {
+	padding: 2px 10px;
+}
+
+.penalis-status__dot,
+.penalis-review .penalis-review__state-dot {
 	width: 6px;
 	height: 6px;
 	border-radius: 50%;
@@ -33,24 +44,50 @@
 	flex: 0 0 6px;
 }
 
-.penalis-status--active {
+.penalis-status--active,
+.penalis-review .penalis-review__state--published {
 	background: #edfaef;
 	color: #007017;
 }
 
-.penalis-status--pending_verification {
+.penalis-status--pending_verification,
+.penalis-review .penalis-review__state--pending_review {
 	background: #fcf9e8;
 	color: #8a6116;
 }
 
-.penalis-status--suspended {
+.penalis-status--suspended,
+.penalis-review .penalis-review__state--rejected {
 	background: #fcf0f1;
 	color: #8a2424;
 }
 
-.penalis-status--legacy {
+.penalis-status--legacy,
+.penalis-review .penalis-review__state--draft {
 	background: #f0f0f1;
 	color: #50575e;
+}
+
+.penalis-review .penalis-review__state--changes_requested {
+	background: #f0f6fc;
+	color: #0a4b78;
+}
+
+/*
+ * Avatars share a frame across the overview, writers table, review detail,
+ * and the legacy-conversion preview. Only the size differs per screen.
+ */
+.penalis-overview__avatar,
+.penalis-overview__user img.avatar,
+.penalis-writers .penalis-writer__avatar,
+.penalis-writers .penalis-writer img.avatar,
+.penalis-review .penalis-review__author-avatar,
+.penalis-review .penalis-review__author img.avatar,
+.penalis-writers .penalis-panel__preview {
+	display: block;
+	border-radius: 50%;
+	object-fit: cover;
+	background: #f0f0f1;
 }
 
 /* ==========================================================================
@@ -240,12 +277,8 @@
 
 .penalis-overview__avatar,
 .penalis-overview__user img.avatar {
-	display: block;
 	width: 34px;
 	height: 34px;
-	border-radius: 50%;
-	object-fit: cover;
-	background: #f0f0f1;
 	flex: 0 0 34px;
 }
 
@@ -367,13 +400,9 @@
 
 .penalis-writers .penalis-writer__avatar,
 .penalis-writers .penalis-writer img.avatar {
-	display: block;
 	width: 36px;
 	height: 36px;
-	border-radius: 50%;
-	object-fit: cover;
 	flex: 0 0 36px;
-	background: #f0f0f1;
 }
 
 .penalis-writers .penalis-writer__name {
@@ -567,9 +596,6 @@
 .penalis-writers .penalis-panel__preview {
 	width: 72px;
 	height: 72px;
-	border-radius: 50%;
-	object-fit: cover;
-	background: #f0f0f1;
 	flex: 0 0 72px;
 }
 
@@ -635,51 +661,6 @@
 	color: #646970;
 	font-size: 12px;
 	line-height: 1.5;
-}
-
-.penalis-review .penalis-review__state {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 2px 10px;
-	border-radius: 999px;
-	font-size: 11px;
-	font-weight: 600;
-	line-height: 1.7;
-	white-space: nowrap;
-}
-
-.penalis-review .penalis-review__state-dot {
-	width: 6px;
-	height: 6px;
-	border-radius: 50%;
-	background: currentColor;
-	flex: 0 0 6px;
-}
-
-.penalis-review .penalis-review__state--pending_review {
-	background: #fcf9e8;
-	color: #8a6116;
-}
-
-.penalis-review .penalis-review__state--changes_requested {
-	background: #f0f6fc;
-	color: #0a4b78;
-}
-
-.penalis-review .penalis-review__state--rejected {
-	background: #fcf0f1;
-	color: #8a2424;
-}
-
-.penalis-review .penalis-review__state--published {
-	background: #edfaef;
-	color: #007017;
-}
-
-.penalis-review .penalis-review__state--draft {
-	background: #f0f0f1;
-	color: #50575e;
 }
 
 .penalis-review .penalis-review__empty {
@@ -781,12 +762,8 @@
 
 .penalis-review .penalis-review__author-avatar,
 .penalis-review .penalis-review__author img.avatar {
-	display: block;
 	width: 24px;
 	height: 24px;
-	border-radius: 50%;
-	object-fit: cover;
-	background: #f0f0f1;
 	flex: 0 0 24px;
 }
 
@@ -1303,8 +1280,7 @@ body.penalis-modal-open {
    5. Shared Table Pagination (.tablenav, .tablenav-pages)
    ========================================================================== */
 
-.penalis-review .tablenav,
-.penalis-writers .tablenav {
+:is(.penalis-review, .penalis-writers) .tablenav {
 	clear: both;
 	height: auto;
 	min-height: 32px;
@@ -1315,13 +1291,11 @@ body.penalis-modal-open {
 	align-items: center;
 }
 
-.penalis-review .tablenav.bottom,
-.penalis-writers .tablenav.bottom {
+:is(.penalis-review, .penalis-writers) .tablenav.bottom {
 	margin-top: 14px;
 }
 
-.penalis-review .tablenav-pages,
-.penalis-writers .tablenav-pages {
+:is(.penalis-review, .penalis-writers) .tablenav-pages {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
@@ -1333,8 +1307,7 @@ body.penalis-modal-open {
 	padding: 0;
 }
 
-.penalis-review .tablenav-pages .displaying-num,
-.penalis-writers .tablenav-pages .displaying-num {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .displaying-num {
 	display: inline-block;
 	font-size: 13px;
 	color: #50575e;
@@ -1342,17 +1315,14 @@ body.penalis-modal-open {
 	line-height: 28px;
 }
 
-.penalis-review .tablenav-pages .pagination-links,
-.penalis-writers .tablenav-pages .pagination-links {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .pagination-links {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
 }
 
-.penalis-review .tablenav-pages .pagination-links .button,
-.penalis-review .tablenav-pages .pagination-links .tablenav-pages-navspan,
-.penalis-writers .tablenav-pages .pagination-links .button,
-.penalis-writers .tablenav-pages .pagination-links .tablenav-pages-navspan {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .pagination-links .button,
+:is(.penalis-review, .penalis-writers) .tablenav-pages .pagination-links .tablenav-pages-navspan {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -1370,10 +1340,8 @@ body.penalis-modal-open {
 	margin: 0;
 }
 
-.penalis-review .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled,
-.penalis-review .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled:hover,
-.penalis-writers .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled,
-.penalis-writers .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled:hover {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled,
+:is(.penalis-review, .penalis-writers) .tablenav-pages .pagination-links .tablenav-pages-navspan.disabled:hover {
 	background: #f6f7f7;
 	border: 1px solid #dcdcde;
 	color: #a7aaad;
@@ -1382,8 +1350,7 @@ body.penalis-modal-open {
 	box-shadow: none;
 }
 
-.penalis-review .tablenav-pages .pagination-links .paging-input,
-.penalis-writers .tablenav-pages .pagination-links .paging-input {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .pagination-links .paging-input {
 	display: inline-flex;
 	align-items: center;
 	padding: 0 6px;
@@ -1391,8 +1358,7 @@ body.penalis-modal-open {
 	color: #2c3338;
 }
 
-.penalis-review .tablenav-pages .tablenav-paging-text,
-.penalis-writers .tablenav-pages .tablenav-paging-text {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .tablenav-paging-text {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
@@ -1402,19 +1368,16 @@ body.penalis-modal-open {
 	line-height: 28px;
 }
 
-.penalis-review .tablenav-pages .current-page,
-.penalis-writers .tablenav-pages .current-page {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .current-page {
 	font-weight: 600;
 }
 
-.penalis-review .tablenav-pages .total-pages,
-.penalis-writers .tablenav-pages .total-pages {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .total-pages {
 	font-weight: 400;
 }
 
 /* Fallback page-numbers styling */
-.penalis-review .tablenav-pages .page-numbers,
-.penalis-writers .tablenav-pages .page-numbers {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .page-numbers {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -1432,23 +1395,20 @@ body.penalis-modal-open {
 	margin: 0 1px;
 }
 
-.penalis-review .tablenav-pages .page-numbers:hover,
-.penalis-writers .tablenav-pages .page-numbers:hover {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .page-numbers:hover {
 	background: #f0f0f1;
 	border-color: #0a4b78;
 	color: #0a4b78;
 }
 
-.penalis-review .tablenav-pages .page-numbers.current,
-.penalis-writers .tablenav-pages .page-numbers.current {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .page-numbers.current {
 	background: #fff;
 	border-color: #2c3338;
 	font-weight: 600;
 	color: #2c3338;
 }
 
-.penalis-review .tablenav-pages .page-numbers.dots,
-.penalis-writers .tablenav-pages .page-numbers.dots {
+:is(.penalis-review, .penalis-writers) .tablenav-pages .page-numbers.dots {
 	border: none;
 	background: transparent;
 	min-width: auto;
@@ -1487,8 +1447,7 @@ body.penalis-modal-open {
 		margin-left: 0;
 	}
 
-	.penalis-writers .tablenav,
-	.penalis-review .tablenav {
+	:is(.penalis-writers, .penalis-review) .tablenav {
 		justify-content: center;
 		flex-wrap: wrap;
 		gap: 8px;

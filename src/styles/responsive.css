@@ -1,0 +1,174 @@
+/*
+ * Collapse to one column at 1024px, not 900px.
+ *
+ * At 900px the two-column layout left the main column about 640px, which is
+ * narrower than the article table needs: the title column collapsed and the
+ * excerpt wrapped to four lines per row. Turning the sidebar into a horizontal
+ * strip earlier gives the table the full width on small laptops and tablets in
+ * landscape, where it is still comfortable to use.
+ * `minmax(0, 1fr)` instead of `1fr` keeps the track from growing past the
+ * viewport when a table or a long unbroken word inside it is wider than the
+ * screen.
+ */
+@media (max-width: 1024px) {
+  .penalis-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+
+  .penalis-nav-wrap {
+    position: relative;
+    margin-top: -1rem;
+    margin-bottom: 1rem;
+  }
+
+  .penalis-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .penalis-nav__item {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .penalis-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+ * Below 600px the six navigation items wrapped onto three rows (216px at
+ * 320px), eating a third of the first screen before any content. A single
+ * horizontally scrollable strip keeps the navigation one row tall and still
+ * reachable with a thumb; `scroll-snap` makes the items settle cleanly.
+ */
+@media (max-width: 600px) {
+  .penalis-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    padding-bottom: 0.35rem;
+    /* Room for the focus ring, which would otherwise be clipped by the scroll box. */
+    margin: -0.2rem -0.2rem 0;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+  }
+
+  .penalis-nav__item {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
+
+  .penalis-nav__hint {
+    position: absolute;
+    top: 0;
+    bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+  }
+
+  .penalis-nav__hint--left {
+    left: 0;
+    padding-right: 2rem;
+    background: linear-gradient(90deg, var(--penalis-bg) 35%, rgba(247, 249, 248, 0) 100%);
+  }
+
+  .penalis-nav__hint--right {
+    right: 0;
+    padding-left: 2rem;
+    background: linear-gradient(90deg, rgba(247, 249, 248, 0) 0%, var(--penalis-bg) 65%);
+  }
+
+  .penalis-dashboard-root .penalis-nav__next {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.9rem;
+    height: 1.9rem;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--penalis-border);
+    border-radius: 999px;
+    background: var(--penalis-surface);
+    background-image: none;
+    box-shadow: var(--penalis-shadow);
+    color: var(--penalis-accent-strong);
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  .penalis-nav__hint--left .penalis-nav__next {
+    margin-left: 0.15rem;
+  }
+
+  .penalis-nav__hint--right .penalis-nav__next {
+    margin-right: 0.15rem;
+  }
+
+  .penalis-dashboard-root .penalis-nav__next svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .penalis-app { padding: 1.25rem 0.9rem 3rem; }
+  .penalis-auth__panel { padding: 1.4rem; }
+  .penalis-hero { flex-direction: column; }
+  .penalis-article-row { flex-direction: column; }
+  .penalis-article-row__meta { align-items: flex-start; }
+}
+
+/*
+ * Three stat cells per row on phones. The strip keeps the six metrics in two
+ * compact rows instead of six separate cards.
+ */
+@media (max-width: 600px) {
+  .penalis-card {
+    flex-basis: 33.333%;
+    padding: 0.6rem 0.7rem;
+  }
+
+  .penalis-card:nth-child(3) {
+    border-right: 0;
+  }
+
+  .penalis-card:nth-child(n + 4) {
+    border-top: 1px solid var(--penalis-border);
+  }
+
+  .penalis-card__value {
+    font-size: 1.2rem;
+  }
+
+  .penalis-quick-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .penalis-quick-actions__label {
+    grid-column: 1 / -1;
+  }
+
+  .penalis-dashboard-root .penalis-quick-actions .penalis-button {
+    width: 100%;
+    white-space: nowrap;
+  }
+
+  .penalis-dashboard-root .penalis-quick-actions .penalis-button:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .penalis-spinner { animation-duration: 2s; }
+  .penalis-dashboard-root * { scroll-behavior: auto !important; }
+}

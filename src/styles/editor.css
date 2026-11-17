@@ -1,0 +1,379 @@
+.penalis-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.penalis-editor__main,
+.penalis-editor__side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.penalis-editor__main textarea {
+  min-height: min(360px, 55vh);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.9rem;
+}
+
+/**
+ * Rich text editor shell.
+ *
+ * TipTap is headless: it renders a contenteditable div, so all visuals come
+ * from these rules. The shell mirrors the input styling used elsewhere
+ * (border, radius, focus ring) so the editor reads as a form control.
+ */
+.penalis-editor-shell {
+  border: 1px solid var(--penalis-border);
+  border-radius: 10px;
+  background: var(--penalis-surface);
+  overflow: hidden;
+}
+
+.penalis-editor-shell:focus-within {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 1px;
+  border-color: var(--penalis-accent);
+}
+
+.penalis-editor-shell.is-invalid {
+  border-color: #dc2626;
+}
+
+/*
+ * Shown when the lazy TipTap chunk fails to load. It replaces the editor, so it
+ * has to look like a form control rather than bare text: without these rules
+ * the fallback message and its raw-HTML textarea rendered flush against the
+ * page with no border or spacing.
+ */
+.penalis-editor-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 10px;
+  background: var(--penalis-surface-alt);
+}
+
+.penalis-editor-fallback p {
+  margin: 0;
+}
+
+.penalis-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--penalis-border);
+  background: var(--penalis-surface-alt);
+}
+
+.penalis-editor-toolbar__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--penalis-text);
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/*
+ * Touch devices need a bigger hit area than a mouse does. 32px is comfortable
+ * with a pointer but error-prone with a thumb, and the toolbar is the most
+ * tapped surface in the editor.
+ */
+@media (pointer: coarse) {
+  .penalis-editor-toolbar__button {
+    min-width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+.penalis-editor-toolbar__button:hover:not(:disabled) {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-editor-toolbar__button.is-active {
+  background: var(--penalis-accent-soft);
+  border-color: var(--penalis-accent);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-editor-toolbar__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Toolbar buttons render inline SVG icons, so a glyph never falls back to a
+   different emoji font per operating system. */
+.penalis-editor-toolbar__button svg {
+  display: block;
+}
+
+.penalis-editor-toolbar__divider {
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: var(--penalis-border);
+}
+
+.penalis-editor-toolbar__spacer { flex: 1 1 auto; }
+
+.penalis-editor-toolbar__hint {
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+  padding-left: 0.35rem;
+}
+
+/* Link popover: an inline row under the toolbar, not a floating bubble, so it
+   never escapes the editor shell or overlaps the content on narrow screens. */
+.penalis-editor-linkpop {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--penalis-border);
+  background: var(--penalis-surface-alt);
+}
+
+.penalis-editor-linkpop__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+}
+
+.penalis-editor-linkpop__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.penalis-editor-linkpop__row input {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+.penalis-editor-linkpop__hint {
+  margin: 0.4rem 0 0;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+}
+
+/*
+ * The editable area. TipTap renders a bare contenteditable div.
+ *
+ * `min-height` is capped against the viewport so a phone in landscape (360px
+ * tall) does not get an editor taller than the screen: a flat 360px minimum
+ * beat the 70vh maximum and pushed the toolbar and save buttons off-screen.
+ */
+.penalis-editor-content {
+  min-height: min(360px, 55vh);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 1rem 1.15rem;
+  font-size: 0.98rem;
+  line-height: 1.75;
+  color: var(--penalis-text);
+  outline: none;
+}
+
+.penalis-editor-content > *:first-child { margin-top: 0; }
+.penalis-editor-content > *:last-child { margin-bottom: 0; }
+
+.penalis-editor-content h2 { font-size: 1.35rem; margin: 1.4em 0 0.5em; }
+.penalis-editor-content h3 { font-size: 1.12rem; margin: 1.3em 0 0.45em; }
+
+.penalis-editor-content p { margin: 0 0 0.9em; }
+
+.penalis-editor-content ul,
+.penalis-editor-content ol {
+  margin: 0 0 0.9em;
+  padding-left: 1.5rem;
+}
+
+.penalis-editor-content li { margin-bottom: 0.3em; }
+
+.penalis-editor-content blockquote {
+  margin: 0 0 0.9em;
+  padding: 0.1rem 0 0.1rem 1rem;
+  border-left: 3px solid var(--penalis-border);
+  color: var(--penalis-muted);
+}
+
+.penalis-editor-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+  margin: 0.5rem 0;
+}
+
+.penalis-editor-content a {
+  color: var(--penalis-accent-strong);
+  text-decoration: underline;
+}
+
+.penalis-editor-content hr {
+  border: 0;
+  border-top: 1px solid var(--penalis-border);
+  margin: 1.4rem 0;
+}
+
+/* Placeholder shown while the document is empty. */
+.penalis-editor-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--penalis-muted);
+  pointer-events: none;
+}
+
+/* Raw HTML mode reuses the same shell so switching feels continuous. */
+.penalis-editor-html {
+  display: block;
+  width: 100%;
+  min-height: min(360px, 55vh);
+  padding: 1rem 1.15rem;
+  border: 0;
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.penalis-editor-html:focus { outline: none; }
+
+.penalis-editor-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.penalis-editor-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 4px;
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-text);
+  font-family: inherit;
+  font-size: 0.75rem;
+  line-height: 1.2;
+}
+
+.penalis-featured img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  margin-bottom: 0.65rem;
+  display: block;
+}
+
+.penalis-featured-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 1.25rem;
+}
+
+.penalis-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.penalis-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+/*
+ * The chip's remove button is a real control, not decoration. With no padding
+ * it measured 11x45px — a target no thumb can hit — and the theme's forced
+ * 45px height made the whole chip 51px tall. Give it a square hit area and let
+ * the chip keep its compact pill shape.
+ */
+.penalis-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  margin: -0.2rem -0.35rem -0.2rem 0;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.penalis-chip button:hover {
+  background: rgba(91, 33, 182, 0.12);
+}
+
+.penalis-suggestions {
+  list-style: none;
+  margin: 0.4rem 0;
+  padding: 0.35rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 10px;
+  background: var(--penalis-surface);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/**
+ * Tag suggestions.
+ *
+ * The theme styles bare `button` elements with a light label colour, which is
+ * invisible on this white popup. Set the text colour explicitly instead of
+ * relying on inheritance.
+ */
+.penalis-suggestions button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: var(--penalis-text);
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.penalis-suggestions button:hover,
+.penalis-suggestions button:focus-visible {
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+}

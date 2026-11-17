@@ -1,0 +1,465 @@
+.penalis-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f7f2ff 100%);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  padding: 1.6rem;
+  box-shadow: var(--penalis-shadow);
+}
+
+/*
+ * The status badge sits beside the greeting on wide screens and below it on
+ * phones. `flex: 0 0 auto` stops the badge from being squeezed by a long
+ * display name, which is what happened when the hero had no rule for it.
+ */
+.penalis-hero__status {
+  flex: 0 0 auto;
+}
+
+.penalis-hero > div:first-child {
+  min-width: 0;
+}
+
+.penalis-cards {
+  display: flex;
+  flex-wrap: wrap;
+  overflow: hidden;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-surface);
+}
+
+.penalis-card {
+  flex: 1 1 0;
+  min-width: 110px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border-right: 1px solid var(--penalis-border);
+}
+
+.penalis-card:last-child {
+  border-right: 0;
+}
+
+.penalis-card__value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: inherit;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.penalis-card__label {
+  color: var(--penalis-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.penalis-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-surface);
+}
+
+/*
+ * Compact CTA row. The theme pins `min-height: 45px` on `.penalis-button`, so
+ * these need two selectors to shrink without touching buttons elsewhere.
+ */
+.penalis-dashboard-root .penalis-quick-actions .penalis-button {
+  min-height: 2rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.76rem;
+}
+
+.penalis-quick-actions__label {
+  margin-right: 0.2rem;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+}
+
+.penalis-quick-actions__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  margin-left: 0.4rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--penalis-accent);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.penalis-panel {
+  background: var(--penalis-surface);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  padding: 1.25rem;
+}
+
+.penalis-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-bottom: 0.9rem;
+}
+
+/*
+ * A long status badge ("Menunggu persetujuan admin") used to squeeze the panel
+ * title to 14px wide — one letter per line — because the header could not wrap.
+ * `min-width: 0` lets the title shrink gracefully instead of overflowing.
+ */
+.penalis-panel__header h3 {
+  margin: 0;
+  min-width: 0;
+}
+
+.penalis-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 0.93rem;
+  margin-bottom: 1.25rem;
+}
+
+/*
+ * Banners that carry an action (the verification resend button, the retry
+ * button on an error) put the text and the button side by side. Without a
+ * minimum width the paragraph was squeezed to 104px next to a 221px button,
+ * producing a 433px-tall banner on a phone. Give the text a sensible floor and
+ * let the button drop to its own line when there is no room.
+ *
+ * The floor is a `min-width`, not a `flex-basis`: the banner switches to a
+ * column on phones, and a flex-basis there would be read as a *height* and
+ * stretch the paragraph to 256px. The basis stays at 0 so the text can shrink
+ * below its max-content width and sit beside the button on wide screens.
+ */
+.penalis-banner > :where(p, span, div) {
+  flex: 1 1 0;
+  min-width: min(16rem, 100%);
+}
+
+.penalis-banner p:last-child {
+  margin-bottom: 0;
+}
+
+.penalis-banner > .penalis-button {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 600px) {
+  .penalis-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .penalis-banner > .penalis-button {
+    width: 100%;
+  }
+}
+
+.penalis-banner--info {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+}
+
+.penalis-banner--success {
+  background: var(--penalis-success-soft);
+  border-color: #86efac;
+  color: var(--penalis-success);
+}
+
+.penalis-banner--warning {
+  background: var(--penalis-warning-soft);
+  border-color: #fcd34d;
+  color: var(--penalis-warning);
+}
+
+.penalis-banner--error,
+.penalis-banner--danger {
+  background: var(--penalis-danger-soft);
+  border-color: #fca5a5;
+  color: var(--penalis-danger);
+}
+
+.penalis-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.penalis-badge--success { background: var(--penalis-success-soft); color: var(--penalis-success); }
+.penalis-badge--warning { background: var(--penalis-warning-soft); color: var(--penalis-warning); }
+.penalis-badge--danger { background: var(--penalis-danger-soft); color: var(--penalis-danger); }
+.penalis-badge--neutral { background: #ece7e1; color: #57534e; }
+
+.penalis-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.62rem 1.05rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.penalis-button:active:not(:disabled) { transform: translateY(1px); }
+
+.penalis-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/**
+ * Reset inherited theme button defaults & disabled leakage.
+ *
+ * 1. The active theme applies `margin-bottom: 35px` to every `button` element and
+ *    clears it only on `:last-child`. In a flex row that lifts every button except
+ *    the last one by half that margin, so any row with more than one button renders
+ *    out of alignment. The theme also pins `height: 45px` and a computed
+ *    `line-height`, which clips labels that wrap on narrow screens.
+ * 2. The active theme styles `button[disabled]` with `background-color: #fff`,
+ *    a linear-gradient `background-image`, and dark text color. That element-level
+ *    rule (0,1,1) overrode unqualified `.penalis-button--primary` background (0,1,0)
+ *    while `.penalis-dashboard-root .penalis-button--primary` (0,2,0) kept text white,
+ *    causing white text on an almost-white background during form submissions.
+ *
+ * Two classes give these rules enough specificity to win over the theme's
+ * element-level selectors without changing global theme styles.
+ */
+.penalis-dashboard-root button:disabled,
+.penalis-dashboard-root button[disabled] {
+  cursor: not-allowed;
+  background-image: none;
+}
+
+.penalis-dashboard-root .penalis-button {
+  box-sizing: border-box;
+  margin: 0;
+  height: auto;
+  min-height: 45px;
+  line-height: 1.25;
+  vertical-align: middle;
+  background-image: none;
+}
+
+.penalis-dashboard-root .penalis-button:disabled,
+.penalis-dashboard-root .penalis-button[disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+  background-image: none;
+}
+
+/**
+ * Button variants.
+ *
+ * All variant backgrounds, borders, and label colors are scoped to
+ * `.penalis-dashboard-root` including disabled states so they consistently
+ * outrank theme rules and link styling (`.penalis-dashboard-root a`).
+ */
+.penalis-dashboard-root .penalis-button--primary,
+.penalis-dashboard-root .penalis-button--primary:disabled,
+.penalis-dashboard-root .penalis-button--primary[disabled] {
+  background-color: var(--penalis-accent);
+  background-image: none;
+  border-color: var(--penalis-accent);
+  color: #ffffff;
+}
+
+.penalis-dashboard-root .penalis-button--primary:hover:not(:disabled) {
+  background-color: var(--penalis-accent-strong);
+  border-color: var(--penalis-accent-strong);
+  color: #ffffff;
+}
+
+.penalis-dashboard-root .penalis-button--ghost,
+.penalis-dashboard-root .penalis-button--ghost:disabled,
+.penalis-dashboard-root .penalis-button--ghost[disabled] {
+  background-color: var(--penalis-surface);
+  background-image: none;
+  border-color: var(--penalis-border);
+  color: var(--penalis-text);
+}
+
+.penalis-dashboard-root .penalis-button--ghost:hover:not(:disabled) {
+  border-color: #c9bfb3;
+}
+
+/**
+ * Secondary-but-important action.
+ *
+ * "Simpan draft" is the action a writer uses most, yet it used to look exactly
+ * like "Preview" and "Batal". This variant gives it weight without competing
+ * with the single primary action ("Terbitkan").
+ */
+.penalis-dashboard-root .penalis-button--soft,
+.penalis-dashboard-root .penalis-button--soft:disabled,
+.penalis-dashboard-root .penalis-button--soft[disabled] {
+  background-color: var(--penalis-accent-soft);
+  background-image: none;
+  border-color: #ddc9ff;
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-dashboard-root .penalis-button--soft:hover:not(:disabled) {
+  background-color: #e6d9ff;
+  border-color: var(--penalis-accent);
+}
+
+.penalis-dashboard-root .penalis-button--danger,
+.penalis-dashboard-root .penalis-button--danger:disabled,
+.penalis-dashboard-root .penalis-button--danger[disabled] {
+  background-color: transparent;
+  background-image: none;
+  border-color: #f3c4c4;
+  color: var(--penalis-danger);
+}
+
+.penalis-dashboard-root .penalis-button--danger:hover:not(:disabled) {
+  background-color: var(--penalis-danger-soft);
+}
+
+/**
+ * Filled danger button, for the confirm action of a destructive dialog.
+ *
+ * The outline `--danger` variant is right for a row action (it should not
+ * shout), but the button that actually deletes something must be unmistakable.
+ */
+.penalis-dashboard-root .penalis-button--danger-solid,
+.penalis-dashboard-root .penalis-button--danger-solid:disabled,
+.penalis-dashboard-root .penalis-button--danger-solid[disabled] {
+  background-color: var(--penalis-danger);
+  background-image: none;
+  border-color: var(--penalis-danger);
+  color: #ffffff;
+}
+
+.penalis-dashboard-root .penalis-button--danger-solid:hover:not(:disabled) {
+  background-color: #7f1d1d;
+  border-color: #7f1d1d;
+  color: #ffffff;
+}
+
+/* Inline spinner inside a button (e.g. during submitting) */
+.penalis-button .penalis-loading {
+  padding: 0;
+  gap: 0.45rem;
+  color: inherit;
+}
+
+.penalis-button .penalis-spinner {
+  width: 14px;
+  height: 14px;
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+}
+
+.penalis-dashboard-root .penalis-button--ghost .penalis-spinner,
+.penalis-dashboard-root .penalis-button--soft .penalis-spinner,
+.penalis-dashboard-root .penalis-button--danger .penalis-spinner {
+  border-color: var(--penalis-border);
+  border-top-color: currentColor;
+}
+
+.penalis-actions-row,
+.penalis-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/**
+ * Icon-only row action.
+ *
+ * The article table used to carry four labelled buttons per row, which wrapped
+ * onto two lines and made the action column wider than the title column. Icons
+ * keep the row on one line; the accessible name lives in `aria-label` (which
+ * includes the article title) and `title` gives mouse users the same text.
+ *
+ * 36px is the compromise between a compact table and a usable target: it is
+ * comfortably larger than the 24px WCAG 2.2 minimum, and it grows to 44px on
+ * touch devices where precision is lower.
+ */
+.penalis-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--penalis-border);
+  border-radius: 8px;
+  background: var(--penalis-surface);
+  color: var(--penalis-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.penalis-icon-button:hover:not(:disabled) {
+  border-color: #c9bfb3;
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-text);
+}
+
+.penalis-icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.penalis-icon-button--danger {
+  color: var(--penalis-danger);
+}
+
+.penalis-icon-button--danger:hover:not(:disabled) {
+  border-color: #f3c4c4;
+  background: var(--penalis-danger-soft);
+  color: var(--penalis-danger);
+}
+
+@media (pointer: coarse) {
+  .penalis-icon-button {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+
+/* Tighter gaps so the icon group reads as one cluster. */
+.penalis-row-actions--compact {
+  gap: 0.35rem;
+  flex-wrap: nowrap;
+}

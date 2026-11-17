@@ -1,0 +1,32 @@
+/* ==========================================================================
+   Penalis shared design tokens
+
+   One source of truth for values that the dashboard and the public authors
+   directory both use. Each entry point declares the same custom-property
+   names on its own root, so a component can move between the two without
+   carrying a private palette along.
+
+   Neutral surfaces (border, text, muted) and the shadow scale are deliberately
+   declared by each root: the authors directory sits inside a public theme and
+   uses a lighter frame than the standalone dashboard. Those overrides live in
+   the entry stylesheet, not here.
+   ========================================================================== */
+
+.penalis-dashboard-root,
+.penalis-authors-root {
+  --penalis-bg: #f7f9f8;
+  --penalis-surface: #ffffff;
+  --penalis-surface-alt: #fbfaf8;
+  --penalis-accent: #7c3aed;
+  --penalis-accent-strong: #5b21b6;
+  --penalis-accent-soft: #f1e9ff;
+  --penalis-success: #166534;
+  --penalis-success-soft: #dcfce7;
+  --penalis-warning: #92400e;
+  --penalis-warning-soft: #fef3c7;
+  --penalis-danger: #991b1b;
+  --penalis-danger-soft: #fee2e2;
+  --penalis-info: #1d9bf0;
+  --penalis-radius: 14px;
+  --penalis-shadow: 0 10px 30px rgba(36, 31, 26, 0.08);
+}
