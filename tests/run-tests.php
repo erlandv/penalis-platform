@@ -41,6 +41,7 @@ require_once __DIR__ . '/../includes/class-rate-limiter.php';
 require_once __DIR__ . '/../includes/class-activator.php';
 require_once __DIR__ . '/../includes/class-email-template.php';
 require_once __DIR__ . '/../includes/class-email-settings.php';
+require_once __DIR__ . '/../includes/class-settings.php';
 require_once __DIR__ . '/../includes/class-emails.php';
 require_once __DIR__ . '/../includes/class-author-history.php';
 require_once __DIR__ . '/../includes/class-username-change.php';
@@ -4307,6 +4308,89 @@ penalis_same( false, Penalis_Turnstile::is_enabled_for( 'login' ), 'Turnstile lo
 penalis_same( false, Penalis_Turnstile::is_enabled_for( 'unknown' ), 'Unknown Turnstile context is always disabled.' );
 penalis_same( array( 'enabled' => false ), Penalis_Turnstile::frontend_config(), 'Frontend config disables Turnstile when plugin is inactive.' );
 penalis_same( true, Penalis_Turnstile::verify( '', 'register' ), 'Turnstile verification passes through when plugin is inactive.' );
+
+/* -------------------------------------------------------------------------
+ * Settings screen: dashboard CAPTCHA switch
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+
+penalis_same( 'penalis-settings', Penalis_Settings::PAGE_SLUG, 'The settings screen uses the penalis-settings slug.' );
+penalis_assert( isset( Penalis_Settings::tabs()['captcha'] ), 'The settings screen exposes a Keamanan (CAPTCHA) tab.' );
+penalis_same( 'captcha', (string) array_key_first( Penalis_Settings::tabs() ), 'The CAPTCHA tab is the first and default tab.' );
+penalis_same( true, Penalis_Settings::is_dashboard_captcha_enabled(), 'Dashboard CAPTCHA is enabled when the option has never been saved.' );
+penalis_same( '1', Penalis_Settings::sanitize_state( '1' ), 'An explicit "1" keeps the switch enabled.' );
+penalis_same( '0', Penalis_Settings::sanitize_state( '0' ), 'An explicit "0" disables the switch.' );
+penalis_same( '1', Penalis_Settings::sanitize_state( 'garbage' ), 'A malformed value falls back to enabled.' );
+penalis_same( '1', Penalis_Settings::sanitize_state( null ), 'A missing value falls back to enabled.' );
+
+$GLOBALS['penalis_test_options'][ Penalis_Settings::OPTION_CAPTCHA_ENABLED ] = '0';
+penalis_same( false, Penalis_Settings::is_dashboard_captcha_enabled(), 'The switch reports disabled when the stored option is "0".' );
+
+$GLOBALS['penalis_test_options'][ Penalis_Settings::OPTION_CAPTCHA_ENABLED ] = '1';
+penalis_same( true, Penalis_Settings::is_dashboard_captcha_enabled(), 'The switch reports enabled when the stored option is "1".' );
+
+penalis_same( array(), Penalis_Settings::audit(), 'The audit trail is empty until the switch is changed.' );
+
+/* -------------------------------------------------------------------------
+ * Turnstile adapter with the plugin configured (site-wide vs dashboard)
+ * ---------------------------------------------------------------------- */
+
+if ( ! function_exists( 'cfturnstile_check' ) ) {
+	/**
+	 * Minimal Simple Cloudflare Turnstile verification double.
+	 *
+	 * @param string $token  Submitted token.
+	 * @param string $action Turnstile action name.
+	 * @return array<string,mixed>
+	 */
+	function cfturnstile_check( $token = '', $action = '' ) {
+		return array( 'success' => 'token-ok' === (string) $token );
+	}
+}
+
+penalis_reset();
+$GLOBALS['penalis_test_options']['cfturnstile_key']      = 'site-key';
+$GLOBALS['penalis_test_options']['cfturnstile_secret']   = 'secret-key';
+$GLOBALS['penalis_test_options']['cfturnstile_tested']   = 'yes';
+$GLOBALS['penalis_test_options']['cfturnstile_login']    = '1';
+$GLOBALS['penalis_test_options']['cfturnstile_register'] = '1';
+$GLOBALS['penalis_test_options']['cfturnstile_reset']    = '1';
+
+penalis_same( true, Penalis_Turnstile::is_available(), 'Turnstile is available once the plugin is installed and configured.' );
+penalis_same( true, Penalis_Turnstile::is_dashboard_enabled(), 'The dashboard switch defaults to enabled.' );
+penalis_same( true, Penalis_Turnstile::is_enabled_for( 'login' ), 'Login CAPTCHA follows the site-wide Turnstile toggle by default.' );
+penalis_same( true, Penalis_Turnstile::has_any_enabled_form(), 'At least one dashboard form uses Turnstile by default.' );
+penalis_same( true, Penalis_Turnstile::verify( 'token-ok', 'login' ), 'A valid token passes verification.' );
+penalis_assert( is_wp_error( Penalis_Turnstile::verify( '', 'login' ) ), 'A missing token is rejected while the CAPTCHA is active.' );
+
+$enabled_config = Penalis_Turnstile::frontend_config();
+penalis_same( true, $enabled_config['enabled'], 'The SPA bootstrap reports CAPTCHA as enabled.' );
+penalis_same( 'site-key', $enabled_config['siteKey'], 'The SPA bootstrap carries the Turnstile site key.' );
+penalis_same( true, $enabled_config['forms']['login'], 'The SPA bootstrap marks the login form as protected.' );
+
+$GLOBALS['penalis_test_options'][ Penalis_Settings::OPTION_CAPTCHA_ENABLED ] = '0';
+
+foreach ( array( 'login', 'register', 'activate', 'forgot', 'reset' ) as $penalis_turnstile_context ) {
+	penalis_same(
+		false,
+		Penalis_Turnstile::is_enabled_for( $penalis_turnstile_context ),
+		'The dashboard switch disables CAPTCHA for the "' . $penalis_turnstile_context . '" form.'
+	);
+}
+
+penalis_same( false, Penalis_Turnstile::has_any_enabled_form(), 'No dashboard form uses Turnstile while the switch is off.' );
+penalis_same( array( 'enabled' => false ), Penalis_Turnstile::frontend_config(), 'The SPA receives an explicit "disabled" bootstrap while the switch is off.' );
+penalis_same( true, Penalis_Turnstile::verify( '', 'register' ), 'Verification passes through while the switch is off.' );
+penalis_same( true, Penalis_Turnstile::is_available(), 'The Turnstile plugin itself stays available; only the dashboard is silenced.' );
+
+penalis_same( '1', (string) $GLOBALS['penalis_test_options']['cfturnstile_login'], 'Disabling the dashboard CAPTCHA never rewrites the site-wide login toggle.' );
+penalis_same( '1', (string) $GLOBALS['penalis_test_options']['cfturnstile_register'], 'Disabling the dashboard CAPTCHA never rewrites the site-wide registration toggle.' );
+penalis_same( '1', (string) $GLOBALS['penalis_test_options']['cfturnstile_reset'], 'Disabling the dashboard CAPTCHA never rewrites the site-wide reset toggle.' );
+
+$GLOBALS['penalis_test_options'][ Penalis_Settings::OPTION_CAPTCHA_ENABLED ] = '1';
+
+penalis_same( true, Penalis_Turnstile::is_enabled_for( 'reset' ), 'Turning the switch back on restores the dashboard CAPTCHA immediately.' );
 
 /* -------------------------------------------------------------------------
  * Report

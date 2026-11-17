@@ -67,6 +67,20 @@ final class Penalis_Turnstile {
 	}
 
 	/**
+	 * Whether the dashboard CAPTCHA switch allows Turnstile at all.
+	 *
+	 * This is a Penalis-level override that sits above the third-party options:
+	 * disabling it silences every dashboard form without rewriting
+	 * `cfturnstile_login`, `cfturnstile_register`, or `cfturnstile_reset`, so
+	 * the native WordPress forms keep their protection.
+	 *
+	 * @return bool
+	 */
+	public static function is_dashboard_enabled() {
+		return class_exists( 'Penalis_Settings' ) ? Penalis_Settings::is_dashboard_captcha_enabled() : true;
+	}
+
+	/**
 	 * Whether Turnstile protection is enabled for a specific AuthGate context.
 	 *
 	 * Maps Penalis dashboard forms onto Simple Cloudflare Turnstile's existing
@@ -99,6 +113,10 @@ final class Penalis_Turnstile {
 			case 'reset':
 				$enabled = (bool) get_option( 'cfturnstile_reset', false );
 				break;
+		}
+
+		if ( ! self::is_dashboard_enabled() ) {
+			$enabled = false;
 		}
 
 		/**

@@ -281,10 +281,22 @@ duplicating API keys:
   behavior with the `penalis_turnstile_enabled` filter.
 - **Single-Use Token Safety on Login:** `Penalis_Dashboard::handle_login_post()`
   validates `$_POST['cf-turnstile-response']` via `Penalis_Turnstile::verify()`
-  before calling `wp_signon()`, and temporarily enables the
+  before calling `wp_signon()`, and unconditionally enables the
   `cfturnstile_wp_login_checks` bypass filter during `wp_signon()` so Simple
   Cloudflare Turnstile's `authenticate` hook does not re-verify an already
-  consumed token.
+  consumed token. The bypass must stay unconditional: that `authenticate` hook
+  runs on every `wp_signon()` call, so tying it to the dashboard CAPTCHA switch
+  would block dashboard logins whenever the switch is off.
+- **Dashboard-Only Kill Switch:** `Penalis → Pengaturan → Keamanan` stores
+  `penalis_dashboard_captcha_enabled` (`1`/`0`). When it is `0`,
+  `Penalis_Turnstile::is_enabled_for()` returns `false` for every dashboard
+  context, so the widget, the script enqueue, and server-side verification are
+  all skipped together. Penalis never writes `cfturnstile_login`,
+  `cfturnstile_register`, or `cfturnstile_reset`, so `wp-login.php`, native
+  registration, and native password reset keep their protection. Every switch
+  change records the actor and timestamp in
+  `penalis_dashboard_captcha_audit`, and a non-dismissible warning stays on the
+  settings screen while the switch is off.
 - **REST Endpoints:** `POST /penalis/v1/registration`,
   `POST /penalis/v1/legacy/activate`, `POST /penalis/v1/password/forgot`, and
   `POST /penalis/v1/password/reset` accept and verify `cf_turnstile_response`

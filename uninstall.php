@@ -52,6 +52,8 @@ $penalis_options = array(
 	'penalis_registration_enabled',
 	'penalis_remove_data_on_uninstall',
 	'penalis_dashboard_page_created_by_plugin',
+	'penalis_dashboard_captcha_enabled',
+	'penalis_dashboard_captcha_audit',
 );
 foreach ( $penalis_options as $penalis_option ) {
 	delete_option( $penalis_option );

@@ -251,12 +251,14 @@ final class Penalis_Dashboard {
 			exit;
 		}
 
-		// Avoid double-verifying the single-use Turnstile token if Simple
-		// Cloudflare Turnstile's `authenticate` filter is active.
-		$bypass_cft_login = Penalis_Turnstile::is_enabled_for( 'login' );
-		if ( $bypass_cft_login ) {
-			add_filter( 'cfturnstile_wp_login_checks', '__return_true', 999 );
-		}
+		// Simple Cloudflare Turnstile hooks `authenticate` whenever its
+		// wp-login.php toggle is on, and that check runs for every wp_signon()
+		// call — including this one. Penalis has already verified the token
+		// above, and the token is single-use, so the third-party check must be
+		// bypassed unconditionally. It must not be conditional on the dashboard
+		// switch: with the switch off there is no token to check, and a
+		// conditional bypass would block every dashboard login.
+		add_filter( 'cfturnstile_wp_login_checks', '__return_true', 999 );
 
 		$user = wp_signon(
 			array(
@@ -267,9 +269,7 @@ final class Penalis_Dashboard {
 			is_ssl()
 		);
 
-		if ( $bypass_cft_login ) {
-			remove_filter( 'cfturnstile_wp_login_checks', '__return_true', 999 );
-		}
+		remove_filter( 'cfturnstile_wp_login_checks', '__return_true', 999 );
 
 		if ( is_wp_error( $user ) ) {
 			// The message stays generic so the form cannot be used to discover

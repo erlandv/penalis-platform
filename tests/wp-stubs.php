@@ -1767,6 +1767,21 @@ if ( ! function_exists( 'sanitize_textarea_field' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_kses_post' ) ) {
+	/**
+	 * Post-content sanitiser stub.
+	 *
+	 * The tests only need the value to survive unchanged; HTML filtering is
+	 * WordPress core behaviour and is not under test here.
+	 *
+	 * @param string $value Value.
+	 * @return string
+	 */
+	function wp_kses_post( $value ) {
+		return (string) $value;
+	}
+}
+
 if ( ! function_exists( 'wp_update_user' ) ) {
 	/**
 	 * Update user stub.

@@ -166,7 +166,7 @@ Invariants that must never be broken:
 penalis-platform.php        Plugin header, constants, Penalis_ autoloader, activation hooks
 uninstall.php               Opt-in cleanup only
 includes/                   PHP classes (Penalis_ prefix, one concern per file)
-assets/css/admin.css        Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email)
+assets/css/admin.css        Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email, Pengaturan)
 assets/js/admin-review.js   Confirmation modals (createModalController) and inline validation for wp-admin actions
 templates/dashboard.php     Minimal theme wrapper for [penalis_dashboard]
 templates/authors.php       Minimal theme wrapper for [penalis_authors]
@@ -181,8 +181,11 @@ readme.txt                  WordPress plugin readme and changelog
 - **Admin screens (`wp-admin`):** Top-level menu **Penalis**
   (`admin.php?page=penalis-platform`) with submenus **Ringkasan**
   (`penalis-platform`), **Review Karya Tulis** (`penalis-review`),
-  **Penulis Penalis** (`penalis-writers`), and **Pengaturan Email**
-  (`penalis-email-settings`, administrators only). All admin styles live in
+  **Penulis Penalis** (`penalis-writers`), **Pengaturan Email**
+  (`penalis-email-settings`), and **Pengaturan** (`penalis-settings`; the last
+  two are administrators only). Site-wide settings belong on **Pengaturan** as a
+  tab registered in `Penalis_Settings::tabs()`, never bolted onto a curation
+  screen. All admin styles live in
   `assets/css/admin.css` and confirmation dialog logic in
   `assets/js/admin-review.js` (`createModalController()`) — do not inline large
   CSS or JS blocks inside PHP classes. Use
@@ -262,8 +265,15 @@ Summary of rules that must always hold:
   enforce anti-enumeration; candidate usernames report taken status directly to
   avoid registration dead-ends).
 - In `Penalis_Dashboard::handle_login_post()`, verify the Turnstile token before
-  `wp_signon()` and temporarily bypass `cfturnstile_wp_login_checks` during
-  `wp_signon()` so the single-use Turnstile token is never verified twice.
+  `wp_signon()` and always bypass `cfturnstile_wp_login_checks` during
+  `wp_signon()` so the single-use Turnstile token is never verified twice. The
+  bypass must never be conditional on the dashboard CAPTCHA switch: the
+  third-party `authenticate` check runs on every `wp_signon()` call, so a
+  conditional bypass breaks dashboard login whenever the switch is off.
+- The dashboard CAPTCHA switch (`penalis_dashboard_captcha_enabled`) is applied
+  inside `Penalis_Turnstile::is_enabled_for()`. Never write the
+  `cfturnstile_login` / `cfturnstile_register` / `cfturnstile_reset` options from
+  Penalis code — they also drive the native WordPress forms.
 - Password reset requests (`POST /penalis/v1/password/forgot`) accept an **email
   address only**, never a username.
 - Verification codes are consumed only through an explicit `POST` with the

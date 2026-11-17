@@ -196,7 +196,13 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
    - Activate **Penalis Platform**, save **Settings → Permalinks**, and verify
      that `/dashboard/` loads and the top-level **Penalis** menu appears in
      `wp-admin` with submenus **Ringkasan**, **Review Karya Tulis**,
-     **Penulis Penalis**, and **Pengaturan Email** (administrators only).
+     **Penulis Penalis**, **Pengaturan Email**, and **Pengaturan**
+     (administrators only).
+   - Open **Penalis → Pengaturan → Keamanan**, switch the dashboard CAPTCHA to
+     `Nonaktif sementara`, then confirm: the `/dashboard/` auth forms render no
+     Turnstile widget and still submit; `wp-login.php` still shows the widget
+     when Simple Cloudflare Turnstile protects it; the warning notice stays
+     visible until the switch is turned back on.
 2. **Registration & Email Verification**
    - Register a new account from `/dashboard/?penalis_register=1` (including an
      optional **Username Instagram**).

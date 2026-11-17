@@ -312,6 +312,16 @@ editors.
    - Built-in safety net that guarantees critical secret placeholders (such as
      `{kode_otp}` and `{link_reset_password}`) cannot be lost.
    - Single-template and all-template "Kembalikan ke Bawaan Plugin" reset actions.
+5. **Penalis → Pengaturan** (`?page=penalis-settings`, `Penalis_Settings::render_page()`)
+   - Centralized home for site-wide settings, administrator-only
+     (`manage_options`). One tab per setting group, rendered server-side
+     (`&tab=<slug>`) so a tab can be linked, bookmarked, and restored after
+     save. `Penalis_Settings::tabs()` is the registry; a new group only adds an
+     entry plus a renderer.
+   - **Keamanan** holds the dashboard CAPTCHA switch
+     (`penalis_dashboard_captcha_enabled`) and a read-only summary of the
+     Simple Cloudflare Turnstile configuration. Email templates and the
+     site-wide default profile photo are scheduled to move into this screen.
 
 ---
 
@@ -367,6 +377,8 @@ No custom database tables are created.
 | `penalis_dashboard_page_id` | Option | Page ID of the `/dashboard/` page |
 | `penalis_dashboard_page_created_by_plugin` | Option | Guard ensuring uninstall only removes a plugin-created page |
 | `penalis_remove_data_on_uninstall` | Option | Opt-in flag (`1`/`0`) for destructive uninstall |
+| `penalis_dashboard_captcha_enabled` | Option | Dashboard-only CAPTCHA switch (`1`/`0`, default `1`). Never mirrors `cfturnstile_login`/`_register`/`_reset` |
+| `penalis_dashboard_captcha_audit` | Option | Last CAPTCHA switch change: `state`, `user_id`, `user_login`, `time` |
 | `avatar_default_wp_user_avatar` | Option | Default profile photo attachment ID (shared with One User Avatar) |
 | `penalis_pending_review_count` | Transient | Cached count of `pending_review` article submissions |
 | `penalis_activation_notice` | Transient | Short-lived post-activation admin notice flag |
@@ -492,6 +504,29 @@ properties; there is no preprocessor, utility framework, or CSS-in-JS layer.
 - **Fixed brand glyph:** the verified badge SVG uses a literal Twitter blue
   (`#1d9bf0`) in `base.css` rather than a token, because it is a fixed brand
   mark that must not be recoloured by a theme override.
+
+### 7.8 Dashboard CAPTCHA Switch vs. Site-Wide Turnstile
+`Penalis_Turnstile` adapts the Simple Cloudflare Turnstile plugin instead of
+reimplementing verification. That plugin's options (`cfturnstile_login`,
+`cfturnstile_register`, `cfturnstile_reset`) describe the *whole site*, not just
+`/dashboard/`, so switching one of them off from Penalis would strip protection
+from `wp-login.php` as well — the exact problem the dashboard switch exists to
+avoid.
+- **One Penalis-owned flag:** `penalis_dashboard_captcha_enabled` is applied
+  inside `Penalis_Turnstile::is_enabled_for()`, after the third-party toggles
+  are read. Rendering (`frontend_config()`, `enqueue_scripts()`) and server
+  verification (`verify()`) both pass through that method, so a single flag
+  silences widget, token, and verification together — no React change is
+  needed, and the SPA simply receives `{ enabled: false }`.
+- **`is_available()` is never gated:** it reports whether the third-party plugin
+  is present and configured, so the settings screen can still explain the
+  site-wide state while the dashboard is silenced.
+- **The login bypass is unconditional:** Simple Cloudflare Turnstile hooks
+  `authenticate` whenever `cfturnstile_login` is on, and that check runs for
+  every `wp_signon()` call, including the dashboard form. Penalis verifies the
+  single-use token itself, so it always bypasses the third-party check around
+  `wp_signon()`. Making that bypass conditional on the dashboard switch would
+  break every dashboard login while the switch is off.
 
 
 
