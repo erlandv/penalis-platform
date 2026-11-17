@@ -18,6 +18,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Penalis_Email_Settings {
 
+	/**
+	 * Retired page slug, kept only so old links can be redirected.
+	 */
 	public const PAGE_SLUG   = 'penalis-email-settings';
 	public const OPTION_NAME = 'penalis_email_templates';
 
@@ -27,7 +30,7 @@ final class Penalis_Email_Settings {
 	 * @return void
 	 */
 	public static function init() {
-		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 13 );
+		add_action( 'admin_init', array( __CLASS__, 'redirect_legacy_slug' ) );
 		add_action( 'admin_post_penalis_save_email_settings', array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_penalis_reset_email_template', array( __CLASS__, 'handle_reset_single' ) );
 		add_action( 'admin_post_penalis_reset_all_email_settings', array( __CLASS__, 'handle_reset_all' ) );
@@ -35,29 +38,49 @@ final class Penalis_Email_Settings {
 	}
 
 	/**
-	 * Register the Pengaturan Email submenu under Penalis Platform.
+	 * URL of the Email tab on the centralized settings screen.
 	 *
-	 * @return void
+	 * @param array<string,mixed> $args Optional extra query arguments.
+	 * @return string
 	 */
-	public static function register_menu() {
-		add_submenu_page(
-			Penalis_Admin::MENU_SLUG,
-			'Pengaturan Email — Penalis Platform',
-			'Pengaturan Email',
-			'manage_options',
-			self::PAGE_SLUG,
-			array( __CLASS__, 'render_page' )
-		);
+	public static function tab_url( array $args = array() ) {
+		return Penalis_Settings::url( array_merge( array( 'tab' => 'email' ), $args ) );
 	}
 
 	/**
-	 * Enqueue scripts and styles for the email settings page.
+	 * Redirect the retired `?page=penalis-email-settings` URL to its new tab.
+	 *
+	 * The email templates moved into Penalis → Pengaturan so every site-wide
+	 * setting lives in one place. Bookmarks and old notices still point at the
+	 * previous slug, so they are forwarded instead of hitting an access error.
+	 *
+	 * @return void
+	 */
+	public static function redirect_legacy_slug() {
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only redirect source.
+
+		if ( self::PAGE_SLUG !== $page || ! self::can_manage() ) {
+			return;
+		}
+
+		wp_safe_redirect( self::tab_url() );
+		exit;
+	}
+
+	/**
+	 * Enqueue the template editor scripts for the Email tab.
 	 *
 	 * @param string $hook Admin page hook.
 	 * @return void
 	 */
 	public static function admin_scripts( $hook ) {
-		if ( false === strpos( (string) $hook, self::PAGE_SLUG ) && ( ! isset( $_GET['page'] ) || self::PAGE_SLUG !== $_GET['page'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! Penalis_Settings::is_current_screen( $hook ) ) {
+			return;
+		}
+
+		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only tab selection.
+
+		if ( 'email' !== $tab ) {
 			return;
 		}
 
@@ -506,11 +529,14 @@ JS;
 	}
 
 	/**
-	 * Render the Settings admin screen.
+	 * Render the Email tab on the centralized settings screen.
+	 *
+	 * Rendered by `Penalis_Settings::tabs()`; the shell owns the page heading,
+	 * the tab navigation, and the save notices.
 	 *
 	 * @return void
 	 */
-	public static function render_page() {
+	public static function render_tab() {
 		if ( ! self::can_manage() ) {
 			wp_die( esc_html__( 'Kamu tidak memiliki izin untuk melihat halaman ini.', 'penalis-platform' ), 403 );
 		}
@@ -526,29 +552,11 @@ JS;
 		);
 
 		?>
-		<div class="wrap penalis-email-settings">
-			<h1 class="wp-heading-inline">Pengaturan Email Penalis</h1>
-			<hr class="wp-header-end">
-
-			<?php if ( isset( $_GET['penalis_message'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-				<?php $msg = sanitize_key( wp_unslash( $_GET['penalis_message'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-				<?php if ( 'saved' === $msg ) : ?>
-					<div class="notice notice-success is-dismissible"><p>Pengaturan email berhasil disimpan.</p></div>
-				<?php elseif ( 'reset_single' === $msg ) : ?>
-					<div class="notice notice-info is-dismissible"><p>Template email telah dikembalikan ke teks bawaan.</p></div>
-				<?php elseif ( 'reset_all' === $msg ) : ?>
-					<div class="notice notice-info is-dismissible"><p>Semua template email telah dikembalikan ke teks bawaan.</p></div>
-				<?php endif; ?>
-			<?php endif; ?>
-
-			<?php if ( isset( $_GET['penalis_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-				<div class="notice notice-error is-dismissible"><p>Terjadi kesalahan saat memproses pengaturan email. Pastikan tag wajib terpasang.</p></div>
-			<?php endif; ?>
-
+		<div class="penalis-email-settings">
 			<p class="penalis-intro">
-				Sesuaikan teks subjek, isi pesan (*body*), dan catatan kaki (*footer*) untuk setiap email transaksional
-				otomatis yang dikirim oleh Penalis. Kamu dapat menyisipkan tautan menggunakan format Markdown
-				<code>[Teks Link](https://alamat-web.com)</code> atau teks tebal <code>**teks tebal**</code>.
+				Sesuaikan teks subjek email, body email, dan footer email untuk setiap email transaksional
+				otomatis yang dikirim oleh Penalis. Kamu dapat menyisipkan link menggunakan format Markdown
+				<code>[Teks Link](https://example.com)</code> atau teks bold <code>**teks bold**</code>.
 			</p>
 
 			<ul class="subsubsub penalis-email-nav" style="margin-bottom:20px;">
@@ -717,14 +725,14 @@ JS;
 		if ( ! empty( $_POST['penalis_reset_single_key'] ) ) {
 			$single_key = sanitize_key( wp_unslash( $_POST['penalis_reset_single_key'] ) );
 			self::reset_single( $single_key );
-			wp_safe_redirect( add_query_arg( 'penalis_message', 'reset_single', admin_url( 'admin.php?page=' . self::PAGE_SLUG ) ) );
+			wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'reset_single' ) ) );
 			exit;
 		}
 
 		// Check if reset all was requested.
 		if ( ! empty( $_POST['penalis_reset_all_action'] ) ) {
 			delete_option( self::OPTION_NAME );
-			wp_safe_redirect( add_query_arg( 'penalis_message', 'reset_all', admin_url( 'admin.php?page=' . self::PAGE_SLUG ) ) );
+			wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'reset_all' ) ) );
 			exit;
 		}
 
@@ -768,7 +776,7 @@ JS;
 
 		update_option( self::OPTION_NAME, $clean_opts );
 
-		wp_safe_redirect( add_query_arg( 'penalis_message', 'saved', admin_url( 'admin.php?page=' . self::PAGE_SLUG ) ) );
+		wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'saved' ) ) );
 		exit;
 	}
 
@@ -805,7 +813,7 @@ JS;
 			self::reset_single( $key );
 		}
 
-		wp_safe_redirect( add_query_arg( 'penalis_message', 'reset_single', admin_url( 'admin.php?page=' . self::PAGE_SLUG ) ) );
+		wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'reset_single' ) ) );
 		exit;
 	}
 
@@ -831,7 +839,7 @@ JS;
 		check_admin_referer( 'penalis_save_email_settings' );
 		self::reset_all();
 
-		wp_safe_redirect( add_query_arg( 'penalis_message', 'reset_all', admin_url( 'admin.php?page=' . self::PAGE_SLUG ) ) );
+		wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'reset_all' ) ) );
 		exit;
 	}
 }

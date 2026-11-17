@@ -181,11 +181,12 @@ readme.txt                  WordPress plugin readme and changelog
 - **Admin screens (`wp-admin`):** Top-level menu **Penalis**
   (`admin.php?page=penalis-platform`) with submenus **Ringkasan**
   (`penalis-platform`), **Review Karya Tulis** (`penalis-review`),
-  **Penulis Penalis** (`penalis-writers`), **Pengaturan Email**
-  (`penalis-email-settings`), and **Pengaturan** (`penalis-settings`; the last
-  two are administrators only). Site-wide settings belong on **Pengaturan** as a
-  tab registered in `Penalis_Settings::tabs()`, never bolted onto a curation
-  screen. All admin styles live in
+  **Penulis Penalis** (`penalis-writers`), and **Pengaturan**
+  (`penalis-settings`, administrators only). **Pengaturan** holds one tab per
+  setting group — `Keamanan` (dashboard CAPTCHA), `Foto Profil` (site-wide
+  default avatar), and `Email` (transactional templates). Every new site-wide
+  setting belongs there as a tab registered in `Penalis_Settings::tabs()`, never
+  bolted onto a curation screen. All admin styles live in
   `assets/css/admin.css` and confirmation dialog logic in
   `assets/js/admin-review.js` (`createModalController()`) — do not inline large
   CSS or JS blocks inside PHP classes. Use

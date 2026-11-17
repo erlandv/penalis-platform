@@ -47,6 +47,7 @@ final class Penalis_Settings {
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 14 );
 		add_action( 'admin_notices', array( __CLASS__, 'render_captcha_warning' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_scripts' ) );
 		add_action( 'admin_post_penalis_save_captcha', array( __CLASS__, 'handle_save_captcha' ) );
 	}
 
@@ -54,7 +55,7 @@ final class Penalis_Settings {
 	 * Register the Pengaturan submenu under Penalis Platform.
 	 *
 	 * Registered at priority 14 so it lands after Ringkasan (10), Review Karya
-	 * Tulis (11), Penulis Penalis (12), and Pengaturan Email (13).
+	 * Tulis (11), and Penulis Penalis (12).
 	 *
 	 * @return void
 	 */
@@ -67,6 +68,78 @@ final class Penalis_Settings {
 			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
 		);
+	}
+
+	/**
+	 * Whether the current admin request is the settings screen.
+	 *
+	 * Checks both the page hook and the `page` query argument, matching the
+	 * approach used for the other Penalis screens.
+	 *
+	 * @param string $hook Current admin page hook.
+	 * @return bool
+	 */
+	public static function is_current_screen( $hook = '' ) {
+		if ( false !== strpos( (string) $hook, self::PAGE_SLUG ) ) {
+			return true;
+		}
+
+		$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only screen detection.
+
+		return self::PAGE_SLUG === $page;
+	}
+
+	/**
+	 * Enqueue the media picker for the Foto Profil tab.
+	 *
+	 * The avatar picker is only needed on that one tab, so the media frame and
+	 * its handler never load on the other setting groups.
+	 *
+	 * @param string $hook Current admin page hook.
+	 * @return void
+	 */
+	public static function admin_scripts( $hook ) {
+		if ( ! self::is_current_screen( $hook ) || ! self::can_manage() ) {
+			return;
+		}
+
+		if ( 'avatar' !== self::current_tab() ) {
+			return;
+		}
+
+		wp_enqueue_media();
+
+		wp_register_script( 'penalis-admin-avatar', '', array( 'jquery' ), PENALIS_PLATFORM_VERSION, true );
+		wp_enqueue_script( 'penalis-admin-avatar' );
+
+		$script = <<<'JS'
+jQuery( function ( $ ) {
+	var frame;
+
+	$( '#penalis-default-avatar-choose' ).on( 'click', function ( event ) {
+		event.preventDefault();
+
+		if ( ! frame ) {
+			frame = wp.media( {
+				title: 'Foto profil bawaan',
+				button: { text: 'Gunakan gambar ini' },
+				library: { type: 'image' },
+				multiple: false
+			} );
+
+			frame.on( 'select', function () {
+				var attachment = frame.state().get( 'selection' ).first().toJSON();
+				$( '#penalis-default-avatar-id' ).val( attachment.id );
+				$( '#penalis-default-avatar-preview' ).attr( 'src', attachment.url ).show();
+			} );
+		}
+
+		frame.open();
+	} );
+} );
+JS;
+
+		wp_add_inline_script( 'penalis-admin-avatar', $script );
 	}
 
 	/**
@@ -92,6 +165,16 @@ final class Penalis_Settings {
 				'label'  => 'Keamanan',
 				'title'  => 'Keamanan & CAPTCHA',
 				'render' => array( __CLASS__, 'render_captcha_tab' ),
+			),
+			'avatar'  => array(
+				'label'  => 'Foto Profil',
+				'title'  => 'Foto Profil Bawaan',
+				'render' => array( __CLASS__, 'render_avatar_tab' ),
+			),
+			'email'   => array(
+				'label'  => 'Email',
+				'title'  => 'Pengaturan Email',
+				'render' => array( 'Penalis_Email_Settings', 'render_tab' ),
 			),
 		);
 	}
@@ -182,10 +265,10 @@ final class Penalis_Settings {
 			<h1 class="wp-heading-inline">Pengaturan Penalis</h1>
 			<hr class="wp-header-end">
 
-			<?php self::render_saved_notice(); ?>
+			<?php self::render_notices(); ?>
 
 			<p class="penalis-intro">
-				Pengaturan situs yang berlaku untuk seluruh Penalis. Setiap kelompok pengaturan punya
+				Pengaturan Penalis Platform yang berlaku untuk seluruh situs Penalis. Setiap kelompok pengaturan punya
 				tab sendiri, sehingga perubahan dapat ditinjau satu per satu.
 			</p>
 
@@ -211,19 +294,65 @@ final class Penalis_Settings {
 	}
 
 	/**
-	 * Render the save confirmation.
+	 * Map a success message key to its user-facing text.
+	 *
+	 * Every settings handler redirects back here with `penalis_message`, so the
+	 * feedback lives in one place instead of one notice block per tab.
+	 *
+	 * @param string $key Message key.
+	 * @return string
+	 */
+	public static function message_for( $key ) {
+		$messages = array(
+			'saved'        => 'Pengaturan berhasil disimpan.',
+			'reset_single' => 'Template email telah dikembalikan ke teks bawaan.',
+			'reset_all'    => 'Semua template email telah dikembalikan ke teks bawaan.',
+			'avatar_saved' => 'Foto profil bawaan telah diperbarui.',
+		);
+
+		$key = sanitize_key( (string) $key );
+
+		return isset( $messages[ $key ] ) ? $messages[ $key ] : 'Permintaan telah diselesaikan.';
+	}
+
+	/**
+	 * Map an error key to its user-facing text.
+	 *
+	 * @param string $key Error key.
+	 * @return string
+	 */
+	public static function error_for( $key ) {
+		$errors = array(
+			'avatar_invalid' => 'Pilih gambar yang valid untuk foto profil bawaan.',
+		);
+
+		$key = sanitize_key( (string) $key );
+
+		return isset( $errors[ $key ] ) ? $errors[ $key ] : 'Terjadi kesalahan saat memproses pengaturan. Silakan coba lagi.';
+	}
+
+	/**
+	 * Render the save confirmation or the error returned by a settings handler.
 	 *
 	 * @return void
 	 */
-	private static function render_saved_notice() {
-		if ( ! isset( $_GET['penalis_message'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
-			return;
+	private static function render_notices() {
+		if ( isset( $_GET['penalis_message'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
+			$message = sanitize_key( wp_unslash( $_GET['penalis_message'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
+
+			printf(
+				'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+				esc_html( self::message_for( $message ) )
+			);
 		}
 
-		$message = sanitize_key( wp_unslash( $_GET['penalis_message'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
+		if ( isset( $_GET['penalis_error'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
+			$error = sanitize_key( wp_unslash( $_GET['penalis_error'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
 
-		if ( 'saved' === $message ) {
-			echo '<div class="notice notice-success is-dismissible"><p>Pengaturan berhasil disimpan.</p></div>';
+			printf(
+				'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
+				esc_html( self::error_for( $error ) )
+			);
 		}
 	}
 
@@ -365,6 +494,52 @@ final class Penalis_Settings {
 					Buka pengaturan Turnstile &nearr;
 				</a>
 			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the Foto Profil tab.
+	 *
+	 * @return void
+	 */
+	public static function render_avatar_tab() {
+		$avatar_id  = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
+		$avatar_url = $avatar_id > 0 ? (string) wp_get_attachment_image_url( $avatar_id, 'thumbnail' ) : '';
+		?>
+		<div class="penalis-settings__panel">
+			<h2>Foto profil bawaan</h2>
+			<p class="description">
+				Dipakai untuk penulis yang belum memilih foto sendiri. Gambar ini disimpan sebagai
+				foto profil bawaan situs, sehingga tampil konsisten di arsip penulis, direktori
+				kontributor, dan komentar.
+				<?php if ( Penalis_Avatar::is_supported() ) : ?>
+					Plugin One User Avatar aktif dan mengelola pengaturan yang sama.
+				<?php endif; ?>
+			</p>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="penalis_save_default_avatar" />
+				<?php wp_nonce_field( 'penalis_default_avatar' ); ?>
+				<input type="hidden" name="penalis_default_avatar_id" id="penalis-default-avatar-id" value="<?php echo esc_attr( (string) $avatar_id ); ?>" />
+
+				<div class="penalis-settings__avatar">
+					<img
+						id="penalis-default-avatar-preview"
+						class="penalis-settings__avatar-preview"
+						src="<?php echo esc_url( $avatar_url ); ?>"
+						alt=""
+						<?php echo '' === $avatar_url ? 'style="display:none;"' : ''; ?>
+					/>
+					<div class="penalis-settings__avatar-controls">
+						<button type="button" class="button" id="penalis-default-avatar-choose">Pilih gambar</button>
+						<button type="submit" class="button button-primary">Simpan</button>
+						<?php if ( $avatar_id > 0 ) : ?>
+							<button type="submit" class="button penalis-button--danger" name="penalis_clear_default_avatar" value="1">Hapus foto bawaan</button>
+						<?php endif; ?>
+					</div>
+				</div>
+			</form>
 		</div>
 		<?php
 	}

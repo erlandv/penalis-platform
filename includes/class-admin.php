@@ -138,7 +138,6 @@ final class Penalis_Admin {
 			self::MENU_SLUG,
 			self::PAGE_SLUG,
 			Penalis_Editorial_Admin::PAGE_SLUG,
-			Penalis_Email_Settings::PAGE_SLUG,
 			Penalis_Settings::PAGE_SLUG,
 		);
 
@@ -244,7 +243,10 @@ final class Penalis_Admin {
 	}
 
 	/**
-	 * Enqueue the media picker and confirmation dialog on the writers screen.
+	 * Enqueue the confirmation dialog on the writers screen.
+	 *
+	 * The default profile photo picker moved to Penalis → Pengaturan → Foto
+	 * Profil, so the media frame is enqueued by `Penalis_Settings` instead.
 	 *
 	 * @param string $hook Current admin page.
 	 * @return void
@@ -258,43 +260,13 @@ final class Penalis_Admin {
 		}
 
 		self::enqueue_confirmation_script();
-		wp_enqueue_media();
-
-		wp_register_script( 'penalis-admin-avatar', '', array( 'jquery' ), PENALIS_PLATFORM_VERSION, true );
-		wp_enqueue_script( 'penalis-admin-avatar' );
-
-		$script = <<<'JS'
-jQuery( function ( $ ) {
-	var frame;
-
-	$( '#penalis-default-avatar-choose' ).on( 'click', function ( event ) {
-		event.preventDefault();
-
-		if ( ! frame ) {
-			frame = wp.media( {
-				title: 'Foto profil bawaan',
-				button: { text: 'Gunakan gambar ini' },
-				library: { type: 'image' },
-				multiple: false
-			} );
-
-			frame.on( 'select', function () {
-				var attachment = frame.state().get( 'selection' ).first().toJSON();
-				$( '#penalis-default-avatar-id' ).val( attachment.id );
-				$( '#penalis-default-avatar-preview' ).attr( 'src', attachment.url ).show();
-			} );
-		}
-
-		frame.open();
-	} );
-} );
-JS;
-
-		wp_add_inline_script( 'penalis-admin-avatar', $script );
 	}
 
 	/**
 	 * Save the default profile photo.
+	 *
+	 * The form lives on Penalis → Pengaturan → Foto Profil, so both the success
+	 * and the validation redirects return to that tab.
 	 *
 	 * @return void
 	 */
@@ -305,7 +277,7 @@ JS;
 
 		check_admin_referer( 'penalis_default_avatar' );
 
-		$redirect = self::writers_url();
+		$redirect = Penalis_Settings::url( array( 'tab' => 'avatar' ) );
 		$clear    = isset( $_POST['penalis_clear_default_avatar'] );
 		$avatar   = isset( $_POST['penalis_default_avatar_id'] ) ? absint( wp_unslash( $_POST['penalis_default_avatar_id'] ) ) : 0;
 
@@ -655,9 +627,6 @@ JS;
 		$users = $query->get_results();
 		$total = (int) $query->get_total();
 
-		$default_avatar_id  = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
-		$default_avatar_url = $default_avatar_id > 0 ? (string) wp_get_attachment_image_url( $default_avatar_id, 'thumbnail' ) : '';
-
 		$tabs = array(
 			''                                          => 'Semua yang dikelola',
 			Penalis_Policy::STATUS_ACTIVE               => 'Aktif',
@@ -694,6 +663,13 @@ JS;
 			<?php else : ?>
 				<p class="penalis-intro">
 					Lihat status akun penulis komunitas Penalis. Tindakan akun hanya dapat dilakukan administrator.
+				</p>
+			<?php endif; ?>
+
+			<?php if ( self::can_manage_settings() ) : ?>
+				<p class="penalis-intro">
+					Foto profil bawaan situs diatur di
+					<a href="<?php echo esc_url( Penalis_Settings::url( array( 'tab' => 'avatar' ) ) ); ?>">Pengaturan → Foto Profil</a>.
 				</p>
 			<?php endif; ?>
 
@@ -927,40 +903,6 @@ JS;
 			);
 			self::render_pagination( $total, $per_page, $paged, $pagination_base );
 			?>
-
-			<?php if ( self::can_manage_settings() ) : ?>
-			<div class="penalis-panel">
-				<h2>Foto profil bawaan</h2>
-				<p class="description">
-					Dipakai untuk penulis yang belum memilih foto sendiri. Gambar ini disimpan sebagai
-					foto profil bawaan situs.
-					<?php if ( Penalis_Avatar::is_supported() ) : ?>
-						Plugin One User Avatar aktif dan mengelola pengaturan yang sama.
-					<?php endif; ?>
-				</p>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-					<input type="hidden" name="action" value="penalis_save_default_avatar" />
-					<?php wp_nonce_field( 'penalis_default_avatar' ); ?>
-					<input type="hidden" name="penalis_default_avatar_id" id="penalis-default-avatar-id" value="<?php echo esc_attr( (string) $default_avatar_id ); ?>" />
-					<div class="penalis-panel__body">
-						<img
-							id="penalis-default-avatar-preview"
-							class="penalis-panel__preview"
-							src="<?php echo esc_url( $default_avatar_url ); ?>"
-							alt=""
-							<?php echo '' === $default_avatar_url ? 'style="display:none;"' : ''; ?>
-						/>
-						<div class="penalis-panel__controls">
-							<button type="button" class="button" id="penalis-default-avatar-choose">Pilih gambar</button>
-							<button type="submit" class="button button-primary">Simpan</button>
-							<?php if ( $default_avatar_id > 0 ) : ?>
-								<button type="submit" class="button penalis-button--danger" name="penalis_clear_default_avatar" value="1">Hapus foto bawaan</button>
-							<?php endif; ?>
-						</div>
-					</div>
-				</form>
-			</div>
-			<?php endif; ?>
 
 			<?php
 			if ( $can_manage ) {

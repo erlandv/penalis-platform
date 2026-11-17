@@ -83,7 +83,7 @@
 .penalis-writers .penalis-writer img.avatar,
 .penalis-review .penalis-review__author-avatar,
 .penalis-review .penalis-review__author img.avatar,
-.penalis-writers .penalis-panel__preview {
+.penalis-settings__avatar-preview {
 	display: block;
 	border-radius: 50%;
 	object-fit: cover;
@@ -566,48 +566,6 @@
 .penalis-writers .penalis-empty__text {
 	margin: 0;
 	color: #646970;
-}
-
-.penalis-writers .penalis-panel {
-	max-width: 760px;
-	margin: 24px 0 0;
-	padding: 16px 20px;
-	background: #fff;
-	border: 1px solid #c3c4c7;
-	border-radius: 4px;
-	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
-}
-
-.penalis-writers .penalis-panel h2 {
-	margin: 0 0 4px;
-	padding: 0;
-	font-size: 14px;
-	font-weight: 600;
-}
-
-.penalis-writers .penalis-panel__body {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 16px;
-	margin-top: 14px;
-}
-
-.penalis-writers .penalis-panel__preview {
-	width: 72px;
-	height: 72px;
-	flex: 0 0 72px;
-}
-
-.penalis-writers .penalis-panel__controls {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 8px;
-}
-
-.penalis-writers .penalis-panel__controls .button {
-	margin: 0;
 }
 
 /* ==========================================================================
@@ -1366,6 +1324,31 @@ body.penalis-modal-open {
 .penalis-settings__status th {
 	width: 34%;
 	font-weight: 600;
+}
+
+.penalis-settings__avatar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 16px;
+	margin-top: 14px;
+}
+
+.penalis-settings__avatar-preview {
+	width: 72px;
+	height: 72px;
+	flex: 0 0 72px;
+}
+
+.penalis-settings__avatar-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.penalis-settings__avatar-controls .button {
+	margin: 0;
 }
 
 .penalis-settings__link {

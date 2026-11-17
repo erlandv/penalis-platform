@@ -4333,6 +4333,49 @@ penalis_same( true, Penalis_Settings::is_dashboard_captcha_enabled(), 'The switc
 penalis_same( array(), Penalis_Settings::audit(), 'The audit trail is empty until the switch is changed.' );
 
 /* -------------------------------------------------------------------------
+ * Settings screen: tab registry and shared feedback
+ * ---------------------------------------------------------------------- */
+
+$penalis_settings_tabs = Penalis_Settings::tabs();
+
+penalis_same(
+	array( 'captcha', 'avatar', 'email' ),
+	array_keys( $penalis_settings_tabs ),
+	'The settings screen exposes Keamanan, Foto Profil, and Email tabs in that order.'
+);
+
+foreach ( $penalis_settings_tabs as $penalis_tab_slug => $penalis_tab_meta ) {
+	penalis_assert( '' !== (string) $penalis_tab_meta['label'], 'Tab "' . $penalis_tab_slug . '" has a menu label.' );
+	penalis_assert( is_callable( $penalis_tab_meta['render'] ), 'Tab "' . $penalis_tab_slug . '" points at a callable renderer.' );
+}
+
+penalis_same(
+	Penalis_Settings::url( array( 'tab' => 'email' ) ),
+	Penalis_Email_Settings::tab_url(),
+	'The email templates link back to the Email tab on the settings screen.'
+);
+
+penalis_same(
+	Penalis_Settings::url( array( 'tab' => 'email', 'penalis_message' => 'saved' ) ),
+	Penalis_Email_Settings::tab_url( array( 'penalis_message' => 'saved' ) ),
+	'The email tab URL accepts extra query arguments.'
+);
+
+penalis_same( 'penalis-email-settings', Penalis_Email_Settings::PAGE_SLUG, 'The retired email settings slug is kept so old links can be redirected.' );
+
+penalis_same( 'Pengaturan berhasil disimpan.', Penalis_Settings::message_for( 'saved' ), 'The shell reports a successful save.' );
+penalis_same( 'Template email telah dikembalikan ke teks bawaan.', Penalis_Settings::message_for( 'reset_single' ), 'The shell reports a single template reset.' );
+penalis_same( 'Semua template email telah dikembalikan ke teks bawaan.', Penalis_Settings::message_for( 'reset_all' ), 'The shell reports a full template reset.' );
+penalis_same( 'Foto profil bawaan telah diperbarui.', Penalis_Settings::message_for( 'avatar_saved' ), 'The shell reports a saved default avatar.' );
+penalis_same( 'Permintaan telah diselesaikan.', Penalis_Settings::message_for( 'unknown_key' ), 'An unknown message key falls back to a neutral notice.' );
+penalis_same( 'Pilih gambar yang valid untuk foto profil bawaan.', Penalis_Settings::error_for( 'avatar_invalid' ), 'The shell explains an invalid avatar selection.' );
+penalis_same(
+	'Terjadi kesalahan saat memproses pengaturan. Silakan coba lagi.',
+	Penalis_Settings::error_for( 'unknown_key' ),
+	'An unknown error key falls back to a generic error notice.'
+);
+
+/* -------------------------------------------------------------------------
  * Turnstile adapter with the plugin configured (site-wide vs dashboard)
  * ---------------------------------------------------------------------- */
 

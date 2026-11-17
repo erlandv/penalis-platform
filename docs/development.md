@@ -196,8 +196,11 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
    - Activate **Penalis Platform**, save **Settings → Permalinks**, and verify
      that `/dashboard/` loads and the top-level **Penalis** menu appears in
      `wp-admin` with submenus **Ringkasan**, **Review Karya Tulis**,
-     **Penulis Penalis**, **Pengaturan Email**, and **Pengaturan**
-     (administrators only).
+     **Penulis Penalis**, and **Pengaturan** (administrators only).
+   - Open **Penalis → Pengaturan** and confirm the three tabs render:
+     `Keamanan`, `Foto Profil` (media picker opens), and `Email` (template
+     editor with its group tabs). The retired
+     `?page=penalis-email-settings` URL must redirect to the Email tab.
    - Open **Penalis → Pengaturan → Keamanan**, switch the dashboard CAPTCHA to
      `Nonaktif sementara`, then confirm: the `/dashboard/` auth forms render no
      Turnstile widget and still submit; `wp-login.php` still shows the widget

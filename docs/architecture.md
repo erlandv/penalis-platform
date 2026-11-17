@@ -278,9 +278,9 @@ Key invariants:
 
 All curation surfaces live under a single top-level menu, **Penalis**
 (`admin.php?page=penalis-platform`). The menu requires `edit_others_posts`, so
-both administrators and editors see it; writers never do. Account actions and
-the site-wide default avatar stay administrator-only (`list_users` and
-`manage_options` respectively), which makes **Penulis Penalis** read-only for
+both administrators and editors see it; writers never do. Account actions stay
+administrator-only (`list_users`), and every site-wide setting lives behind
+`manage_options` on **Pengaturan**, which makes **Penulis Penalis** read-only for
 editors.
 
 1. **Penalis → Ringkasan** (`?page=penalis-platform`, `Penalis_Admin::render_overview_page()`)
@@ -297,31 +297,40 @@ editors.
 3. **Penalis → Penulis Penalis** (`?page=penalis-writers`, `Penalis_Admin::render_page()`)
    - Account management table with status tabs (`Semua yang dikelola`, `Aktif`,
      `Menunggu verifikasi`, `Ditangguhkan`, `Akun lama`), search toolbar,
-     Instagram handle column (`@username`), collapsible audit history,
+     Instagram handle column (`@username`), collapsible audit history, and
      confirmation modals for all account actions (`Tangguhkan`,
      `Aktifkan kembali`, `Kirim ulang verifikasi`, `Kirim link aktivasi`,
-     `Aktifkan langsung`), and the site-wide default profile photo setting.
-4. **Penalis → Pengaturan Email** (`?page=penalis-email-settings`, `Penalis_Email_Settings::render_page()`)
-   - Centralized management console for all 15 transactional emails, accessible
-     only to administrators (`manage_options`).
-   - Categorized tabbed navigation (`Semua Email`, `Verifikasi & Aktivasi`,
-     `Keamanan Akun`, `Status Penulis`, `Kurasi Karya Tulis`).
-   - Customization fields for subject, body, and per-email contextual footer.
-   - Rich Markdown formatting with live toolbar buttons for bold (`**text**`),
-     inline links (`[Text](url)`), and one-click tag insertion chips.
-   - Built-in safety net that guarantees critical secret placeholders (such as
-     `{kode_otp}` and `{link_reset_password}`) cannot be lost.
-   - Single-template and all-template "Kembalikan ke Bawaan Plugin" reset actions.
-5. **Penalis → Pengaturan** (`?page=penalis-settings`, `Penalis_Settings::render_page()`)
-   - Centralized home for site-wide settings, administrator-only
+     `Aktifkan langsung`). Site-wide settings moved to **Pengaturan**; the screen
+     only links there.
+4. **Penalis → Pengaturan** (`?page=penalis-settings`, `Penalis_Settings::render_page()`)
+   - Centralized home for every site-wide setting, administrator-only
      (`manage_options`). One tab per setting group, rendered server-side
      (`&tab=<slug>`) so a tab can be linked, bookmarked, and restored after
      save. `Penalis_Settings::tabs()` is the registry; a new group only adds an
      entry plus a renderer.
-   - **Keamanan** holds the dashboard CAPTCHA switch
-     (`penalis_dashboard_captcha_enabled`) and a read-only summary of the
-     Simple Cloudflare Turnstile configuration. Email templates and the
-     site-wide default profile photo are scheduled to move into this screen.
+   - **Keamanan** (`captcha`, `Penalis_Settings::render_captcha_tab()`) holds the
+     dashboard CAPTCHA switch (`penalis_dashboard_captcha_enabled`) and a
+     read-only summary of the Simple Cloudflare Turnstile configuration.
+   - **Foto Profil** (`avatar`, `Penalis_Settings::render_avatar_tab()`) sets the
+     site-wide default profile photo through the WordPress media picker; saving
+     is handled by `Penalis_Admin::save_default_avatar()`.
+   - **Email** (`email`, `Penalis_Email_Settings::render_tab()`) manages all 15
+     transactional emails, accessible only to administrators:
+     - Categorized tabbed navigation (`Semua Email`, `Verifikasi & Aktivasi`,
+       `Keamanan Akun`, `Status Penulis`, `Kurasi Karya Tulis`).
+     - Customization fields for subject, body, and per-email contextual footer.
+     - Rich Markdown formatting with live toolbar buttons for bold (`**text**`),
+       inline links (`[Text](url)`), and one-click tag insertion chips.
+     - Built-in safety net that guarantees critical secret placeholders (such as
+       `{kode_otp}` and `{link_reset_password}`) cannot be lost.
+     - Single-template and all-template "Kembalikan ke Bawaan Plugin" reset
+       actions.
+   - The retired `?page=penalis-email-settings` URL redirects to
+     `?page=penalis-settings&tab=email` on `admin_init`, so bookmarks and old
+     notices keep working.
+   - Save feedback is centralized in `Penalis_Settings::message_for()` /
+     `error_for()`; tab handlers redirect back with `penalis_message` or
+     `penalis_error` instead of rendering their own notices.
 
 ---
 
@@ -527,6 +536,26 @@ avoid.
   single-use token itself, so it always bypasses the third-party check around
   `wp_signon()`. Making that bypass conditional on the dashboard switch would
   break every dashboard login while the switch is off.
+
+### 7.9 One Settings Screen
+Site-wide settings used to live wherever the related feature did — email
+templates on their own submenu, the default profile photo on **Penulis
+Penalis**. Each new option therefore needed a new decision about placement, and
+the curation screens slowly mixed account work with configuration.
+- **Single entry point:** `Penalis_Settings` owns the screen shell (heading, tab
+  navigation, save and error notices) and nothing else. A setting group is one
+  entry in `tabs()` plus a renderer, which keeps the shell free of feature code.
+- **Renderers live with their feature:** the Email tab is
+  `Penalis_Email_Settings::render_tab()` and the avatar tab is
+  `Penalis_Settings::render_avatar_tab()`. Handlers keep their own
+  `admin_post_*` actions and redirect back with `penalis_message` /
+  `penalis_error`, so a tab never renders its own notices.
+- **Server-rendered tabs:** `&tab=<slug>` survives reloads, can be bookmarked,
+  and lets a redirect land on the right group. JavaScript tab switching is only
+  used *inside* the Email tab, for the template groups.
+- **Retired URLs redirect:** `?page=penalis-email-settings` forwards to
+  `?page=penalis-settings&tab=email` on `admin_init` rather than being deleted,
+  because bookmarks and old admin notices still point at it.
 
 
 
