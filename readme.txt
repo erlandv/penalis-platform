@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 1.6.0
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -109,6 +109,16 @@ by MIME type and by inspecting the image header (`getimagesize()`), so SVG and
 renamed executable files are rejected.
 
 == Changelog ==
+
+= 1.7.0 =
+* Feature: Add a dashboard notification center with a header bell, a full `Notifikasi` feed with all/unread filtering, bulk read receipt, optional per-article grouping, and a compact list mode, all driven by one shared controller.
+* Feature: Deep-link notifications carrying revision notes to the editor feedback panel via `penalis_focus=feedback`.
+* Feature: Allow reviewers (administrators and editors) without writer status to open article detail and review routes in `/dashboard/`.
+* Feature: Add a change-address affordance to the OTP form and back-navigation logic in the authentication flow.
+* Feature: Preserve plain-text pastes as hard line breaks in the TipTap editor with the `PasteHardBreak` extension.
+* Security: Guard notification writes and read receipts with per-recipient MySQL advisory locks so concurrent submissions cannot drop an entry.
+* Fix: Normalize dashboard asset URLs to the site origin, including off-site CDN URLs, non-standard ports, and http/https mismatches.
+* Refactor: Split dashboard and authors CSS into shared design tokens and section stylesheets, with responsive navigation hints and media grid styling.
 
 = 1.6.0 =
 * Feature: Change TipTap editor `Enter` behavior so a single `Enter` inserts a line break (`<br>`) and a double `Enter` starts a new paragraph (`<p>`), removing the redundant line-break toolbar button for faster mobile writing.
