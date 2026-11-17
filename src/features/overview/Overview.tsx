@@ -1,5 +1,7 @@
 /**
- * Overview: account status, article counts, notifications, and recent activity.
+ * Overview: account status, article counts, notification preview, and recent
+ * activity. The full lists live on their own pages; this screen is a compact
+ * entry point with a single action bar.
  */
 
 import { useEffect, useState } from 'react';
@@ -12,7 +14,8 @@ import { EmptyState, ErrorBanner, Spinner, StatusBadge, VerifiedWriterBadge } fr
 import { NotificationList } from '../notifications/NotificationList';
 import type { NotificationsController } from '../notifications/useNotifications';
 
-const INITIAL_VISIBLE_NOTIFICATIONS = 5;
+const PREVIEW_NOTIFICATIONS = 3;
+const PREVIEW_ARTICLES = 3;
 
 export function Overview({
   account,
@@ -32,7 +35,6 @@ export function Overview({
   const [data, setData] = useState<ArticleList | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(account.canWrite);
-  const [showAllNotifications, setShowAllNotifications] = useState(false);
 
   const {
     data: notificationData,
@@ -86,12 +88,8 @@ export function Overview({
   };
 
   const counts = data?.counts ?? account.counts;
-  const totalNotifications = notificationData?.items.length ?? 0;
-  const visibleNotifications = notificationData
-    ? showAllNotifications
-      ? notificationData.items
-      : notificationData.items.slice(0, INITIAL_VISIBLE_NOTIFICATIONS)
-    : [];
+  const visibleNotifications = notificationData?.items.slice(0, PREVIEW_NOTIFICATIONS) ?? [];
+  const canSeeNotifications = account.canWrite || account.isAdministrator || account.isReviewer;
 
   return (
     <div className="penalis-stack">
@@ -106,8 +104,8 @@ export function Overview({
             {account.canWrite
               ? 'Di dashboard penulis ini kamu dapat menulis draft, submit karya tulis untuk di-review admin, dan memantau status submit karyamu di satu tempat. Jadi, mau menulis apa hari ini?'
               : account.isReviewer
-                ? 'Kamu login sebagai Reviewer. Kamu dapat melihat bagaimana dashboard penulis bekerja; untuk mengambil keputusan review, gunakan Review Karya Tulis di WordPress Admin.'
-                : 'Akun Penalis kamu saat ini belum dapat mengelola karya tulis. Kamu dapat meninjau detail akun di bawah ini. Jika ada pertanyaan, hubungi admin Penalis.'}
+                ? 'Kamu login sebagai Reviewer. Gunakan Review Karya Tulis di WordPress Admin untuk mengambil keputusan.'
+                : 'Akun Penalis kamu belum dapat mengelola karya tulis. Hubungi admin jika ada pertanyaan.'}
           </p>
         </div>
         <div className="penalis-hero__status">
@@ -124,22 +122,35 @@ export function Overview({
         <StatCard label="Draft" value={counts.draft} />
       </section>
 
-      {account.canWrite ? (
-        <div className="penalis-actions-row">
-          <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
-            Buat karya baru
-          </button>
-          <button type="button" className="penalis-button penalis-button--ghost" onClick={onOpenArticles}>
-            Lihat semua karya
+      {canSeeNotifications ? (
+        <div className="penalis-quick-actions" role="group" aria-label="Aksi cepat">
+          <span className="penalis-quick-actions__label">Aksi cepat</span>
+          {account.canWrite ? (
+            <>
+              <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
+                Buat karya baru
+              </button>
+              <button type="button" className="penalis-button penalis-button--ghost" onClick={onOpenArticles}>
+                Lihat semua karya
+              </button>
+            </>
+          ) : null}
+          <button type="button" className="penalis-button penalis-button--ghost" onClick={onOpenNotifications}>
+            Lihat semua notifikasi
+            {unreadCount > 0 ? (
+              <span className="penalis-quick-actions__badge" aria-label={`${unreadCount} belum dibaca`}>
+                {unreadCount}
+              </span>
+            ) : null}
           </button>
         </div>
       ) : null}
 
-      {account.canWrite || account.isAdministrator || account.isReviewer ? (
+      {canSeeNotifications ? (
         <section className="penalis-panel" aria-label="Notifikasi review karya tulis">
           <div className="penalis-panel__header">
             <div className="penalis-notification-header">
-              <h3>Notifikasi Review Karya Tulis</h3>
+              <h3>Notifikasi terbaru</h3>
               {unreadCount > 0 ? (
                 <StatusBadge status="pending_review" label={`${unreadCount} belum dibaca`} />
               ) : null}
@@ -151,7 +162,7 @@ export function Overview({
                 onClick={() => void markRead()}
                 disabled={markingId !== null}
               >
-                {markingId === 'all' ? 'Memperbarui…' : 'Tandai semua sudah dibaca'}
+                {markingId === 'all' ? 'Memperbarui…' : 'Tandai semua dibaca'}
               </button>
             ) : null}
           </div>
@@ -165,44 +176,21 @@ export function Overview({
               Belum ada notifikasi. Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.
             </p>
           ) : (
-            <>
-              <NotificationList
-                items={visibleNotifications}
-                account={account}
-                markingId={markingId}
-                onMarkRead={(id) => void markRead(id)}
-                onOpenArticle={openNotificationArticle}
-              />
-
-              <div className="penalis-notification-footer">
-                {totalNotifications > INITIAL_VISIBLE_NOTIFICATIONS ? (
-                  <button
-                    type="button"
-                    className="penalis-notification-toggle"
-                    aria-expanded={showAllNotifications}
-                    onClick={() => setShowAllNotifications((prev) => !prev)}
-                  >
-                    {showAllNotifications
-                      ? 'Tampilkan lebih sedikit'
-                      : `Lihat semua (${totalNotifications} notifikasi)`}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="penalis-notification-toggle"
-                  onClick={onOpenNotifications}
-                >
-                  Buka halaman notifikasi
-                </button>
-              </div>
-            </>
+            <NotificationList
+              items={visibleNotifications}
+              account={account}
+              markingId={markingId}
+              onMarkRead={(id) => void markRead(id)}
+              onOpenArticle={openNotificationArticle}
+              compact
+            />
           )}
         </section>
       ) : null}
 
       <section className="penalis-panel">
         <div className="penalis-panel__header">
-          <h3>Karya Tulis Terbaru</h3>
+          <h3>Karya terbaru</h3>
         </div>
 
         {!account.canWrite ? (
@@ -225,7 +213,7 @@ export function Overview({
           />
         ) : (
           <ul className="penalis-article-list">
-            {data?.items.slice(0, 5).map((article) => (
+            {data?.items.slice(0, PREVIEW_ARTICLES).map((article) => (
               <li key={article.id} className="penalis-article-row">
                 <div>
                   <strong>{article.title || 'Tanpa judul'}</strong>
