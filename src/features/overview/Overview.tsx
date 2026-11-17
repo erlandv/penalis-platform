@@ -7,10 +7,19 @@
 import { useEffect, useState } from 'react';
 
 import { articlesApi, ApiError } from '../../lib/api';
+import { canReceiveNotifications } from '../../lib/permissions';
 import type { Account, ArticleList, DashboardNotification } from '../../lib/types';
 import { editorialStateLabel, formatDate, formatNumber } from '../../lib/format';
 import { Icon } from '../../components/icons';
-import { EmptyState, ErrorBanner, Spinner, StatusBadge, VerifiedWriterBadge } from '../../components/ui';
+import {
+  EmptyState,
+  ErrorBanner,
+  MarkAllReadButton,
+  Panel,
+  Spinner,
+  StatusBadge,
+  VerifiedWriterBadge,
+} from '../../components/ui';
 import { NotificationList } from '../notifications/NotificationList';
 import type { NotificationsController } from '../notifications/useNotifications';
 
@@ -89,7 +98,7 @@ export function Overview({
 
   const counts = data?.counts ?? account.counts;
   const visibleNotifications = notificationData?.items.slice(0, PREVIEW_NOTIFICATIONS) ?? [];
-  const canSeeNotifications = account.canWrite || account.isAdministrator || account.isReviewer;
+  const canSeeNotifications = canReceiveNotifications(account);
 
   return (
     <div className="penalis-stack">
@@ -147,25 +156,22 @@ export function Overview({
       ) : null}
 
       {canSeeNotifications ? (
-        <section className="penalis-panel" aria-label="Notifikasi review karya tulis">
-          <div className="penalis-panel__header">
-            <div className="penalis-notification-header">
-              <h3>Notifikasi terbaru</h3>
+        <Panel
+          label="Notifikasi review karya tulis"
+          header={
+            <>
+              <div className="penalis-notification-header">
+                <h3>Notifikasi terbaru</h3>
+                {unreadCount > 0 ? (
+                  <StatusBadge status="pending_review" label={`${unreadCount} belum dibaca`} />
+                ) : null}
+              </div>
               {unreadCount > 0 ? (
-                <StatusBadge status="pending_review" label={`${unreadCount} belum dibaca`} />
+                <MarkAllReadButton markingId={markingId} onMarkRead={() => void markRead()} />
               ) : null}
-            </div>
-            {unreadCount > 0 ? (
-              <button
-                type="button"
-                className="penalis-notification-action"
-                onClick={() => void markRead()}
-                disabled={markingId !== null}
-              >
-                {markingId === 'all' ? 'Memperbarui…' : 'Tandai semua dibaca'}
-              </button>
-            ) : null}
-          </div>
+            </>
+          }
+        >
 
           {notificationsLoading && !notificationData ? (
             <Spinner label="Memuat notifikasi…" />
@@ -185,14 +191,10 @@ export function Overview({
               compact
             />
           )}
-        </section>
+        </Panel>
       ) : null}
 
-      <section className="penalis-panel">
-        <div className="penalis-panel__header">
-          <h3>Karya terbaru</h3>
-        </div>
-
+      <Panel title="Karya terbaru">
         {!account.canWrite ? (
           <p className="penalis-muted">
             Kamu dapat menulis dan submit karya tulismu setelah alamat email kamu dikonfirmasi.
@@ -236,7 +238,7 @@ export function Overview({
             ))}
           </ul>
         )}
-      </section>
+      </Panel>
     </div>
   );
 }

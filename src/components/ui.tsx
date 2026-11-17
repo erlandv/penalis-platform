@@ -2,7 +2,7 @@
  * Shared UI primitives.
  */
 
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 
 import { Icon, VerifiedBadgeIcon } from './icons';
 import type { Account, FieldErrors } from '../lib/types';
@@ -49,6 +49,69 @@ export function Notice({
     </div>
   );
 }
+
+/**
+ * Standard page intro for dashboard screens. Keeping the title, description,
+ * and action alignment in one place prevents screens from drifting apart.
+ */
+export function PageHeading({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="penalis-page-heading">
+      <div>
+        <h2>{title}</h2>
+        {description ? <p className="penalis-muted">{description}</p> : null}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+type PanelProps = {
+  title?: string;
+  /** Small element next to the heading, usually a status badge. */
+  aside?: ReactNode;
+  /**
+   * Replaces the default heading row when a panel needs a grouped heading or
+   * an action that does not fit the `aside` slot.
+   */
+  header?: ReactNode;
+  label?: string;
+  className?: string;
+  tabIndex?: number;
+  children: ReactNode;
+};
+
+export const Panel = forwardRef<HTMLElement, PanelProps>(function Panel(
+  { title, aside, header, label, className, tabIndex, children },
+  ref,
+) {
+  return (
+    <section
+      ref={ref}
+      className={className ? `penalis-panel ${className}` : 'penalis-panel'}
+      aria-label={label}
+      tabIndex={tabIndex}
+    >
+      <div className="penalis-panel__header">
+        {header ?? (
+          <>
+            {title ? <h3>{title}</h3> : null}
+            {aside}
+          </>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+});
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
   return (
@@ -148,6 +211,31 @@ export function EmptyState({
       <p>{description}</p>
       {action}
     </div>
+  );
+}
+
+/**
+ * Shared batch read-receipt control. `markingId === 'all'` is the busy state
+ * reported by the notifications controller while the request is in flight.
+ */
+export function MarkAllReadButton({
+  markingId,
+  onMarkRead,
+  label = 'Tandai semua dibaca',
+}: {
+  markingId: string | null;
+  onMarkRead: () => void;
+  label?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="penalis-notification-action"
+      onClick={onMarkRead}
+      disabled={markingId !== null}
+    >
+      {markingId === 'all' ? 'Memperbarui…' : label}
+    </button>
   );
 }
 

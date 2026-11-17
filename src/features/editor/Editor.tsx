@@ -26,7 +26,7 @@ import type {
   Term,
 } from '../../lib/types';
 import { hasErrors, isUncategorizedTerm, validateArticle, validateArticleSubmission } from '../../lib/validation';
-import { ErrorBanner, FieldError, Notice, Spinner, StatusBadge } from '../../components/ui';
+import { ErrorBanner, FieldError, Notice, Panel, Spinner, StatusBadge } from '../../components/ui';
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Dialog } from '../../components/Dialog';
@@ -800,23 +800,23 @@ export function Editor({
       <div className="penalis-editor">
         <div className="penalis-editor__main">
           {feedback ? (
-            <section
-              className="penalis-panel penalis-editorial-feedback"
-              aria-label="Catatan review admin"
+            <Panel
+              title="Catatan review admin:"
+              aside={
+                reviewCycle > 0 ? (
+                  <span className="penalis-editorial-feedback__cycle">Cycle {reviewCycle}</span>
+                ) : null
+              }
+              label="Catatan review admin"
+              className="penalis-editorial-feedback"
               ref={feedbackRef}
               tabIndex={-1}
             >
-              <div className="penalis-panel__header">
-                <h3>Catatan review admin:</h3>
-                {reviewCycle > 0 ? (
-                  <span className="penalis-editorial-feedback__cycle">Cycle {reviewCycle}</span>
-                ) : null}
-              </div>
               <p className="penalis-editorial-feedback__body">{feedback}</p>
               {reviewedAt ? (
                 <p className="penalis-fineprint">Di-review pada {formatDateTime(reviewedAt)}</p>
               ) : null}
-            </section>
+            </Panel>
           ) : null}
 
           <label className="penalis-field">
@@ -880,15 +880,16 @@ export function Editor({
         </div>
 
         <aside className="penalis-editor__side">
-          <section className="penalis-panel" aria-label="Status dan riwayat review">
-            <div className="penalis-panel__header">
-              <h3>Status Review</h3>
+          <Panel
+            title="Status Review"
+            label="Status dan riwayat review"
+            aside={
               <StatusBadge
                 status={editorialState}
                 label={editorialStateLabel || formatEditorialStateLabel(editorialState)}
               />
-            </div>
-
+            }
+          >
             <dl className="penalis-editorial-meta">
               <div>
                 <dt>Review cycle</dt>
@@ -902,13 +903,13 @@ export function Editor({
               ) : null}
               {submittedAt ? (
                 <div>
-                  <dt>Terakhir di-submit</dt>
+                  <dt>Last submitted</dt>
                   <dd>{formatDateTime(submittedAt)}</dd>
                 </div>
               ) : null}
               {reviewedAt ? (
                 <div>
-                  <dt>Terakhir di-review</dt>
+                  <dt>Last reviewed</dt>
                   <dd>{formatDateTime(reviewedAt)}</dd>
                 </div>
               ) : null}
@@ -956,13 +957,9 @@ export function Editor({
                 )}
               </div>
             ) : null}
-          </section>
+          </Panel>
 
-          <section className="penalis-panel">
-            <div className="penalis-panel__header">
-              <h3>Thumbnail</h3>
-            </div>
-
+          <Panel title="Thumbnail">
             {featuredMedia > 0 ? (
               <div className="penalis-featured">
                 {featuredPreview ? <img src={featuredPreview} alt="" /> : null}
@@ -996,13 +993,9 @@ export function Editor({
               </div>
             ) : null}
             <FieldError errors={errors} name="featuredMedia" />
-          </section>
+          </Panel>
 
-          <section className="penalis-panel">
-            <div className="penalis-panel__header">
-              <h3>Kategori Karya Tulis</h3>
-            </div>
-
+          <Panel title="Kategori Karya Tulis">
             {categories.length === 0 ? (
               <p className="penalis-muted">Belum ada kategori.</p>
             ) : (
@@ -1031,13 +1024,9 @@ export function Editor({
               </div>
             )}
             <FieldError errors={errors} name="categories" />
-          </section>
+          </Panel>
 
-          <section className="penalis-panel">
-            <div className="penalis-panel__header">
-              <h3>Tag Karya Tulis</h3>
-            </div>
-
+          <Panel title="Tag Karya Tulis">
             <div className="penalis-tag-list">
               {selectedTags.map((term) => (
                 <span key={term.id} className="penalis-chip">
@@ -1091,7 +1080,7 @@ export function Editor({
               <p className="penalis-muted">Belum ada tag yang dipilih.</p>
             ) : null}
             <FieldError errors={errors} name="tags" />
-          </section>
+          </Panel>
         </aside>
       </div>
 
@@ -1168,7 +1157,7 @@ export function Editor({
       ) : null}
 
       {id ? (
-        <p className="penalis-fineprint">ID Karya Tulis: {id}</p>
+        <p className="penalis-fineprint">ID Karya Tulis: <strong>{id}</strong></p>
       ) : null}
     </form>
   );

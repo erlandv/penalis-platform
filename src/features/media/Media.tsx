@@ -8,7 +8,7 @@ import { ApiError, mediaApi } from '../../lib/api';
 import type { MediaList } from '../../lib/types';
 import { formatDate } from '../../lib/format';
 import { ImageDropzone } from '../../components/ImageDropzone';
-import { EmptyState, ErrorBanner, Pagination, Spinner } from '../../components/ui';
+import { EmptyState, ErrorBanner, PageHeading, Pagination, Spinner } from '../../components/ui';
 
 export function Media() {
   const [page, setPage] = useState(1);
@@ -65,14 +65,10 @@ export function Media() {
 
   return (
     <div className="penalis-stack">
-      <div className="penalis-page-heading">
-        <div>
-          <h2>Pustaka Media</h2>
-          <p className="penalis-muted">
-            Lihat gambar yang pernah kamu upload atau tambahkan gambar baru di sini.
-          </p>
-        </div>
-      </div>
+      <PageHeading
+        title="Pustaka Media"
+        description="Lihat gambar yang pernah kamu upload atau tambahkan gambar baru di sini."
+      />
 
       <ImageDropzone
         onFile={(file) => void upload(file)}

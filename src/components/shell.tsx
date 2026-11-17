@@ -15,6 +15,7 @@ import {
 
 import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
+import { canReceiveNotifications } from '../lib/permissions';
 import type { Account, AccountStatus, DashboardNotification, ViewName } from '../lib/types';
 import { toActiveChallenge, type ActiveChallenge } from '../lib/otp';
 import { Icon, type IconName } from './icons';
@@ -486,7 +487,7 @@ export function Shell({
    * pending or suspended account must not see an always-empty bell or an
    * always-empty Notifikasi page.
    */
-  const canReceiveNotifications = canWrite || account.isAdministrator || account.isReviewer;
+  const notificationsEnabled = canReceiveNotifications(account);
 
   const navRef = useRef<HTMLElement>(null);
   const activeNavRef = useRef<HTMLButtonElement>(null);
@@ -530,7 +531,7 @@ export function Shell({
 
   useEffect(() => {
     updateNavOverflow();
-  }, [view, canReceiveNotifications, canWrite, updateNavOverflow]);
+  }, [view, notificationsEnabled, canWrite, updateNavOverflow]);
 
   /*
    * Keep the current section visible in the mobile scroll strip. `nearest`
@@ -572,7 +573,7 @@ export function Shell({
           <h1>Dashboard Penulis</h1>
         </div>
         <div className="penalis-header__meta">
-          {canReceiveNotifications ? (
+          {notificationsEnabled ? (
             <NotificationBell
               account={account}
               controller={notifications}
@@ -613,7 +614,7 @@ export function Shell({
       <div className="penalis-layout">
         <div className="penalis-nav-wrap">
           <nav ref={navRef} className="penalis-nav" aria-label="Bagian dashboard">
-            {NAV_ITEMS.filter((item) => item.view !== 'notifications' || canReceiveNotifications).map((item) => {
+            {NAV_ITEMS.filter((item) => item.view !== 'notifications' || notificationsEnabled).map((item) => {
               const isActive = view === item.view;
               const disabled =
                 !canWrite && item.view !== 'overview' && item.view !== 'notifications' && item.view !== 'profile' && item.view !== 'settings';

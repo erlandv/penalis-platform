@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { accountApi, ApiError, passwordApi } from '../lib/api';
 import { getBootstrap, isTurnstileEnabledFor } from '../lib/bootstrap';
 import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, readParam } from '../lib/deeplink';
+import { canReceiveNotifications } from '../lib/permissions';
 import type { Account, DashboardNotification, EditorFocus, FieldErrors, ViewName } from '../lib/types';
 import { hasErrors, PASSWORD_MIN_LENGTH, validatePasswordPair } from '../lib/validation';
 import { describedBy } from '../lib/a11y';
@@ -294,7 +295,7 @@ export function App() {
    * notifications too.
    */
   const notifications = useNotifications({
-    enabled: Boolean(account && (account.canWrite || account.isAdministrator || account.isReviewer)),
+    enabled: Boolean(account && canReceiveNotifications(account)),
     initialUnreadCount: account?.unreadNotifications ?? 0,
     onUnreadChange: handleNotificationsChanged,
   });
@@ -396,10 +397,9 @@ export function App() {
   // If a deep link requested a writer-only view but the account cannot write,
   // fall back to the overview instead of rendering an empty page.
   const writeOnlyViews: ViewName[] = ['articles', 'editor', 'media'];
-  const canReceiveNotifications = account.canWrite || account.isAdministrator || account.isReviewer;
   const effectiveView =
     (!account.canWrite && writeOnlyViews.includes(view)) ||
-    (view === 'notifications' && !canReceiveNotifications)
+    (view === 'notifications' && !canReceiveNotifications(account))
       ? 'overview'
       : view;
 

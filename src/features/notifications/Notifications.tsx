@@ -11,7 +11,7 @@
 import { useMemo, useState } from 'react';
 
 import type { Account, DashboardNotification } from '../../lib/types';
-import { EmptyState, ErrorBanner, Spinner } from '../../components/ui';
+import { EmptyState, ErrorBanner, MarkAllReadButton, PageHeading, Spinner } from '../../components/ui';
 import { NotificationList } from './NotificationList';
 import {
   countForView,
@@ -73,15 +73,10 @@ export function Notifications({
 
   return (
     <div className="penalis-stack">
-      <div className="penalis-page-heading">
-        <div>
-          <h2>Notifikasi</h2>
-          <p className="penalis-muted">
-            Status submit karya tulis, catatan revisi, dan penerbitan muncul di sini. Buka notifikasi
-            untuk langsung menuju karya tulis atau catatan review yang dimaksud.
-          </p>
-        </div>
-      </div>
+      <PageHeading
+        title="Notifikasi"
+        description="Status submit karya tulis, catatan revisi, dan penerbitan muncul di sini. Buka notifikasi untuk langsung menuju karya tulis atau catatan review yang dimaksud."
+      />
 
       <div className="penalis-notifications">
         <div className="penalis-notification-toolbar">
@@ -123,14 +118,11 @@ export function Notifications({
             </label>
 
             {unreadCount > 0 ? (
-              <button
-                type="button"
-                className="penalis-notification-action"
-                onClick={() => void markRead()}
-                disabled={markingId !== null}
-              >
-                {markingId === 'all' ? 'Memperbarui…' : 'Tandai semua sudah dibaca'}
-              </button>
+              <MarkAllReadButton
+                markingId={markingId}
+                onMarkRead={() => void markRead()}
+                label="Tandai semua sudah dibaca"
+              />
             ) : null}
           </div>
         </div>

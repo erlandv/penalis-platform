@@ -13,6 +13,7 @@ import {
   EmptyState,
   ErrorBanner,
   Notice,
+  PageHeading,
   Pagination,
   Spinner,
   StatusBadge,
@@ -131,18 +132,15 @@ export function Articles({
 
   return (
     <div className="penalis-stack">
-      <div className="penalis-page-heading">
-        <div>
-          <h2>Daftar Karya Tulis</h2>
-          <p className="penalis-muted">
-            Lihat dan kelola daftar karya tulismu di sini. Karya yang sudah terbit bersifat read-only; hubungi admin Penalis
-            jika memerlukan perubahan.
-          </p>
-        </div>
-        <button type="button" className="penalis-button penalis-button--primary" onClick={onCreate}>
-          Buat Karya Baru
-        </button>
-      </div>
+      <PageHeading
+        title="Daftar Karya Tulis"
+        description="Lihat dan kelola daftar karya tulismu di sini. Karya yang sudah terbit bersifat read-only; hubungi admin Penalis jika memerlukan perubahan."
+        action={
+          <button type="button" className="penalis-button penalis-button--primary" onClick={onCreate}>
+            Buat Karya Baru
+          </button>
+        }
+      />
 
       <div className="penalis-tabs" role="tablist" aria-label="Saring menurut status">
         {FILTERS.map((filter) => (

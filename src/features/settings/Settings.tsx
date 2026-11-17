@@ -16,7 +16,7 @@ import { PASSWORD_MIN_LENGTH, validateEmail, validateUsername } from '../../lib/
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
-import { ErrorBanner, FieldError, FieldHint, Notice, StatusBadge } from '../../components/ui';
+import { ErrorBanner, FieldError, FieldHint, Notice, PageHeading, Panel, StatusBadge } from '../../components/ui';
 
 export function Settings({ account, onUpdated }: { account: Account; onUpdated: (account: Account) => void }) {
   const bootstrap = getBootstrap();
@@ -259,19 +259,12 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
 
   return (
     <div className="penalis-stack">
-      <div className="penalis-page-heading">
-        <div>
-          <h2>Pengaturan Akun</h2>
-          <p className="penalis-muted">Periksa informasi akun Penalis kamu, ubah username, email, dan password kamu di sini.</p>
-        </div>
-      </div>
+      <PageHeading
+        title="Pengaturan Akun"
+        description="Periksa informasi akun Penalis kamu, ubah username, email, dan password kamu di sini."
+      />
 
-      <section className="penalis-panel">
-        <div className="penalis-panel__header">
-          <h3>Informasi Akun</h3>
-          <StatusBadge status={account.status} label={account.statusLabel} />
-        </div>
-
+      <Panel title="Informasi Akun" aside={<StatusBadge status={account.status} label={account.statusLabel} />}>
         <p className="penalis-muted">
           Berikut ini informasi akun Penalis kamu.
         </p>
@@ -308,14 +301,9 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
             <dd>{account.approvedAt ? formatDate(account.approvedAt) : '—'}</dd>
           </div>
         </dl>
+      </Panel>
 
-      </section>
-
-      <section className="penalis-panel">
-        <div className="penalis-panel__header">
-          <h3>Ganti Username</h3>
-        </div>
-
+      <Panel title="Ganti Username">
         <p className="penalis-muted">
           Jika nama tampilan kamu mengikuti username, nama tampilan juga akan ikut berubah. 
           Mengganti username akan mengakhiri sesi dan kamu perlu login kembali.
@@ -417,7 +405,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         ) : (
           <p className="penalis-muted">Username akun ini belum dapat diubah. Hubungi admin Penalis.</p>
         )}
-      </section>
+      </Panel>
 
       {pendingUsername !== null ? (
         <ConfirmDialog
@@ -445,11 +433,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         />
       ) : null}
 
-      <section className="penalis-panel">
-        <div className="penalis-panel__header">
-          <h3>Ganti Email</h3>
-        </div>
-
+      <Panel title="Ganti Email">
         {account.canChangeEmail ? (
           <>
             <p className="penalis-muted">
@@ -524,13 +508,9 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
             diperbarui.
           </p>
         )}
-      </section>
+      </Panel>
 
-      <section className="penalis-panel">
-        <div className="penalis-panel__header">
-          <h3>Ganti Password</h3>
-        </div>
-
+      <Panel title="Ganti Password">
         <p className="penalis-muted">
           Gunakan password yang kuat, unik, dan sulit ditebak. 
           Password minimal 12 karakter, dan sebaiknya mengandung huruf besar, huruf kecil, angka, dan simbol.
@@ -577,19 +557,16 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
             {saving ? 'Memperbarui…' : 'Ganti Password'}
           </button>
         </form>
-      </section>
+      </Panel>
 
-      <section className="penalis-panel">
-        <div className="penalis-panel__header">
-          <h3>Sesi</h3>
-        </div>
+      <Panel title="Sesi">
         <p className="penalis-muted">
           Logout akan mengakhiri sesi browser ini. Karya tulis dan draft kamu tetap aman tersimpan.
         </p>
         <a className="penalis-button penalis-button--ghost" href={bootstrap.logoutUrl}>
           Logout
         </a>
-      </section>
+      </Panel>
     </div>
   );
 }

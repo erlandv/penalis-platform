@@ -28,7 +28,7 @@ import {
 
 import type { Account, DashboardNotification } from '../lib/types';
 import { Icon } from './icons';
-import { ErrorBanner, Spinner } from './ui';
+import { ErrorBanner, MarkAllReadButton, Spinner } from './ui';
 import { NotificationList } from '../features/notifications/NotificationList';
 import type { NotificationsController } from '../features/notifications/useNotifications';
 
@@ -200,14 +200,7 @@ export function NotificationBell({
             <div className="penalis-bell__header">
               <span className="penalis-bell__title">Notifikasi</span>
               {unreadCount > 0 ? (
-                <button
-                  type="button"
-                  className="penalis-notification-action"
-                  onClick={() => void markRead()}
-                  disabled={markingId !== null}
-                >
-                  {markingId === 'all' ? 'Memperbarui…' : 'Tandai semua dibaca'}
-                </button>
+                <MarkAllReadButton markingId={markingId} onMarkRead={() => void markRead()} />
               ) : null}
             </div>
 

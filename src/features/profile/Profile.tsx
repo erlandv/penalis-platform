@@ -10,7 +10,7 @@ import { accountApi, ApiError, mediaApi } from '../../lib/api';
 import { displayNameOptions } from '../../lib/profile';
 import type { Account, DisplayNameMode, FieldErrors } from '../../lib/types';
 import { validateInstagram } from '../../lib/validation';
-import { ErrorBanner, FieldError, FieldHint, Notice } from '../../components/ui';
+import { ErrorBanner, FieldError, FieldHint, Notice, PageHeading } from '../../components/ui';
 
 export function Profile({
   account,
@@ -129,15 +129,10 @@ export function Profile({
 
   return (
     <div className="penalis-stack">
-      <div className="penalis-page-heading">
-        <div>
-          <h2>Profil Penulis</h2>
-          <p className="penalis-muted">
-            Informasi profil kamu akan tampil di halaman karya tulis yang telah terbit 
-            dan juga akan tampil di halaman publik profil kamu.
-          </p>
-        </div>
-      </div>
+      <PageHeading
+        title="Profil Penulis"
+        description="Informasi profil kamu akan tampil di halaman karya tulis yang telah terbit dan juga akan tampil di halaman publik profil kamu."
+      />
 
       <section className="penalis-avatar" aria-label="Foto profil">
         <img className="penalis-avatar__preview" src={account.avatarUrl} alt="" width={96} height={96} />
