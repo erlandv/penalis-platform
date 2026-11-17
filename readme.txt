@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 1.7.0
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -110,6 +110,14 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 1.8.0 =
+* Feature: Add a centralized **Penalis → Pengaturan** screen for administrators with `Keamanan`, `Foto Profil`, and `Email` tabs, replacing the standalone **Pengaturan Email** submenu; the retired URL redirects to the Email tab so bookmarks and old notices keep working.
+* Feature: Add a dashboard-only CAPTCHA switch (`penalis_dashboard_captcha_enabled`) that silences the Turnstile widget, script, and server-side verification for `/dashboard/` forms without touching site-wide `wp-login.php` protection, with an audit trail of every change and a persistent warning while disabled.
+* Feature: Restrict editorial notifications to writers and reviewers through a shared capability predicate, so pending and suspended accounts no longer see an always-empty bell or notification view.
+* Feature: Add shared dashboard building blocks: password/confirmation fields, a hover-and-click disclosure controller, a Turnstile gate hook, and a reusable email request form.
+* Refactor: Adopt the shared components across authentication, notification bell, account menu, and settings screens for consistent popover behavior and improved keyboard and screen-reader support.
+* Fix: Bypass the Simple Cloudflare Turnstile `authenticate` check unconditionally around `wp_signon()` so dashboard login keeps working when the dashboard CAPTCHA switch is off.
+
 = 1.7.0 =
 * Feature: Add a dashboard notification center with a header bell, a full `Notifikasi` feed with all/unread filtering, bulk read receipt, optional per-article grouping, and a compact list mode, all driven by one shared controller.
 * Feature: Deep-link notifications carrying revision notes to the editor feedback panel via `penalis_focus=feedback`.
@@ -177,6 +185,15 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 1.8.0 =
+Consolidates site-wide settings into **Penalis → Pengaturan** (Keamanan, Foto Profil, Email) and adds a dashboard-only CAPTCHA switch that leaves site-wide Turnstile protection intact. The old Pengaturan Email URL redirects automatically.
+
+= 1.7.0 =
+Adds a dashboard notification center with a header bell, filtering, bulk read receipts, and deep links to reviewer feedback, plus shared CSS design tokens and reviewer access to article detail routes.
+
+= 1.6.0 =
+Changes the editor so a single Enter inserts a line break and a double Enter starts a new paragraph.
 
 = 1.5.0 =
 Integrates Cloudflare Turnstile on authentication forms, enforces complete article metadata (thumbnail, category, and tags) on review submission, adds the `Perlu revisi` overview card, and improves the account menu and form hints.
