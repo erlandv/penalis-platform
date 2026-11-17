@@ -40,6 +40,11 @@ export interface OtpFormProps {
   busy?: boolean;
   /** Primary button label. */
   verifyLabel?: string;
+  /**
+   * Leave the code step and correct the destination address. When omitted,
+   * no change-address affordance is shown (registration verification).
+   */
+  onEditEmail?: () => void;
   /** Extra fields rendered above the submit button (for example a password). */
   children?: ReactNode;
 }
@@ -54,6 +59,7 @@ export function OtpForm({
   error = '',
   busy = false,
   verifyLabel = 'Verifikasi Kode',
+  onEditEmail,
   children,
 }: OtpFormProps) {
   const fieldId = useId();
@@ -202,6 +208,19 @@ export function OtpForm({
         Kami mengirim kode enam digit ke <strong>{email}</strong>. Kode berlaku {Math.round(expiresIn / 60)}{' '}
         menit, jangan bagikan kode kepada siapa pun.
       </p>
+      {onEditEmail ? (
+        <p className="penalis-otp-email-change">
+          Salah alamat email?{' '}
+          <button
+            type="button"
+            className="penalis-link-button"
+            onClick={onEditEmail}
+            disabled={busy || resending}
+          >
+            Ubah email
+          </button>
+        </p>
+      ) : null}
       {error ? <ErrorBanner message={error} /> : null}
       {resendError ? <ErrorBanner message={resendError} /> : null}
       {resendNotice ? <Notice tone="success">{resendNotice}</Notice> : null}

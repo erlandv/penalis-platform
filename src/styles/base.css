@@ -400,3 +400,9 @@
   font-size: 0.9rem;
   text-align: center;
 }
+
+.penalis-otp-email-change {
+  margin: 0.4rem 0 0;
+  color: var(--penalis-muted);
+  font-size: 0.9rem;
+}

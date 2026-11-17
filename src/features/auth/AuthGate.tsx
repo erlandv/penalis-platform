@@ -19,6 +19,7 @@ import {
 import { describedBy } from '../../lib/a11y';
 import { toActiveChallenge, type ActiveChallenge } from '../../lib/otp';
 import { ErrorBanner, FieldError, FieldHint, HoneypotField, Notice, Spinner } from '../../components/ui';
+import { shouldShowAuthBackNav } from './authNav';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
 import { TurnstileWidget } from '../../components/TurnstileWidget';
@@ -79,6 +80,12 @@ export function AuthGate() {
   const bootstrap = getBootstrap();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [challenge, setChallenge] = useState<Challenge | null>(null);
+  // Kept outside ActivateForm so a writer who mistyped the address can step
+  // back from the code screen and correct it without retyping everything.
+  const [activateEmail, setActivateEmail] = useState('');
+  // A success notice carries its own login CTA. Remembering that state keeps
+  // the shared bottom link from offering the same action a second time.
+  const [finished, setFinished] = useState(false);
 
   // A failed dashboard login redirects back here with a flag instead of
   // rendering the WordPress login screen. The flag is read once and removed
@@ -109,14 +116,24 @@ export function AuthGate() {
     return true;
   });
 
+  const goToMode = (next: Mode) => {
+    setFinished(false);
+    setMode(next);
+  };
+
   const startChallenge = (next: Challenge, nextMode: Mode) => {
     setChallenge(next);
-    setMode(nextMode);
+    goToMode(nextMode);
   };
 
   const backToLogin = () => {
     setChallenge(null);
-    setMode('login');
+    goToMode('login');
+  };
+
+  const backToActivate = () => {
+    setChallenge(null);
+    goToMode('activate');
   };
 
   return (
@@ -141,6 +158,7 @@ export function AuthGate() {
             challenge={challenge}
             onChallenge={(next) => setChallenge(next)}
             onDone={backToLogin}
+            onFinished={() => setFinished(true)}
           />
         ) : null}
         {mode === 'verify' && !challenge ? (
@@ -148,15 +166,23 @@ export function AuthGate() {
             Sesi verifikasi tidak ditemukan. Silakan masuk, atau minta kode verifikasi baru.
           </p>
         ) : null}
-        {mode === 'forgot' ? <ForgotForm onDone={backToLogin} /> : null}
+        {mode === 'forgot' ? (
+          <ForgotForm onDone={backToLogin} onFinished={() => setFinished(true)} />
+        ) : null}
         {mode === 'activate' ? (
-          <ActivateForm onChallenge={(next) => startChallenge(next, 'activateVerify')} />
+          <ActivateForm
+            email={activateEmail}
+            onEmailChange={setActivateEmail}
+            onChallenge={(next) => startChallenge(next, 'activateVerify')}
+          />
         ) : null}
         {mode === 'activateVerify' && challenge ? (
           <ActivateVerifyForm
             challenge={challenge}
             onChallenge={(next) => setChallenge(next)}
             onDone={backToLogin}
+            onEditEmail={backToActivate}
+            onFinished={() => setFinished(true)}
           />
         ) : null}
         {mode === 'activateVerify' && !challenge ? (
@@ -170,7 +196,7 @@ export function AuthGate() {
             <button
               type="button"
               className="penalis-button penalis-auth__alt-action"
-              onClick={() => setMode('register')}
+              onClick={() => goToMode('register')}
             >
               Buat Akun Penalis
             </button>
@@ -180,13 +206,13 @@ export function AuthGate() {
             <button
               type="button"
               className="penalis-button penalis-auth__alt-action"
-              onClick={() => setMode('activate')}
+              onClick={() => goToMode('activate')}
             >
               Aktifkan Akun Kontributor
             </button>
           ) : null}
 
-          {mode !== 'login' ? (
+          {shouldShowAuthBackNav(mode, finished) ? (
             <button type="button" className="penalis-auth__back" onClick={backToLogin}>
               Kembali ke Halaman Login
             </button>
@@ -195,7 +221,7 @@ export function AuthGate() {
 
         <div className="penalis-auth__utility">
           {mode === 'login' ? (
-            <button type="button" className="penalis-link-button" onClick={() => setMode('forgot')}>
+            <button type="button" className="penalis-link-button" onClick={() => goToMode('forgot')}>
               Lupa Password?
             </button>
           ) : null}
@@ -520,10 +546,12 @@ function RegistrationVerifyForm({
   challenge,
   onChallenge,
   onDone,
+  onFinished,
 }: {
   challenge: Challenge;
   onChallenge: (challenge: Challenge) => void;
   onDone: () => void;
+  onFinished: () => void;
 }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -536,6 +564,7 @@ function RegistrationVerifyForm({
     try {
       const result = await registrationApi.confirm({ challenge_id: challenge.challengeId, code });
       setMessage(result.message);
+      onFinished();
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Kode verifikasi tidak dapat diproses.');
     } finally {
@@ -587,10 +616,14 @@ function ActivateVerifyForm({
   challenge,
   onChallenge,
   onDone,
+  onEditEmail,
+  onFinished,
 }: {
   challenge: Challenge;
   onChallenge: (challenge: Challenge) => void;
   onDone: () => void;
+  onEditEmail: () => void;
+  onFinished: () => void;
 }) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -618,6 +651,7 @@ function ActivateVerifyForm({
         password,
       });
       setMessage(result.message);
+      onFinished();
     } catch (caught) {
       if (caught instanceof ApiError) {
         setErrors(caught.fields);
@@ -665,6 +699,7 @@ function ActivateVerifyForm({
       error={error}
       busy={busy}
       verifyLabel="Verifikasi dan Aktifkan Akun"
+      onEditEmail={onEditEmail}
     >
       <div className="penalis-field">
         <label htmlFor="activate_password">Password Baru</label>
@@ -673,11 +708,12 @@ function ActivateVerifyForm({
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           autoComplete="new-password"
-          placeholder={`Minimal ${PASSWORD_MIN_LENGTH} karakter`}
           aria-invalid={Boolean(errors.password)}
           aria-describedby={describedBy('activate_password-hint', errors.password && 'password-error')}
         />
-        <FieldHint id="activate_password-hint">Minimal {PASSWORD_MIN_LENGTH} karakter.</FieldHint>
+        <FieldHint id="activate_password-hint">
+          Gunakan password yang kuat dan unik minimal {PASSWORD_MIN_LENGTH} karakter.
+        </FieldHint>
         <FieldError errors={errors} name="password" />
       </div>
 
@@ -691,6 +727,7 @@ function ActivateVerifyForm({
           aria-invalid={Boolean(errors.confirm_password)}
           aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
         />
+        <FieldHint id="confirm_password-hint">Ketik ulang password untuk konfirmasi.</FieldHint>
         <FieldError errors={errors} name="confirm_password" />
       </div>
     </OtpForm>
@@ -705,7 +742,7 @@ function ActivateVerifyForm({
  * generic, so the success notice repeats the same conditional wording instead
  * of confirming that the account exists.
  */
-function ForgotForm({ onDone }: { onDone: () => void }) {
+function ForgotForm({ onDone, onFinished }: { onDone: () => void; onFinished: () => void }) {
   const [email, setEmail] = useState('');
   const [honeypot, setHoneypot] = useState('');
   const [fieldError, setFieldError] = useState('');
@@ -741,6 +778,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
     try {
       const result = await passwordApi.forgot(email.trim(), honeypot, turnstileToken);
       setMessage(result.message);
+      onFinished();
     } catch (caught) {
       setTurnstileResetKey((current) => current + 1);
       setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
@@ -822,8 +860,15 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
  * The server response is deliberately generic, so the next screen never
  * confirms whether the address belongs to a legacy account.
  */
-function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => void }) {
-  const [email, setEmail] = useState('');
+function ActivateForm({
+  email,
+  onEmailChange,
+  onChallenge,
+}: {
+  email: string;
+  onEmailChange: (email: string) => void;
+  onChallenge: (challenge: Challenge) => void;
+}) {
   const [honeypot, setHoneypot] = useState('');
   const [fieldError, setFieldError] = useState('');
   const [error, setError] = useState('');
@@ -855,6 +900,7 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
 
     try {
       const result = await legacyApi.request(email.trim(), honeypot, turnstileToken);
+      onEmailChange(email.trim());
       onChallenge(toActiveChallenge(result, email.trim()));
     } catch (caught) {
       setTurnstileResetKey((current) => current + 1);
@@ -880,7 +926,7 @@ function ActivateForm({ onChallenge }: { onChallenge: (challenge: Challenge) => 
           type="email"
           value={email}
           onChange={(event) => {
-            setEmail(event.target.value);
+            onEmailChange(event.target.value);
             setFieldError('');
           }}
           autoComplete="email"
