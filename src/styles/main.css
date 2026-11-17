@@ -124,7 +124,7 @@
   gap: 0.75rem 1rem;
   padding-bottom: 1.25rem;
   border-bottom: 1px solid var(--penalis-border);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .penalis-header h1 { margin-bottom: 0; }
@@ -424,12 +424,28 @@
   align-items: start;
 }
 
+/*
+ * The wrapper is both the positioning context for the mobile scroll affordance
+ * and the sticky element on desktop. Sticky must live here, not on the nav:
+ * the nav's containing block would otherwise be this wrapper, whose height
+ * matches the nav itself, leaving no room to travel while the page scrolls.
+ * As a grid item the wrapper still spans the full row, so it can stick.
+ */
+.penalis-nav-wrap {
+  position: sticky;
+  top: 1.5rem;
+  align-self: start;
+  min-width: 0;
+}
+
 .penalis-nav {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  position: sticky;
-  top: 1.5rem;
+}
+
+.penalis-nav__hint {
+  display: none;
 }
 
 .penalis-nav__item {
@@ -2708,8 +2724,13 @@
     gap: 1.25rem;
   }
 
+  .penalis-nav-wrap {
+    position: relative;
+    margin-top: -1rem;
+    margin-bottom: 1rem;
+  }
+
   .penalis-nav {
-    position: static;
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.35rem;
@@ -2750,6 +2771,59 @@
     flex: 0 0 auto;
     scroll-snap-align: start;
     white-space: nowrap;
+  }
+
+  .penalis-nav__hint {
+    position: absolute;
+    top: 0;
+    bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+  }
+
+  .penalis-nav__hint--left {
+    left: 0;
+    padding-right: 2rem;
+    background: linear-gradient(90deg, var(--penalis-bg) 35%, rgba(247, 249, 248, 0) 100%);
+  }
+
+  .penalis-nav__hint--right {
+    right: 0;
+    padding-left: 2rem;
+    background: linear-gradient(90deg, rgba(247, 249, 248, 0) 0%, var(--penalis-bg) 65%);
+  }
+
+  .penalis-dashboard-root .penalis-nav__next {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.9rem;
+    height: 1.9rem;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--penalis-border);
+    border-radius: 999px;
+    background: var(--penalis-surface);
+    background-image: none;
+    box-shadow: var(--penalis-shadow);
+    color: var(--penalis-accent-strong);
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  .penalis-nav__hint--left .penalis-nav__next {
+    margin-left: 0.15rem;
+  }
+
+  .penalis-nav__hint--right .penalis-nav__next {
+    margin-right: 0.15rem;
+  }
+
+  .penalis-dashboard-root .penalis-nav__next svg {
+    width: 1rem;
+    height: 1rem;
   }
 }
 
@@ -3211,7 +3285,7 @@
    * content width, so it wrapped to two lines as soon as the bell was added.
    */
   .penalis-header__title h1 {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
   }
 
   /* Keep the meta right-aligned when it wraps onto its own line. */

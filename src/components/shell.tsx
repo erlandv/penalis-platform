@@ -488,6 +488,83 @@ export function Shell({
    */
   const canReceiveNotifications = canWrite || account.isAdministrator || account.isReviewer;
 
+  const navRef = useRef<HTMLElement>(null);
+  const activeNavRef = useRef<HTMLButtonElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateNavOverflow = useCallback(() => {
+    const nav = navRef.current;
+    if (!nav) {
+      return;
+    }
+
+    /*
+     * Compare item edges with the scrollport instead of trusting raw
+     * scrollLeft: `scroll-snap-align: start` parks the first item at the
+     * padded content edge, so scrollLeft can be ~3px even at the beginning.
+     */
+    const navRect = nav.getBoundingClientRect();
+    const first = nav.firstElementChild;
+    const last = nav.lastElementChild;
+
+    setCanScrollLeft(first ? first.getBoundingClientRect().left < navRect.left - 1 : false);
+    setCanScrollRight(last ? last.getBoundingClientRect().right > navRect.right + 1 : false);
+  }, []);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) {
+      return;
+    }
+
+    updateNavOverflow();
+    nav.addEventListener('scroll', updateNavOverflow, { passive: true });
+    window.addEventListener('resize', updateNavOverflow);
+
+    return () => {
+      nav.removeEventListener('scroll', updateNavOverflow);
+      window.removeEventListener('resize', updateNavOverflow);
+    };
+  }, [updateNavOverflow]);
+
+  useEffect(() => {
+    updateNavOverflow();
+  }, [view, canReceiveNotifications, canWrite, updateNavOverflow]);
+
+  /*
+   * Keep the current section visible in the mobile scroll strip. `nearest`
+   * avoids jumping the page vertically; only the strip itself moves.
+   */
+  useEffect(() => {
+    const nav = navRef.current;
+    const active = activeNavRef.current;
+    if (!nav || !active || nav.scrollWidth <= nav.clientWidth + 2) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    active.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [view]);
+
+  const scrollNav = (direction: 'left' | 'right') => {
+    const nav = navRef.current;
+    if (!nav) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const distance = Math.max(160, Math.round(nav.clientWidth * 0.7));
+    nav.scrollBy({
+      left: direction === 'left' ? -distance : distance,
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    });
+  };
+
   return (
     <div className="penalis-app">
       <header className="penalis-header">
@@ -534,40 +611,70 @@ export function Shell({
       )}
 
       <div className="penalis-layout">
-        <nav className="penalis-nav" aria-label="Bagian dashboard">
-          {NAV_ITEMS.filter((item) => item.view !== 'notifications' || canReceiveNotifications).map((item) => {
-            const disabled =
-              !canWrite && item.view !== 'overview' && item.view !== 'notifications' && item.view !== 'profile' && item.view !== 'settings';
-            const disabledHint = account.isReviewer
-              ? 'Hanya tersedia untuk akun penulis'
-              : 'Tersedia setelah email kamu dikonfirmasi';
+        <div className="penalis-nav-wrap">
+          <nav ref={navRef} className="penalis-nav" aria-label="Bagian dashboard">
+            {NAV_ITEMS.filter((item) => item.view !== 'notifications' || canReceiveNotifications).map((item) => {
+              const isActive = view === item.view;
+              const disabled =
+                !canWrite && item.view !== 'overview' && item.view !== 'notifications' && item.view !== 'profile' && item.view !== 'settings';
+              const disabledHint = account.isReviewer
+                ? 'Hanya tersedia untuk akun penulis'
+                : 'Tersedia setelah email kamu dikonfirmasi';
 
-            return (
+              return (
+                <button
+                  key={item.view}
+                  ref={isActive ? activeNavRef : undefined}
+                  type="button"
+                  className={`penalis-nav__item ${isActive ? 'is-active' : ''}`}
+                  onClick={() => onNavigate(item.view)}
+                  onPointerEnter={() => {
+                    if (item.view === 'editor' && !disabled) {
+                      preloadEditor();
+                    }
+                  }}
+                  onFocus={() => {
+                    if (item.view === 'editor' && !disabled) {
+                      preloadEditor();
+                    }
+                  }}
+                  aria-current={isActive ? 'page' : undefined}
+                  disabled={disabled}
+                  title={disabled ? disabledHint : undefined}
+                >
+                  <Icon name={item.icon} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {canScrollLeft ? (
+            <div className="penalis-nav__hint penalis-nav__hint--left">
               <button
-                key={item.view}
                 type="button"
-                className={`penalis-nav__item ${view === item.view ? 'is-active' : ''}`}
-                onClick={() => onNavigate(item.view)}
-                onPointerEnter={() => {
-                  if (item.view === 'editor' && !disabled) {
-                    preloadEditor();
-                  }
-                }}
-                onFocus={() => {
-                  if (item.view === 'editor' && !disabled) {
-                    preloadEditor();
-                  }
-                }}
-                aria-current={view === item.view ? 'page' : undefined}
-                disabled={disabled}
-                title={disabled ? disabledHint : undefined}
+                className="penalis-nav__next"
+                onClick={() => scrollNav('left')}
+                aria-label="Geser navigasi ke kiri"
               >
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
+                <Icon name="chevronLeft" />
               </button>
-            );
-          })}
-        </nav>
+            </div>
+          ) : null}
+
+          {canScrollRight ? (
+            <div className="penalis-nav__hint penalis-nav__hint--right">
+              <button
+                type="button"
+                className="penalis-nav__next"
+                onClick={() => scrollNav('right')}
+                aria-label="Geser navigasi ke kanan"
+              >
+                <Icon name="chevronRight" />
+              </button>
+            </div>
+          ) : null}
+        </div>
 
         <main className="penalis-main">{children}</main>
       </div>
