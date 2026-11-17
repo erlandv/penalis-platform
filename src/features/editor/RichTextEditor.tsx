@@ -20,6 +20,7 @@ import { Icon } from '../../components/icons';
 import { trimTrailingEmptyParagraphs } from '../../lib/html';
 import { normalizeLinkHref } from '../../lib/validation';
 import { EnterHardBreak } from './enterHardBreak';
+import { PasteHardBreak } from './pasteHardBreak';
 
 export type RichTextEditorHandle = {
   /** Insert an image at the current caret position. */
@@ -114,6 +115,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorPro
         placeholder: 'Mulai tulis karya kamu di sini…',
       }),
       EnterHardBreak,
+      PasteHardBreak,
     ],
     content: value,
     editorProps: {
