@@ -31,7 +31,7 @@
   max-height: min(85vh, 85dvh);
   margin: auto;
   overflow-y: auto;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--penalis-shadow-lg);
 }
 
 .penalis-modal__content--wide { max-width: 900px; }
@@ -214,7 +214,7 @@
   height: 65vh;
   height: min(65vh, 60dvh);
   border: 1px solid var(--penalis-border);
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   background: #ffffff;
 }
 
@@ -305,7 +305,7 @@
   height: 2.25rem;
   padding: 0;
   border: 1px solid var(--penalis-border);
-  border-radius: 8px;
+  border-radius: var(--penalis-radius-xs);
   background-color: var(--penalis-surface);
   background-image: none;
   color: var(--penalis-text);
@@ -314,7 +314,7 @@
 }
 
 .penalis-pagination__button:hover:not(:disabled) {
-  border-color: #c9bfb3;
+  border-color: var(--penalis-border-hover);
   background-color: var(--penalis-surface-alt);
 }
 
@@ -354,5 +354,5 @@
   padding: 1rem;
   border: 1px solid #f0c36d;
   background: #fff8e5;
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
 }

@@ -77,11 +77,11 @@ penalis-platform/
 │   └── authors.php                       Minimal theme-compatible wrapper for [penalis_authors]
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
-│   ├── authors/                          Separate public React entry point for [penalis_authors] directory
+│   ├── authors/                          Separate public React entry point for [penalis_authors] directory (authors.css)
 │   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, TurnstileWidget
 │   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings
 │   ├── lib/                              Typed API client, validation, OTP challenge helpers, deeplinks, HTML/profile/crop helpers
-│   └── styles/                           Scoped dashboard and authors directory CSS (main.css, authors.css)
+│   └── styles/                           Dashboard CSS: tokens.css, main.css (@import index), section files
 ├── build/                                Generated production Vite bundle and manifest (gitignored)
 ├── tests/
 │   ├── run-tests.php                     Zero-dependency PHP unit and workflow test suite
@@ -463,6 +463,35 @@ contributors directory (`[penalis_authors]` / `AuthorsDirectory.tsx`).
 - **Graceful Degradation:** Every call is guarded by
   `function_exists( 'pvc_get_post_views' )`. When Post Views Counter is
   deactivated or absent, all view counts safely fall back to `0`.
+
+### 7.7 Frontend CSS Architecture
+The dashboard and authors directory use plain CSS with shared custom
+properties; there is no preprocessor, utility framework, or CSS-in-JS layer.
+- **One token source:** `src/styles/tokens.css` declares brand, state, radius,
+  and shadow tokens on both `.penalis-dashboard-root` and
+  `.penalis-authors-root`. Each root overrides neutral values (border, text,
+  muted, shadow) in its own entry stylesheet; the authors directory uses a
+  lighter frame because it renders inside a public theme. A shared value must
+  keep the same custom-property name in both roots.
+- **Cascade-ordered sections:** `src/styles/main.css` is only an `@import`
+  index. It loads `tokens.css` first, then `base`, `layout`, `components`,
+  `forms`, `articles`, `editor`, `media`, `overlays`, `responsive`, `features`,
+  and `notifications`. That order is the cascade order; do not reorder imports
+  without checking selectors that rely on source order.
+- **Vite inlines CSS imports:** Vite merges CSS `@import` statements into one
+  stylesheet per entry, so `build/manifest.json` still lists one CSS file for
+  `src/app/index.tsx` and one for `src/authors/index.tsx`. Importing a shared
+  CSS file from a TSX entry instead makes Vite emit a separate CSS chunk that
+  is not listed in the entry's `css` array. `Penalis_Dashboard::enqueue_vite_entry()`
+  enqueues only that array, so such a stylesheet would never load in WordPress.
+  Use CSS `@import` inside the entry stylesheet for shared CSS.
+- **Admin CSS is separate:** `assets/css/admin.css` is loaded directly by
+  `Penalis_Admin` and is not part of the Vite build. It keeps its own shared
+  status-pill, avatar, and pagination primitives; do not inline those rules in
+  PHP.
+- **Fixed brand glyph:** the verified badge SVG uses a literal Twitter blue
+  (`#1d9bf0`) in `base.css` rather than a token, because it is a fixed brand
+  mark that must not be recoloured by a theme override.
 
 
 

@@ -15,6 +15,10 @@
   --penalis-text: #1b1f24;
   --penalis-muted: #5e6670;
   --penalis-card-bg: var(--penalis-surface-alt);
+  --penalis-fill: #f8f9fa;
+  --penalis-fill-hover: #f3f4f6;
+  --penalis-fill-strong: #f1f3f5;
+  --penalis-skeleton: #e9ecef;
   --penalis-shadow: 0 2px 8px rgba(17, 24, 39, 0.04);
   --penalis-shadow-hover: 0 8px 22px rgba(17, 24, 39, 0.08);
 
@@ -117,7 +121,7 @@
   margin: 0;
   padding: 0.625rem 2.35rem 0.625rem 2.65rem;
   border: 1px solid var(--penalis-border);
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   background: var(--penalis-surface);
   color: var(--penalis-text);
   font-size: 0.9375rem;
@@ -165,7 +169,7 @@
 
 .penalis-authors-root button.penalis-authors-search-clear:hover {
   color: var(--penalis-text);
-  background: #f1f3f5;
+  background: var(--penalis-fill-strong);
 }
 
 .penalis-authors-root .penalis-authors-filters {
@@ -183,9 +187,9 @@
   align-items: center;
   gap: 0.25rem;
   max-width: 100%;
-  background: #f8f9fa;
+  background: var(--penalis-fill);
   border: 1px solid var(--penalis-border);
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   padding: 0.25rem;
 }
 
@@ -202,7 +206,7 @@
   line-height: 1.25;
   white-space: nowrap;
   padding: 0.45rem 0.85rem;
-  border-radius: 8px;
+  border-radius: var(--penalis-radius-xs);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -249,7 +253,7 @@
   width: auto;
   padding: 0.55rem 0.9rem;
   border: 1px solid var(--penalis-border);
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   background: var(--penalis-surface);
   color: var(--penalis-text);
   font-size: 0.875rem;
@@ -312,7 +316,7 @@
   border-radius: 9999px;
   object-fit: cover;
   flex-shrink: 0;
-  background: #e9ecef;
+  background: var(--penalis-skeleton);
 }
 
 .penalis-authors-root .penalis-authors-info {
@@ -364,7 +368,7 @@
   width: 56px;
   height: 56px;
   border-radius: 9999px;
-  background: #e9ecef;
+  background: var(--penalis-skeleton);
   flex-shrink: 0;
   animation: penalis-pulse 1.4s ease-in-out infinite;
 }
@@ -379,7 +383,7 @@
 .penalis-authors-root .penalis-authors-skel-line {
   height: 14px;
   border-radius: 6px;
-  background: #e9ecef;
+  background: var(--penalis-skeleton);
   animation: penalis-pulse 1.4s ease-in-out infinite;
 }
 
@@ -395,7 +399,7 @@
 
 /* Empty & Error states */
 .penalis-authors-root .penalis-authors-state {
-  background: #f8f9fa;
+  background: var(--penalis-fill);
   border: 1px solid var(--penalis-border);
   border-radius: var(--penalis-radius);
   padding: 2.5rem 1.5rem;
@@ -422,7 +426,7 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 0.65rem 1.35rem;
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   border: 1px solid var(--penalis-border);
   background: var(--penalis-surface);
   color: var(--penalis-text);
@@ -435,7 +439,7 @@
 }
 
 .penalis-authors-root button.penalis-authors-btn:hover:not(:disabled) {
-  background: #f3f4f6;
+  background: var(--penalis-fill-hover);
   border-color: var(--penalis-border-hover);
 }
 

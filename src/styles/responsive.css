@@ -77,13 +77,13 @@
   .penalis-nav__hint--left {
     left: 0;
     padding-right: 2rem;
-    background: linear-gradient(90deg, var(--penalis-bg) 35%, rgba(247, 249, 248, 0) 100%);
+    background: linear-gradient(90deg, var(--penalis-bg) 35%, var(--penalis-bg-fade) 100%);
   }
 
   .penalis-nav__hint--right {
     right: 0;
     padding-left: 2rem;
-    background: linear-gradient(90deg, rgba(247, 249, 248, 0) 0%, var(--penalis-bg) 65%);
+    background: linear-gradient(90deg, var(--penalis-bg-fade) 0%, var(--penalis-bg) 65%);
   }
 
   .penalis-dashboard-root .penalis-nav__next {

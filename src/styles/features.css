@@ -22,7 +22,7 @@
   width: 100%;
   padding: 2rem 1.25rem;
   border: 1.5px dashed #d8d1c7;
-  border-radius: 12px;
+  border-radius: var(--penalis-radius-md);
   background: var(--penalis-surface-alt);
   color: var(--penalis-text);
   font: inherit;
@@ -42,7 +42,7 @@
   border-color: var(--penalis-accent);
   border-style: solid;
   background: var(--penalis-accent-soft);
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+  box-shadow: var(--penalis-accent-ring);
 }
 
 /* Busy/disabled share one look: still readable, clearly not actionable. */
@@ -112,7 +112,7 @@
 .penalis-editorial-feedback {
   padding: 0.75rem 1rem;
   border: 1px solid var(--penalis-border);
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   background: var(--penalis-surface-alt);
 }
 
@@ -202,7 +202,7 @@
 .penalis-review-history__item {
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--penalis-border);
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   background: var(--penalis-surface-alt);
   font-size: 0.84rem;
 }

@@ -49,7 +49,7 @@
   gap: 0.6rem;
   text-align: left;
   padding: 0.6rem 0.85rem;
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   border: 1px solid transparent;
   background: transparent;
   color: var(--penalis-muted);
@@ -73,7 +73,7 @@
 
 .penalis-nav__item.is-active {
   background: var(--penalis-accent-soft);
-  border-color: #ddc9ff;
+  border-color: var(--penalis-accent-border);
   color: var(--penalis-accent-strong);
   font-weight: 700;
 }
@@ -161,7 +161,7 @@
   margin-left: -0.5rem;
   padding: 0 0.5rem;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--penalis-radius-xs);
   background: none;
   color: var(--penalis-muted);
   font: inherit;
@@ -196,7 +196,7 @@
   border: 1px solid var(--penalis-border);
   border-radius: var(--penalis-radius);
   background: var(--penalis-surface);
-  box-shadow: 0 2px 10px rgba(36, 31, 26, 0.06);
+  box-shadow: var(--penalis-shadow-bar);
 }
 
 .penalis-action-bar__actions {
@@ -243,7 +243,7 @@
     border-radius: 0;
     border-width: 1px 0 0;
     padding: 0.6rem 0.9rem calc(0.6rem + env(safe-area-inset-bottom, 0px));
-    box-shadow: 0 -4px 16px rgba(36, 31, 26, 0.1);
+    box-shadow: var(--penalis-shadow-bar-bottom);
   }
 
   .penalis-action-bar__actions {

@@ -223,7 +223,7 @@
   max-width: 18rem;
   padding: 0.35rem;
   border: 1px solid var(--penalis-border);
-  border-radius: 12px;
+  border-radius: var(--penalis-radius-md);
   background: var(--penalis-surface);
   box-shadow: var(--penalis-shadow);
   animation: penalis-popover-in 0.14s ease-out;
@@ -267,6 +267,7 @@
   gap: 0.45rem;
 }
 
+/* Fixed Twitter-blue glyph: deliberately not a themable token. */
 .penalis-verified-badge {
   display: inline-flex;
   align-items: center;
@@ -321,7 +322,7 @@
   box-sizing: border-box;
   padding: 0.55rem 0.65rem;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--penalis-radius-xs);
   background: transparent;
   color: var(--penalis-text);
   font: inherit;

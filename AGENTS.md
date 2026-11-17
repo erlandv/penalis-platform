@@ -101,7 +101,9 @@ register -> verify email -> active writer -> write draft in /dashboard/ -> submi
    `/dashboard/` and administrators in `wp-admin` must always see the current
    state and available actions clearly.
 6. **Boring, legible technology.** WordPress core APIs, React 18, Vite, TipTap,
-   and externalized admin CSS/JS (`assets/`). No exotic dependencies.
+   plain CSS with shared design tokens, and externalized admin CSS/JS
+   (`assets/`). No exotic dependencies (no Tailwind, CSS Modules, or
+   CSS-in-JS).
 7. **Accessibility is part of UX.** Real `<label>` elements, `aria-describedby`
    on errors, visible focus, focus trapped in dialogs (`Dialog.tsx`,
    `ConfirmDialog.tsx`, and `assets/js/admin-review.js`), and inline SVG icons
@@ -169,6 +171,7 @@ assets/js/admin-review.js   Confirmation modals (createModalController) and inli
 templates/dashboard.php     Minimal theme wrapper for [penalis_dashboard]
 templates/authors.php       Minimal theme wrapper for [penalis_authors]
 src/                        React SPAs (app/, authors/, components/, features/, lib/, styles/)
+                            styles/: tokens.css, main.css (@import index), section files
 build/                      Generated Vite output and manifest.json (gitignored)
 tests/                      Plain-PHP unit/workflow tests (run-tests.php) and WP stubs (wp-stubs.php)
 docs/                       Developer documentation (architecture, rest-api, security, development)
@@ -185,6 +188,17 @@ readme.txt                  WordPress plugin readme and changelog
   CSS or JS blocks inside PHP classes. Use
   `Penalis_Admin::render_confirm_modal()`, `format_menu_label()`, and
   `resolve_asset_meta()` for shared admin UI patterns.
+- **Frontend styling:** `src/styles/tokens.css` is the single source of design
+  tokens. `main.css` is only an `@import` index that loads the section files
+  (`base`, `layout`, `components`, `forms`, `articles`, `editor`, `media`,
+  `overlays`, `responsive`, `features`, `notifications`) in cascade order;
+  `src/authors/authors.css` is the separate public-directory stylesheet and
+  imports the same tokens. Vite inlines those CSS `@import`s into **one**
+  stylesheet per entry. Never import a shared CSS file from a TSX entry: Vite
+  then emits a separate CSS chunk that `enqueue_vite_entry()` cannot enqueue
+  because it only reads each entry's `css` array from `build/manifest.json`.
+  `assets/css/admin.css` stays a standalone wp-admin stylesheet with its own
+  shared pill/avatar primitives.
 - **Shared PHP helpers (reuse instead of duplicating):**
   - **Vite & SPA mounting (`Penalis_Dashboard`):** `enqueue_vite_entry()`,
     `ensure_same_origin_url()`, `format_module_script_tag()`,
@@ -290,6 +304,13 @@ When bumping the plugin version, update all four places together:
   `noUnusedLocals`, `noUnusedParameters`, no `any`), 2-space indentation, single
   quotes, function components with hooks, no auth or draft data in
   `localStorage` or `sessionStorage`.
+- **CSS:** Plain CSS, BEM-style `penalis-*` class names, and custom properties
+  from `src/styles/tokens.css`. Both roots declare the same token names; a root
+  may override neutral values locally (the authors directory uses a lighter
+  frame), but must not introduce a private alias for a shared value. Include a
+  shared stylesheet with CSS `@import`, not a TSX `import`. The verified badge
+  keeps its literal Twitter blue on purpose: that SVG is a fixed brand glyph,
+  not a themable surface.
 
 ---
 

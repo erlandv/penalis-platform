@@ -49,6 +49,16 @@ The production build generates:
 - `build/assets/RichTextEditor-<hash>.js` (lazy-loaded TipTap editor chunk)
 - `build/assets/icons-<hash>.js` (shared SVG icon chunk)
 
+Dashboard CSS sources live in `src/styles/`: `tokens.css` (shared design
+tokens), `main.css` (an `@import` index), and section files in cascade order
+(`base`, `layout`, `components`, `forms`, `articles`, `editor`, `media`,
+`overlays`, `responsive`, `features`, `notifications`). The authors directory
+has its own `src/authors/authors.css` and imports the same tokens. Vite inlines
+these CSS `@import`s, so each entry still produces exactly one CSS file. Do not
+import a shared CSS file from a TSX entry: Vite then emits a separate CSS chunk
+that is absent from the manifest entry's `css` array, and
+`Penalis_Dashboard::enqueue_vite_entry()` will not enqueue it.
+
 > **Important:** `build/` is gitignored. After modifying any file under `src/`,
 > run `npm run build` so WordPress loads the updated bundle from
 > `build/manifest.json`.

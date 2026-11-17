@@ -137,7 +137,7 @@
   justify-content: space-between;
   gap: 0.6rem 1rem;
   padding: 0.9rem 1rem;
-  border-radius: 12px;
+  border-radius: var(--penalis-radius-md);
   border: 1px solid transparent;
   font-size: 0.93rem;
   margin-bottom: 1.25rem;
@@ -180,27 +180,27 @@
 }
 
 .penalis-banner--info {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: #3730a3;
+  background: var(--penalis-info-banner-bg);
+  border-color: var(--penalis-info-banner-border);
+  color: var(--penalis-info-banner-text);
 }
 
 .penalis-banner--success {
   background: var(--penalis-success-soft);
-  border-color: #86efac;
+  border-color: var(--penalis-success-border);
   color: var(--penalis-success);
 }
 
 .penalis-banner--warning {
   background: var(--penalis-warning-soft);
-  border-color: #fcd34d;
+  border-color: var(--penalis-warning-border);
   color: var(--penalis-warning);
 }
 
 .penalis-banner--error,
 .penalis-banner--danger {
   background: var(--penalis-danger-soft);
-  border-color: #fca5a5;
+  border-color: var(--penalis-danger-banner-border);
   color: var(--penalis-danger);
 }
 
@@ -226,7 +226,7 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0.62rem 1.05rem;
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   border: 1px solid transparent;
   font: inherit;
   font-weight: 600;
@@ -315,7 +315,7 @@
 }
 
 .penalis-dashboard-root .penalis-button--ghost:hover:not(:disabled) {
-  border-color: #c9bfb3;
+  border-color: var(--penalis-border-hover);
 }
 
 /**
@@ -330,12 +330,12 @@
 .penalis-dashboard-root .penalis-button--soft[disabled] {
   background-color: var(--penalis-accent-soft);
   background-image: none;
-  border-color: #ddc9ff;
+  border-color: var(--penalis-accent-border);
   color: var(--penalis-accent-strong);
 }
 
 .penalis-dashboard-root .penalis-button--soft:hover:not(:disabled) {
-  background-color: #e6d9ff;
+  background-color: var(--penalis-accent-soft-hover);
   border-color: var(--penalis-accent);
 }
 
@@ -344,7 +344,7 @@
 .penalis-dashboard-root .penalis-button--danger[disabled] {
   background-color: transparent;
   background-image: none;
-  border-color: #f3c4c4;
+  border-color: var(--penalis-danger-border);
   color: var(--penalis-danger);
 }
 
@@ -368,8 +368,8 @@
 }
 
 .penalis-dashboard-root .penalis-button--danger-solid:hover:not(:disabled) {
-  background-color: #7f1d1d;
-  border-color: #7f1d1d;
+  background-color: var(--penalis-danger-strong);
+  border-color: var(--penalis-danger-strong);
   color: #ffffff;
 }
 
@@ -422,7 +422,7 @@
   height: 2.25rem;
   padding: 0;
   border: 1px solid var(--penalis-border);
-  border-radius: 8px;
+  border-radius: var(--penalis-radius-xs);
   background: var(--penalis-surface);
   color: var(--penalis-muted);
   cursor: pointer;
@@ -431,7 +431,7 @@
 }
 
 .penalis-icon-button:hover:not(:disabled) {
-  border-color: #c9bfb3;
+  border-color: var(--penalis-border-hover);
   background: var(--penalis-surface-alt);
   color: var(--penalis-text);
 }
@@ -446,7 +446,7 @@
 }
 
 .penalis-icon-button--danger:hover:not(:disabled) {
-  border-color: #f3c4c4;
+  border-color: var(--penalis-danger-border);
   background: var(--penalis-danger-soft);
   color: var(--penalis-danger);
 }

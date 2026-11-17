@@ -68,7 +68,7 @@
   width: min(24rem, calc(100vw - 2rem));
   max-height: min(30rem, calc(100vh - 6rem));
   border: 1px solid var(--penalis-border);
-  border-radius: 12px;
+  border-radius: var(--penalis-radius-md);
   background: var(--penalis-surface);
   box-shadow: var(--penalis-shadow);
   animation: penalis-popover-in 0.14s ease-out;
@@ -229,7 +229,7 @@
 .penalis-dashboard-root .penalis-notification-filter.is-active {
   background: var(--penalis-surface);
   color: var(--penalis-accent-strong);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--penalis-shadow-sm);
 }
 
 .penalis-notification-grouping {
@@ -368,7 +368,7 @@
 .penalis-notification-item {
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--penalis-border);
-  border-radius: 10px;
+  border-radius: var(--penalis-radius-control);
   background: var(--penalis-surface);
   display: flex;
   align-items: flex-start;
@@ -380,7 +380,7 @@
 .penalis-notification-item.is-unread {
   background: #faf7ff;
   border-color: #d8c7f7;
-  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.06);
+  box-shadow: var(--penalis-accent-shadow);
 }
 
 .penalis-notification-item__dot {
@@ -468,7 +468,7 @@
 
 .penalis-dashboard-root .penalis-notification-action:hover:not(:disabled),
 .penalis-dashboard-root .penalis-compact-action:hover:not(:disabled) {
-  border-color: #c9bfb3;
+  border-color: var(--penalis-border-hover);
   background: var(--penalis-surface-alt);
 }
 
@@ -480,12 +480,12 @@
 
 .penalis-dashboard-root .penalis-notification-action--primary {
   background: var(--penalis-accent-soft);
-  border-color: #ddc9ff;
+  border-color: var(--penalis-accent-border);
   color: var(--penalis-accent-strong);
 }
 
 .penalis-dashboard-root .penalis-notification-action--primary:hover:not(:disabled) {
-  background: #e6d9ff;
+  background: var(--penalis-accent-soft-hover);
   border-color: var(--penalis-accent);
 }
 

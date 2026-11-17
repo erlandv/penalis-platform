@@ -9,7 +9,7 @@
   padding: 0;
   background: var(--penalis-surface);
   border: 1px solid var(--penalis-border);
-  border-radius: 12px;
+  border-radius: var(--penalis-radius-md);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -107,7 +107,7 @@
 }
 
 .penalis-media-card--selectable:hover {
-  border-color: #c9bfb3;
+  border-color: var(--penalis-border-hover);
 }
 
 .penalis-media-card--selectable.is-selected {
