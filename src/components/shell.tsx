@@ -7,9 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
-  type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 
@@ -22,6 +20,7 @@ import { Icon, type IconName } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { OtpForm } from './OtpForm';
 import { Notice, VerifiedWriterBadge } from './ui';
+import { useDisclosure } from './useDisclosure';
 import { preloadEditor } from '../features/editor/editorLoader';
 import type { NotificationsController } from '../features/notifications/useNotifications';
 
@@ -141,8 +140,8 @@ function ResendBanner({ email }: { email: string }) {
   return (
     <Notice tone="warning">
       <p>
-        Konfirmasi alamat email kamu. Kami mengirim kode verifikasi enam digit ke {email}. Kamu belum dapat
-        menulis atau submit karya tulis sampai alamat email kamu dikonfirmasi.
+        Konfirmasi alamat email kamu. Kamu belum dapat menulis atau 
+        submit karya tulis sampai alamat email kamu dikonfirmasi.
       </p>
       {!challenge && error ? <p role="alert">{error}</p> : null}
       {challenge ? (
@@ -181,8 +180,9 @@ function ResendBanner({ email }: { email: string }) {
  * Hover alone is not accessible, so opening is pinned by a click and the whole
  * widget is keyboard operable: Enter/Space or ArrowDown opens it, arrows move
  * between items, Escape closes it and returns focus to the trigger, and focus
- * leaving the widget closes it. `pointerleave` is ignored while the widget
- * still holds focus so a keyboard user is never dropped out mid-navigation.
+ * leaving the widget closes it. The shared hover/pin/focus state machine lives
+ * in `useDisclosure`; `pointerleave` is ignored while the widget still holds
+ * focus so a keyboard user is never dropped out mid-navigation.
  */
 function AccountMenu({
   account,
@@ -197,121 +197,30 @@ function AccountMenu({
   logoutUrl: string;
   onNavigate: (view: ViewName) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [pinned, setPinned] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const focusFirstOnOpen = useRef(false);
+  const {
+    open,
+    wrapperRef,
+    triggerRef,
+    menuRef,
+    close,
+    onPointerEnter,
+    onPointerLeave,
+    onBlur,
+    onTriggerClick,
+    onTriggerKeyDown,
+    onMenuKeyDown: closeOnEscape,
+  } = useDisclosure({ focusSelector: '[role="menuitem"]' });
 
   useEffect(() => {
     setAvatarError(false);
   }, [account.avatarUrl]);
 
-  const close = useCallback((refocusTrigger = false) => {
-    setOpen(false);
-    setPinned(false);
-
-    if (refocusTrigger) {
-      triggerRef.current?.focus();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const onDocumentPointerDown = (event: PointerEvent) => {
-      const wrapper = wrapperRef.current;
-      if (wrapper && !wrapper.contains(event.target as Node)) {
-        setOpen(false);
-        setPinned(false);
-      }
-    };
-
-    document.addEventListener('pointerdown', onDocumentPointerDown);
-    return () => document.removeEventListener('pointerdown', onDocumentPointerDown);
-  }, [open]);
-
-  // Keyboard opening (ArrowDown) must land on the first item; hover must not
-  // steal focus from wherever the user was typing.
-  useEffect(() => {
-    if (open && focusFirstOnOpen.current) {
-      focusFirstOnOpen.current = false;
-      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
-    }
-  }, [open]);
-
   const menuItems = () =>
     Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
 
-  const onPointerEnter = (event: ReactPointerEvent<HTMLDivElement>) => {
-    // Touch and pen "enter" is not hover intent; only a mouse should pre-open.
-    if (event.pointerType === 'mouse') {
-      setOpen(true);
-    }
-  };
-
-  const onPointerLeave = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType !== 'mouse' || pinned) {
-      return;
-    }
-
-    const active = document.activeElement;
-    if (active instanceof HTMLElement && wrapperRef.current?.contains(active)) {
-      return;
-    }
-
-    setOpen(false);
-  };
-
-  const onBlur = (event: ReactFocusEvent<HTMLDivElement>) => {
-    const next = event.relatedTarget;
-
-    /*
-     * Only close when focus provably moved to another element outside the
-     * widget. `relatedTarget === null` is ambiguous: Safari does not focus a
-     * link on mousedown, so clicking a menu item there fires blur with no
-     * related target. Closing on that would unmount the menu before the click
-     * lands and the navigation would be lost. The document-level pointerdown
-     * handler already covers "clicked somewhere else".
-     */
-    if (!(next instanceof HTMLElement) || wrapperRef.current?.contains(next)) {
-      return;
-    }
-
-    close();
-  };
-
-  const onTriggerClick = () => {
-    if (open && pinned) {
-      close();
-      return;
-    }
-
-    setOpen(true);
-    setPinned(true);
-  };
-
-  const onTriggerKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== 'ArrowDown') {
-      return;
-    }
-
-    event.preventDefault();
-    focusFirstOnOpen.current = true;
-    setOpen(true);
-    setPinned(true);
-  };
-
   const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      close(true);
-      return;
-    }
+    closeOnEscape(event);
 
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
       return;
@@ -331,7 +240,7 @@ function AccountMenu({
 
   return (
     <div
-      className="penalis-account"
+      className="penalis-account penalis-popover-anchor"
       ref={wrapperRef}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
@@ -341,7 +250,7 @@ function AccountMenu({
       <button
         type="button"
         ref={triggerRef}
-        className={`penalis-account__trigger ${open ? 'is-open' : ''}`}
+        className={`penalis-account__trigger penalis-popover-trigger ${open ? 'is-open' : ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? 'penalis-account-menu' : undefined}
@@ -369,9 +278,9 @@ function AccountMenu({
       </button>
 
       {open ? (
-        <div className="penalis-account__popover">
+        <div className="penalis-account__popover penalis-popover">
           <div
-            className="penalis-account__menu"
+            className="penalis-account__menu penalis-popover__panel"
             id="penalis-account-menu"
             role="menu"
             aria-label="Menu akun"

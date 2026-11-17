@@ -127,6 +127,56 @@
 }
 
 /*
+ * Shared popover primitives for header flyouts.
+ *
+ * The account menu and notification bell use the same hover/click boundary,
+ * trigger treatment, and panel chrome. Component classes keep only the parts
+ * that genuinely differ (avatar trigger vs icon trigger, panel width, etc.).
+ */
+.penalis-popover-anchor {
+  position: relative;
+}
+
+.penalis-popover-trigger {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--penalis-text);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.penalis-popover-trigger:hover,
+.penalis-popover-trigger.is-open {
+  background: var(--penalis-surface);
+  border-color: var(--penalis-border);
+}
+
+/*
+ * `padding-top` on the popover, not `margin`, so the hover boundary is
+ * continuous between the trigger and the panel.
+ */
+.penalis-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 50;
+  padding-top: 0.4rem;
+}
+
+.penalis-popover__panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius-md);
+  background: var(--penalis-surface);
+  box-shadow: var(--penalis-shadow);
+  animation: penalis-popover-in 0.14s ease-out;
+}
+
+/*
  * Account flyout.
  *
  * The trigger presents the user avatar and a chevron. The full name, username,
@@ -134,31 +184,13 @@
  * so the popover stays open while the pointer travels from the trigger into the
  * menu — a gap between the two would otherwise close it mid-move.
  */
-.penalis-account {
-  position: relative;
-}
-
 .penalis-account__trigger {
-  display: inline-flex;
-  align-items: center;
   gap: 0.35rem;
   /* 44px keeps the trigger a comfortable touch target on a phone. */
   min-height: 44px;
   padding: 0.25rem 0.45rem 0.25rem 0.3rem;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--penalis-text);
   font: inherit;
   font-size: 0.9rem;
-  cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
-}
-
-.penalis-account__trigger:hover,
-.penalis-account__trigger.is-open {
-  background: var(--penalis-surface);
-  border-color: var(--penalis-border);
 }
 
 .penalis-account__avatar {
@@ -204,29 +236,10 @@
   transform: rotate(180deg);
 }
 
-/*
- * `padding-top` on the popover, not `margin`, so the hover boundary is
- * continuous between the trigger and the first menu item.
- */
-.penalis-account__popover {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 50;
-  padding-top: 0.4rem;
-}
-
 .penalis-account__menu {
-  display: flex;
-  flex-direction: column;
   min-width: 15.5rem;
   max-width: 18rem;
   padding: 0.35rem;
-  border: 1px solid var(--penalis-border);
-  border-radius: var(--penalis-radius-md);
-  background: var(--penalis-surface);
-  box-shadow: var(--penalis-shadow);
-  animation: penalis-popover-in 0.14s ease-out;
 }
 
 @keyframes penalis-popover-in {
@@ -241,7 +254,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .penalis-account__menu {
+  .penalis-popover__panel {
     animation: none;
   }
 }

@@ -5,12 +5,11 @@
 import { useState, type FormEvent } from 'react';
 
 import { ApiError, legacyApi, passwordApi, registrationApi } from '../../lib/api';
-import { getBootstrap, isTurnstileEnabledFor } from '../../lib/bootstrap';
+import { getBootstrap } from '../../lib/bootstrap';
 import { DEEPLINK, hasParam } from '../../lib/deeplink';
 import type { FieldErrors } from '../../lib/types';
 import {
   hasErrors,
-  PASSWORD_MIN_LENGTH,
   validateEmail,
   validatePasswordPair,
   validateRegistration,
@@ -18,13 +17,14 @@ import {
 } from '../../lib/validation';
 import { describedBy } from '../../lib/a11y';
 import { toActiveChallenge, type ActiveChallenge } from '../../lib/otp';
-import { ErrorBanner, FieldError, FieldHint, HoneypotField, Notice, Spinner } from '../../components/ui';
+import { ErrorBanner, FieldError, FieldHint, HoneypotField, Notice } from '../../components/ui';
 import { shouldShowAuthBackNav } from './authNav';
+import { EmailRequestForm } from './EmailRequestForm';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
+import { PasswordPairFields } from '../../components/PasswordPairFields';
 import { TurnstileWidget } from '../../components/TurnstileWidget';
-
-const TURNSTILE_REQUIRED_MESSAGE = 'Harap selesaikan verifikasi keamanan (CAPTCHA) terlebih dahulu.';
+import { TURNSTILE_REQUIRED_MESSAGE, useTurnstileGate } from '../../components/useTurnstileGate';
 
 type Mode = 'login' | 'register' | 'verify' | 'forgot' | 'activate' | 'activateVerify';
 
@@ -233,17 +233,15 @@ export function AuthGate() {
 
 function LoginForm() {
   const bootstrap = getBootstrap();
-  const [turnstileToken, setTurnstileToken] = useState('');
-  const [turnstileError, setTurnstileError] = useState('');
-  const turnstileRequired = isTurnstileEnabledFor('login');
+  const turnstile = useTurnstileGate('login');
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    if (turnstileRequired && !turnstileToken) {
+    if (turnstile.isMissing()) {
       event.preventDefault();
-      setTurnstileError(TURNSTILE_REQUIRED_MESSAGE);
+      turnstile.setError(TURNSTILE_REQUIRED_MESSAGE);
       return;
     }
-    setTurnstileError('');
+    turnstile.setError('');
   };
 
   return (
@@ -285,13 +283,8 @@ function LoginForm() {
 
       <TurnstileWidget
         form="login"
-        onTokenChange={(token) => {
-          setTurnstileToken(token);
-          if (token) {
-            setTurnstileError('');
-          }
-        }}
-        error={turnstileError}
+        onTokenChange={turnstile.onTokenChange}
+        error={turnstile.error}
       />
 
       <button type="submit" className="penalis-button penalis-button--primary">
@@ -315,10 +308,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
-  const [turnstileError, setTurnstileError] = useState('');
-  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
-  const turnstileRequired = isTurnstileEnabledFor('register');
+  const turnstile = useTurnstileGate('register');
 
   const update = (key: keyof typeof values, value: string | boolean) => {
     setValues((current) => ({ ...current, [key]: value }));
@@ -333,13 +323,13 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
       setErrors(clientErrors);
       return;
     }
-    if (turnstileRequired && !turnstileToken) {
+    if (turnstile.isMissing()) {
       setErrors({});
-      setTurnstileError(TURNSTILE_REQUIRED_MESSAGE);
+      turnstile.setError(TURNSTILE_REQUIRED_MESSAGE);
       return;
     }
     setErrors({});
-    setTurnstileError('');
+    turnstile.setError('');
     setSubmitting(true);
 
     try {
@@ -351,7 +341,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
         password: values.password,
         penalis_consent: '1',
         penalis_website: values.penalis_website,
-        ...(turnstileToken ? { cf_turnstile_response: turnstileToken } : {}),
+        ...(turnstile.token ? { cf_turnstile_response: turnstile.token } : {}),
       });
 
       // The password is no longer needed: the account exists and only the
@@ -369,7 +359,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
 
       onChallenge(toActiveChallenge(result, values.user_email.trim()));
     } catch (error) {
-      setTurnstileResetKey((current) => current + 1);
+      turnstile.reset();
       if (error instanceof ApiError) {
         setErrors(error.fields);
         setFormError(error.message);
@@ -452,33 +442,17 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
         <FieldError errors={errors} name="instagram" />
       </div>
 
-      <div className="penalis-field">
-        <label htmlFor="password">Password</label>
-        <PasswordInput
-          id="password"
-          value={values.password}
-          onChange={(event) => update('password', event.target.value)}
-          autoComplete="new-password"
-          aria-invalid={Boolean(errors.password)}
-          aria-describedby={describedBy('password-hint', errors.password && 'password-error')}
-        />
-        <FieldHint id="password-hint">Minimal 12 karakter.</FieldHint>
-        <FieldError errors={errors} name="password" />
-      </div>
-
-      <div className="penalis-field">
-        <label htmlFor="confirm_password">Konfirmasi Password</label>
-        <PasswordInput
-          id="confirm_password"
-          value={values.confirm_password}
-          onChange={(event) => update('confirm_password', event.target.value)}
-          autoComplete="new-password"
-          aria-invalid={Boolean(errors.confirm_password)}
-          aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
-        />
-        <FieldHint id="confirm_password-hint">Ketik ulang password untuk konfirmasi.</FieldHint>
-        <FieldError errors={errors} name="confirm_password" />
-      </div>
+      <PasswordPairFields
+        passwordId="password"
+        confirmId="confirm_password"
+        passwordHintId="password-hint"
+        confirmHintId="confirm_password-hint"
+        password={values.password}
+        confirm={values.confirm_password}
+        onPasswordChange={(event) => update('password', event.target.value)}
+        onConfirmChange={(event) => update('confirm_password', event.target.value)}
+        errors={errors}
+      />
 
       <HoneypotField
         value={values.penalis_website}
@@ -519,14 +493,9 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
 
       <TurnstileWidget
         form="register"
-        resetKey={turnstileResetKey}
-        onTokenChange={(token) => {
-          setTurnstileToken(token);
-          if (token) {
-            setTurnstileError('');
-          }
-        }}
-        error={turnstileError}
+        resetKey={turnstile.resetKey}
+        onTokenChange={turnstile.onTokenChange}
+        error={turnstile.error}
       />
 
       <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
@@ -701,35 +670,18 @@ function ActivateVerifyForm({
       verifyLabel="Verifikasi dan Aktifkan Akun"
       onEditEmail={onEditEmail}
     >
-      <div className="penalis-field">
-        <label htmlFor="activate_password">Password Baru</label>
-        <PasswordInput
-          id="activate_password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="new-password"
-          aria-invalid={Boolean(errors.password)}
-          aria-describedby={describedBy('activate_password-hint', errors.password && 'password-error')}
-        />
-        <FieldHint id="activate_password-hint">
-          Gunakan password yang kuat dan unik minimal {PASSWORD_MIN_LENGTH} karakter.
-        </FieldHint>
-        <FieldError errors={errors} name="password" />
-      </div>
-
-      <div className="penalis-field">
-        <label htmlFor="activate_confirm_password">Konfirmasi Password</label>
-        <PasswordInput
-          id="activate_confirm_password"
-          value={confirm}
-          onChange={(event) => setConfirm(event.target.value)}
-          autoComplete="new-password"
-          aria-invalid={Boolean(errors.confirm_password)}
-          aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
-        />
-        <FieldHint id="confirm_password-hint">Ketik ulang password untuk konfirmasi.</FieldHint>
-        <FieldError errors={errors} name="confirm_password" />
-      </div>
+      <PasswordPairFields
+        passwordId="activate_password"
+        confirmId="activate_confirm_password"
+        passwordHintId="activate_password-hint"
+        confirmHintId="confirm_password-hint"
+        passwordLabel="Password Baru"
+        password={password}
+        confirm={confirm}
+        onPasswordChange={(event) => setPassword(event.target.value)}
+        onConfirmChange={(event) => setConfirm(event.target.value)}
+        errors={errors}
+      />
     </OtpForm>
   );
 }
@@ -744,48 +696,7 @@ function ActivateVerifyForm({
  */
 function ForgotForm({ onDone, onFinished }: { onDone: () => void; onFinished: () => void }) {
   const [email, setEmail] = useState('');
-  const [honeypot, setHoneypot] = useState('');
-  const [fieldError, setFieldError] = useState('');
   const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
-  const [turnstileError, setTurnstileError] = useState('');
-  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
-  const turnstileRequired = isTurnstileEnabledFor('forgot');
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-    setMessage('');
-
-    // The server answers generically for every outcome, so an empty field
-    // would otherwise look like a successful request.
-    const invalid = validateResetEmail(email);
-    if (invalid) {
-      setFieldError(invalid);
-      return;
-    }
-    if (turnstileRequired && !turnstileToken) {
-      setFieldError('');
-      setTurnstileError(TURNSTILE_REQUIRED_MESSAGE);
-      return;
-    }
-    setFieldError('');
-    setTurnstileError('');
-    setSubmitting(true);
-
-    try {
-      const result = await passwordApi.forgot(email.trim(), honeypot, turnstileToken);
-      setMessage(result.message);
-      onFinished();
-    } catch (caught) {
-      setTurnstileResetKey((current) => current + 1);
-      setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   if (message) {
     return (
@@ -803,49 +714,21 @@ function ForgotForm({ onDone, onFinished }: { onDone: () => void; onFinished: ()
   }
 
   return (
-    <form className="penalis-form" onSubmit={submit} noValidate>
-      {error ? <ErrorBanner message={error} /> : null}
-
-      <div className="penalis-field">
-        <label htmlFor="forgot_email">Email</label>
-        <input
-          id="forgot_email"
-          type="email"
-          value={email}
-          onChange={(event) => {
-            setEmail(event.target.value);
-            setFieldError('');
-          }}
-          autoComplete="email"
-          maxLength={254}
-          aria-invalid={Boolean(fieldError)}
-          aria-describedby={describedBy('forgot_email-hint', fieldError && 'forgot_email-error')}
-          required
-        />
-        <FieldHint id="forgot_email-hint">
-          Gunakan email yang terdaftar di akun kamu.
-        </FieldHint>
-        <FieldError errors={{ forgot_email: fieldError }} name="forgot_email" />
-      </div>
-
-      <HoneypotField value={honeypot} onChange={setHoneypot} />
-
-      <TurnstileWidget
-        form="forgot"
-        resetKey={turnstileResetKey}
-        onTokenChange={(token) => {
-          setTurnstileToken(token);
-          if (token) {
-            setTurnstileError('');
-          }
-        }}
-        error={turnstileError}
-      />
-
-      <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Memproses…" /> : 'Reset Password'}
-      </button>
-    </form>
+    <EmailRequestForm
+      form="forgot"
+      emailId="forgot_email"
+      email={email}
+      onEmailChange={setEmail}
+      validate={validateResetEmail}
+      request={passwordApi.forgot}
+      onSuccess={(result) => {
+        setMessage(result.message);
+        onFinished();
+      }}
+      hint="Gunakan email yang terdaftar di akun kamu."
+      submitLabel="Reset Password"
+      busyLabel="Memproses…"
+    />
   );
 }
 
@@ -869,95 +752,22 @@ function ActivateForm({
   onEmailChange: (email: string) => void;
   onChallenge: (challenge: Challenge) => void;
 }) {
-  const [honeypot, setHoneypot] = useState('');
-  const [fieldError, setFieldError] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
-  const [turnstileError, setTurnstileError] = useState('');
-  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
-  const turnstileRequired = isTurnstileEnabledFor('activate');
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
-
-    // The server answers generically for every outcome, so an empty or
-    // malformed address would otherwise look like a successful request.
-    const invalid = validateEmail(email);
-    if (invalid) {
-      setFieldError(invalid);
-      return;
-    }
-    if (turnstileRequired && !turnstileToken) {
-      setFieldError('');
-      setTurnstileError(TURNSTILE_REQUIRED_MESSAGE);
-      return;
-    }
-    setFieldError('');
-    setTurnstileError('');
-    setSubmitting(true);
-
-    try {
-      const result = await legacyApi.request(email.trim(), honeypot, turnstileToken);
-      onEmailChange(email.trim());
-      onChallenge(toActiveChallenge(result, email.trim()));
-    } catch (caught) {
-      setTurnstileResetKey((current) => current + 1);
-      setError(caught instanceof ApiError ? caught.message : 'Permintaan tidak dapat diselesaikan.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <form className="penalis-form" onSubmit={submit} noValidate>
-      <p className="penalis-muted">
-        Kami sudah membuatkan akun untukmu. Aktifkan dengan cara memverifikasi email yang kamu pakai saat
-        mengirim karya, lalu buat password untuk akun tersebut.
-      </p>
-
-      {error ? <ErrorBanner message={error} /> : null}
-
-      <div className="penalis-field">
-        <label htmlFor="activate_email">Email</label>
-        <input
-          id="activate_email"
-          type="email"
-          value={email}
-          onChange={(event) => {
-            onEmailChange(event.target.value);
-            setFieldError('');
-          }}
-          autoComplete="email"
-          maxLength={254}
-          aria-invalid={Boolean(fieldError)}
-          aria-describedby={describedBy('activate_email-hint', fieldError && 'activate_email-error')}
-          required
-        />
-        <FieldHint id="activate_email-hint">
-          Tidak ingat email mana yang dipakai? Hubungi admin Penalis.
-        </FieldHint>
-        <FieldError errors={{ activate_email: fieldError }} name="activate_email" />
-      </div>
-
-      <HoneypotField value={honeypot} onChange={setHoneypot} />
-
-      <TurnstileWidget
-        form="activate"
-        resetKey={turnstileResetKey}
-        onTokenChange={(token) => {
-          setTurnstileToken(token);
-          if (token) {
-            setTurnstileError('');
-          }
-        }}
-        error={turnstileError}
-      />
-
-      <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
-        {submitting ? <Spinner label="Mengirim…" /> : 'Kirim Kode Aktivasi'}
-      </button>
-    </form>
+    <EmailRequestForm
+      form="activate"
+      emailId="activate_email"
+      email={email}
+      onEmailChange={onEmailChange}
+      validate={validateEmail}
+      request={legacyApi.request}
+      onSuccess={(result) => {
+        onEmailChange(email.trim());
+        onChallenge(toActiveChallenge(result, email.trim()));
+      }}
+      description="Kami sudah membuatkan akun untukmu. Aktifkan dengan cara memverifikasi email yang kamu pakai saat mengirim karya, lalu buat password untuk akun tersebut."
+      hint="Tidak ingat email mana yang dipakai? Hubungi admin Penalis."
+      submitLabel="Kirim Kode Aktivasi"
+      busyLabel="Mengirim…"
+    />
   );
 }

@@ -5,31 +5,13 @@
  * navigation item, so a new review decision is visible from every view instead
  * of only from the overview page.
  */
-.penalis-bell {
-  position: relative;
-}
-
 .penalis-bell__trigger {
   position: relative;
-  display: inline-flex;
-  align-items: center;
   justify-content: center;
   /* 44px keeps the trigger a comfortable touch target on a phone. */
   width: 44px;
   height: 44px;
   padding: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--penalis-text);
-  cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
-}
-
-.penalis-bell__trigger:hover,
-.penalis-bell__trigger.is-open {
-  background: var(--penalis-surface);
-  border-color: var(--penalis-border);
 }
 
 .penalis-bell__badge {
@@ -50,34 +32,9 @@
   line-height: 1;
 }
 
-/*
- * `padding-top` on the popover, not `margin`, so the hover boundary is
- * continuous between the trigger and the menu.
- */
-.penalis-bell__popover {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 50;
-  padding-top: 0.4rem;
-}
-
 .penalis-bell__menu {
-  display: flex;
-  flex-direction: column;
   width: min(24rem, calc(100vw - 2rem));
   max-height: min(30rem, calc(100vh - 6rem));
-  border: 1px solid var(--penalis-border);
-  border-radius: var(--penalis-radius-md);
-  background: var(--penalis-surface);
-  box-shadow: var(--penalis-shadow);
-  animation: penalis-popover-in 0.14s ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .penalis-bell__menu {
-    animation: none;
-  }
 }
 
 .penalis-bell__header {

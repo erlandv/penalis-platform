@@ -5,15 +5,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { accountApi, ApiError, passwordApi } from '../lib/api';
-import { getBootstrap, isTurnstileEnabledFor } from '../lib/bootstrap';
+import { getBootstrap } from '../lib/bootstrap';
 import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, readParam } from '../lib/deeplink';
 import { canReceiveNotifications } from '../lib/permissions';
 import type { Account, DashboardNotification, EditorFocus, FieldErrors, ViewName } from '../lib/types';
-import { hasErrors, PASSWORD_MIN_LENGTH, validatePasswordPair } from '../lib/validation';
-import { describedBy } from '../lib/a11y';
-import { ErrorBanner, FieldError, FieldHint, Notice, Spinner } from '../components/ui';
-import { PasswordInput } from '../components/PasswordInput';
+import { hasErrors, validatePasswordPair } from '../lib/validation';
+import { ErrorBanner, Notice, Spinner } from '../components/ui';
+import { PasswordPairFields } from '../components/PasswordPairFields';
 import { TurnstileWidget } from '../components/TurnstileWidget';
+import { TURNSTILE_REQUIRED_MESSAGE, useTurnstileGate } from '../components/useTurnstileGate';
 import { Shell } from '../components/shell';
 import { AuthGate } from '../features/auth/AuthGate';
 import { Overview } from '../features/overview/Overview';
@@ -40,10 +40,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
   const [formError, setFormError] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState('');
-  const [turnstileError, setTurnstileError] = useState('');
-  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
-  const turnstileRequired = isTurnstileEnabledFor('reset');
+  const turnstile = useTurnstileGate('reset');
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -56,12 +53,12 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
       return;
     }
 
-    if (turnstileRequired && !turnstileToken) {
-      setTurnstileError('Harap selesaikan verifikasi keamanan (CAPTCHA) terlebih dahulu.');
+    if (turnstile.isMissing()) {
+      turnstile.setError(TURNSTILE_REQUIRED_MESSAGE);
       return;
     }
 
-    setTurnstileError('');
+    turnstile.setError('');
     setSubmitting(true);
 
     try {
@@ -69,7 +66,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
         key: resetKey,
         login,
         password,
-        ...(turnstileToken ? { cf_turnstile_response: turnstileToken } : {}),
+        ...(turnstile.token ? { cf_turnstile_response: turnstile.token } : {}),
       });
       setMessage(result.message);
 
@@ -80,7 +77,7 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
       url.searchParams.delete(DEEPLINK.legacyResetLogin);
       window.history.replaceState({}, '', url.toString());
     } catch (caught) {
-      setTurnstileResetKey((current) => current + 1);
+      turnstile.reset();
       if (caught instanceof ApiError) {
         setErrors(caught.fields);
         setFormError(caught.message);
@@ -113,48 +110,26 @@ function ResetPasswordPage({ resetKey, login }: { resetKey: string; login: strin
             {formError ? <ErrorBanner message={formError} /> : null}
 
             <form className="penalis-form" onSubmit={submit} noValidate>
-              <div className="penalis-field">
-                <label htmlFor="reset_password">Password Baru</label>
-                <PasswordInput
-                  id="reset_password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="new-password"
-                  aria-invalid={Boolean(errors.password)}
-                  aria-describedby={describedBy('reset_password-hint', errors.password && 'password-error')}
-                />
-                <FieldHint id="reset_password-hint">
-                  Gunakan password yang kuat dan unik minimal {PASSWORD_MIN_LENGTH} karakter.
-                </FieldHint>
-                <FieldError errors={errors} name="password" />
-              </div>
-
-              <div className="penalis-field">
-                <label htmlFor="reset_confirm_password">Konfirmasi Password Baru</label>
-                <PasswordInput
-                  id="reset_confirm_password"
-                  value={confirm}
-                  onChange={(event) => setConfirm(event.target.value)}
-                  autoComplete="new-password"
-                  aria-invalid={Boolean(errors.confirm_password)}
-                  aria-describedby={describedBy(errors.confirm_password && 'confirm_password-error')}
-                />
-                <FieldHint id="reset_confirm_password-hint">
-                  Ketik ulang password baru untuk konfirmasi.
-                </FieldHint>
-                <FieldError errors={errors} name="confirm_password" />
-              </div>
+              <PasswordPairFields
+                passwordId="reset_password"
+                confirmId="reset_confirm_password"
+                passwordHintId="reset_password-hint"
+                confirmHintId="reset_confirm_password-hint"
+                passwordLabel="Password Baru"
+                confirmLabel="Konfirmasi Password Baru"
+                password={password}
+                confirm={confirm}
+                onPasswordChange={(event) => setPassword(event.target.value)}
+                onConfirmChange={(event) => setConfirm(event.target.value)}
+                errors={errors}
+                confirmHint="Ketik ulang password baru untuk konfirmasi."
+              />
 
               <TurnstileWidget
                 form="reset"
-                resetKey={turnstileResetKey}
-                onTokenChange={(token) => {
-                  setTurnstileToken(token);
-                  if (token) {
-                    setTurnstileError('');
-                  }
-                }}
-                error={turnstileError}
+                resetKey={turnstile.resetKey}
+                onTokenChange={turnstile.onTokenChange}
+                error={turnstile.error}
               />
 
               <button type="submit" className="penalis-button penalis-button--primary" disabled={submitting}>
