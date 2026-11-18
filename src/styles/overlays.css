@@ -183,6 +183,70 @@
   margin-top: 1.25rem;
 }
 
+/**
+ * Keyboard shortcut reference.
+ *
+ * Keys are drawn as physical keycaps — border, a thicker bottom edge, and the
+ * inherited font — because a monospace glyph reads as code rather than as a key
+ * on a keyboard. The label column is pushed right so the rows scan as a table
+ * without needing table markup.
+ */
+.penalis-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.4rem 0 0.9rem;
+}
+
+.penalis-shortcuts__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.penalis-shortcuts dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.penalis-shortcuts dd {
+  margin: 0;
+  color: var(--penalis-muted);
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.penalis-shortcuts__chord {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.penalis-shortcuts__plus {
+  color: var(--penalis-muted);
+  font-size: 0.75rem;
+}
+
+.penalis-shortcuts kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7rem;
+  padding: 0.12rem 0.4rem;
+  border: 1px solid var(--penalis-border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-text);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
 @media (max-width: 480px) {
   .penalis-confirm__actions {
     flex-direction: column-reverse;

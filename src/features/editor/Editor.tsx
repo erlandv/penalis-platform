@@ -28,6 +28,7 @@ import type {
   Term,
 } from '../../lib/types';
 import { hasErrors, isUncategorizedTerm, validateArticle, validateArticleSubmission } from '../../lib/validation';
+import { isEditableTarget, matchEditorShortcut, type EditorShortcut } from '../../lib/shortcuts';
 import { ErrorBanner, FieldError, Notice, Panel, Spinner, StatusBadge } from '../../components/ui';
 import { ChunkErrorBoundary } from '../../components/ChunkErrorBoundary';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -35,6 +36,7 @@ import { Dialog } from '../../components/Dialog';
 import { MediaPickerDialog } from '../../components/MediaSelection';
 import { Icon } from '../../components/icons';
 import { editorLoader } from './editorLoader';
+import { EditorShortcutsDialog } from './EditorShortcutsDialog';
 import type { RichTextEditorHandle } from './RichTextEditor';
 
 /**
@@ -155,12 +157,22 @@ export function Editor({
    */
   const [mediaIntent, setMediaIntent] = useState<MediaIntent | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  /** The `?` reference dialog, also reachable from the sticky bar. */
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   /**
    * Submitting an article locks it while administrators review it, so the
    * writer confirms before sending the draft or revision into the queue.
    */
   const [submitConfirmOpen, setSubmitConfirmOpen] = useState(false);
+
+  /**
+   * Leaving with unsaved work used to go through `window.confirm`: an unstyled
+   * OS prompt that cannot name the article, cannot be translated, and freezes
+   * the whole tab. The same question is now asked in a dialog the writer can
+   * read, with the safe answer focused first.
+   */
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
   /**
    * Snapshot of the last persisted state, used to tell whether the writer has
@@ -380,6 +392,8 @@ export function Editor({
   }, []);
   const closePreview = useCallback(() => setPreviewOpen(false), []);
   const closeSubmitConfirm = useCallback(() => setSubmitConfirmOpen(false), []);
+  const closeShortcuts = useCallback(() => setShortcutsOpen(false), []);
+  const closeLeaveConfirm = useCallback(() => setLeaveConfirmOpen(false), []);
 
   /**
    * Apply the selected image according to why the picker was opened.
@@ -851,15 +865,93 @@ export function Editor({
    *
    * "Batal" used to navigate away immediately, so a mis-click next to
    * "Preview" threw away everything typed since the last save with no way
-   * back. The confirmation is the browser's own dialog: it is the only prompt
-   * that also covers closing the tab, and it needs no extra UI.
+   * back. The question is now a `ConfirmDialog` rather than `window.confirm`,
+   * so it names the article and offers a safe default; closing the tab is still
+   * covered by `beforeunload`, which is the one prompt the browser owns.
    */
   const leave = useCallback(() => {
-    if (isDirty && !window.confirm('Ada perubahan yang belum disimpan. Tinggalkan halaman ini?')) {
+    if (!isDirty) {
+      onCancel();
       return;
     }
-    onCancel();
+
+    setLeaveConfirmOpen(true);
   }, [isDirty, onCancel]);
+
+  const confirmLeave = useCallback(() => {
+    setLeaveConfirmOpen(false);
+    onCancel();
+  }, [onCancel]);
+
+  /**
+   * Keyboard shortcuts.
+   *
+   * The handler reads its actions through a ref so the listener is attached
+   * once per dialog-state change instead of being torn down on every
+   * keystroke — the editor re-renders on each character typed.
+   *
+   * `preventDefault()` runs for every shortcut, including while a dialog is
+   * open: leaving `Ctrl+S` to the browser would pop the "save page" dialog on
+   * top of the editor's own dialog.
+   */
+  const dialogOpen =
+    previewOpen || submitConfirmOpen || shortcutsOpen || leaveConfirmOpen || mediaIntent !== null;
+
+  const runShortcutRef = useRef<(shortcut: EditorShortcut) => void>(() => undefined);
+
+  runShortcutRef.current = (shortcut) => {
+    if (shortcut === 'help') {
+      setShortcutsOpen(true);
+      return;
+    }
+
+    if (!canEdit || saving) {
+      return;
+    }
+
+    if (shortcut === 'save') {
+      // Mirrors the button, which is disabled while there is nothing to write.
+      if (isDirty) {
+        void saveDraft();
+      }
+      return;
+    }
+
+    // Never submit straight from the keyboard: the confirmation dialog is what
+    // explains that the article locks until an administrator decides.
+    requestSubmitConfirm();
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const shortcut = matchEditorShortcut(event);
+
+      if (shortcut === null) {
+        return;
+      }
+
+      // `?` is a printable character: inside the article body or any form
+      // control it must type a question mark, not open a dialog.
+      if (shortcut === 'help' && isEditableTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (dialogOpen) {
+        return;
+      }
+
+      runShortcutRef.current(shortcut);
+    };
+
+    // Capture phase: the rich text editor handles keydown on its own element
+    // and may stop propagation, which would hide Ctrl+S from a bubbling
+    // listener. Nothing here runs for printable characters, so capturing
+    // cannot steal typing from the editor.
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [dialogOpen]);
 
   /**
    * Warn on tab close / reload while there are unsaved changes.
@@ -980,6 +1072,21 @@ export function Editor({
         </p>
 
         <div className="penalis-action-bar__actions">
+          {/*
+            The `?` shortcut is invisible knowledge on its own, so the same
+            dialog also opens from here. Hidden on touch screens, where the
+            shortcut cannot be used and the bar is already short of room.
+          */}
+          <button
+            type="button"
+            className="penalis-icon-button penalis-shortcuts-trigger"
+            onClick={() => setShortcutsOpen(true)}
+            aria-label="Pintasan keyboard"
+            aria-keyshortcuts="?"
+            title="Pintasan keyboard (?)"
+          >
+            <span aria-hidden="true">?</span>
+          </button>
           <button type="button" className="penalis-button penalis-button--ghost" onClick={() => setPreviewOpen(true)}>
             Preview
           </button>
@@ -1000,6 +1107,7 @@ export function Editor({
               className="penalis-button penalis-button--soft"
               onClick={() => void saveDraft()}
               disabled={saving || !isDirty}
+              aria-keyshortcuts="Control+S Meta+S"
             >
               {saving ? 'Menyimpan…' : 'Simpan Draft'}
             </button>
@@ -1010,6 +1118,7 @@ export function Editor({
               className="penalis-button penalis-button--primary"
               onClick={requestSubmitConfirm}
               disabled={saving}
+              aria-keyshortcuts="Control+Enter Meta+Enter"
             >
               {canResubmit ? 'Submit Ulang' : 'Submit Review'}
             </button>
@@ -1479,6 +1588,30 @@ export function Editor({
           onCancel={closeSubmitConfirm}
         />
       ) : null}
+
+      {leaveConfirmOpen ? (
+        <ConfirmDialog
+          title="Tinggalkan halaman ini?"
+          description={
+            <>
+              <p>
+                Ada perubahan yang belum disimpan pada karya tulis{' '}
+                <strong>{title.trim() || 'Tanpa judul'}</strong>.
+              </p>
+              <p className="penalis-muted">
+                Kalau kamu keluar sekarang, semua perubahan sejak penyimpanan terakhir akan hilang.
+              </p>
+            </>
+          }
+          confirmLabel="Tinggalkan"
+          cancelLabel="Tetap di sini"
+          tone="danger"
+          onConfirm={confirmLeave}
+          onCancel={closeLeaveConfirm}
+        />
+      ) : null}
+
+      {shortcutsOpen ? <EditorShortcutsDialog onClose={closeShortcuts} /> : null}
 
       {id ? (
         <p className="penalis-fineprint">ID Karya Tulis: <strong>{id}</strong></p>

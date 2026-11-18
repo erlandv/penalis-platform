@@ -207,6 +207,28 @@
   margin-left: auto;
 }
 
+/**
+ * Hide the keyboard-shortcut trigger where there is no keyboard.
+ *
+ * The button exists so a writer can discover `?`; on a touch screen it is a
+ * slot taken from a bar that already wraps to three rows, and it advertises
+ * something the device cannot do.
+ *
+ * The test is input modality, not viewport width: a narrow desktop window
+ * (split screen) still has a keyboard and keeps the button, while a tablet at
+ * 1024px does not. `pointer: coarse` matches the primary pointing device, so a
+ * touch laptop driven by its trackpad still counts as a desktop. A tablet with
+ * a physical keyboard keeps working shortcuts — it only loses the reminder.
+ *
+ * The class is doubled because `.penalis-icon-button` sets `display` at the
+ * same specificity and is imported later; a single class would lose.
+ */
+@media (pointer: coarse) {
+  .penalis-icon-button.penalis-shortcuts-trigger {
+    display: none;
+  }
+}
+
 /*
  * Save state. `min-height` reserves the line so the bar does not jump when the
  * text changes from "Belum disimpan" to "Menyimpan…" to "Tersimpan 14:32".

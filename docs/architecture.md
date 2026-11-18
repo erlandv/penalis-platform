@@ -714,5 +714,39 @@ the field would turn red on the first character and stay red until the last.
   who submits a mismatched pair gets the same rejection as before, and no
   JavaScript at all only loses the early warning.
 
+### 7.13 Editor Keyboard Shortcuts
+`src/lib/shortcuts.ts` maps `Ctrl/Cmd+S` to save, `Ctrl/Cmd+Enter` to the submit
+confirmation, and `?` to the shortcut reference. Both decisions — which chord is
+which shortcut, and whether a keystroke belongs to a text field — are pure
+functions, which is why they can be tested without a DOM.
+- **`Ctrl+S` must be intercepted:** in a browser it opens "save page", which is
+  never what a writer wants mid-sentence. `Ctrl+Shift+S` is deliberately left
+  alone so the browser keeps its "save as" meaning instead of silently becoming
+  a second save.
+- **`Ctrl+Enter` opens the confirmation, never submits:** submitting locks the
+  article until an administrator decides, so the keyboard takes the writer to
+  the same dialog as the button rather than skipping the explanation.
+- **`?` is a printable character:** the handler skips it whenever the event
+  target is a form control or a `contenteditable` element, or sits inside one.
+  Without that check the first question mark in a manuscript would open a dialog
+  instead of appearing on the page. `Ctrl+S` and `Ctrl+Enter` still work there —
+  that is where a writer actually is when reaching for them.
+- **The listener captures:** the rich text editor handles keydown on its own
+  element and may stop propagation, which would hide `Ctrl+S` from a bubbling
+  listener. Capturing is safe because no printable character is intercepted.
+- **Shortcuts are inert while a dialog is open,** but `preventDefault()` still
+  runs: leaving `Ctrl+S` to the browser would stack the "save page" prompt on
+  top of the editor's own dialog.
+- **The trigger is hidden on touch screens:** the `?` button advertises
+  something a phone cannot do and costs a slot in an action bar that already
+  wraps. The test is `@media (pointer: coarse)`, not viewport width — a narrow
+  desktop window still has a keyboard, a tablet at 1024px does not. The
+  keyboard handler itself stays active everywhere, so a tablet with a physical
+  keyboard keeps working shortcuts and only loses the reminder.
+- **`window.confirm` is gone:** leaving the editor with unsaved work now uses
+  `ConfirmDialog`, which can name the article and focuses "Tetap di sini" first.
+  `beforeunload` stays as-is — closing a tab is the one prompt the browser owns,
+  and it cannot be replaced by page UI.
+
 
 
