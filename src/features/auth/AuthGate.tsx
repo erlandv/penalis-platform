@@ -18,7 +18,7 @@ import {
 import { describedBy } from '../../lib/a11y';
 import { toActiveChallenge, type ActiveChallenge } from '../../lib/otp';
 import { ErrorBanner, FieldError, FieldHint, HoneypotField, Notice } from '../../components/ui';
-import { shouldShowAuthBackNav } from './authNav';
+import { resolveEntryMode, shouldShowAuthBackNav } from './authNav';
 import { EmailRequestForm } from './EmailRequestForm';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
@@ -49,36 +49,28 @@ const DESCRIPTIONS: Record<Mode, string> = {
 };
 
 /**
- * Which mode a deep link opens.
- *
- * Every form has a flag parameter so the public site can link straight to it:
- *
- * | Parameter | Opens |
- * | --- | --- |
- * | `penalis_signin=1` | Login (also the default) |
- * | `penalis_register=1` | Registration |
- * | `penalis_activate=1` | Legacy account activation |
- * | `penalis_forgot=1` | Password reset request |
+ * Which mode a deep link opens lives in `authNav.ts` so the fallback for a
+ * closed registration can be unit tested without rendering the form.
  */
-function initialMode(): Mode {
-  if (hasParam(DEEPLINK.register)) {
-    return 'register';
-  }
-
-  if (hasParam(DEEPLINK.activate)) {
-    return 'activate';
-  }
-
-  if (hasParam(DEEPLINK.forgot)) {
-    return 'forgot';
-  }
-
-  return 'login';
-}
 
 export function AuthGate() {
   const bootstrap = getBootstrap();
-  const [mode, setMode] = useState<Mode>(initialMode);
+  // Deep links open one form each; registration is the only one that can be
+  // closed site-wide, so a stale ?penalis_register=1 link lands on login.
+  const [mode, setMode] = useState<Mode>(() =>
+    resolveEntryMode(
+      {
+        register: hasParam(DEEPLINK.register),
+        activate: hasParam(DEEPLINK.activate),
+        forgot: hasParam(DEEPLINK.forgot),
+      },
+      bootstrap.registration,
+    ),
+  );
+  // Explains the fallback above, so the visitor does not think the link is broken.
+  const [registrationClosed] = useState(
+    () => hasParam(DEEPLINK.register) && !bootstrap.registration,
+  );
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   // Kept outside ActivateForm so a writer who mistyped the address can step
   // back from the code screen and correct it without retyping everything.
@@ -147,6 +139,11 @@ export function AuthGate() {
         ) : null}
         {mode === 'login' && turnstileFailed ? (
           <ErrorBanner message="Verifikasi keamanan (CAPTCHA) gagal atau kedaluwarsa. Silakan coba lagi." />
+        ) : null}
+        {mode === 'login' && registrationClosed ? (
+          <Notice tone="warning">
+            Pendaftaran penulis baru sedang ditutup. Silakan masuk dengan akun yang sudah ada.
+          </Notice>
         ) : null}
 
         {mode === 'login' ? <LoginForm /> : null}

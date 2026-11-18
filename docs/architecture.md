@@ -381,11 +381,13 @@ No custom database tables are created.
 | Key | Kind | Purpose |
 | --- | --- | --- |
 | `penalis_platform_version` | Option | Installed plugin version for `maybe_upgrade()` |
-| `penalis_registration_enabled` | Option | Enables/disables public writer registration (`1`/`0`, default `1`) |
+| `penalis_registration_enabled` | Option | Public writer registration switch (`1`/`0`, default `1`), managed on **Pengaturan → Pendaftaran** |
+| `penalis_registration_audit` | Option | Last registration switch change: `state`, `user_id`, `user_login`, `time` |
 | `penalis_email_templates` | Option | Serialized associative array containing custom subjects, bodies, and footers for transactional emails |
 | `penalis_dashboard_page_id` | Option | Page ID of the `/dashboard/` page |
 | `penalis_dashboard_page_created_by_plugin` | Option | Guard ensuring uninstall only removes a plugin-created page |
-| `penalis_remove_data_on_uninstall` | Option | Opt-in flag (`1`/`0`) for destructive uninstall |
+| `penalis_remove_data_on_uninstall` | Option | Opt-in flag (`1`/`0`, default `0`) for destructive uninstall, managed on **Pengaturan → Data** |
+| `penalis_remove_data_audit` | Option | Last uninstall opt-in change: `state`, `user_id`, `user_login`, `time` |
 | `penalis_dashboard_captcha_enabled` | Option | Dashboard-only CAPTCHA switch (`1`/`0`, default `1`). Never mirrors `cfturnstile_login`/`_register`/`_reset` |
 | `penalis_dashboard_captcha_audit` | Option | Last CAPTCHA switch change: `state`, `user_id`, `user_login`, `time` |
 | `avatar_default_wp_user_avatar` | Option | Default profile photo attachment ID (shared with One User Avatar) |
@@ -565,6 +567,23 @@ the curation screens slowly mixed account work with configuration.
   `Penalis_Settings::render_avatar_tab()`. Handlers keep their own
   `admin_post_*` actions and redirect back with `penalis_message` /
   `penalis_error`, so a tab never renders its own notices.
+- **Tab order encodes risk:** Keamanan, Pendaftaran, Foto Profil, Email, then
+  Data. Destructive configuration is last so it is never one stray click away
+  from the screens an administrator uses daily.
+- **Every switch is audited:** the CAPTCHA switch, the registration switch, and
+  the uninstall opt-in each write their own `*_audit` option (`state`,
+  `user_id`, `user_login`, `time`) through one `record_audit()` helper. When a
+  feature silently stops working, "who changed this and when" is the first
+  question, and it should not need a separate log table.
+- **Destructive settings need a typed confirmation:** enabling data removal
+  requires typing `HAPUS`, and only on the off → on transition.
+  `Penalis_Settings::is_data_confirmation_valid()` holds that rule so it is unit
+  tested instead of living only inside the POST handler.
+- **Registration is gated twice:** the server rejects signups when the switch is
+  closed (`penalis_registration_closed`, 403), and the SPA hides the entry point
+  *and* falls back to login for a stale `?penalis_register=1` deep link
+  (`resolveEntryMode()` in `src/features/auth/authNav.ts`). Legacy activation,
+  login, and password reset are deliberately untouched by the switch.
 - **Server-rendered tabs:** `&tab=<slug>` survives reloads, can be bookmarked,
   and lets a redirect land on the right group. JavaScript tab switching is only
   used *inside* the Email tab, for the template groups.

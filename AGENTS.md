@@ -63,8 +63,10 @@ administrators and editors:
 register -> verify email -> active writer -> write draft in /dashboard/ -> submit for review -> admin approves & publishes
 ```
 
-- Anyone can register (or registration can be toggled via the
-  `penalis_registration_enabled` option).
+- Anyone can register while **Penalis → Pengaturan → Pendaftaran** is open
+  (`penalis_registration_enabled`, default `1`). Closing it never touches
+  existing accounts, and the legacy activation, login, and password reset flows
+  keep working.
 - Once the writer verifies their email address, their account immediately
   becomes `active` (`penalis_writer` role, `_penalis_access_enabled = 1`) —
   no administrator account approval is required.

@@ -4339,9 +4339,9 @@ penalis_same( array(), Penalis_Settings::audit(), 'The audit trail is empty unti
 $penalis_settings_tabs = Penalis_Settings::tabs();
 
 penalis_same(
-	array( 'captcha', 'avatar', 'email' ),
+	array( 'captcha', 'registration', 'avatar', 'email', 'data' ),
 	array_keys( $penalis_settings_tabs ),
-	'The settings screen exposes Keamanan, Foto Profil, and Email tabs in that order.'
+	'The settings screen exposes Keamanan, Pendaftaran, Foto Profil, Email, and Data tabs in that order.'
 );
 
 foreach ( $penalis_settings_tabs as $penalis_tab_slug => $penalis_tab_meta ) {
@@ -4532,6 +4532,77 @@ penalis_same( 'Incomplete, the site key or secret key is missing', $penalis_miss
 penalis_same( 'Missing', $penalis_missing_key_rows[2], 'The site key row reports the key as missing.' );
 
 $GLOBALS['penalis_test_options']['cfturnstile_key'] = 'site-key';
+
+/* -------------------------------------------------------------------------
+ * Settings screen: registration switch and uninstall opt-in
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+
+penalis_same(
+	'penalis_registration_enabled',
+	Penalis_Settings::OPTION_REGISTRATION_ENABLED,
+	'The registration switch writes the option the signup workflow already reads.'
+);
+penalis_same(
+	'penalis_remove_data_on_uninstall',
+	Penalis_Settings::OPTION_REMOVE_DATA,
+	'The data opt-in writes the option uninstall.php reads.'
+);
+
+penalis_same( true, Penalis_Settings::is_registration_enabled(), 'Registration is open by default, matching the activator.' );
+penalis_same( false, Penalis_Settings::should_remove_data(), 'Data removal stays off until an administrator opts in.' );
+penalis_same( array(), Penalis_Settings::registration_audit(), 'The registration audit trail is empty until the switch is changed.' );
+penalis_same( array(), Penalis_Settings::remove_data_audit(), 'The opt-in audit trail is empty until the switch is changed.' );
+
+$GLOBALS['penalis_test_options']['penalis_registration_enabled'] = '0';
+
+penalis_same( false, Penalis_Settings::is_registration_enabled(), 'The settings reader follows a closed registration switch.' );
+
+$penalis_closed_signup = Penalis_Registration::register(
+	array(
+		'display_name'    => 'Calon Penulis',
+		'user_login'      => 'calon_penulis',
+		'user_email'      => 'calon@example.com',
+		'password'        => 'P@ssw0rdKuat1234!',
+		'penalis_consent' => '1',
+		'penalis_website' => '',
+	)
+);
+
+penalis_same(
+	'penalis_registration_closed',
+	$penalis_closed_signup->get_error_code(),
+	'A closed registration rejects signups on the server, not only in the interface.'
+);
+penalis_same(
+	403,
+	$penalis_closed_signup->get_error_data()['status'],
+	'The closed registration error keeps the 403 status the SPA expects.'
+);
+
+$GLOBALS['penalis_test_options']['penalis_registration_enabled'] = '1';
+
+penalis_same( true, Penalis_Settings::is_registration_enabled(), 'Reopening registration restores signups.' );
+
+penalis_same( '0', Penalis_Settings::sanitize_opt_in( '' ), 'A missing opt-in value keeps the data.' );
+penalis_same( '0', Penalis_Settings::sanitize_opt_in( 'garbage' ), 'A malformed opt-in value keeps the data.' );
+penalis_same( '1', Penalis_Settings::sanitize_opt_in( '1' ), 'An explicit 1 opts in to data removal.' );
+
+$GLOBALS['penalis_test_options']['penalis_remove_data_on_uninstall'] = '1';
+
+penalis_same( true, Penalis_Settings::should_remove_data(), 'The opt-in reader follows a stored 1.' );
+
+penalis_same(
+	'Ketik HAPUS pada kolom konfirmasi untuk mengaktifkan penghapusan data.',
+	Penalis_Settings::error_for( 'data_confirm' ),
+	'The data tab explains the typed confirmation when it is missing.'
+);
+
+penalis_same( true, Penalis_Settings::is_data_confirmation_valid( 'HAPUS' ), 'The exact confirmation word is accepted.' );
+penalis_same( true, Penalis_Settings::is_data_confirmation_valid( ' hapus ' ), 'Case and surrounding whitespace are ignored.' );
+penalis_same( false, Penalis_Settings::is_data_confirmation_valid( '' ), 'An empty confirmation is rejected.' );
+penalis_same( false, Penalis_Settings::is_data_confirmation_valid( 'HAPUSKAN' ), 'A longer word is not mistaken for the confirmation.' );
 
 /* -------------------------------------------------------------------------
  * Report

@@ -40,6 +40,33 @@ final class Penalis_Settings {
 	public const OPTION_CAPTCHA_AUDIT = 'penalis_dashboard_captcha_audit';
 
 	/**
+	 * Option holding the public registration switch (`1` open, `0` closed).
+	 *
+	 * The activator seeds it as `1` and `Penalis_Registration` is the only
+	 * reader, so this screen writes the same option the signup flow already
+	 * trusts. Closing registration never touches existing accounts.
+	 */
+	public const OPTION_REGISTRATION_ENABLED = 'penalis_registration_enabled';
+
+	/**
+	 * Option recording who last opened or closed registration.
+	 */
+	public const OPTION_REGISTRATION_AUDIT = 'penalis_registration_audit';
+
+	/**
+	 * Option holding the opt-in data removal flag (`1` remove, `0` keep).
+	 *
+	 * Read by `uninstall.php` only. A missing option means "keep everything",
+	 * which is the documented default.
+	 */
+	public const OPTION_REMOVE_DATA = 'penalis_remove_data_on_uninstall';
+
+	/**
+	 * Option recording who last changed the uninstall opt-in.
+	 */
+	public const OPTION_REMOVE_DATA_AUDIT = 'penalis_remove_data_audit';
+
+	/**
 	 * Register hooks.
 	 *
 	 * @return void
@@ -49,6 +76,8 @@ final class Penalis_Settings {
 		add_action( 'admin_notices', array( __CLASS__, 'render_captcha_warning' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_scripts' ) );
 		add_action( 'admin_post_penalis_save_captcha', array( __CLASS__, 'handle_save_captcha' ) );
+		add_action( 'admin_post_penalis_save_registration', array( __CLASS__, 'handle_save_registration' ) );
+		add_action( 'admin_post_penalis_save_data', array( __CLASS__, 'handle_save_data' ) );
 	}
 
 	/**
@@ -161,20 +190,30 @@ JS;
 	 */
 	public static function tabs() {
 		return array(
-			'captcha' => array(
+			'captcha'      => array(
 				'label'  => 'Keamanan',
 				'title'  => 'Keamanan & CAPTCHA',
 				'render' => array( __CLASS__, 'render_captcha_tab' ),
 			),
-			'avatar'  => array(
+			'registration' => array(
+				'label'  => 'Pendaftaran',
+				'title'  => 'Pendaftaran Penulis',
+				'render' => array( __CLASS__, 'render_registration_tab' ),
+			),
+			'avatar'       => array(
 				'label'  => 'Foto Profil',
 				'title'  => 'Foto Profil Bawaan',
 				'render' => array( __CLASS__, 'render_avatar_tab' ),
 			),
-			'email'   => array(
+			'email'        => array(
 				'label'  => 'Email',
 				'title'  => 'Pengaturan Email',
 				'render' => array( 'Penalis_Email_Settings', 'render_tab' ),
+			),
+			'data'         => array(
+				'label'  => 'Data',
+				'title'  => 'Data & Uninstall',
+				'render' => array( __CLASS__, 'render_data_tab' ),
 			),
 		);
 	}
@@ -226,6 +265,64 @@ JS;
 	 */
 	public static function audit() {
 		$audit = get_option( self::OPTION_CAPTCHA_AUDIT, array() );
+
+		return is_array( $audit ) && isset( $audit['time'] ) ? $audit : array();
+	}
+
+	/**
+	 * Audit entry for the most recent registration switch change.
+	 *
+	 * @return array<string,mixed> Empty when the switch has never been changed.
+	 */
+	public static function registration_audit() {
+		$audit = get_option( self::OPTION_REGISTRATION_AUDIT, array() );
+
+		return is_array( $audit ) && isset( $audit['time'] ) ? $audit : array();
+	}
+
+	/**
+	 * Whether public registration is open.
+	 *
+	 * Delegates to the workflow class so the settings screen and the signup
+	 * endpoint can never disagree about the state of the switch.
+	 *
+	 * @return bool
+	 */
+	public static function is_registration_enabled() {
+		return Penalis_Registration::is_registration_enabled();
+	}
+
+	/**
+	 * Normalize the uninstall opt-in.
+	 *
+	 * The opposite default to `sanitize_state()`: data removal is destructive,
+	 * so only an explicit `1` opts in and anything malformed keeps the data.
+	 *
+	 * @param mixed $value Raw submitted value.
+	 * @return string `1` or `0`.
+	 */
+	public static function sanitize_opt_in( $value ) {
+		$value = is_scalar( $value ) ? sanitize_key( (string) $value ) : '';
+
+		return '1' === $value ? '1' : '0';
+	}
+
+	/**
+	 * Whether the site opted in to data removal on uninstall.
+	 *
+	 * @return bool
+	 */
+	public static function should_remove_data() {
+		return '1' === (string) get_option( self::OPTION_REMOVE_DATA, '0' );
+	}
+
+	/**
+	 * Audit entry for the most recent uninstall opt-in change.
+	 *
+	 * @return array<string,mixed> Empty when the opt-in has never been changed.
+	 */
+	public static function remove_data_audit() {
+		$audit = get_option( self::OPTION_REMOVE_DATA_AUDIT, array() );
 
 		return is_array( $audit ) && isset( $audit['time'] ) ? $audit : array();
 	}
@@ -324,6 +421,7 @@ JS;
 	public static function error_for( $key ) {
 		$errors = array(
 			'avatar_invalid' => 'Pilih gambar yang valid untuk foto profil bawaan.',
+			'data_confirm'   => 'Ketik HAPUS pada kolom konfirmasi untuk mengaktifkan penghapusan data.',
 		);
 
 		$key = sanitize_key( (string) $key );
@@ -499,6 +597,90 @@ JS;
 	}
 
 	/**
+	 * Render the Pendaftaran tab.
+	 *
+	 * @return void
+	 */
+	public static function render_registration_tab() {
+		$open  = self::is_registration_enabled();
+		$audit = self::registration_audit();
+		?>
+		<div class="penalis-settings__panel">
+			<h2>Pendaftaran penulis baru</h2>
+			<p class="description">
+				Mengatur apakah pengunjung dapat membuat akun penulis sendiri dari
+				<code>/dashboard/</code>. Menutup pendaftaran tidak mengunci situs: login, akun
+				penulis yang sudah aktif, reset password, dan aktivasi kontributor lama tetap
+				berjalan seperti biasa.
+			</p>
+
+			<?php if ( ! $open ) : ?>
+				<div class="notice notice-warning inline">
+					<p>
+						<strong>Pendaftaran sedang ditutup.</strong> Pengunjung baru tidak dapat membuat
+						akun penulis.<?php echo esc_html( self::audit_sentence( $audit, 'Ditutup' ) ); ?>
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="penalis_save_registration" />
+				<?php wp_nonce_field( 'penalis_save_registration' ); ?>
+
+				<fieldset class="penalis-settings__group">
+					<legend>Status pendaftaran</legend>
+
+					<div class="penalis-settings__choice">
+						<input
+							type="radio"
+							id="penalis-registration-open"
+							name="penalis_registration_enabled"
+							value="1"
+							aria-describedby="penalis-registration-open-help"
+							<?php checked( $open ); ?>
+						/>
+						<div class="penalis-settings__choice-text">
+							<label for="penalis-registration-open">Terbuka (disarankan)</label>
+							<p class="description" id="penalis-registration-open-help">
+								Tombol &ldquo;Buat Akun Penalis&rdquo; tampil di dashboard dan formulir
+								pendaftaran menerima akun baru.
+							</p>
+						</div>
+					</div>
+
+					<div class="penalis-settings__choice">
+						<input
+							type="radio"
+							id="penalis-registration-closed"
+							name="penalis_registration_enabled"
+							value="0"
+							aria-describedby="penalis-registration-closed-help"
+							<?php checked( ! $open ); ?>
+						/>
+						<div class="penalis-settings__choice-text">
+							<label for="penalis-registration-closed">Ditutup sementara</label>
+							<p class="description" id="penalis-registration-closed-help">
+								Formulir pendaftaran ditolak di server, termasuk lewat tautan
+								<code>?penalis_register=1</code>. Akun yang sudah ada tidak terpengaruh.
+							</p>
+						</div>
+					</div>
+				</fieldset>
+
+				<p class="penalis-settings__note">
+					Selama pendaftaran ditutup, alur berikut tetap tersedia: login, aktivasi akun
+					kontributor lama, reset password, dan seluruh pekerjaan penulis yang sudah aktif.
+				</p>
+
+				<p class="submit">
+					<button type="submit" class="button button-primary">Simpan pengaturan</button>
+				</p>
+			</form>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render the Foto Profil tab.
 	 *
 	 * @return void
@@ -540,6 +722,104 @@ JS;
 					</div>
 				</div>
 			</form>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the Data tab.
+	 *
+	 * @return void
+	 */
+	public static function render_data_tab() {
+		$remove = self::should_remove_data();
+		$audit  = self::remove_data_audit();
+		?>
+		<div class="penalis-settings__panel">
+			<h2>Data saat plugin dihapus</h2>
+			<p class="description">
+				Secara bawaan, menghapus plugin Penalis Platform tidak menghapus data apa pun.
+				Pilihan di bawah ini hanya berlaku ketika plugin benar-benar dihapus dari halaman
+				Plugins, bukan ketika dinonaktifkan.
+			</p>
+
+			<?php if ( $remove ) : ?>
+				<div class="notice notice-error inline">
+					<p>
+						<strong>Penghapusan data sedang aktif.</strong> Jika plugin dihapus, data Penalis
+						akan dibuang permanen.<?php echo esc_html( self::audit_sentence( $audit, 'Diaktifkan' ) ); ?>
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="penalis_save_data" />
+				<?php wp_nonce_field( 'penalis_save_data' ); ?>
+
+				<fieldset class="penalis-settings__group">
+					<legend>Penghapusan data</legend>
+
+					<div class="penalis-settings__choice">
+						<input
+							type="checkbox"
+							id="penalis-remove-data"
+							name="penalis_remove_data"
+							value="1"
+							aria-describedby="penalis-remove-data-help"
+							<?php checked( $remove ); ?>
+						/>
+						<div class="penalis-settings__choice-text">
+							<label for="penalis-remove-data">Hapus data Penalis saat plugin dihapus</label>
+							<p class="description" id="penalis-remove-data-help">
+								Akun pengguna dan karya tulis tetap disimpan. Rincian data yang dibuang
+								ada di bawah formulir ini.
+							</p>
+						</div>
+					</div>
+
+					<div class="penalis-settings__confirm">
+						<label for="penalis-remove-data-confirm">
+							Ketik <code>HAPUS</code> untuk mengaktifkan
+						</label>
+						<input
+							type="text"
+							class="regular-text"
+							id="penalis-remove-data-confirm"
+							name="penalis_remove_data_confirm"
+							value=""
+							autocomplete="off"
+							aria-describedby="penalis-remove-data-confirm-help"
+						/>
+						<p class="description" id="penalis-remove-data-confirm-help">
+							Diperlukan hanya saat mengaktifkan penghapusan data. Membiarkannya kosong
+							saat opsi sudah aktif tidak mengubah apa pun.
+						</p>
+					</div>
+				</fieldset>
+
+				<p class="submit">
+					<button type="submit" class="button button-primary">Simpan pengaturan</button>
+				</p>
+			</form>
+
+			<h3>Yang dihapus saat plugin dihapus</h3>
+			<ul class="penalis-settings__list">
+				<li>Status akun dan metadata penulis Penalis pada setiap akun.</li>
+				<li>Metadata editorial pada karya tulis: status review, catatan revisi, dan riwayatnya.</li>
+				<li>Role <code>Penalis Writer</code>.</li>
+				<li>Opsi dan transient milik plugin ini.</li>
+				<li>
+					Halaman <code>/dashboard/</code>, hanya jika halaman itu dibuat oleh plugin ini.
+				</li>
+			</ul>
+
+			<h3>Yang tetap disimpan</h3>
+			<ul class="penalis-settings__list">
+				<li>Akun pengguna beserta alamat email dan password-nya.</li>
+				<li>Karya tulis, termasuk yang sudah terbit, beserta status publish-nya.</li>
+				<li>Media, kategori, tag, dan komentar.</li>
+				<li>Data milik plugin lain.</li>
+			</ul>
 		</div>
 		<?php
 	}
@@ -711,33 +991,118 @@ JS;
 
 		if ( $state !== $current ) {
 			update_option( self::OPTION_CAPTCHA_ENABLED, $state, false );
-			self::record_audit( $state );
+			self::record_audit( self::OPTION_CAPTCHA_AUDIT, $state );
 		}
 
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'            => self::PAGE_SLUG,
-					'tab'             => 'captcha',
-					'penalis_message' => 'saved',
-				),
-				admin_url( 'admin.php' )
-			)
-		);
+		self::redirect_to_tab( 'captcha' );
+	}
+
+	/**
+	 * Handle the registration switch submission.
+	 *
+	 * Closing registration never touches existing accounts, so this handler only
+	 * writes the option the signup workflow already reads.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_registration() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_save_registration' );
+
+		$state = self::sanitize_state( isset( $_POST['penalis_registration_enabled'] ) ? wp_unslash( $_POST['penalis_registration_enabled'] ) : '' ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Normalized by sanitize_state().
+
+		$current = self::is_registration_enabled() ? '1' : '0';
+
+		if ( $state !== $current ) {
+			update_option( self::OPTION_REGISTRATION_ENABLED, $state, false );
+			self::record_audit( self::OPTION_REGISTRATION_AUDIT, $state );
+		}
+
+		self::redirect_to_tab( 'registration' );
+	}
+
+	/**
+	 * Handle the uninstall opt-in submission.
+	 *
+	 * Enabling data removal is destructive, so the transition from off to on
+	 * requires the typed confirmation the screen asks for. Turning it off is
+	 * always allowed without it.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_data() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_save_data' );
+
+		$state   = self::sanitize_opt_in( isset( $_POST['penalis_remove_data'] ) ? wp_unslash( $_POST['penalis_remove_data'] ) : '' ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Normalized by sanitize_opt_in().
+		$current = self::should_remove_data() ? '1' : '0';
+
+		if ( '1' === $state && '0' === $current ) {
+			$confirm = isset( $_POST['penalis_remove_data_confirm'] ) ? sanitize_text_field( wp_unslash( $_POST['penalis_remove_data_confirm'] ) ) : '';
+
+			if ( ! self::is_data_confirmation_valid( $confirm ) ) {
+				self::redirect_to_tab( 'data', '', array( 'penalis_error' => 'data_confirm' ) );
+			}
+		}
+
+		if ( $state !== $current ) {
+			update_option( self::OPTION_REMOVE_DATA, $state, false );
+			self::record_audit( self::OPTION_REMOVE_DATA_AUDIT, $state );
+		}
+
+		self::redirect_to_tab( 'data' );
+	}
+
+	/**
+	 * Whether a submitted confirmation matches the word the screen asks for.
+	 *
+	 * Case and surrounding whitespace are ignored so a mobile keyboard that
+	 * capitalizes automatically does not block a deliberate confirmation.
+	 *
+	 * @param string $value Raw submitted value.
+	 * @return bool
+	 */
+	public static function is_data_confirmation_valid( $value ) {
+		return 'HAPUS' === strtoupper( trim( (string) $value ) );
+	}
+
+	/**
+	 * Redirect back to a settings tab with feedback.
+	 *
+	 * @param string               $tab     Tab slug.
+	 * @param string               $message Success message key; empty for none.
+	 * @param array<string,string> $args    Extra query arguments.
+	 * @return void
+	 */
+	private static function redirect_to_tab( $tab, $message = 'saved', array $args = array() ) {
+		$query = array_merge( array( 'tab' => $tab ), $args );
+
+		if ( '' !== $message ) {
+			$query['penalis_message'] = $message;
+		}
+
+		wp_safe_redirect( self::url( $query ) );
 		exit;
 	}
 
 	/**
-	 * Record who changed the switch and when.
+	 * Record who changed a switch and when.
 	 *
-	 * @param string $state New state (`1` or `0`).
+	 * @param string $option Audit option name.
+	 * @param string $state  New state (`1` or `0`).
 	 * @return void
 	 */
-	private static function record_audit( $state ) {
+	private static function record_audit( $option, $state ) {
 		$user = wp_get_current_user();
 
 		update_option(
-			self::OPTION_CAPTCHA_AUDIT,
+			$option,
 			array(
 				'state'      => (string) $state,
 				'user_id'    => $user ? (int) $user->ID : 0,
@@ -745,6 +1110,28 @@ JS;
 				'time'       => time(),
 			),
 			false
+		);
+	}
+
+	/**
+	 * Human sentence describing who last changed a switch and when.
+	 *
+	 * @param array<string,mixed> $audit Audit entry.
+	 * @param string              $verb  Past-tense verb, e.g. "Ditutup".
+	 * @return string Empty when there is no audit entry.
+	 */
+	private static function audit_sentence( $audit, $verb ) {
+		if ( empty( $audit ) || ! isset( $audit['time'] ) ) {
+			return '';
+		}
+
+		$who = isset( $audit['user_login'] ) && '' !== (string) $audit['user_login'] ? (string) $audit['user_login'] : 'administrator';
+
+		return sprintf(
+			' %s pada %s oleh %s.',
+			$verb,
+			Penalis_Datetime::format( (int) $audit['time'], 'j M Y H:i' ),
+			$who
 		);
 	}
 }
