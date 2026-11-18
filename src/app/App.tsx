@@ -178,9 +178,22 @@ export function App() {
     () => readParam(DEEPLINK.resetLogin) ?? readParam(DEEPLINK.legacyResetLogin) ?? '',
   );
 
-  const loadAccount = useCallback(async () => {
-    setLoading(true);
-    setError('');
+  /**
+   * Refresh the account payload.
+   *
+   * `silent` exists for one reason: the loading gate below replaces the whole
+   * shell, which unmounts the editor and everything it holds in memory.
+   * Background refreshes — after a save, so the article counts stay current —
+   * must not do that, and must not sign the writer out mid-sentence either.
+   * The editor reports a dead session in place, with the text still intact.
+   */
+  const loadAccount = useCallback(async (options: { silent?: boolean } = {}) => {
+    const silent = options.silent ?? false;
+
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
 
     try {
       const result = await accountApi.get();
@@ -188,6 +201,10 @@ export function App() {
       setSignedOut(false);
       setBlocked(false);
     } catch (caught) {
+      if (silent) {
+        return;
+      }
+
       if (caught instanceof ApiError && caught.status === 401) {
         setSignedOut(true);
       } else if (caught instanceof ApiError && caught.status === 403) {
@@ -196,7 +213,9 @@ export function App() {
         setError(caught instanceof ApiError ? caught.message : 'Akun kamu tidak dapat dimuat.');
       }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -424,7 +443,10 @@ export function App() {
           articleId={editingId}
           focus={editorFocus}
           onSaved={() => {
-            void loadAccount();
+            // Counts only. The editor has already put the draft id in the URL,
+            // and a full reload here would throw away the caret and any text
+            // typed while the save was in flight.
+            void loadAccount({ silent: true });
           }}
           onCancel={() => navigate('articles')}
         />

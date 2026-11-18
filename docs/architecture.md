@@ -50,6 +50,7 @@ penalis-platform/
 │   ├── class-editorial-policy.php        Pure editorial state machine, review cycle, notification rules
 │   ├── class-editorial-workflow.php      Serialized editorial transitions, shared state query/count helpers, and post meta persistence
 │   ├── class-editorial-notifications.php Bounded dashboard notifications and editorial email dispatch
+│   ├── class-revisions.php               Revision limit for drafts so autosave cannot grow the history without bound
 │   ├── class-editorial-admin.php         Penalis → Review Karya Tulis admin review workspace
 │   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen, shared modal & asset helpers
 │   ├── class-email-settings.php          Penalis → Pengaturan Email customizable transactional email registry & admin console
@@ -590,6 +591,57 @@ the curation screens slowly mixed account work with configuration.
 - **Retired URLs redirect:** `?page=penalis-email-settings` forwards to
   `?page=penalis-settings&tab=email` on `admin_init` rather than being deleted,
   because bookmarks and old admin notices still point at it.
+
+### 7.10 Autosave Without Browser Storage
+A writer who loses a manuscript stops trusting the platform. The obvious fix —
+mirroring the draft into `localStorage` — was rejected: the privacy policy
+promises the dashboard never stores draft content on the device, and that
+promise matters most on a shared computer or a borrowed phone.
+- **Drafts live on the server:** autosave writes through the same
+  `POST /wp/v2/posts` endpoint as the button, so no manuscript ever exists in
+  `localStorage`, `sessionStorage`, or IndexedDB. The draft also follows the
+  writer to another device, which device storage could never do.
+- **Timing is a pure function:** `src/lib/autosave.ts` decides the delay —
+  four seconds after the writer pauses, at most one write every 20 seconds, at
+  most 60 seconds of unsaved work while typing continues, and 30 seconds of
+  backoff after a failure. Keeping it out of the component is what makes the
+  schedule testable.
+- **The 60-second cap is WordPress's own default:** `AUTOSAVE_INTERVAL` is
+  defined as `MINUTE_IN_SECONDS` in `wp-includes/default-constants.php`, so the
+  dashboard matches the number an administrator already knows instead of
+  inventing a second one.
+- **The minimum gap is what makes that number true:** an interval is a maximum
+  age, not a minimum spacing, so without the 20-second floor a writer who types
+  in bursts would still save every few seconds and the interval would describe
+  nothing.
+- **Why 60 seconds is safe here but would not be without the other layers:**
+  core's editor can afford the same interval because it mirrors the draft into
+  `sessionStorage` between saves (`wp-includes/js/dist/editor.js`). Penalis
+  keeps no local copy by design, so the hidden-tab flush and the recovery
+  banner carry the weight that local autosave carries in Gutenberg.
+- **A new article is created only when there is something to keep:** a title of
+  three characters or roughly 40 visible characters of body text. Merely
+  opening the editor still creates nothing.
+- **The nonce is refreshed in place, never by reloading:** `refreshNonce()`
+  calls core's `admin-ajax.php?action=rest-nonce`, which doubles as a session
+  probe — a nonce means the session is alive, `0` means it is gone. Writes
+  retry once with the new nonce, so a stale tab heals itself. Reloading is the
+  one recovery path that would destroy the very text it is meant to save.
+- **Failures surface where the writer is looking:** the sticky action bar
+  carries `Gagal menyimpan — sesi berakhir`, and the recovery banner keeps the
+  text in the tab behind three actions: retry, sign in from a new tab, or copy
+  the manuscript. Raw WordPress messages ("Cookie check failed") are never shown
+  for an authentication failure.
+- **Background refreshes must not remount the editor:** `loadAccount({ silent:
+  true })` skips the full-screen loading gate, because that gate replaces the
+  whole shell and would discard everything held in memory.
+- **Revisions are the cost, so drafts are capped at 20:** every autosave creates
+  a WordPress revision. `Penalis_Revisions` caps `wp_revisions_to_keep` for
+  `post` drafts, and a stricter site setting still wins — including `0`, which
+  keeps revisions disabled. Twenty is derived from the autosave cadence: one to
+  two writes a minute means ten to twenty minutes of recoverable history, and
+  an 8 KB article is capped at about 160 KB. Sites can change the depth with
+  the `penalis_draft_revisions` filter; returning `0` opts out of the cap.
 
 
 

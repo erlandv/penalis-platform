@@ -227,6 +227,16 @@
   border-width: 2px;
 }
 
+/*
+ * A failed save is not a neutral state: it is the difference between work that
+ * exists and work that does not. Colour carries that, and the wording stays
+ * explicit so colour is never the only signal.
+ */
+.penalis-save-state--error {
+  color: var(--penalis-danger);
+  font-weight: 500;
+}
+
 @media (max-width: 600px) {
   /*
    * On a phone the bar becomes a bottom bar: the actions are the most used

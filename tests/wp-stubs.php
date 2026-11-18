@@ -1013,15 +1013,61 @@ if ( ! function_exists( 'wp_password_change_notification' ) ) {
 	}
 }
 
+if ( ! function_exists( 'add_filter' ) ) {
+	/**
+	 * Register a filter callback for the test run.
+	 *
+	 * Callbacks are stored per hook and priority so a test can prove a filter
+	 * is wired to the hook the plugin actually uses. Nothing is registered by
+	 * default, which keeps `apply_filters()` a passthrough everywhere else.
+	 *
+	 * @param string   $hook          Hook name.
+	 * @param callable $callback      Callback.
+	 * @param int      $priority      Priority.
+	 * @param int      $accepted_args Accepted arguments.
+	 * @return bool
+	 */
+	function add_filter( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
+		if ( ! isset( $GLOBALS['penalis_test_filters'] ) ) {
+			$GLOBALS['penalis_test_filters'] = array();
+		}
+
+		$GLOBALS['penalis_test_filters'][ $hook ][ (int) $priority ][] = array( $callback, (int) $accepted_args );
+
+		return true;
+	}
+}
+
 if ( ! function_exists( 'apply_filters' ) ) {
 	/**
-	 * Filter passthrough.
+	 * Apply the callbacks registered for a hook.
 	 *
-	 * @param string $hook  Hook.
-	 * @param mixed  $value Value.
+	 * With no callbacks registered the value is returned unchanged, so this
+	 * behaves exactly like a passthrough for every hook a test does not touch.
+	 *
+	 * @param string $hook    Hook.
+	 * @param mixed  $value   Value.
+	 * @param mixed  ...$args Extra arguments for callbacks that accept them.
 	 * @return mixed
 	 */
-	function apply_filters( $hook, $value ) {
+	function apply_filters( $hook, $value, ...$args ) {
+		$by_priority = $GLOBALS['penalis_test_filters'][ $hook ] ?? array();
+
+		if ( array() === $by_priority ) {
+			return $value;
+		}
+
+		ksort( $by_priority );
+
+		foreach ( $by_priority as $callbacks ) {
+			foreach ( $callbacks as $entry ) {
+				$value = call_user_func_array(
+					$entry[0],
+					array_merge( array( $value ), array_slice( $args, 0, max( 0, $entry[1] - 1 ) ) )
+				);
+			}
+		}
+
 		return $value;
 	}
 }

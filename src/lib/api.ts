@@ -5,7 +5,7 @@
  * X-WP-Nonce header provides CSRF protection for authenticated writes.
  */
 
-import { getBootstrap } from './bootstrap';
+import { getBootstrap, getNonce, setNonce } from './bootstrap';
 import { decodeEntities } from './format';
 import { isUncategorizedTerm } from './validation';
 import type {
@@ -50,15 +50,150 @@ export function isStaleEditorialError(caught: unknown): boolean {
   );
 }
 
+/**
+ * Error codes that mean "this request was rejected before it did any work".
+ *
+ * WordPress answers a stale `wp_rest` nonce with `rest_cookie_invalid_nonce`
+ * (403) even when the login cookie is still valid, and a lost session with
+ * either `penalis_not_authenticated` (401, plugin routes) or
+ * `rest_cannot_create` (401, core post routes). All of them are safe to retry
+ * once with a fresh nonce, because the write never reached its handler.
+ */
+const AUTH_ERROR_CODES = new Set([
+  'rest_cookie_invalid_nonce',
+  'penalis_not_authenticated',
+  'rest_cannot_create',
+]);
+
+/**
+ * Whether an error means the browser is no longer authenticated.
+ *
+ * Used by the editor to replace a raw WordPress message with a recovery path.
+ * A 403 that reports an inactive account is deliberately excluded: the session
+ * is fine there, so telling the writer to log in again would be wrong.
+ */
+export function isAuthFailure(caught: unknown): boolean {
+  if (!(caught instanceof ApiError)) {
+    return false;
+  }
+
+  if (caught.status === 401) {
+    return true;
+  }
+
+  return caught.code === 'rest_cookie_invalid_nonce' || caught.code === 'penalis_not_authenticated';
+}
+
+/**
+ * Fetch a fresh `wp_rest` nonce for the current session.
+ *
+ * WordPress core exposes `admin-ajax.php?action=rest-nonce` for exactly this
+ * purpose, and it needs no nonce of its own: the login cookie authenticates
+ * the call. That makes it double as a session probe — a nonce comes back when
+ * the session is alive, and an empty/`0` answer when it is gone.
+ *
+ * Refreshing in place is what keeps an unsaved manuscript alive: the only
+ * other way to get a valid nonce is reloading the page, which discards it.
+ *
+ * @return The new nonce, or `null` when the session itself has ended.
+ */
+export async function refreshNonce(): Promise<string | null> {
+  const base = getBootstrap().homeUrl.replace(/\/+$/, '');
+  const url = `${base}/wp-admin/admin-ajax.php?action=rest-nonce`;
+
+  try {
+    const response = await fetchWithDeadline(
+      url,
+      {
+        credentials: 'same-origin',
+        headers: { Accept: 'text/plain' },
+      },
+      NONCE_TIMEOUT_MS,
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const nonce = (await response.text()).trim();
+
+    // A logged-out visitor receives `0`; anything that is not a core nonce
+    // shape is treated the same way rather than being sent as a header.
+    if (!/^[A-Za-z0-9]{8,32}$/.test(nonce)) {
+      return null;
+    }
+
+    setNonce(nonce);
+    return nonce;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Deadline for a JSON request.
+ *
+ * A request that never settles would leave the editor's `saving` flag stuck on
+ * "Menyimpan…", which silently disables autosave — the exact failure this
+ * client exists to prevent. Payloads here are small, so 45 seconds is generous.
+ */
+const REQUEST_TIMEOUT_MS = 45_000;
+
+/** Deadline for the nonce refresh, which must never block a retry. */
+const NONCE_TIMEOUT_MS = 10_000;
+
+/**
+ * Fetch with a deadline.
+ *
+ * Uploads are deliberately excluded: a large image on a slow connection can
+ * legitimately outlast any deadline worth setting, and aborting it would be
+ * worse than waiting.
+ */
+async function fetchWithDeadline(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  if (timeoutMs <= 0) {
+    return fetch(url, init);
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   absoluteUrl?: string;
   fallbackMessage?: string;
   networkMessage?: string;
+  /**
+   * Retry once with a freshly fetched nonce when WordPress rejects the request
+   * as unauthenticated. Enabled for writes only: a rejected write has not been
+   * applied, so replaying it cannot duplicate anything.
+   */
+  retryAuth?: boolean;
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+interface PreparedRequest {
+  url: string;
+  init: RequestInit;
+}
+
+/**
+ * Build a request right before sending it.
+ *
+ * Called again for the retry so the new nonce is picked up without the caller
+ * knowing anything happened.
+ */
+function prepareRequest(path: string, options: RequestOptions): PreparedRequest {
   const bootstrap = getBootstrap();
   const base = options.absoluteUrl ?? bootstrap.restUrl;
   const url = `${base.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
@@ -72,14 +207,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers['Content-Type'] = 'application/json';
   }
 
-  if (bootstrap.nonce) {
-    headers['X-WP-Nonce'] = bootstrap.nonce;
+  const nonce = getNonce();
+  if (nonce) {
+    headers['X-WP-Nonce'] = nonce;
   }
 
-  let response: Response;
-
-  try {
-    response = await fetch(url, {
+  return {
+    url,
+    init: {
       method: options.method ?? 'GET',
       credentials: 'same-origin',
       headers,
@@ -89,7 +224,19 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
           : isFormData
             ? (options.body as FormData)
             : JSON.stringify(options.body),
-    });
+    },
+  };
+}
+
+async function send(prepared: PreparedRequest, options: RequestOptions): Promise<Response> {
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+  try {
+    return await fetchWithDeadline(
+      prepared.url,
+      prepared.init,
+      isFormData ? 0 : REQUEST_TIMEOUT_MS,
+    );
   } catch {
     throw new ApiError(
       options.networkMessage ?? 'Server tidak dapat dihubungi. Periksa koneksi kamu lalu coba lagi.',
@@ -97,29 +244,53 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       0,
     );
   }
+}
+
+async function readPayload(response: Response): Promise<unknown> {
+  const contentType = response.headers.get('content-type') ?? '';
+  return contentType.includes('application/json') ? await response.json().catch(() => null) : null;
+}
+
+function toApiError(response: Response, payload: unknown, options: RequestOptions): ApiError {
+  const shape = (payload ?? {}) as ApiErrorShape;
+  const message =
+    typeof shape.message === 'string' && shape.message.length > 0
+      ? stripTags(shape.message)
+      : (options.fallbackMessage ?? 'Terjadi kesalahan. Silakan coba lagi.');
+
+  return new ApiError(message, shape.code ?? 'http_error', response.status, shape.data?.fields ?? {});
+}
+
+function isAuthErrorPayload(payload: unknown): boolean {
+  const shape = (payload ?? {}) as ApiErrorShape;
+  return typeof shape.code === 'string' && AUTH_ERROR_CODES.has(shape.code);
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  let response = await send(prepareRequest(path, options), options);
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  const contentType = response.headers.get('content-type') ?? '';
-  const payload: unknown = contentType.includes('application/json')
-    ? await response.json().catch(() => null)
-    : null;
+  let payload = await readPayload(response);
+
+  if (!response.ok && options.retryAuth && isAuthErrorPayload(payload)) {
+    const nonce = await refreshNonce();
+
+    if (nonce) {
+      response = await send(prepareRequest(path, options), options);
+
+      if (response.status === 204) {
+        return undefined as T;
+      }
+
+      payload = await readPayload(response);
+    }
+  }
 
   if (!response.ok) {
-    const shape = (payload ?? {}) as ApiErrorShape;
-    const message =
-      typeof shape.message === 'string' && shape.message.length > 0
-        ? stripTags(shape.message)
-        : (options.fallbackMessage ?? 'Terjadi kesalahan. Silakan coba lagi.');
-
-    throw new ApiError(
-      message,
-      shape.code ?? 'http_error',
-      response.status,
-      shape.data?.fields ?? {},
-    );
+    throw toApiError(response, payload, options);
   }
 
   return payload as T;
@@ -312,10 +483,12 @@ export const articlesApi = {
   review: (id: number) => request<ArticleReview>(`/articles/${id}/review`),
 
   /** Submit an owned draft article for administrator editorial review. */
-  submit: (id: number) => request<ArticleReview>(`/articles/${id}/submit`, { method: 'POST' }),
+  submit: (id: number) =>
+    request<ArticleReview>(`/articles/${id}/submit`, { method: 'POST', retryAuth: true }),
 
   /** Resubmit an owned article after administrator requested changes. */
-  resubmit: (id: number) => request<ArticleReview>(`/articles/${id}/resubmit`, { method: 'POST' }),
+  resubmit: (id: number) =>
+    request<ArticleReview>(`/articles/${id}/resubmit`, { method: 'POST', retryAuth: true }),
 
   /**
    * Create or update a draft through the native WordPress posts endpoint.
@@ -353,6 +526,7 @@ export const articlesApi = {
       method: 'POST',
       body,
       absoluteUrl: getBootstrap().wpRestUrl,
+      retryAuth: true,
     });
   },
 
@@ -388,7 +562,11 @@ export const taxonomyApi = {
   },
 
   createTag: (name: string) =>
-    request<{ id: number; name: string }>('/tags', { method: 'POST', body: { name } }).then((created) => ({
+    request<{ id: number; name: string }>('/tags', {
+      method: 'POST',
+      body: { name },
+      retryAuth: true,
+    }).then((created) => ({
       id: created.id,
       name: decodeEntities(created.name),
     })),
@@ -447,6 +625,7 @@ export const mediaApi = {
       absoluteUrl: getBootstrap().wpRestUrl,
       fallbackMessage: 'Gambar tidak dapat di-upload.',
       networkMessage: 'Gambar tidak dapat di-upload. Periksa koneksi kamu.',
+      retryAuth: true,
     });
 
     return mapWpMedia(media, file.name, file.type);

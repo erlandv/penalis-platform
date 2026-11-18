@@ -61,6 +61,7 @@ final class Penalis_Plugin {
 
 		Penalis_Access_Control::init();
 		Penalis_Editorial_Notifications::init();
+		Penalis_Revisions::init();
 		Penalis_Rest_Api::init();
 		Penalis_Dashboard::init();
 		Penalis_Authors::init();

@@ -377,3 +377,26 @@
   background: var(--penalis-accent-soft);
   color: var(--penalis-accent-strong);
 }
+
+/*
+ * Session recovery banner.
+ *
+ * The message and the actions sit in one block so the writer reads "your text
+ * is still here" before the buttons that could take them away from it. The
+ * actions wrap rather than shrink, because "Login di tab baru" must stay
+ * readable on a phone.
+ */
+.penalis-session-recovery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.penalis-session-recovery p {
+  margin: 0;
+}
+
+.penalis-session-recovery .penalis-row-actions {
+  margin-top: 0.25rem;
+}

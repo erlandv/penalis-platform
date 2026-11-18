@@ -51,6 +51,7 @@ require_once __DIR__ . '/../includes/class-legacy-activation.php';
 require_once __DIR__ . '/../includes/class-otp.php';
 require_once __DIR__ . '/../includes/class-email-change.php';
 require_once __DIR__ . '/../includes/class-turnstile.php';
+require_once __DIR__ . '/../includes/class-revisions.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -132,6 +133,7 @@ function penalis_reset() {
 	$GLOBALS['penalis_test_post_views']      = array();
 	$GLOBALS['penalis_test_post_updates']    = array();
 	$GLOBALS['penalis_test_password_notifications'] = array();
+	$GLOBALS['penalis_test_filters']         = array();
 	$GLOBALS['penalis_test_actions']         = array(
 		'after_password_reset' => array( 10 => array( 'wp_password_change_notification' ) ),
 	);
@@ -4603,6 +4605,85 @@ penalis_same( true, Penalis_Settings::is_data_confirmation_valid( 'HAPUS' ), 'Th
 penalis_same( true, Penalis_Settings::is_data_confirmation_valid( ' hapus ' ), 'Case and surrounding whitespace are ignored.' );
 penalis_same( false, Penalis_Settings::is_data_confirmation_valid( '' ), 'An empty confirmation is rejected.' );
 penalis_same( false, Penalis_Settings::is_data_confirmation_valid( 'HAPUSKAN' ), 'A longer word is not mistaken for the confirmation.' );
+
+/* -------------------------------------------------------------------------
+ * Draft revision limits
+ * ---------------------------------------------------------------------- */
+
+$GLOBALS['penalis_test_filters'] = array();
+
+$draft_post              = new WP_Post();
+$draft_post->ID          = 501;
+$draft_post->post_type   = 'post';
+$draft_post->post_status = 'draft';
+
+penalis_same(
+	Penalis_Revisions::DRAFT_LIMIT,
+	Penalis_Revisions::limit_draft_revisions( -1, $draft_post ),
+	'An unlimited site is capped for drafts.'
+);
+penalis_same(
+	Penalis_Revisions::DRAFT_LIMIT,
+	Penalis_Revisions::limit_draft_revisions( 500, $draft_post ),
+	'A very loose site limit is tightened for drafts.'
+);
+penalis_same( 5, Penalis_Revisions::limit_draft_revisions( 5, $draft_post ), 'A stricter site limit is kept.' );
+penalis_same( 0, Penalis_Revisions::limit_draft_revisions( 0, $draft_post ), 'A site that disabled revisions keeps them disabled.' );
+
+$published_post              = new WP_Post();
+$published_post->post_type   = 'post';
+$published_post->post_status = 'publish';
+
+penalis_same(
+	-1,
+	Penalis_Revisions::limit_draft_revisions( -1, $published_post ),
+	'Published articles keep the site limit.'
+);
+
+$page_post              = new WP_Post();
+$page_post->post_type   = 'page';
+$page_post->post_status = 'draft';
+
+penalis_same(
+	-1,
+	Penalis_Revisions::limit_draft_revisions( -1, $page_post ),
+	'Other post types keep the site limit.'
+);
+penalis_same( -1, Penalis_Revisions::limit_draft_revisions( -1, null ), 'A missing post is left alone.' );
+
+Penalis_Revisions::init();
+
+penalis_assert(
+	isset( $GLOBALS['penalis_test_filters']['wp_revisions_to_keep'] ),
+	'init() hooks the limit to the core revision filter.'
+);
+
+add_filter(
+	'penalis_draft_revisions',
+	static function () {
+		return 7;
+	}
+);
+
+penalis_same( 7, Penalis_Revisions::limit_draft_revisions( -1, $draft_post ), 'The filter can change the draft limit.' );
+penalis_same( 5, Penalis_Revisions::limit_draft_revisions( 5, $draft_post ), 'A stricter site limit still wins over the filter.' );
+
+$GLOBALS['penalis_test_filters'] = array();
+
+add_filter(
+	'penalis_draft_revisions',
+	static function () {
+		return 0;
+	}
+);
+
+penalis_same(
+	-1,
+	Penalis_Revisions::limit_draft_revisions( -1, $draft_post ),
+	'Returning 0 from the filter opts out of the plugin cap instead of disabling revisions.'
+);
+
+$GLOBALS['penalis_test_filters'] = array();
 
 /* -------------------------------------------------------------------------
  * Report
