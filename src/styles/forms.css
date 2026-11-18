@@ -241,6 +241,122 @@
 }
 
 /**
+ * Password strength meter.
+ *
+ * Four segments rather than a gradient so the score is countable, plus a text
+ * label that carries the same information in words. The track stays visible
+ * when empty, which is what makes "one segment lit" read as weak instead of
+ * as a stray line.
+ */
+.penalis-password-strength {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+
+.penalis-password-strength__meter {
+  display: flex;
+  gap: 4px;
+}
+
+.penalis-password-strength__segment {
+  flex: 1 1 0;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--penalis-border);
+  transition: background-color 160ms ease;
+}
+
+.penalis-password-strength__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.5rem;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.penalis-password-strength__label {
+  font-weight: 600;
+}
+
+.penalis-password-strength__hint {
+  color: var(--penalis-muted);
+}
+
+.penalis-password-strength[data-score='0'] .penalis-password-strength__segment.is-on,
+.penalis-password-strength[data-score='1'] .penalis-password-strength__segment.is-on {
+  background: var(--penalis-danger);
+}
+
+.penalis-password-strength[data-score='2'] .penalis-password-strength__segment.is-on {
+  background: var(--penalis-warning);
+}
+
+.penalis-password-strength[data-score='3'] .penalis-password-strength__segment.is-on {
+  background: var(--penalis-accent);
+}
+
+.penalis-password-strength[data-score='4'] .penalis-password-strength__segment.is-on {
+  background: var(--penalis-success);
+}
+
+.penalis-password-strength[data-score='0'] .penalis-password-strength__label,
+.penalis-password-strength[data-score='1'] .penalis-password-strength__label {
+  color: var(--penalis-danger);
+}
+
+.penalis-password-strength[data-score='2'] .penalis-password-strength__label {
+  color: var(--penalis-warning);
+}
+
+.penalis-password-strength[data-score='3'] .penalis-password-strength__label {
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-password-strength[data-score='4'] .penalis-password-strength__label {
+  color: var(--penalis-success);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .penalis-password-strength__segment {
+    transition: none;
+  }
+}
+
+/**
+ * Live match feedback under the confirmation field.
+ *
+ * The colour is doubled up with an icon and a sentence, so the verdict never
+ * depends on seeing red or green. Font size comes from `.penalis-field small`,
+ * which already sizes every small line inside a field, so the hint and the
+ * verdict read as one block. The modifier selectors are repeated to outrank
+ * that same rule for colour.
+ */
+.penalis-password-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  line-height: 1.45;
+}
+
+.penalis-password-match svg {
+  flex: 0 0 auto;
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.penalis-password-match.penalis-password-match--match {
+  color: var(--penalis-success);
+}
+
+.penalis-password-match.penalis-password-match--mismatch {
+  color: var(--penalis-danger);
+}
+
+/**
  * The theme sets `appearance: none` on selects without providing a replacement
  * arrow, which makes them indistinguishable from text inputs. Draw a chevron so
  * controls like "Display name publicly as" read as dropdowns.

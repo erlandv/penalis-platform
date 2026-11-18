@@ -26,6 +26,7 @@ export type IconName =
   | 'redo'
   | 'code'
   | 'close'
+  | 'check'
   | 'arrowLeft'
   | 'edit'
   | 'externalLink'
@@ -152,6 +153,11 @@ const paths: Record<IconName, ReactNode> = {
     <>
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
+    </>
+  ),
+  check: (
+    <>
+      <path d="m4 12.5 5 5L20 6.5" />
     </>
   ),
   arrowLeft: (

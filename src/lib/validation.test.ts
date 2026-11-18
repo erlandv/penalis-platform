@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_MISMATCH_MESSAGE,
   hasErrors,
   normalizeInstagram,
   normalizeLinkHref,
+  passwordMatchStatus,
   validateArticle,
   validateArticleSubmission,
   validateEmail,
   validateInstagram,
+  validatePasswordPair,
   validateResetEmail,
   validateRegistration,
   validateUsername,
@@ -293,5 +297,56 @@ describe('normalizeLinkHref', () => {
 
   it('rejects internal whitespace that would break the href', () => {
     expect(normalizeLinkHref('https://example.com/a b')).toBeNull();
+  });
+});
+
+describe('passwordMatchStatus', () => {
+  const password = 'correct horse battery';
+
+  it('stays idle while either field is empty', () => {
+    expect(passwordMatchStatus('', '')).toBe('idle');
+    expect(passwordMatchStatus(password, '')).toBe('idle');
+    expect(passwordMatchStatus('', password)).toBe('idle');
+  });
+
+  it('reports equality immediately', () => {
+    expect(passwordMatchStatus(password, password)).toBe('match');
+    expect(passwordMatchStatus(password, password, true)).toBe('match');
+  });
+
+  it('stays idle while the confirmation is still shorter than the password', () => {
+    expect(passwordMatchStatus(password, 'correct')).toBe('idle');
+  });
+
+  it('reports a mismatch once the confirmation is as long as the password', () => {
+    expect(passwordMatchStatus('abcdefgh1234', 'abcdefgh1235')).toBe('mismatch');
+  });
+
+  it('reports a mismatch for a longer confirmation', () => {
+    expect(passwordMatchStatus('abc', 'abcdef')).toBe('mismatch');
+  });
+
+  it('reports a mismatch as soon as the field has been visited', () => {
+    expect(passwordMatchStatus(password, 'correct', true)).toBe('mismatch');
+  });
+
+  it('clears the mismatch when the values agree again', () => {
+    expect(passwordMatchStatus(password, password, true)).toBe('match');
+  });
+});
+
+describe('validatePasswordPair', () => {
+  it('uses the same wording as the live hint', () => {
+    expect(validatePasswordPair('abcdefgh1234', 'abcdefgh1235')).toEqual({
+      confirm_password: PASSWORD_MISMATCH_MESSAGE,
+    });
+  });
+
+  it('flags a password below the minimum length', () => {
+    expect(validatePasswordPair('short', 'short').password).toContain(String(PASSWORD_MIN_LENGTH));
+  });
+
+  it('returns no errors for a matching pair that meets the minimum', () => {
+    expect(validatePasswordPair('abcdefgh1234', 'abcdefgh1234')).toEqual({});
   });
 });

@@ -80,7 +80,7 @@ penalis-platform/
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
 │   ├── authors/                          Separate public React entry point for [penalis_authors] directory (authors.css)
-│   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, TurnstileWidget
+│   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, PasswordMatchHint, PasswordPairFields, PasswordStrengthMeter, Toggle, TurnstileWidget
 │   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings
 │   ├── lib/                              Typed API client, validation, OTP challenge helpers, deeplinks, HTML/profile/crop helpers
 │   └── styles/                           Dashboard CSS: tokens.css, main.css (@import index), section files
@@ -662,6 +662,57 @@ promise matters most on a shared computer or a borrowed phone.
   two writes a minute means ten to twenty minutes of recoverable history, and
   an 8 KB article is capped at about 160 KB. Sites can change the depth with
   the `penalis_draft_revisions` filter; returning `0` opts out of the cap.
+
+### 7.11 Password Strength Meter Is Advisory Only
+The server enforces one password rule: `PASSWORD_MIN_LENGTH` characters. The
+meter in `src/components/PasswordStrengthMeter.tsx` deliberately does not add a
+second, stricter one.
+- **A client-only meter cannot lock anyone out:** if the browser rejected a
+  password the server would have accepted, a writer on another browser (or with
+  JavaScript disabled) would have no way to know which rule applied. Guidance
+  that is always satisfiable is worth more than a gate that disagrees with the
+  authority.
+- **Scoring is a rubric, not an entropy estimate:** `src/lib/passwordStrength.ts`
+  awards points for reaching 12 characters (2), 16 characters (1), mixed case
+  (1), a digit (1), a symbol (1), and variety (1), then maps 0–7 points onto the
+  five labels. Every point corresponds to something the writer can act on, which
+  is what makes the guidance line useful.
+- **Weak shapes are capped, not docked:** a single repeated character, digits
+  only, or a dictionary word with decoration (`P@ssword2024`) is limited to
+  "Lemah" no matter how the rubric scores it. Dictionary matching is by prefix
+  after undoing the usual substitutions, because appending digits to a known
+  word is the most common weak pattern and an exact match would miss it.
+- **The meter is part of the field's description:** it renders inside
+  `PasswordPairFields` (registration, legacy activation, password reset) and in
+  **Pengaturan → Ganti Password**, carries the `id` referenced by the input's
+  `aria-describedby`, and announces changes through `role="status"`. Its five
+  segments are `aria-hidden` decoration — the label carries the message, so the
+  score is never communicated by colour alone.
+- **Nothing is rendered before the first keystroke:** a meter pinned at "Sangat
+  lemah" for an untouched field is noise, and the persistent hint already states
+  the minimum length.
+
+### 7.12 Confirmation Feedback Waits for Certainty
+`passwordMatchStatus()` in `src/lib/validation.ts` decides what the confirmation
+field says while the writer is still typing. It exists because the obvious
+implementation — compare on every keystroke — is unusable: a confirmation being
+typed is always shorter than the password and therefore always "different", so
+the field would turn red on the first character and stay red until the last.
+- **Two triggers, one rule:** a mismatch is reported once the field has been
+  blurred at least once, or as soon as the confirmation is at least as long as
+  the password. The second trigger is safe because at that length the values can
+  no longer become equal without deleting something.
+- **Equality is never premature:** a match is reported the moment both fields
+  hold the same value, with no wait for blur. Positive feedback costs nothing.
+- **One sentence, two moments:** the submit-time validator and the live hint
+  share `PASSWORD_MISMATCH_MESSAGE`, so the writer does not read "Password tidak
+  cocok." from one and a reworded variant from the other.
+- **The hint and the submit error never stack:** when a submit error is present
+  the live hint steps aside, and a matched pair hides a stale error from the
+  previous submit instead of leaving it on screen until the next one.
+- **Still not enforcement:** the browser reports; the server decides. A writer
+  who submits a mismatched pair gets the same rejection as before, and no
+  JavaScript at all only loses the early warning.
 
 
 

@@ -22,11 +22,13 @@ import { formatDate } from '../../lib/format';
 import { describedBy } from '../../lib/a11y';
 import { toActiveChallenge, type ActiveChallenge } from '../../lib/otp';
 import { previewAuthorUrl } from '../../lib/profile';
-import { PASSWORD_MIN_LENGTH, validateEmail, validateUsername } from '../../lib/validation';
+import { PASSWORD_MIN_LENGTH, passwordMatchStatus, validateEmail, validateUsername } from '../../lib/validation';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Toggle } from '../../components/Toggle';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
+import { PasswordMatchHint } from '../../components/PasswordMatchHint';
+import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 import { ErrorBanner, FieldError, FieldHint, Notice, PageHeading, Panel, StatusBadge } from '../../components/ui';
 
 export function Settings({ account, onUpdated }: { account: Account; onUpdated: (account: Account) => void }) {
@@ -34,6 +36,10 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [confirmPasswordTouched, setConfirmPasswordTouched] = useState(false);
+  // Live confirmation feedback for the change-password form. The server still
+  // rejects a mismatched pair on submit; this only saves the round trip.
+  const passwordMatch = passwordMatchStatus(newPassword, confirmPassword, confirmPasswordTouched);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
@@ -587,8 +593,10 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               autoComplete="new-password"
+              aria-describedby={newPassword === '' ? undefined : 'new_password-strength'}
               required
             />
+            <PasswordStrengthMeter password={newPassword} id="new_password-strength" />
           </div>
 
           <div className="penalis-field">
@@ -597,9 +605,12 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
               id="confirm_new_password"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
+              onBlur={() => setConfirmPasswordTouched(true)}
               autoComplete="new-password"
+              aria-describedby={passwordMatch === 'idle' ? undefined : 'confirm_new_password-match'}
               required
             />
+            <PasswordMatchHint status={passwordMatch} id="confirm_new_password-match" />
           </div>
 
           <button type="submit" className="penalis-button penalis-button--primary" disabled={saving}>

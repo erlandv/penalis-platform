@@ -7,6 +7,63 @@ import type { FieldErrors, Term } from './types';
 
 export const PASSWORD_MIN_LENGTH = 12;
 
+/**
+ * The one wording for a password/confirmation mismatch.
+ *
+ * Shared by the submit-time validator and the live hint so the writer never
+ * sees two different sentences for the same problem.
+ */
+export const PASSWORD_MISMATCH_MESSAGE = 'Password tidak cocok.';
+
+/**
+ * Live state of the confirmation field, evaluated while typing.
+ *
+ * - `idle` — nothing to say yet.
+ * - `match` — both fields hold the same value.
+ * - `mismatch` — they differ, and that difference is worth reporting now.
+ */
+export type PasswordMatchStatus = 'idle' | 'match' | 'mismatch';
+
+/**
+ * Decide what the confirmation field should say before the form is submitted.
+ *
+ * The rule is "wait for certainty". While the writer is still typing, a
+ * shorter confirmation always differs from the password, so reporting it would
+ * fire an error on the very first keystroke and never stop. A mismatch is
+ * reported once the field has been visited (`touched`, set on blur) or once it
+ * is at least as long as the password — at that point the values cannot become
+ * equal without deleting something, so the writer has genuinely made a
+ * mistake. Equality is reported immediately, because good news is never
+ * premature.
+ *
+ * This is feedback, not enforcement: the server still rejects a mismatched
+ * pair on submit.
+ *
+ * @param password Password field value.
+ * @param confirmPassword Confirmation field value.
+ * @param touched Whether the confirmation field has been blurred at least once.
+ * @return Live match status.
+ */
+export function passwordMatchStatus(
+  password: string,
+  confirmPassword: string,
+  touched = false,
+): PasswordMatchStatus {
+  if (password === '' || confirmPassword === '') {
+    return 'idle';
+  }
+
+  if (password === confirmPassword) {
+    return 'match';
+  }
+
+  if (touched || confirmPassword.length >= password.length) {
+    return 'mismatch';
+  }
+
+  return 'idle';
+}
+
 export function validatePasswordPair(password: string, confirmPassword: string): FieldErrors {
   const errors: FieldErrors = {};
 
@@ -15,7 +72,7 @@ export function validatePasswordPair(password: string, confirmPassword: string):
   }
 
   if (password !== confirmPassword) {
-    errors.confirm_password = 'Password tidak cocok.';
+    errors.confirm_password = PASSWORD_MISMATCH_MESSAGE;
   }
 
   return errors;
