@@ -67,6 +67,32 @@ export function countForView(items: DashboardNotification[], showHistory: boolea
 }
 
 /**
+ * Select a bounded feed for the explicit all/unread/read filter.
+ *
+ * `all` keeps actionable unread entries above read history; `read` and
+ * `unread` show only that slice, newest-first as delivered by the server.
+ */
+export function selectNotificationsByFilter(
+  items: DashboardNotification[],
+  filter: NotificationFilter,
+  limit: number,
+): DashboardNotification[] {
+  if (filter === 'all') {
+    return selectNotifications(items, true, limit);
+  }
+
+  return filterNotifications(items, filter).slice(0, limit);
+}
+
+/** Number of entries an explicit filter can reveal. */
+export function countForNotificationsFilter(
+  items: DashboardNotification[],
+  filter: NotificationFilter,
+): number {
+  return filter === 'all' ? items.length : filterNotifications(items, filter).length;
+}
+
+/**
  * Group notifications by article, preserving the newest-first order of both
  * the groups and the entries inside each group.
  */

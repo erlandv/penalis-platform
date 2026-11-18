@@ -2,23 +2,24 @@
  * Notifications page.
  *
  * Unread notifications come first and the list is capped at a page-sized
- * slice, so a full 50-entry feed never becomes one very long page. Readers
- * opt in to read history and reveal older entries explicitly. The header bell
- * shows the same list in a compact form; both read from the controller owned
- * by `App` so the unread count can never disagree between them.
+ * Readers choose between unread, read, and all entries explicitly. The
+ * header bell shows the same list in a compact form; both read from the
+ * controller owned by `App` so the unread count can never disagree.
  */
 
 import { useMemo, useState } from 'react';
 
 import type { Account, DashboardNotification } from '../../lib/types';
 import { EmptyState, ErrorBanner, MarkAllReadButton, PageHeading, Spinner } from '../../components/ui';
+import { Toggle } from '../../components/Toggle';
 import { NotificationList } from './NotificationList';
 import {
-  countForView,
+  countForNotificationsFilter,
   groupNotificationsByArticle,
   NOTIFICATION_PAGE_SIZE,
-  selectNotifications,
+  selectNotificationsByFilter,
 } from './query';
+import type { NotificationFilter } from './query';
 import type { NotificationsController } from './useNotifications';
 
 type Grouping = 'chronological' | 'article';
@@ -32,18 +33,18 @@ export function Notifications({
   controller: NotificationsController;
   onOpenArticle: (item: DashboardNotification) => void;
 }) {
-  const [showHistory, setShowHistory] = useState(false);
+  const [filter, setFilter] = useState<NotificationFilter>('unread');
   const [grouping, setGrouping] = useState<Grouping>('chronological');
   const [visibleCount, setVisibleCount] = useState(NOTIFICATION_PAGE_SIZE);
 
   const { data, loading, error, markingId, unreadCount, load, markRead } = controller;
 
   const items = useMemo(() => data?.items ?? [], [data]);
-  const total = countForView(items, showHistory);
+  const total = countForNotificationsFilter(items, filter);
 
   const visible = useMemo(
-    () => selectNotifications(items, showHistory, visibleCount),
-    [items, showHistory, visibleCount],
+    () => selectNotificationsByFilter(items, filter, visibleCount),
+    [items, filter, visibleCount],
   );
 
   /*
@@ -54,8 +55,8 @@ export function Notifications({
    */
   const groups = useMemo(() => groupNotificationsByArticle(visible), [visible]);
 
-  const toggleHistory = () => {
-    setShowHistory((current) => !current);
+  const chooseFilter = (next: NotificationFilter) => {
+    setFilter(next);
     setVisibleCount(NOTIFICATION_PAGE_SIZE);
   };
 
@@ -83,39 +84,40 @@ export function Notifications({
           <div className="penalis-notification-filters" role="group" aria-label="Filter notifikasi">
             <button
               type="button"
-              className={`penalis-notification-filter ${showHistory ? '' : 'is-active'}`}
-              aria-pressed={!showHistory}
-              onClick={() => {
-                if (showHistory) {
-                  toggleHistory();
-                }
-              }}
+              className={`penalis-notification-filter ${filter === 'unread' ? 'is-active' : ''}`}
+              aria-pressed={filter === 'unread'}
+              onClick={() => chooseFilter('unread')}
             >
               Belum dibaca{unreadCount > 0 ? ` (${unreadCount})` : ''}
             </button>
             <button
               type="button"
-              className={`penalis-notification-filter ${showHistory ? 'is-active' : ''}`}
-              aria-pressed={showHistory}
-              onClick={() => {
-                if (!showHistory) {
-                  toggleHistory();
-                }
-              }}
+              className={`penalis-notification-filter ${filter === 'read' ? 'is-active' : ''}`}
+              aria-pressed={filter === 'read'}
+              onClick={() => chooseFilter('read')}
+            >
+              Sudah dibaca
+            </button>
+            <button
+              type="button"
+              className={`penalis-notification-filter ${filter === 'all' ? 'is-active' : ''}`}
+              aria-pressed={filter === 'all'}
+              onClick={() => chooseFilter('all')}
             >
               Semua
             </button>
           </div>
 
           <div className="penalis-notification-toolbar__actions">
-            <label className="penalis-notification-grouping penalis-notification-switch">
-              <input
-                type="checkbox"
+            <div className="penalis-notification-grouping">
+              <Toggle
+                label="Kelompokkan per karya"
                 checked={grouping === 'article'}
-                onChange={(event) => setGrouping(event.target.checked ? 'article' : 'chronological')}
+                onChange={(enabled) => setGrouping(enabled ? 'article' : 'chronological')}
+                size="md"
               />
               <span>Kelompokkan per karya</span>
-            </label>
+            </div>
 
             {unreadCount > 0 ? (
               <MarkAllReadButton
@@ -131,11 +133,17 @@ export function Notifications({
 
         {total === 0 ? (
           <EmptyState
-            title={showHistory ? 'Belum ada notifikasi' : 'Tidak ada notifikasi belum dibaca'}
+            title={
+              filter === 'unread'
+                ? 'Tidak ada notifikasi belum dibaca'
+                : filter === 'read'
+                  ? 'Belum ada notifikasi yang dibaca'
+                  : 'Belum ada notifikasi'
+            }
             description={
-              showHistory
-                ? 'Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.'
-                : 'Semua notifikasi sudah kamu baca. Pilih "Semua" untuk melihat riwayat lengkap.'
+              filter === 'unread'
+                ? 'Semua notifikasi sudah kamu baca. Pilih "Sudah dibaca" atau "Semua" untuk melihat riwayat.'
+                : 'Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.'
             }
           />
         ) : (

@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { DashboardNotification } from '../../lib/types';
 import {
+  countForNotificationsFilter,
   countForView,
   filterNotifications,
   groupNotificationsByArticle,
   selectNotifications,
+  selectNotificationsByFilter,
 } from './query';
 
 function notification(overrides: Partial<DashboardNotification>): DashboardNotification {
@@ -114,5 +116,36 @@ describe('notification query helpers', () => {
 
   it('returns no groups for an empty list', () => {
     expect(groupNotificationsByArticle([])).toEqual([]);
+  });
+
+  it('selects each explicit read filter without changing the feed order', () => {
+    const items = [
+      notification({ id: 'unread', createdAt: 100 }),
+      notification({ id: 'read', isRead: true, createdAt: 200 }),
+      notification({ id: 'unread_new', createdAt: 300 }),
+    ];
+
+    expect(selectNotificationsByFilter(items, 'unread', 20).map((item) => item.id)).toEqual([
+      'unread',
+      'unread_new',
+    ]);
+    expect(selectNotificationsByFilter(items, 'read', 20).map((item) => item.id)).toEqual(['read']);
+    expect(selectNotificationsByFilter(items, 'all', 20).map((item) => item.id)).toEqual([
+      'unread',
+      'unread_new',
+      'read',
+    ]);
+  });
+
+  it('counts entries for the explicit read filters', () => {
+    const items = [
+      notification({ id: 'a' }),
+      notification({ id: 'b', isRead: true }),
+      notification({ id: 'c', isRead: true }),
+    ];
+
+    expect(countForNotificationsFilter(items, 'unread')).toBe(1);
+    expect(countForNotificationsFilter(items, 'read')).toBe(2);
+    expect(countForNotificationsFilter(items, 'all')).toBe(3);
   });
 });

@@ -4993,6 +4993,82 @@ penalis_same( $query_70, $consume_query, 'Consume reuses the same account lock r
 unset( $GLOBALS['penalis_test_lock_queries'] );
 
 /* -------------------------------------------------------------------------
+ * Notification channel preferences (hardening)
+ * ---------------------------------------------------------------------- */
+
+$defaults = Penalis_Editorial_Notifications::normalize_preferences( array() );
+penalis_same( true, $defaults['dashboard']['submit'], 'Preferences are opt-out: an absent action stays enabled.' );
+penalis_same( true, $defaults['email']['approve'], 'Email notifications are enabled by default.' );
+penalis_same(
+	6,
+	count( $defaults['email'] ),
+	'Both channels expose every editorial action.'
+);
+
+$normalized = Penalis_Editorial_Notifications::normalize_preferences(
+	array(
+		'dashboard' => array(
+			'submit' => false,
+			'reject' => '0',
+		),
+		'email'     => array(
+			'approve'     => 'off',
+			'request_changes' => 'false',
+		),
+	)
+);
+penalis_same( false, $normalized['dashboard']['submit'], 'An explicit boolean false disables a channel.' );
+penalis_same( false, $normalized['dashboard']['reject'], 'The string zero disables a channel.' );
+penalis_same( false, $normalized['email']['approve'], 'The string off disables a channel.' );
+penalis_same( false, $normalized['email']['request_changes'], 'The string false disables a channel.' );
+penalis_same( true, $normalized['email']['submit'], 'An omitted action remains enabled.' );
+
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_admin( 20 );
+penalis_editorial_post( 950, 10, 'draft' );
+Penalis_Editorial_Notifications::update_preferences(
+	20,
+	array(
+		'dashboard' => array( 'submit' => false ),
+	)
+);
+penalis_assert( ! Penalis_Editorial_Notifications::wants( 20, 'submit', 'dashboard' ), 'A disabled dashboard action is refused.' );
+penalis_assert( Penalis_Editorial_Notifications::wants( 20, 'submit', 'email' ), 'A partial save does not disable the other channel.' );
+penalis_same(
+	false,
+	Penalis_Editorial_Notifications::record_for_user( 20, get_post( 950 ), Penalis_Editorial_Policy::ACTION_SUBMIT ),
+	'No dashboard notification is stored for an opted-out action.'
+);
+
+Penalis_Editorial_Notifications::update_preferences( 10, array( 'email' => array( 'approve' => false ) ) );
+$mails_before = count( $GLOBALS['penalis_test_mail'] );
+Penalis_Emails::send_editorial_decision_notification( 950, Penalis_Editorial_Policy::ACTION_APPROVE, 'Catatan.' );
+penalis_same( $mails_before, count( $GLOBALS['penalis_test_mail'] ), 'A decision email is skipped when the author opted out.' );
+
+$GLOBALS['penalis_test_current_user'] = 10;
+$preferences_request = new WP_REST_Request(
+	'POST',
+	'/penalis/v1/notifications/preferences',
+	array(
+		'dashboard' => array( 'submit' => false ),
+		'email'     => array( 'reject' => '0' ),
+	)
+);
+$preferences_response = Penalis_Rest_Api::save_notification_preferences( $preferences_request );
+$preferences_data     = $preferences_response->get_data();
+penalis_same( false, $preferences_data['preferences']['dashboard']['submit'], 'The REST endpoint persists dashboard opt-outs.' );
+penalis_same( false, $preferences_data['preferences']['email']['reject'], 'The REST endpoint persists email opt-outs.' );
+penalis_same( true, $preferences_data['preferences']['email']['submit'], 'The REST endpoint keeps unsent actions enabled.' );
+
+$account_payload = Penalis_Rest_Api::get_account()->get_data();
+penalis_same(
+	false,
+	$account_payload['notificationPreferences']['dashboard']['submit'],
+	'The account payload exposes saved preferences to the dashboard.'
+);
+
+/* -------------------------------------------------------------------------
  * Report
  * ---------------------------------------------------------------------- */
 

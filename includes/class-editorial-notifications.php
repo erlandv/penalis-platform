@@ -20,6 +20,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Penalis_Editorial_Notifications {
 
 	/**
+	 * User meta holding per-action channel preferences.
+	 */
+	public const META_PREFERENCES = '_penalis_notification_prefs';
+
+	/**
+	 * Channels a writer may opt out of, per editorial action.
+	 */
+	public const CHANNELS = array( 'dashboard', 'email' );
+
+	/**
 	 * Counter used to keep notification IDs unique within a single request.
 	 *
 	 * @var int
@@ -33,6 +43,99 @@ final class Penalis_Editorial_Notifications {
 	 */
 	public static function init() {
 		add_action( 'penalis_editorial_action', array( __CLASS__, 'handle_editorial_action' ), 10, 6 );
+	}
+
+	/**
+	 * Normalize raw preference input into a complete channel/action matrix.
+	 *
+	 * Preferences are opt-out: an action the caller did not send stays enabled.
+	 * This keeps a partial request from silently muting a category the user
+	 * never saw in the form, while allowing an explicit `0`/`false` to opt out.
+	 *
+	 * @param mixed $raw Raw preferences.
+	 * @return array<string,array<string,bool>>
+	 */
+	public static function normalize_preferences( $raw ) {
+		$raw     = is_array( $raw ) ? $raw : array();
+		$actions = Penalis_Editorial_Policy::actions();
+		$result  = array();
+
+		foreach ( self::CHANNELS as $channel ) {
+			$values = isset( $raw[ $channel ] ) && is_array( $raw[ $channel ] ) ? $raw[ $channel ] : array();
+
+			foreach ( $actions as $action ) {
+				$value                         = array_key_exists( $action, $values ) ? $values[ $action ] : true;
+				$result[ $channel ][ $action ] = self::preference_to_bool( $value );
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Read the stored preferences, falling back to "everything enabled".
+	 *
+	 * @param int $user_id User ID.
+	 * @return array<string,array<string,bool>>
+	 */
+	public static function get_preferences( $user_id ) {
+		$stored = get_user_meta( (int) $user_id, self::META_PREFERENCES, true );
+
+		return self::normalize_preferences( is_array( $stored ) ? $stored : array() );
+	}
+
+	/**
+	 * Persist a complete preference matrix for a user.
+	 *
+	 * @param int   $user_id User ID.
+	 * @param mixed $raw     Raw preferences.
+	 * @return array<string,array<string,bool>> Stored preferences.
+	 */
+	public static function update_preferences( $user_id, $raw ) {
+		$preferences = self::normalize_preferences( $raw );
+		update_user_meta( (int) $user_id, self::META_PREFERENCES, $preferences );
+
+		return $preferences;
+	}
+
+	/**
+	 * Whether a user still wants one channel for one editorial action.
+	 *
+	 * Unknown channels or actions are outside the opt-out matrix and keep the
+	 * historical behavior, so a future workflow action cannot silently lose
+	 * its notifications before the settings screen learns about it.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $action  Editorial action.
+	 * @param string $channel `dashboard` or `email`.
+	 * @return bool
+	 */
+	public static function wants( $user_id, $action, $channel ) {
+		if ( ! in_array( $channel, self::CHANNELS, true ) || ! Penalis_Editorial_Policy::is_valid_action( $action ) ) {
+			return true;
+		}
+
+		$preferences = self::get_preferences( $user_id );
+
+		return ! empty( $preferences[ $channel ][ $action ] );
+	}
+
+	/**
+	 * Interpret a stored or submitted preference value.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return bool
+	 */
+	private static function preference_to_bool( $value ) {
+		if ( is_bool( $value ) ) {
+			return $value;
+		}
+
+		if ( is_string( $value ) ) {
+			return ! in_array( strtolower( trim( $value ) ), array( '', '0', 'false', 'no', 'off' ), true );
+		}
+
+		return (bool) $value;
 	}
 
 	/**
@@ -115,6 +218,10 @@ final class Penalis_Editorial_Notifications {
 		$can_review = Penalis_Editorial_Workflow::can_review( $user_id );
 
 		if ( ! Penalis_Editorial_Policy::can_receive_notification( $action, $is_owner, $can_review ) ) {
+			return false;
+		}
+
+		if ( ! self::wants( $user_id, $action, 'dashboard' ) ) {
 			return false;
 		}
 

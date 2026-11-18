@@ -254,7 +254,12 @@ Key invariants:
   once. That hook is the only dispatch path: `Penalis_Editorial_Notifications`
   registers the default listener during plugin bootstrap, and the workflow
   service never calls the listener directly, so removing or re-registering the
-  callback cannot silently duplicate or suppress notifications.
+  callback cannot silently duplicate or suppress notifications. Both channels
+  are opt-out per action: `_penalis_notification_prefs` stores a `dashboard`
+  and an `email` matrix edited from **Pengaturan → Preferensi Notifikasi**, and
+  `wants()` is checked before a notification row is written or a decision mail
+  is sent. Omitted actions stay enabled, and the takedown report to reviewers
+  stays unconditional because it is an audit message, not a workflow notice.
   `Penalis_Editorial_Notifications` records a bounded in-dashboard notification
   (`_penalis_notifications`, max 50 per user) and dispatches a branded HTML
   email via `Penalis_Emails`. Mail failures are recorded on the author's account

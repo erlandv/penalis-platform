@@ -46,7 +46,7 @@ have no Penalis writer status, so `/account` reports `isReviewer: true`,
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
-| `/account` | `GET` | `get_account` | Return account status, capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), `instagram`, article counts by editorial state (plus total published `counts.views`), and `unreadNotifications` count |
+| `/account` | `GET` | `get_account` | Return account status, capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), `instagram`, article counts by editorial state (plus total published `counts.views`), `unreadNotifications` count, and `notificationPreferences` (per-action `dashboard`/`email` opt-outs) |
 | `/account/profile` | `POST` | `update_profile` | Update `first_name`, `last_name`, `display_name_mode`, custom `display_name`, `description`, and optional `instagram` |
 | `/account/password` | `POST` | `update_password` | Change own password (requires `current_password`, `new_password` >= 12 chars) |
 | `/account/username` | `POST` | `change_username` | Re-authenticated `user_login` change inside a MySQL advisory lock; records 301 redirect and ends sessions |
@@ -56,6 +56,7 @@ have no Penalis writer status, so `/account` reports `isReviewer: true`,
 | `/notifications` | `GET` | `list_notifications` | Return the signed-in user's bounded editorial notifications (up to 50) and `unreadCount`. Each item carries `articleId`, `articleTitle`, `feedback`, `targetView`, `targetUrl`, and `reviewUrl`; `targetUrl` adds `penalis_focus=feedback` when the entry has revision notes |
 | `/notifications/read` | `POST` | `mark_notifications_read` | Mark all of the signed-in user's notifications as read |
 | `/notifications/(?P<id>[a-zA-Z0-9_\-]+)/read` | `POST` | `mark_notifications_read` | Mark a single notification as read |
+| `/notifications/preferences` | `POST` | `save_notification_preferences` | Save `{ dashboard, email }` opt-out matrices keyed by editorial action; omitted actions stay enabled. Returns the normalized `preferences` and a message |
 
 ### 1.3 Writer & Editorial Routes (`require_active_writer` / `require_active_writer_or_reviewer`)
 

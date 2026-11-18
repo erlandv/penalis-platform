@@ -151,6 +151,14 @@ export interface NotificationList {
   unreadCount: number;
 }
 
+/** Per-action opt-outs. A missing action is treated as enabled by the server. */
+export type NotificationChannelPreferences = Record<EditorialAction, boolean>;
+
+export interface NotificationPreferences {
+  dashboard: NotificationChannelPreferences;
+  email: NotificationChannelPreferences;
+}
+
 export interface Account {
   id: number;
   username: string;
@@ -183,6 +191,7 @@ export interface Account {
   approvedAt: number;
   counts: AccountCounts;
   unreadNotifications?: number;
+  notificationPreferences?: NotificationPreferences;
   registrationOn: boolean;
 }
 

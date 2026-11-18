@@ -412,3 +412,82 @@
   font-size: 0.82rem;
   color: var(--penalis-muted);
 }
+
+.penalis-preferences__scroll {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.penalis-preferences__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.penalis-preferences__table th,
+.penalis-preferences__table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--penalis-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.penalis-preferences__table thead th {
+  color: var(--penalis-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/*
+ * Centre the pill in the row.
+ *
+ * The toggle is inline-level, so it is positioned against the text baseline;
+ * `vertical-align: middle` lands it ~1.3px below the row centre, and before
+ * the `label` margin reset it sat 3.6px above it. As a block-level box the
+ * cell's own `vertical-align: middle` centres it exactly, while
+ * `width: fit-content` keeps the click target on the pill instead of letting
+ * it span the whole column.
+ */
+.penalis-preferences__table td .penalis-toggle {
+  display: flex;
+  width: fit-content;
+}
+
+@media screen and (max-width: 600px) {
+  .penalis-preferences__table,
+  .penalis-preferences__table tbody,
+  .penalis-preferences__table tr,
+  .penalis-preferences__table td {
+    display: block;
+    width: 100%;
+  }
+
+  .penalis-preferences__table thead { display: none; }
+
+  .penalis-preferences__table tbody tr {
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--penalis-border);
+    border-radius: var(--penalis-radius-md);
+  }
+
+  .penalis-preferences__table tbody th {
+    display: block;
+    padding: 0 0 0.5rem;
+    border: 0;
+  }
+
+  .penalis-preferences__table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border: 0;
+  }
+
+  .penalis-preferences__table td::before {
+    content: attr(data-label);
+    color: var(--penalis-muted);
+    font-size: 0.85rem;
+  }
+}

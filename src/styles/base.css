@@ -56,12 +56,18 @@
  * status tabs, editor toolbar buttons, tag chips and quiet text links all grew
  * a 35px gap, and the tag chip's "×" button became 45px tall.
  *
+ * `label` is in the list for the same reason: the theme sets
+ * `label { margin-bottom: 0.5em }`. Our toggle is a `<label>`, and an
+ * inline-level atomic box (inline-flex) contributes its *margin box* to the
+ * line box, so that inherited bottom margin pushed the pill 3–4px above the
+ * text it sits next to instead of centring on it.
+ *
  * `:where()` keeps this reset at class specificity (0,1,0) so every component
  * rule below still wins, while still outranking the theme's element selectors.
  * `display` and `line-height` are restored because the theme forces
  * `inline-flex` on buttons, which turns inline text links into flex boxes.
  */
-.penalis-dashboard-root :where(button, form, figure, table, dl, ul, ol, li, fieldset, input, select, textarea) {
+.penalis-dashboard-root :where(button, form, figure, table, dl, ul, ol, li, fieldset, input, select, textarea, label) {
   margin: 0;
 }
 

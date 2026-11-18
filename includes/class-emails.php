@@ -210,7 +210,17 @@ final class Penalis_Emails {
 		}
 
 		$recipients = self::submission_notification_recipients();
-		if ( empty( $recipients ) ) {
+		$eligible   = array();
+
+		foreach ( $recipients as $recipient_email ) {
+			$recipient = get_user_by( 'email', $recipient_email );
+			if ( $recipient && ! Penalis_Editorial_Notifications::wants( (int) $recipient->ID, $action, 'email' ) ) {
+				continue;
+			}
+			$eligible[] = $recipient_email;
+		}
+
+		if ( empty( $eligible ) ) {
 			Penalis_Account_Status::record_email_failure( $author_id, 'editorial_' . $action );
 			return false;
 		}
@@ -233,7 +243,7 @@ final class Penalis_Emails {
 
 		$any_sent = false;
 
-		foreach ( $recipients as $recipient_email ) {
+		foreach ( $eligible as $recipient_email ) {
 			$sent = self::send_mail(
 				$recipient_email,
 				$rendered['subject'],
@@ -311,6 +321,11 @@ final class Penalis_Emails {
 				Penalis_Account_Status::record_email_failure( $author_id, 'invalid_recipient' );
 			}
 			return false;
+		}
+
+		if ( ! Penalis_Editorial_Notifications::wants( $author_id, $action, 'email' ) ) {
+			// An explicit opt-out is a successful no-op, not a delivery failure.
+			return true;
 		}
 
 		$title      = self::safe_article_title( $post );

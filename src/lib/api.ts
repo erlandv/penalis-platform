@@ -20,6 +20,7 @@ import type {
   MediaItem,
   MediaList,
   NotificationList,
+  NotificationPreferences,
   Term,
 } from './types';
 
@@ -458,6 +459,14 @@ export const notificationsApi = {
     request<NotificationList>('/notifications/read', {
       method: 'POST',
       body: id ? { id } : {},
+    }),
+
+  /** Save per-action dashboard/email opt-outs for the current account. */
+  savePreferences: (preferences: NotificationPreferences) =>
+    request<{ message: string; preferences: NotificationPreferences }>('/notifications/preferences', {
+      method: 'POST',
+      body: preferences,
+      retryAuth: true,
     }),
 };
 

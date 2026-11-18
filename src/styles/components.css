@@ -463,3 +463,98 @@
   gap: 0.35rem;
   flex-wrap: nowrap;
 }
+
+/*
+ * Shared pill toggle.
+ *
+ * The native checkbox stays in the DOM for semantics and keyboard handling;
+ * only its appearance is replaced. Because the control is a `<label>` wrapping
+ * an `<input type="checkbox">`, it sits right on top of two theme rules that
+ * outrank a single-class selector:
+ *
+ *   label { display: block; margin-bottom: 0.5em }
+ *   input[type="checkbox"] + * { display: inline-block; font-*; line-height }
+ *
+ * The second one targets our track directly (it is the checkbox's next
+ * sibling) and its specificity is 0,1,1. Everything inside the toggle is
+ * therefore scoped under `.penalis-toggle` (0,2,0) and resets the properties
+ * the theme touches, so the pill renders the same on any theme.
+ */
+.penalis-toggle {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.penalis-toggle .penalis-toggle__input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.penalis-toggle .penalis-toggle__track {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  border-radius: 999px;
+  background: #d7d3cd;
+  /* The theme forces its own text metrics onto the checkbox's sibling. */
+  font-size: 0;
+  line-height: 0;
+  letter-spacing: normal;
+  transition: background-color 160ms ease;
+}
+
+.penalis-toggle .penalis-toggle__thumb {
+  display: block;
+  flex: 0 0 auto;
+  margin: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: transform 160ms ease;
+}
+
+.penalis-toggle--sm .penalis-toggle__track { width: 28px; height: 16px; padding: 2px; }
+.penalis-toggle--sm .penalis-toggle__thumb { width: 12px; height: 12px; }
+.penalis-toggle--sm .penalis-toggle__input:checked + .penalis-toggle__track .penalis-toggle__thumb { transform: translateX(12px); }
+
+.penalis-toggle--md .penalis-toggle__track { width: 36px; height: 20px; padding: 2px; }
+.penalis-toggle--md .penalis-toggle__thumb { width: 16px; height: 16px; }
+.penalis-toggle--md .penalis-toggle__input:checked + .penalis-toggle__track .penalis-toggle__thumb { transform: translateX(16px); }
+
+.penalis-toggle--lg .penalis-toggle__track { width: 42px; height: 24px; padding: 2px; }
+.penalis-toggle--lg .penalis-toggle__thumb { width: 20px; height: 20px; }
+.penalis-toggle--lg .penalis-toggle__input:checked + .penalis-toggle__track .penalis-toggle__thumb { transform: translateX(18px); }
+
+.penalis-toggle__input:checked + .penalis-toggle__track { background: var(--penalis-accent); }
+
+.penalis-toggle:hover .penalis-toggle__track { background: #c5c0b8; }
+.penalis-toggle:hover .penalis-toggle__input:checked + .penalis-toggle__track { background: var(--penalis-accent-strong); }
+
+.penalis-toggle__input:focus-visible + .penalis-toggle__track {
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.35);
+}
+
+.penalis-toggle--disabled { cursor: not-allowed; }
+.penalis-toggle--disabled .penalis-toggle__track { opacity: 0.5; }
+.penalis-toggle--disabled:hover .penalis-toggle__track { background: #d7d3cd; }
+.penalis-toggle--disabled:hover .penalis-toggle__input:checked + .penalis-toggle__track { background: var(--penalis-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .penalis-toggle__track,
+  .penalis-toggle__thumb { transition: none; }
+}

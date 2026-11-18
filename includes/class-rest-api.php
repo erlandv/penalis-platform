@@ -439,6 +439,16 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/notifications/preferences',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'save_notification_preferences' ),
+				'permission_callback' => array( __CLASS__, 'require_logged_in' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/notifications/(?P<id>[a-zA-Z0-9_\-]+)/read',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -822,34 +832,35 @@ final class Penalis_Rest_Api {
 
 		return new WP_REST_Response(
 			array(
-				'id'                  => (int) $user_id,
-				'username'            => $user->user_login,
-				'displayName'         => $user->display_name,
-				'firstName'           => (string) get_user_meta( $user_id, 'first_name', true ),
-				'lastName'            => (string) get_user_meta( $user_id, 'last_name', true ),
-				'displayNameMode'     => Penalis_Account_Status::get_display_name_mode( $user_id ),
-				'avatarId'            => Penalis_Avatar::get_id( $user_id ),
-				'avatarUrl'           => Penalis_Avatar::get_url( $user_id ),
-				'email'               => $user->user_email,
-				'pendingEmail'        => $pending_email,
-				'canChangeEmail'      => Penalis_Account_Status::can_change_email( $user_id ),
-				'canChangeUsername'   => Penalis_Account_Status::can_change_username( $user_id ),
-				'description'         => (string) get_user_meta( $user_id, 'description', true ),
-				'instagram'           => Penalis_Account_Status::get_instagram( $user_id ),
-				'authorUrl'           => get_author_posts_url( $user_id ),
-				'status'              => $status,
-				'statusLabel'         => $status_label,
-				'isAdministrator'     => $is_admin,
-				'isReviewer'          => $is_reviewer,
-				'canWrite'            => $can_write,
-				'canView'             => $is_reviewer || Penalis_Account_Status::can_view_dashboard( $user_id ),
-				'emailVerified'       => '1' === (string) get_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, true ),
-				'needsPassword'       => Penalis_Account_Status::needs_password( $user_id ),
-				'registeredAt'        => (int) get_user_meta( $user_id, Penalis_Account_Status::META_REGISTERED_AT, true ),
-				'approvedAt'          => (int) get_user_meta( $user_id, Penalis_Account_Status::META_APPROVED_AT, true ),
-				'counts'              => $counts,
-				'unreadNotifications' => Penalis_Editorial_Notifications::count_unread( $user_id ),
-				'registrationOn'      => Penalis_Registration::is_registration_enabled(),
+				'id'                      => (int) $user_id,
+				'username'                => $user->user_login,
+				'displayName'             => $user->display_name,
+				'firstName'               => (string) get_user_meta( $user_id, 'first_name', true ),
+				'lastName'                => (string) get_user_meta( $user_id, 'last_name', true ),
+				'displayNameMode'         => Penalis_Account_Status::get_display_name_mode( $user_id ),
+				'avatarId'                => Penalis_Avatar::get_id( $user_id ),
+				'avatarUrl'               => Penalis_Avatar::get_url( $user_id ),
+				'email'                   => $user->user_email,
+				'pendingEmail'            => $pending_email,
+				'canChangeEmail'          => Penalis_Account_Status::can_change_email( $user_id ),
+				'canChangeUsername'       => Penalis_Account_Status::can_change_username( $user_id ),
+				'description'             => (string) get_user_meta( $user_id, 'description', true ),
+				'instagram'               => Penalis_Account_Status::get_instagram( $user_id ),
+				'authorUrl'               => get_author_posts_url( $user_id ),
+				'status'                  => $status,
+				'statusLabel'             => $status_label,
+				'isAdministrator'         => $is_admin,
+				'isReviewer'              => $is_reviewer,
+				'canWrite'                => $can_write,
+				'canView'                 => $is_reviewer || Penalis_Account_Status::can_view_dashboard( $user_id ),
+				'emailVerified'           => '1' === (string) get_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, true ),
+				'needsPassword'           => Penalis_Account_Status::needs_password( $user_id ),
+				'registeredAt'            => (int) get_user_meta( $user_id, Penalis_Account_Status::META_REGISTERED_AT, true ),
+				'approvedAt'              => (int) get_user_meta( $user_id, Penalis_Account_Status::META_APPROVED_AT, true ),
+				'counts'                  => $counts,
+				'unreadNotifications'     => Penalis_Editorial_Notifications::count_unread( $user_id ),
+				'notificationPreferences' => Penalis_Editorial_Notifications::get_preferences( $user_id ),
+				'registrationOn'          => Penalis_Registration::is_registration_enabled(),
 			),
 			200
 		);
@@ -1466,6 +1477,39 @@ final class Penalis_Rest_Api {
 		$result          = Penalis_Editorial_Notifications::mark_read( $user_id, $notification_id );
 
 		return new WP_REST_Response( $result, 200 );
+	}
+
+	/**
+	 * Save the signed-in user's per-action notification channel preferences.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function save_notification_preferences( $request ) {
+		$user_id = get_current_user_id();
+
+		if ( $user_id <= 0 ) {
+			return new WP_Error(
+				'penalis_not_authenticated',
+				'Kamu harus login terlebih dahulu.',
+				array( 'status' => 401 )
+			);
+		}
+
+		$raw = array(
+			'dashboard' => $request->get_param( 'dashboard' ),
+			'email'     => $request->get_param( 'email' ),
+		);
+
+		$preferences = Penalis_Editorial_Notifications::update_preferences( $user_id, $raw );
+
+		return new WP_REST_Response(
+			array(
+				'preferences' => $preferences,
+				'message'     => 'Preferensi notifikasi disimpan.',
+			),
+			200
+		);
 	}
 
 	/**

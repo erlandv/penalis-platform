@@ -3,17 +3,28 @@
  * and sign out.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 
-import { accountApi, ApiError } from '../../lib/api';
+import { accountApi, ApiError, notificationsApi } from '../../lib/api';
 import { getBootstrap } from '../../lib/bootstrap';
-import type { Account, FieldErrors } from '../../lib/types';
+import type {
+  Account,
+  EditorialAction,
+  FieldErrors,
+  NotificationPreferences,
+} from '../../lib/types';
+import {
+  normalizeNotificationPreferences,
+  NOTIFICATION_ACTIONS,
+  NOTIFICATION_ACTION_LABELS,
+} from '../../lib/notificationPreferences';
 import { formatDate } from '../../lib/format';
 import { describedBy } from '../../lib/a11y';
 import { toActiveChallenge, type ActiveChallenge } from '../../lib/otp';
 import { previewAuthorUrl } from '../../lib/profile';
 import { PASSWORD_MIN_LENGTH, validateEmail, validateUsername } from '../../lib/validation';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { Toggle } from '../../components/Toggle';
 import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
 import { ErrorBanner, FieldError, FieldHint, Notice, PageHeading, Panel, StatusBadge } from '../../components/ui';
@@ -26,6 +37,17 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const [preferences, setPreferences] = useState<NotificationPreferences>(() =>
+    normalizeNotificationPreferences(account.notificationPreferences),
+  );
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [prefError, setPrefError] = useState('');
+  const [prefNotice, setPrefNotice] = useState('');
+
+  useEffect(() => {
+    setPreferences(normalizeNotificationPreferences(account.notificationPreferences));
+  }, [account.notificationPreferences]);
 
   const [username, setUsername] = useState('');
   const [usernamePassword, setUsernamePassword] = useState('');
@@ -255,6 +277,33 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
     setEmailChallenge(next);
 
     return { challenge_id: next.challengeId, resend_after: next.resendAfter };
+  };
+
+  const togglePreference = (channel: keyof NotificationPreferences, action: EditorialAction, enabled: boolean) => {
+    setPreferences((current) => ({
+      ...current,
+      [channel]: { ...current[channel], [action]: enabled },
+    }));
+    setPrefNotice('');
+  };
+
+  const savePreferences = async (event: FormEvent) => {
+    event.preventDefault();
+    setPrefSaving(true);
+    setPrefError('');
+    setPrefNotice('');
+
+    try {
+      const result = await notificationsApi.savePreferences(preferences);
+      setPrefNotice(result.message);
+      onUpdated({ ...account, notificationPreferences: result.preferences });
+    } catch (caught) {
+      setPrefError(
+        caught instanceof ApiError ? caught.message : 'Preferensi notifikasi tidak dapat disimpan.',
+      );
+    } finally {
+      setPrefSaving(false);
+    }
   };
 
   return (
@@ -555,6 +604,57 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
 
           <button type="submit" className="penalis-button penalis-button--primary" disabled={saving}>
             {saving ? 'Memperbarui…' : 'Ganti Password'}
+          </button>
+        </form>
+      </Panel>
+
+      <Panel title="Preferensi Notifikasi">
+        <p className="penalis-muted">
+          Pilih kabar mana yang tetap kamu terima. Mematikan salah satu kanal hanya menghentikan
+          pengiriman kabar itu; status karya tulis tetap dapat dilihat di halaman Notifikasi.
+        </p>
+
+        <form onSubmit={(event) => void savePreferences(event)} className="penalis-preferences">
+          <div className="penalis-preferences__scroll">
+            <table className="penalis-preferences__table">
+              <thead>
+                <tr>
+                  <th scope="col">Jenis kabar</th>
+                  <th scope="col">Dashboard</th>
+                  <th scope="col">Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                {NOTIFICATION_ACTIONS.map((action) => (
+                  <tr key={action}>
+                    <th scope="row">{NOTIFICATION_ACTION_LABELS[action]}</th>
+                    <td data-label="Dashboard">
+                      <Toggle
+                        label={`Kabar ${NOTIFICATION_ACTION_LABELS[action]} di dashboard`}
+                        checked={preferences.dashboard[action]}
+                        onChange={(enabled) => togglePreference('dashboard', action, enabled)}
+                        size="md"
+                      />
+                    </td>
+                    <td data-label="Email">
+                      <Toggle
+                        label={`Kabar ${NOTIFICATION_ACTION_LABELS[action]} lewat email`}
+                        checked={preferences.email[action]}
+                        onChange={(enabled) => togglePreference('email', action, enabled)}
+                        size="md"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {prefError ? <ErrorBanner message={prefError} /> : null}
+          {prefNotice ? <Notice tone="success">{prefNotice}</Notice> : null}
+
+          <button type="submit" className="penalis-button penalis-button--primary" disabled={prefSaving}>
+            {prefSaving ? 'Menyimpan…' : 'Simpan preferensi'}
           </button>
         </form>
       </Panel>
