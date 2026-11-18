@@ -291,10 +291,14 @@ editors.
      submissions and newly registered writers.
 2. **Penalis → Review Karya Tulis** (`?page=penalis-review`, `Penalis_Editorial_Admin::render_page()`)
    - Filter tabs by editorial state (`Menunggu review`, `Perlu revisi`,
-     `Ditolak`, `Terbit`) and a 2-column detail review workspace with the
-     rendered article preview, metadata header, unified decision form with an
-     accessible confirmation modal, link to the native WordPress editor for
-     pre-publication corrections, and a vertical review history timeline.
+     `Ditolak`, `Terbit`) and a filter toolbar for search (title/body), author,
+     category, submitted-date range, review cycle, sort field, and sort
+     direction. Active filters are preserved across tabs, pagination, the
+     detail screen, and the post-decision redirect; tab counts stay global.
+   - A 2-column detail review workspace with the rendered article preview,
+     metadata header, unified decision form with an accessible confirmation
+     modal, link to the native WordPress editor for pre-publication corrections,
+     and a vertical review history timeline.
 3. **Penalis → Penulis Penalis** (`?page=penalis-writers`, `Penalis_Admin::render_page()`)
    - Account management table with status tabs (`Semua yang dikelola`, `Aktif`,
      `Menunggu verifikasi`, `Ditangguhkan`, `Akun lama`), search toolbar,

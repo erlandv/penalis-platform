@@ -126,8 +126,9 @@ final class Penalis_Editorial_Admin {
 	 * @return void
 	 */
 	private static function render_list() {
-		$state = isset( $_GET['state'] ) ? sanitize_key( wp_unslash( $_GET['state'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$paged = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$state   = isset( $_GET['state'] ) ? sanitize_key( wp_unslash( $_GET['state'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$paged   = isset( $_GET['paged'] ) ? max( 1, (int) $_GET['paged'] ) : 1; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$filters = self::parse_list_filters();
 
 		$tabs = array(
 			Penalis_Editorial_Policy::STATE_PENDING_REVIEW => 'Menunggu review',
@@ -141,8 +142,10 @@ final class Penalis_Editorial_Admin {
 		}
 
 		$per_page = 20;
-		$query    = new WP_Query( self::query_args( $state, $paged, $per_page ) );
+		$query    = new WP_Query( self::query_args( $state, $paged, $per_page, $filters ) );
 		$pages    = (int) $query->max_num_pages;
+		$list_url = self::list_url( $state, $filters );
+		$found    = (int) $query->found_posts;
 
 		?>
 		<div class="wrap penalis-review">
@@ -159,7 +162,7 @@ final class Penalis_Editorial_Admin {
 
 			<ul class="subsubsub">
 				<?php foreach ( $tabs as $value => $label ) : ?>
-					<?php $tab_url = self::list_url( $value ); ?>
+					<?php $tab_url = self::list_url( $value, $filters ); ?>
 					<li>
 						<a
 							href="<?php echo esc_url( $tab_url ); ?>"
@@ -172,6 +175,8 @@ final class Penalis_Editorial_Admin {
 					</li>
 				<?php endforeach; ?>
 			</ul>
+
+			<?php self::render_filter_bar( $state, $filters, $found ); ?>
 
 			<table class="wp-list-table widefat fixed striped penalis-review__table">
 				<thead>
@@ -196,7 +201,7 @@ final class Penalis_Editorial_Admin {
 						$author     = get_userdata( (int) $post->post_author );
 						$post_state = Penalis_Editorial_Workflow::get_state( $post );
 						$submitted  = Penalis_Editorial_Workflow::get_submitted_at( $post );
-						$detail_url = self::detail_url( (int) $post->ID );
+						$detail_url = self::detail_url( (int) $post->ID, self::return_args( $state, $filters ) );
 						?>
 						<tr>
 							<td>
@@ -236,16 +241,10 @@ final class Penalis_Editorial_Admin {
 
 			<?php
 			Penalis_Admin::render_pagination(
-				$query->found_posts,
+				$found,
 				$per_page,
 				$paged,
-				add_query_arg(
-					array(
-						'page'  => self::PAGE_SLUG,
-						'state' => $state,
-					),
-					admin_url( 'admin.php' )
-				)
+				$list_url
 			);
 			?>
 		</div>
@@ -272,22 +271,25 @@ final class Penalis_Editorial_Admin {
 			return;
 		}
 
-		$state      = Penalis_Editorial_Workflow::get_state( $post );
-		$cycle      = max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) );
-		$feedback   = Penalis_Editorial_Workflow::get_feedback( $post );
-		$history    = Penalis_Editorial_Workflow::get_history( $post );
-		$author     = get_userdata( (int) $post->post_author );
-		$submitted  = Penalis_Editorial_Workflow::get_submitted_at( $post );
-		$actions    = self::actions_for_state( $state );
-		$thumb_url  = (string) get_the_post_thumbnail_url( $post, 'large' );
-		$categories = wp_get_post_terms( $post->ID, array( 'category' ) );
-		$tags       = wp_get_post_terms( $post->ID, array( 'post_tag' ) );
-		$plain_text = trim( wp_strip_all_tags( (string) $post->post_content ) );
-		$word_count = '' === $plain_text ? 0 : count( (array) preg_split( '/\s+/u', $plain_text ) );
+		$state        = Penalis_Editorial_Workflow::get_state( $post );
+		$cycle        = max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) );
+		$feedback     = Penalis_Editorial_Workflow::get_feedback( $post );
+		$history      = Penalis_Editorial_Workflow::get_history( $post );
+		$author       = get_userdata( (int) $post->post_author );
+		$submitted    = Penalis_Editorial_Workflow::get_submitted_at( $post );
+		$actions      = self::actions_for_state( $state );
+		$thumb_url    = (string) get_the_post_thumbnail_url( $post, 'large' );
+		$categories   = wp_get_post_terms( $post->ID, array( 'category' ) );
+		$tags         = wp_get_post_terms( $post->ID, array( 'post_tag' ) );
+		$plain_text   = trim( wp_strip_all_tags( (string) $post->post_content ) );
+		$word_count   = '' === $plain_text ? 0 : count( (array) preg_split( '/\s+/u', $plain_text ) );
+		$return_state = isset( $_GET['state'] ) ? sanitize_key( wp_unslash( $_GET['state'] ) ) : Penalis_Editorial_Policy::STATE_PENDING_REVIEW; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$return_args  = self::return_args( $return_state, self::parse_list_filters() );
+		$back_url     = self::list_url( $return_state, $return_args );
 		?>
 		<div class="wrap penalis-review">
 			<h1 class="wp-heading-inline">Review Karya Tulis</h1>
-			<a class="page-title-action" href="<?php echo esc_url( self::list_url( $state ) ); ?>">
+			<a class="page-title-action" href="<?php echo esc_url( $back_url ); ?>">
 				&larr; Kembali ke daftar review
 			</a>
 			<hr class="wp-header-end">
@@ -410,7 +412,7 @@ final class Penalis_Editorial_Admin {
 						</div>
 						<div class="penalis-review__card-body">
 							<?php if ( ! empty( $actions ) ) : ?>
-								<?php self::render_decision_form( $post, $actions, $cycle ); ?>
+								<?php self::render_decision_form( $post, $actions, $cycle, $return_args ); ?>
 							<?php else : ?>
 								<p class="penalis-review__state-note">
 									<?php echo esc_html( self::no_action_note( $state ) ); ?>
@@ -471,12 +473,13 @@ final class Penalis_Editorial_Admin {
 	/**
 	 * Render a single unified decision form for all available reviewer actions.
 	 *
-	 * @param WP_Post  $post    Post.
-	 * @param string[] $actions Available reviewer actions for the post's state.
-	 * @param int      $cycle   Review cycle the reviewer is looking at.
+	 * @param WP_Post  $post        Post.
+	 * @param string[] $actions     Available reviewer actions for the post's state.
+	 * @param int      $cycle       Review cycle the reviewer is looking at.
+	 * @param array    $return_args List filters to restore after the decision.
 	 * @return void
 	 */
-	private static function render_decision_form( $post, $actions, $cycle ) {
+	private static function render_decision_form( $post, $actions, $cycle, $return_args = array() ) {
 		$is_reopen_only = array( Penalis_Editorial_Policy::ACTION_REOPEN ) === $actions;
 		?>
 		<form id="penalis-decision-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -484,6 +487,20 @@ final class Penalis_Editorial_Admin {
 			<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $post->ID ); ?>">
 			<input type="hidden" name="expected_cycle" value="<?php echo esc_attr( (string) $cycle ); ?>">
 			<input type="hidden" name="penalis_action" id="penalis-confirmed-action" value="" disabled>
+			<?php
+			foreach ( $return_args as $key => $value ) {
+				if ( ! is_string( $key ) || '' === $key || is_array( $value ) ) {
+					continue;
+				}
+				?>
+				<input
+					type="hidden"
+					name="<?php echo esc_attr( 'penalis_return[' . $key . ']' ); ?>"
+					value="<?php echo esc_attr( (string) $value ); ?>"
+				>
+				<?php
+			}
+			?>
 			<?php wp_nonce_field( 'penalis_review_' . $post->ID ); ?>
 
 			<?php if ( $is_reopen_only ) : ?>
@@ -618,8 +635,13 @@ final class Penalis_Editorial_Admin {
 			self::redirect( $post_id, 'invalid_action' );
 		}
 
-		$feedback = isset( $_POST['feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['feedback'] ) ) : '';
-		$cycle    = isset( $_POST['expected_cycle'] ) ? (int) $_POST['expected_cycle'] : 0;
+		$feedback    = isset( $_POST['feedback'] ) ? sanitize_textarea_field( wp_unslash( $_POST['feedback'] ) ) : '';
+		$cycle       = isset( $_POST['expected_cycle'] ) ? (int) $_POST['expected_cycle'] : 0;
+		$raw_return  = isset( $_POST['penalis_return'] ) && is_array( $_POST['penalis_return'] ) ? wp_unslash( $_POST['penalis_return'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		$return_args = self::return_args(
+			isset( $raw_return['state'] ) ? sanitize_key( (string) $raw_return['state'] ) : '',
+			self::parse_list_filters( $raw_return )
+		);
 
 		$result = Penalis_Editorial_Workflow::apply(
 			$post_id,
@@ -632,20 +654,21 @@ final class Penalis_Editorial_Admin {
 		);
 
 		if ( is_wp_error( $result ) ) {
-			self::redirect( $post_id, $result->get_error_code() );
+			self::redirect( $post_id, $result->get_error_code(), $return_args );
 		}
 
-		self::redirect( $post_id, 'done' );
+		self::redirect( $post_id, 'done', $return_args );
 	}
 
 	/**
 	 * Redirect back to the review screen.
 	 *
-	 * @param int    $post_id Post ID.
-	 * @param string $message Message key.
+	 * @param int    $post_id     Post ID.
+	 * @param string $message     Message key.
+	 * @param array  $return_args List filters to restore on the detail screen.
 	 * @return void
 	 */
-	private static function redirect( $post_id, $message ) {
+	private static function redirect( $post_id, $message, $return_args = array() ) {
 		$args = array(
 			'page' => self::PAGE_SLUG,
 		);
@@ -655,6 +678,12 @@ final class Penalis_Editorial_Admin {
 		}
 
 		$args['penalis_review_message'] = $message;
+
+		if ( ! empty( $return_args['state'] ) ) {
+			$args['state'] = sanitize_key( (string) $return_args['state'] );
+		}
+
+		$args = array_merge( $args, self::filter_query_args( $return_args ) );
 
 		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
 		exit;
@@ -726,14 +755,18 @@ final class Penalis_Editorial_Admin {
 	/**
 	 * URL of the review list.
 	 *
-	 * @param string $state Editorial state filter.
+	 * @param string $state   Editorial state filter.
+	 * @param array  $filters Optional normalized or raw list filters.
 	 * @return string
 	 */
-	public static function list_url( $state = Penalis_Editorial_Policy::STATE_PENDING_REVIEW ) {
+	public static function list_url( $state = Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $filters = array() ) {
 		return add_query_arg(
-			array(
-				'page'  => self::PAGE_SLUG,
-				'state' => $state,
+			array_merge(
+				array(
+					'page'  => self::PAGE_SLUG,
+					'state' => $state,
+				),
+				self::filter_query_args( $filters )
 			),
 			admin_url( 'admin.php' )
 		);
@@ -742,17 +775,379 @@ final class Penalis_Editorial_Admin {
 	/**
 	 * URL of a single submission review screen.
 	 *
-	 * @param int $post_id Post ID.
+	 * List filters are carried in the URL so the detail screen can link back
+	 * to the exact slice of the queue the reviewer came from.
+	 *
+	 * @param int   $post_id Post ID.
+	 * @param array $args    Optional state and list filters to preserve.
 	 * @return string
 	 */
-	public static function detail_url( $post_id ) {
-		return add_query_arg(
-			array(
-				'page'    => self::PAGE_SLUG,
-				'post_id' => (int) $post_id,
-			),
-			admin_url( 'admin.php' )
+	public static function detail_url( $post_id, $args = array() ) {
+		$query_args = array(
+			'page'    => self::PAGE_SLUG,
+			'post_id' => (int) $post_id,
 		);
+
+		if ( ! empty( $args['state'] ) ) {
+			$query_args['state'] = sanitize_key( (string) $args['state'] );
+		}
+
+		$query_args = array_merge( $query_args, self::filter_query_args( $args ) );
+
+		return add_query_arg( $query_args, admin_url( 'admin.php' ) );
+	}
+
+	/**
+	 * Normalize the review list filters from a request or an explicit array.
+	 *
+	 * Keeping this pure (apart from reading `$_GET` when no input is given)
+	 * lets the admin screen and the tests share one definition of a valid
+	 * filter. Values are sanitized here, before they reach `WP_Query` or a URL.
+	 *
+	 * @param array|null $params Optional raw parameters; defaults to `$_GET`.
+	 * @return array<string,string|int> Normalized filters.
+	 */
+	public static function parse_list_filters( $params = null ) {
+		$keys = array( 's', 'author', 'cat', 'from', 'to', 'cycle', 'orderby', 'order' );
+
+		if ( null === $params ) {
+			$params = array();
+			foreach ( $keys as $key ) {
+				if ( isset( $_GET[ $key ] ) && is_scalar( $_GET[ $key ] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+					$params[ $key ] = sanitize_text_field( wp_unslash( $_GET[ $key ] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+				}
+			}
+		}
+
+		$params = is_array( $params ) ? $params : array();
+		$read   = static function ( $key ) use ( $params ) {
+			if ( ! isset( $params[ $key ] ) || ! is_scalar( $params[ $key ] ) ) {
+				return '';
+			}
+
+			return trim( sanitize_text_field( (string) $params[ $key ] ) );
+		};
+
+		$search = $read( 's' );
+		if ( function_exists( 'mb_substr' ) ) {
+			$search = mb_substr( $search, 0, 100 );
+		} else {
+			$search = substr( $search, 0, 100 );
+		}
+
+		$from = self::normalize_filter_date( $read( 'from' ) );
+		$to   = self::normalize_filter_date( $read( 'to' ) );
+
+		if ( '' !== $from && '' !== $to && $from > $to ) {
+			$swap = $from;
+			$from = $to;
+			$to   = $swap;
+		}
+
+		$orderby = $read( 'orderby' );
+		if ( ! in_array( $orderby, array( 'modified', 'submitted', 'title', 'author', 'cycle' ), true ) ) {
+			$orderby = 'modified';
+		}
+
+		$order = strtoupper( $read( 'order' ) );
+		if ( ! in_array( $order, array( 'ASC', 'DESC' ), true ) ) {
+			$order = 'DESC';
+		}
+
+		return array(
+			's'       => $search,
+			'author'  => max( 0, (int) $read( 'author' ) ),
+			'cat'     => max( 0, (int) $read( 'cat' ) ),
+			'from'    => $from,
+			'to'      => $to,
+			'cycle'   => max( 0, (int) $read( 'cycle' ) ),
+			'orderby' => $orderby,
+			'order'   => $order,
+		);
+	}
+
+	/**
+	 * Keep only non-default filter values for links and hidden form fields.
+	 *
+	 * @param array $filters Normalized or raw filters.
+	 * @return array<string,string|int>
+	 */
+	private static function filter_query_args( $filters ) {
+		$filters = self::parse_list_filters( $filters );
+		$args    = array();
+
+		if ( '' !== $filters['s'] ) {
+			$args['s'] = $filters['s'];
+		}
+		if ( $filters['author'] > 0 ) {
+			$args['author'] = $filters['author'];
+		}
+		if ( $filters['cat'] > 0 ) {
+			$args['cat'] = $filters['cat'];
+		}
+		if ( '' !== $filters['from'] ) {
+			$args['from'] = $filters['from'];
+		}
+		if ( '' !== $filters['to'] ) {
+			$args['to'] = $filters['to'];
+		}
+		if ( $filters['cycle'] > 0 ) {
+			$args['cycle'] = $filters['cycle'];
+		}
+		if ( 'modified' !== $filters['orderby'] ) {
+			$args['orderby'] = $filters['orderby'];
+		}
+		if ( 'DESC' !== $filters['order'] ) {
+			$args['order'] = $filters['order'];
+		}
+
+		return $args;
+	}
+
+	/**
+	 * Build the state plus filter payload used by detail and redirect links.
+	 *
+	 * @param string $state   Editorial state.
+	 * @param array  $filters Raw or normalized filters.
+	 * @return array<string,string|int>
+	 */
+	public static function return_args( $state, $filters ) {
+		return array_merge(
+			array( 'state' => sanitize_key( (string) $state ) ),
+			self::filter_query_args( $filters )
+		);
+	}
+
+	/**
+	 * Validate a `Y-m-d` filter value without letting PHP roll over bad dates.
+	 *
+	 * @param string $value Raw date.
+	 * @return string Valid date or an empty string.
+	 */
+	private static function normalize_filter_date( $value ) {
+		$value = trim( (string) $value );
+
+		if ( 1 !== preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $value, $matches ) ) {
+			return '';
+		}
+
+		return checkdate( (int) $matches[2], (int) $matches[3], (int) $matches[1] ) ? $value : '';
+	}
+
+	/**
+	 * Convert a site-local calendar day to a Unix timestamp for meta queries.
+	 *
+	 * @param string $date       Valid `Y-m-d` date.
+	 * @param bool   $end_of_day Include the whole day when true.
+	 * @return int Unix timestamp, or 0 when the date cannot be parsed.
+	 */
+	private static function filter_date_timestamp( $date, $end_of_day ) {
+		$time = $end_of_day ? '23:59:59' : '00:00:00';
+		$date = DateTimeImmutable::createFromFormat( 'Y-m-d H:i:s', $date . ' ' . $time, Penalis_Datetime::site_timezone() );
+
+		return $date ? (int) $date->getTimestamp() : 0;
+	}
+
+	/**
+	 * Merge normalized list filters into `WP_Query` arguments.
+	 *
+	 * Existing state clauses are preserved. When a state contributes an `OR`
+	 * meta query (drafts without workflow metadata), it is wrapped in an `AND`
+	 * group so the added filters still narrow the result set.
+	 *
+	 * @param array $args    Base `WP_Query` arguments.
+	 * @param array $filters Raw or normalized filters.
+	 * @return array<string,mixed>
+	 */
+	public static function apply_list_filters( $args, $filters ) {
+		$args    = is_array( $args ) ? $args : array();
+		$filters = self::parse_list_filters( $filters );
+
+		if ( '' !== $filters['s'] ) {
+			$args['s'] = $filters['s'];
+		}
+		if ( $filters['author'] > 0 ) {
+			$args['author'] = $filters['author'];
+		}
+		if ( $filters['cat'] > 0 ) {
+			$args['cat'] = $filters['cat'];
+		}
+
+		$extra = array();
+
+		if ( $filters['cycle'] > 0 ) {
+			$extra[] = array(
+				'key'   => Penalis_Editorial_Policy::META_REVIEW_CYCLE,
+				'value' => $filters['cycle'],
+				'type'  => 'NUMERIC',
+			);
+		}
+
+		if ( '' !== $filters['from'] ) {
+			$extra[] = array(
+				'key'     => Penalis_Editorial_Policy::META_SUBMITTED_AT,
+				'value'   => self::filter_date_timestamp( $filters['from'], false ),
+				'compare' => '>=',
+				'type'    => 'NUMERIC',
+			);
+		}
+
+		if ( '' !== $filters['to'] ) {
+			$extra[] = array(
+				'key'     => Penalis_Editorial_Policy::META_SUBMITTED_AT,
+				'value'   => self::filter_date_timestamp( $filters['to'], true ),
+				'compare' => '<=',
+				'type'    => 'NUMERIC',
+			);
+		}
+
+		$sort_key = '';
+		if ( 'submitted' === $filters['orderby'] ) {
+			$sort_key = Penalis_Editorial_Policy::META_SUBMITTED_AT;
+		} elseif ( 'cycle' === $filters['orderby'] ) {
+			$sort_key = Penalis_Editorial_Policy::META_REVIEW_CYCLE;
+		}
+
+		if ( '' !== $sort_key ) {
+			$extra['penalis_sort'] = array(
+				'key'     => $sort_key,
+				'compare' => 'EXISTS',
+				'type'    => 'NUMERIC',
+			);
+			$args['orderby']       = array( 'penalis_sort' => $filters['order'] );
+		} else {
+			$args['orderby'] = $filters['orderby'];
+		}
+
+		$args['order'] = $filters['order'];
+
+		if ( ! empty( $extra ) ) {
+			$meta_query = isset( $args['meta_query'] ) && is_array( $args['meta_query'] ) ? $args['meta_query'] : array();
+
+			if ( ! empty( $meta_query ) && isset( $meta_query['relation'] ) && 'OR' === strtoupper( (string) $meta_query['relation'] ) ) {
+				$meta_query = array(
+					'relation' => 'AND',
+					$meta_query,
+				);
+			}
+
+			$args['meta_query'] = array_merge( $meta_query, $extra ); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		}
+
+		return $args;
+	}
+
+	/**
+	 * Render the search/filter/sort toolbar above the submission table.
+	 *
+	 * @param string $state   Current editorial state.
+	 * @param array  $filters Normalized list filters.
+	 * @param int    $total   Number of submissions matching the current view.
+	 * @return void
+	 */
+	private static function render_filter_bar( $state, $filters, $total ) {
+		$authors    = function_exists( 'get_users' )
+			? get_users(
+				array(
+					'fields'  => 'all',
+					'number'  => 500,
+					'orderby' => 'display_name',
+					'order'   => 'ASC',
+				)
+			)
+			: array();
+		$categories = function_exists( 'get_categories' )
+			? get_categories(
+				array(
+					'hide_empty' => false,
+					'number'     => 500,
+					'orderby'    => 'name',
+					'order'      => 'ASC',
+				)
+			)
+			: array();
+
+		$sort_options = array(
+			'modified'  => 'Terakhir diubah',
+			'submitted' => 'Tanggal submit',
+			'title'     => 'Judul',
+			'author'    => 'Nama penulis',
+			'cycle'     => 'Review cycle',
+		);
+		?>
+		<form method="get" class="penalis-toolbar penalis-review__filters">
+			<input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE_SLUG ); ?>">
+			<input type="hidden" name="state" value="<?php echo esc_attr( $state ); ?>">
+
+			<label for="penalis-review-search" class="screen-reader-text">Cari judul atau isi karya tulis</label>
+			<input
+				type="search"
+				id="penalis-review-search"
+				name="s"
+				value="<?php echo esc_attr( (string) $filters['s'] ); ?>"
+				placeholder="Cari judul atau isi"
+			>
+
+			<label for="penalis-review-author" class="screen-reader-text">Filter penulis</label>
+			<select id="penalis-review-author" name="author">
+				<option value="">Semua penulis</option>
+				<?php foreach ( (array) $authors as $author ) : ?>
+					<option value="<?php echo esc_attr( (string) $author->ID ); ?>" <?php selected( $filters['author'], (int) $author->ID ); ?>>
+						<?php echo esc_html( $author->display_name . ' (' . $author->user_login . ')' ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+
+			<label for="penalis-review-category" class="screen-reader-text">Filter kategori</label>
+			<select id="penalis-review-category" name="cat">
+				<option value="">Semua kategori</option>
+				<?php foreach ( (array) $categories as $category ) : ?>
+					<option value="<?php echo esc_attr( (string) $category->term_id ); ?>" <?php selected( $filters['cat'], (int) $category->term_id ); ?>>
+						<?php echo esc_html( (string) $category->name ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+
+			<label for="penalis-review-from" class="screen-reader-text">Submit dari tanggal</label>
+			<input type="date" id="penalis-review-from" name="from" value="<?php echo esc_attr( (string) $filters['from'] ); ?>">
+
+			<label for="penalis-review-to" class="screen-reader-text">Submit sampai tanggal</label>
+			<input type="date" id="penalis-review-to" name="to" value="<?php echo esc_attr( (string) $filters['to'] ); ?>">
+
+			<label for="penalis-review-cycle" class="screen-reader-text">Filter review cycle</label>
+			<input
+				type="number"
+				id="penalis-review-cycle"
+				name="cycle"
+				min="1"
+				value="<?php echo esc_attr( 0 === $filters['cycle'] ? '' : (string) $filters['cycle'] ); ?>"
+				placeholder="Cycle"
+			>
+
+			<label for="penalis-review-orderby" class="screen-reader-text">Urutkan berdasarkan</label>
+			<select id="penalis-review-orderby" name="orderby">
+				<?php foreach ( $sort_options as $value => $label ) : ?>
+					<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $filters['orderby'], $value ); ?>>
+						<?php echo esc_html( $label ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+
+			<label for="penalis-review-order" class="screen-reader-text">Arah urutan</label>
+			<select id="penalis-review-order" name="order">
+				<option value="DESC" <?php selected( $filters['order'], 'DESC' ); ?>>Menurun</option>
+				<option value="ASC" <?php selected( $filters['order'], 'ASC' ); ?>>Menaik</option>
+			</select>
+
+			<button type="submit" class="button">Terapkan</button>
+			<?php if ( ! empty( self::filter_query_args( $filters ) ) ) : ?>
+				<a class="button button-link" href="<?php echo esc_url( self::list_url( $state ) ); ?>">Hapus filter</a>
+			<?php endif; ?>
+			<span class="penalis-toolbar__count">
+				<?php echo esc_html( number_format_i18n( $total ) . ' karya tulis' ); ?>
+			</span>
+		</form>
+		<?php
 	}
 
 	/**
@@ -803,18 +1198,22 @@ final class Penalis_Editorial_Admin {
 	 * @param string $state    Editorial state.
 	 * @param int    $paged    Page number.
 	 * @param int    $per_page Items per page.
+	 * @param array  $filters  Optional raw or normalized list filters.
 	 * @return array<string,mixed>
 	 */
-	private static function query_args( $state, $paged, $per_page ) {
-		return array_merge(
-			array(
-				'post_type'      => 'post',
-				'posts_per_page' => $per_page,
-				'paged'          => $paged,
-				'orderby'        => 'modified',
-				'order'          => 'DESC',
+	public static function query_args( $state, $paged, $per_page, $filters = array() ) {
+		return self::apply_list_filters(
+			array_merge(
+				array(
+					'post_type'      => 'post',
+					'posts_per_page' => $per_page,
+					'paged'          => $paged,
+					'orderby'        => 'modified',
+					'order'          => 'DESC',
+				),
+				Penalis_Editorial_Workflow::state_query_clauses( $state )
 			),
-			Penalis_Editorial_Workflow::state_query_clauses( $state )
+			$filters
 		);
 	}
 

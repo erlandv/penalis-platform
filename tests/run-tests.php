@@ -2833,6 +2833,160 @@ foreach ( Penalis_Editorial_Policy::states() as $state ) {
 	}
 }
 
+// Review queue filters are normalized once and shared by the screen and URLs.
+penalis_same(
+	array(
+		's'       => '',
+		'author'  => 0,
+		'cat'     => 0,
+		'from'    => '',
+		'to'      => '',
+		'cycle'   => 0,
+		'orderby' => 'modified',
+		'order'   => 'DESC',
+	),
+	Penalis_Editorial_Admin::parse_list_filters( array() ),
+	'An empty filter request keeps the historical default sort.'
+);
+penalis_same(
+	array(
+		's'       => 'Hujan',
+		'author'  => 12,
+		'cat'     => 7,
+		'from'    => '2026-11-01',
+		'to'      => '2026-11-18',
+		'cycle'   => 2,
+		'orderby' => 'submitted',
+		'order'   => 'ASC',
+	),
+	Penalis_Editorial_Admin::parse_list_filters(
+		array(
+			's'       => '  <b>Hujan</b>  ',
+			'author'  => '12',
+			'cat'     => '7',
+			'from'    => '2026-11-18',
+			'to'      => '2026-11-01',
+			'cycle'   => '2',
+			'orderby' => 'submitted',
+			'order'   => 'asc',
+		)
+	),
+	'Filters are sanitized, an inverted date range is swapped, and order is uppercased.'
+);
+
+$invalid_filters = Penalis_Editorial_Admin::parse_list_filters(
+	array(
+		's'       => str_repeat( 'a', 120 ),
+		'author'  => '-4',
+		'cat'     => 'not-a-number',
+		'from'    => '2026-02-30',
+		'to'      => '18-11-2026',
+		'cycle'   => '-2',
+		'orderby' => 'drop table',
+		'order'   => 'sideways',
+	)
+);
+penalis_assert( 100 === strlen( $invalid_filters['s'] ), 'A long search string is capped.' );
+penalis_same( 0, $invalid_filters['author'], 'A negative author ID is rejected.' );
+penalis_same( 0, $invalid_filters['cat'], 'A non-numeric category is rejected.' );
+penalis_same( '', $invalid_filters['from'], 'An impossible calendar date is rejected.' );
+penalis_same( '', $invalid_filters['to'], 'A date in the wrong format is rejected.' );
+penalis_same( 0, $invalid_filters['cycle'], 'A negative review cycle is rejected.' );
+penalis_same( 'modified', $invalid_filters['orderby'], 'An unknown sort field falls back to modified.' );
+penalis_same( 'DESC', $invalid_filters['order'], 'An unknown sort direction falls back to DESC.' );
+
+$plain_args = Penalis_Editorial_Admin::query_args( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, 1, 20 );
+penalis_same( 'modified', $plain_args['orderby'], 'The unfiltered queue keeps its original sort.' );
+penalis_assert( ! isset( $plain_args['meta_query'] ), 'The unfiltered pending queue needs no extra meta clauses.' );
+
+$filtered_args = Penalis_Editorial_Admin::query_args(
+	Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+	1,
+	20,
+	array(
+		's'      => 'Hujan',
+		'author' => 12,
+		'cat'    => 7,
+		'cycle'  => 2,
+		'from'   => '2026-11-01',
+		'to'     => '2026-11-18',
+	)
+);
+penalis_same( array( 'pending' ), $filtered_args['post_status'], 'Filters never change the editorial state clause.' );
+penalis_same( 'Hujan', $filtered_args['s'], 'Search text reaches WP_Query.' );
+penalis_same( 12, $filtered_args['author'], 'Author reaches WP_Query.' );
+penalis_same( 7, $filtered_args['cat'], 'Category reaches WP_Query.' );
+penalis_same( Penalis_Editorial_Policy::META_REVIEW_CYCLE, $filtered_args['meta_query'][0]['key'], 'A cycle filter becomes a meta clause.' );
+penalis_same( 2, $filtered_args['meta_query'][0]['value'], 'The requested cycle is used as the meta value.' );
+penalis_same( Penalis_Editorial_Policy::META_SUBMITTED_AT, $filtered_args['meta_query'][1]['key'], 'The lower date bound uses the submitted timestamp.' );
+penalis_same( '>=', $filtered_args['meta_query'][1]['compare'], 'The from date is an inclusive lower bound.' );
+penalis_same( Penalis_Editorial_Policy::META_SUBMITTED_AT, $filtered_args['meta_query'][2]['key'], 'The upper date bound uses the submitted timestamp.' );
+penalis_same( '<=', $filtered_args['meta_query'][2]['compare'], 'The to date is an inclusive upper bound.' );
+penalis_assert( $filtered_args['meta_query'][2]['value'] > $filtered_args['meta_query'][1]['value'], 'The upper timestamp is later than the lower one.' );
+
+$merged_args = Penalis_Editorial_Admin::query_args(
+	Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED,
+	1,
+	20,
+	array( 'cycle' => 2 )
+);
+penalis_same( Penalis_Editorial_Policy::META_STATE, $merged_args['meta_query'][0]['key'], 'The state meta clause is preserved.' );
+penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, $merged_args['meta_query'][0]['value'], 'The state value is preserved.' );
+penalis_same( Penalis_Editorial_Policy::META_REVIEW_CYCLE, $merged_args['meta_query'][1]['key'], 'The cycle clause is appended to the state clause.' );
+
+$wrapped_args = Penalis_Editorial_Admin::query_args( Penalis_Editorial_Policy::STATE_DRAFT, 1, 20, array( 'cycle' => 1 ) );
+penalis_same( 'AND', $wrapped_args['meta_query']['relation'], 'An OR state clause is wrapped in AND before filtering.' );
+penalis_same( 'OR', $wrapped_args['meta_query'][0]['relation'], 'The original OR group is kept intact.' );
+penalis_same( Penalis_Editorial_Policy::META_REVIEW_CYCLE, $wrapped_args['meta_query'][1]['key'], 'The filter applies outside the OR group.' );
+
+$sorted_args = Penalis_Editorial_Admin::query_args(
+	Penalis_Editorial_Policy::STATE_PENDING_REVIEW,
+	1,
+	20,
+	array(
+		'orderby' => 'submitted',
+		'order'   => 'asc',
+	)
+);
+penalis_same( array( 'penalis_sort' => 'ASC' ), $sorted_args['orderby'], 'Sorting by submitted uses the named meta clause.' );
+penalis_same( Penalis_Editorial_Policy::META_SUBMITTED_AT, $sorted_args['meta_query']['penalis_sort']['key'], 'The submitted timestamp drives the sort.' );
+penalis_same( 'EXISTS', $sorted_args['meta_query']['penalis_sort']['compare'], 'The sort clause does not add a value restriction.' );
+
+penalis_reset();
+penalis_editorial_post( 700, 10, 'pending' );
+penalis_editorial_post( 701, 11, 'pending' );
+penalis_same(
+	2,
+	Penalis_Editorial_Workflow::count_matching_posts( Penalis_Editorial_Admin::query_args( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, 1, 20 ) ),
+	'Both pending submissions are counted without a filter.'
+);
+penalis_same(
+	1,
+	Penalis_Editorial_Workflow::count_matching_posts( Penalis_Editorial_Admin::query_args( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, 1, 20, array( 'author' => 11 ) ) ),
+	'The author filter narrows the submission count.'
+);
+
+$filtered_list_url = Penalis_Editorial_Admin::list_url(
+	Penalis_Editorial_Policy::STATE_REJECTED,
+	array(
+		's'       => 'Hujan',
+		'orderby' => 'title',
+	)
+);
+penalis_assert( false !== strpos( $filtered_list_url, 'state=rejected' ), 'State is kept in filtered list URLs.' );
+penalis_assert( false !== strpos( $filtered_list_url, 's=Hujan' ), 'Search is kept in filtered list URLs.' );
+penalis_assert( false !== strpos( $filtered_list_url, 'orderby=title' ), 'Sort is kept in filtered list URLs.' );
+penalis_assert( false === strpos( $filtered_list_url, 'order=DESC' ), 'Default filter values are omitted from URLs.' );
+
+$return_args = Penalis_Editorial_Admin::return_args(
+	Penalis_Editorial_Policy::STATE_REJECTED,
+	array( 's' => 'Hujan' )
+);
+$filtered_detail_url = Penalis_Editorial_Admin::detail_url( 700, $return_args );
+penalis_assert( false !== strpos( $filtered_detail_url, 'post_id=700' ), 'Detail URLs still identify the post.' );
+penalis_assert( false !== strpos( $filtered_detail_url, 'state=rejected' ), 'Detail URLs carry the state for the back link.' );
+penalis_assert( false !== strpos( $filtered_detail_url, 's=Hujan' ), 'Detail URLs carry the active filters.' );
+
 // Decisions are serialized per post.
 penalis_reset();
 penalis_editorial_writer( 10 );

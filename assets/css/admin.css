@@ -314,7 +314,7 @@
 	color: #c3c4c7;
 }
 
-.penalis-writers .penalis-toolbar {
+:is(.penalis-writers, .penalis-review) .penalis-toolbar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -328,17 +328,32 @@
 	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
-.penalis-writers .penalis-toolbar input[type="search"] {
+:is(.penalis-writers, .penalis-review) .penalis-toolbar input[type="search"] {
 	flex: 1 1 240px;
 	max-width: 340px;
 	margin: 0;
 }
 
-.penalis-writers .penalis-toolbar .button {
+.penalis-review .penalis-toolbar select {
+	max-width: 190px;
 	margin: 0;
 }
 
-.penalis-writers .penalis-toolbar__count {
+.penalis-review .penalis-toolbar input[type="date"] {
+	width: 150px;
+	margin: 0;
+}
+
+.penalis-review .penalis-toolbar input[type="number"] {
+	width: 90px;
+	margin: 0;
+}
+
+:is(.penalis-writers, .penalis-review) .penalis-toolbar .button {
+	margin: 0;
+}
+
+:is(.penalis-writers, .penalis-review) .penalis-toolbar__count {
 	margin-left: auto;
 	color: #646970;
 	font-size: 12px;
@@ -1544,7 +1559,7 @@ body.penalis-modal-open {
 		min-width: 720px;
 	}
 
-	.penalis-writers .penalis-toolbar__count {
+	:is(.penalis-writers, .penalis-review) .penalis-toolbar__count {
 		margin-left: 0;
 	}
 
