@@ -4436,6 +4436,104 @@ $GLOBALS['penalis_test_options'][ Penalis_Settings::OPTION_CAPTCHA_ENABLED ] = '
 penalis_same( true, Penalis_Turnstile::is_enabled_for( 'reset' ), 'Turning the switch back on restores the dashboard CAPTCHA immediately.' );
 
 /* -------------------------------------------------------------------------
+ * Turnstile availability reasons and the English status card
+ * ---------------------------------------------------------------------- */
+
+if ( ! function_exists( 'cfturnstile_whitelisted' ) ) {
+	/**
+	 * Whitelist double driven by a test flag.
+	 *
+	 * @return bool
+	 */
+	function cfturnstile_whitelisted() {
+		return ! empty( $GLOBALS['penalis_test_turnstile_whitelisted'] );
+	}
+}
+
+if ( ! function_exists( 'cfturnstile_is_cloudflare_down' ) ) {
+	/**
+	 * Outage double driven by a test flag.
+	 *
+	 * @return bool
+	 */
+	function cfturnstile_is_cloudflare_down() {
+		return ! empty( $GLOBALS['penalis_test_turnstile_down'] );
+	}
+}
+
+$GLOBALS['penalis_test_turnstile_whitelisted'] = false;
+$GLOBALS['penalis_test_turnstile_down']        = false;
+
+penalis_same( 'available', Penalis_Turnstile::availability()['reason'], 'A configured, untampered site reports the "available" reason.' );
+penalis_same( true, Penalis_Turnstile::availability()['available'], 'The availability result carries the boolean and the reason together.' );
+
+$penalis_status_rows = Penalis_Settings::turnstile_status_rows();
+penalis_same(
+	array( 'Plugin', 'Configuration', 'Site key', 'Secret key', 'Protected WordPress forms', 'Current status' ),
+	array_column( $penalis_status_rows, 'label' ),
+	'The status card labels are English.'
+);
+penalis_same(
+	array( 'Active', 'Keys set and tested', 'Set', 'Set', 'Login, Registration, Password reset', 'Enforcing on this request' ),
+	array_column( $penalis_status_rows, 'value' ),
+	'The status card describes a fully configured site in English.'
+);
+
+// A whitelist match is a bypass, not a configuration problem: this is the case
+// that used to read "Aktif, tetapi belum terkonfigurasi" on a protected site.
+$GLOBALS['penalis_test_turnstile_whitelisted'] = true;
+
+penalis_same( 'whitelisted', Penalis_Turnstile::availability()['reason'], 'A whitelist match is reported as its own reason.' );
+penalis_same( false, Penalis_Turnstile::is_available(), 'Turnstile stays unavailable for the whitelisted request.' );
+
+$penalis_whitelisted_rows = array_column( Penalis_Settings::turnstile_status_rows(), 'value' );
+
+penalis_same( 'Keys set and tested', $penalis_whitelisted_rows[1], 'A whitelist bypass still reports the configuration as complete.' );
+penalis_assert(
+	false !== strpos( $penalis_whitelisted_rows[5], 'whitelist rule' ),
+	'The current status names the whitelist rule instead of claiming the plugin is unconfigured.'
+);
+
+$GLOBALS['penalis_test_turnstile_whitelisted'] = false;
+
+// Outage failover bypasses Turnstile only while Cloudflare is actually down.
+$GLOBALS['penalis_test_options']['cfturnstile_failover']      = '1';
+$GLOBALS['penalis_test_options']['cfturnstile_failsafe_type'] = 'allow';
+$GLOBALS['penalis_test_turnstile_down']                       = true;
+
+penalis_same( 'failover', Penalis_Turnstile::availability()['reason'], 'An allowed outage failover is reported as its own reason.' );
+
+$GLOBALS['penalis_test_turnstile_down'] = false;
+
+penalis_same( 'available', Penalis_Turnstile::availability()['reason'], 'A reachable Cloudflare keeps Turnstile enforcing while failover is configured.' );
+
+unset( $GLOBALS['penalis_test_options']['cfturnstile_failover'], $GLOBALS['penalis_test_options']['cfturnstile_failsafe_type'] );
+
+// Unsaved test flag: the keys exist but the third-party plugin refuses to load.
+$GLOBALS['penalis_test_options']['cfturnstile_tested'] = 'no';
+
+penalis_same( 'untested', Penalis_Turnstile::availability()['reason'], 'Keys that were never tested are reported as "untested".' );
+
+$penalis_untested_rows = array_column( Penalis_Settings::turnstile_status_rows(), 'value' );
+
+penalis_same( 'Keys saved but not tested yet', $penalis_untested_rows[1], 'The configuration row names the missing test.' );
+penalis_same( 'Inactive, the keys have not been tested yet', $penalis_untested_rows[5], 'The current status explains why Turnstile is not loading.' );
+
+$GLOBALS['penalis_test_options']['cfturnstile_tested'] = 'yes';
+
+// Missing key: the one case that really is a configuration problem.
+unset( $GLOBALS['penalis_test_options']['cfturnstile_key'] );
+
+penalis_same( 'keys_missing', Penalis_Turnstile::availability()['reason'], 'A missing site key is reported as "keys_missing".' );
+
+$penalis_missing_key_rows = array_column( Penalis_Settings::turnstile_status_rows(), 'value' );
+
+penalis_same( 'Incomplete, the site key or secret key is missing', $penalis_missing_key_rows[1], 'The configuration row names the missing key.' );
+penalis_same( 'Missing', $penalis_missing_key_rows[2], 'The site key row reports the key as missing.' );
+
+$GLOBALS['penalis_test_options']['cfturnstile_key'] = 'site-key';
+
+/* -------------------------------------------------------------------------
  * Report
  * ---------------------------------------------------------------------- */
 

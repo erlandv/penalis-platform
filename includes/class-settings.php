@@ -461,37 +461,37 @@ JS;
 		</div>
 
 		<div class="penalis-settings__panel">
-			<h2>Status plugin Simple Cloudflare Turnstile</h2>
+			<h2>Simple Cloudflare Turnstile plugin status</h2>
 			<p class="description">
-				Bagian ini hanya informasi. Penalis membaca konfigurasi Turnstile dan tidak pernah
-				mengubahnya, sehingga mematikan CAPTCHA dashboard tidak melemahkan halaman WordPress
-				lain.
+				This section is informational only. Penalis reads the Turnstile configuration and
+				never changes it, so turning off the dashboard CAPTCHA never weakens other WordPress
+				pages. The copy here is deliberately English because it reports third-party plugin
+				state.
 			</p>
 
 			<table class="widefat striped penalis-settings__status">
 				<tbody>
-					<tr>
-						<th scope="row">Status plugin</th>
-						<td><?php echo esc_html( self::plugin_status_label() ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row">Kunci situs</th>
-						<td><?php echo esc_html( '' !== self::turnstile_option( 'cfturnstile_key' ) ? 'Terpasang' : 'Belum diisi' ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row">Kunci rahasia</th>
-						<td><?php echo esc_html( '' !== self::turnstile_option( 'cfturnstile_secret' ) ? 'Terpasang' : 'Belum diisi' ); ?></td>
-					</tr>
-					<tr>
-						<th scope="row">Halaman WordPress yang dilindungi</th>
-						<td><?php echo esc_html( self::protected_wordpress_forms() ); ?></td>
-					</tr>
+					<?php foreach ( self::turnstile_status_rows() as $penalis_status_row ) : ?>
+						<tr>
+							<th scope="row"><?php echo esc_html( $penalis_status_row['label'] ); ?></th>
+							<td><?php echo esc_html( $penalis_status_row['value'] ); ?></td>
+						</tr>
+					<?php endforeach; ?>
 				</tbody>
 			</table>
 
+			<p class="description">
+				Configuration and current status are reported separately because they answer
+				different questions. Whitelist rules, the Cloudflare outage failover, and the
+				<code>cfturnstile_widget_disable</code> filter bypass Turnstile for one request
+				without changing the configuration, so a fully protected site can still show a
+				bypassed current status for a logged-in administrator while anonymous visitors keep
+				getting the widget.
+			</p>
+
 			<p class="penalis-settings__link">
 				<a href="<?php echo esc_url( admin_url( 'options-general.php?page=cfturnstile' ) ); ?>">
-					Buka pengaturan Turnstile &nearr;
+					Open Turnstile settings &nearr;
 				</a>
 			</p>
 		</div>
@@ -555,19 +555,100 @@ JS;
 	}
 
 	/**
-	 * Describe the third-party plugin state in one line.
+	 * Status rows for the Simple Cloudflare Turnstile card.
 	 *
-	 * "Inactive" and "active but unconfigured" are different situations for an
-	 * administrator, so they are never collapsed into one label.
+	 * The card reports third-party plugin state, so its copy is English even
+	 * though the rest of the settings screen is Indonesian.
 	 *
+	 * Configuration and runtime state are kept apart on purpose. A site whose keys
+	 * are set and tested is configured, yet Turnstile can still be bypassed for the
+	 * current request by whitelist rules, the outage failover, or the
+	 * `cfturnstile_widget_disable` filter. Reporting both facts through a single
+	 * "not configured" label sends administrators hunting for a configuration
+	 * problem that does not exist.
+	 *
+	 * @return array<int,array{label:string,value:string}>
+	 */
+	public static function turnstile_status_rows() {
+		$plugin_active = function_exists( 'cfturnstile_check' );
+		$state         = Penalis_Turnstile::availability();
+		$reason        = (string) $state['reason'];
+
+		$rows = array(
+			array(
+				'label' => 'Plugin',
+				'value' => $plugin_active ? 'Active' : 'Not active',
+			),
+			array(
+				'label' => 'Configuration',
+				'value' => self::turnstile_configuration_label( $reason ),
+			),
+			array(
+				'label' => 'Site key',
+				'value' => '' !== self::turnstile_option( 'cfturnstile_key' ) ? 'Set' : 'Missing',
+			),
+			array(
+				'label' => 'Secret key',
+				'value' => '' !== self::turnstile_option( 'cfturnstile_secret' ) ? 'Set' : 'Missing',
+			),
+			array(
+				'label' => 'Protected WordPress forms',
+				'value' => self::protected_wordpress_forms(),
+			),
+			array(
+				'label' => 'Current status',
+				'value' => self::turnstile_runtime_label( $reason ),
+			),
+		);
+
+		return $rows;
+	}
+
+	/**
+	 * Describe whether the API keys are set and tested.
+	 *
+	 * Deliberately ignores whitelist, failover, and filter bypasses: those leave
+	 * the configuration untouched, so they belong to the runtime row instead.
+	 *
+	 * @param string $reason Availability reason from `Penalis_Turnstile::availability()`.
 	 * @return string
 	 */
-	private static function plugin_status_label() {
-		if ( ! function_exists( 'cfturnstile_check' ) ) {
-			return 'Tidak aktif';
+	private static function turnstile_configuration_label( $reason ) {
+		switch ( $reason ) {
+			case 'plugin_missing':
+				return 'Unknown, the Turnstile plugin is not active';
+			case 'keys_missing':
+				return 'Incomplete, the site key or secret key is missing';
+			case 'untested':
+				return 'Keys saved but not tested yet';
+			default:
+				return 'Keys set and tested';
 		}
+	}
 
-		return Penalis_Turnstile::is_available() ? 'Aktif dan terkonfigurasi' : 'Aktif, tetapi belum terkonfigurasi';
+	/**
+	 * Describe what Turnstile is doing on the current request.
+	 *
+	 * @param string $reason Availability reason from `Penalis_Turnstile::availability()`.
+	 * @return string
+	 */
+	private static function turnstile_runtime_label( $reason ) {
+		switch ( $reason ) {
+			case 'plugin_missing':
+				return 'Inactive, Turnstile is not loaded';
+			case 'keys_missing':
+				return 'Inactive, the API keys are missing';
+			case 'untested':
+				return 'Inactive, the keys have not been tested yet';
+			case 'whitelisted':
+				return 'Bypassed for this request, a whitelist rule matched (logged-in user, IP address, or user agent)';
+			case 'filtered':
+				return 'Bypassed, disabled by the cfturnstile_widget_disable filter';
+			case 'failover':
+				return 'Bypassed, the Cloudflare outage failover is set to allow';
+			default:
+				return 'Enforcing on this request';
+		}
 	}
 
 	/**
@@ -592,24 +673,24 @@ JS;
 	 */
 	private static function protected_wordpress_forms() {
 		if ( ! function_exists( 'cfturnstile_check' ) ) {
-			return 'Tidak ada, karena plugin Turnstile tidak aktif';
+			return 'None, Turnstile is not active';
 		}
 
 		$forms = array();
 
 		if ( self::turnstile_form_enabled( 'cfturnstile_login' ) ) {
-			$forms[] = 'login';
+			$forms[] = 'Login';
 		}
 
 		if ( self::turnstile_form_enabled( 'cfturnstile_register' ) ) {
-			$forms[] = 'pendaftaran';
+			$forms[] = 'Registration';
 		}
 
 		if ( self::turnstile_form_enabled( 'cfturnstile_reset' ) ) {
-			$forms[] = 'reset password';
+			$forms[] = 'Password reset';
 		}
 
-		return empty( $forms ) ? 'Tidak ada' : implode( ', ', $forms );
+		return empty( $forms ) ? 'None' : implode( ', ', $forms );
 	}
 
 	/**

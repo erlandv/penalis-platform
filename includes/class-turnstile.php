@@ -31,27 +31,54 @@ final class Penalis_Turnstile {
 	 * @return bool
 	 */
 	public static function is_available() {
+		$state = self::availability();
+
+		return (bool) $state['available'];
+	}
+
+	/**
+	 * Availability of the third-party plugin, with the reason behind it.
+	 *
+	 * "Not available" covers six situations, and only two of them are
+	 * configuration problems an administrator can fix on the Turnstile settings
+	 * page (missing keys, untested keys). Whitelist rules, the outage failover, and
+	 * the `cfturnstile_widget_disable` filter bypass Turnstile for a single request
+	 * on a site that is otherwise fully protected, so the reason is reported
+	 * separately instead of being collapsed into one "unconfigured" verdict.
+	 *
+	 * Reasons are ordered from the most fundamental to the most transient, which
+	 * matches the order in which the third-party plugin itself decides whether to
+	 * load its integrations.
+	 *
+	 * @return array{available:bool,reason:string} `reason` is one of
+	 *         `plugin_missing`, `keys_missing`, `untested`, `whitelisted`,
+	 *         `filtered`, `failover`, or `available`.
+	 */
+	public static function availability() {
 		if ( ! function_exists( 'cfturnstile_check' ) ) {
-			return false;
+			return self::state( 'plugin_missing' );
 		}
 
 		$site_key   = trim( sanitize_text_field( (string) get_option( 'cfturnstile_key', '' ) ) );
 		$secret_key = trim( sanitize_text_field( (string) get_option( 'cfturnstile_secret', '' ) ) );
 
 		if ( '' === $site_key || '' === $secret_key ) {
-			return false;
+			return self::state( 'keys_missing' );
 		}
 
+		// The plugin sets this to "no" whenever an administrator saves new keys and
+		// only flips it back to "yes" after a manual test, so it is the one piece of
+		// configuration an administrator still has to finish.
 		if ( 'no' === (string) get_option( 'cfturnstile_tested', '' ) ) {
-			return false;
+			return self::state( 'untested' );
 		}
 
 		if ( function_exists( 'cfturnstile_whitelisted' ) && cfturnstile_whitelisted() ) {
-			return false;
+			return self::state( 'whitelisted' );
 		}
 
 		if ( apply_filters( 'cfturnstile_widget_disable', false ) ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party Simple Cloudflare Turnstile hook.
-			return false;
+			return self::state( 'filtered' );
 		}
 
 		if (
@@ -60,10 +87,23 @@ final class Penalis_Turnstile {
 			&& function_exists( 'cfturnstile_is_cloudflare_down' )
 			&& cfturnstile_is_cloudflare_down()
 		) {
-			return false;
+			return self::state( 'failover' );
 		}
 
-		return true;
+		return self::state( 'available' );
+	}
+
+	/**
+	 * Build an availability result.
+	 *
+	 * @param string $reason Availability reason.
+	 * @return array{available:bool,reason:string}
+	 */
+	private static function state( $reason ) {
+		return array(
+			'available' => 'available' === $reason,
+			'reason'    => $reason,
+		);
 	}
 
 	/**

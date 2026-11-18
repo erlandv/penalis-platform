@@ -14,6 +14,11 @@ publishing phrases that are retained in English, such as *login*, *logout*,
 *dashboard*, *password*, *link*, *featured image*, *publish*, *draft*,
 *review*, *submit*, *read-only*, *upload*, *download*, *views*, etc.). Penalis is an
 Indonesian community; the writers read Indonesian, the developers read English.
+The one deliberate exception is the **Simple Cloudflare Turnstile plugin status**
+card on **Penalis → Pengaturan → Keamanan** (heading, description, row labels,
+values, and the link to the third-party settings page): it reports third-party
+plugin state, so it is written in English inside an otherwise Indonesian screen.
+Do not translate it back.
 
 ---
 

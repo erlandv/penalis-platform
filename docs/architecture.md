@@ -528,8 +528,23 @@ avoid.
   silences widget, token, and verification together — no React change is
   needed, and the SPA simply receives `{ enabled: false }`.
 - **`is_available()` is never gated:** it reports whether the third-party plugin
-  is present and configured, so the settings screen can still explain the
-  site-wide state while the dashboard is silenced.
+  is present and usable, so the settings screen can still explain the site-wide
+  state while the dashboard is silenced.
+- **Availability carries a reason:** `is_available()` is a thin wrapper around
+  `availability()`, which returns `{ available, reason }` with one of
+  `plugin_missing`, `keys_missing`, `untested`, `whitelisted`, `filtered`,
+  `failover`, or `available`. Only the first three are configuration problems;
+  whitelist rules, the outage failover, and the `cfturnstile_widget_disable`
+  filter bypass Turnstile for a single request on a site that is otherwise fully
+  protected. Never collapse them back into one boolean: the status card used to
+  report a healthy site as "not configured" purely because the administrator
+  reading the screen matched a whitelist rule.
+- **Status card splits configuration from runtime:** `Penalis_Settings::turnstile_status_rows()`
+  renders the six English rows (`Plugin`, `Configuration`, `Site key`,
+  `Secret key`, `Protected WordPress forms`, `Current status`). The
+  `Configuration` row ignores bypasses; the `Current status` row names them. The
+  copy is English on purpose (see the language convention in `AGENTS.md`) while
+  the rest of the tab stays Indonesian.
 - **The login bypass is unconditional:** Simple Cloudflare Turnstile hooks
   `authenticate` whenever `cfturnstile_login` is on, and that check runs for
   every `wp_signon()` call, including the dashboard form. Penalis verifies the
