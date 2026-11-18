@@ -250,7 +250,11 @@ Key invariants:
   (`GET_LOCK`, 5-second timeout), re-read the post inside the lock, and verify
   `expected_cycle` so two reviewers cannot apply conflicting decisions to the
   same submission round.
-- **Notifications:** Every transition fires `penalis_editorial_action`.
+- **Notifications:** Every transition fires `penalis_editorial_action` exactly
+  once. That hook is the only dispatch path: `Penalis_Editorial_Notifications`
+  registers the default listener during plugin bootstrap, and the workflow
+  service never calls the listener directly, so removing or re-registering the
+  callback cannot silently duplicate or suppress notifications.
   `Penalis_Editorial_Notifications` records a bounded in-dashboard notification
   (`_penalis_notifications`, max 50 per user) and dispatches a branded HTML
   email via `Penalis_Emails`. Mail failures are recorded on the author's account

@@ -229,6 +229,13 @@ readme.txt                  WordPress plugin readme and changelog
     `Penalis_Emails::send_template()` for template resolution, user-meta failure
     tracking, and `wp_mail()` dispatch, and `Penalis_Email_Settings::otp_definition()`
     for OTP email template definitions.
+  - **Editorial notification dispatch:** `Penalis_Editorial_Workflow::apply()`
+    fires `penalis_editorial_action` once; the default listener is registered by
+    `Penalis_Editorial_Notifications::init()`. Never add a direct listener call
+    beside the hook — that made delivery depend on third-party hook state.
+  - **OTP serialization:** All OTP issue/consume operations take
+    `Penalis_Otp::lock_key()`, scoped per account because failure counters and
+    budgets are shared across purposes. Do not reintroduce one site-wide key.
 - **Shared React primitives (reuse instead of duplicating):**
   - Always use `src/components/PasswordInput.tsx` for password fields so the
     accessible show/hide toggle stays consistent.

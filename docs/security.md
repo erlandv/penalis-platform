@@ -170,6 +170,10 @@ changes:
 - **Concurrency:** Issuance, attempt counting, and consumption run inside a
   MySQL advisory lock (`GET_LOCK` via `Penalis_Account_Status::with_advisory_lock()`),
   so parallel requests cannot exceed the attempt budget or consume a code twice.
+  The lock is scoped per account (`Penalis_Otp::lock_key()`), because failure
+  counters and issue budgets are shared across purposes; unresolved requests
+  fall back to a purpose-scoped anonymous lock. Unrelated writers no longer
+  wait behind one another.
 - **Issuance Budgets:** 60-second resend cooldown plus 5 issues/hour and 10
   issues/day per account and per address, and 20 issues/hour per IP. Budgets
   survive replacement challenges, so resending cannot reset the limit.

@@ -23,19 +23,50 @@ final class Penalis_Otp {
 	private const PURPOSES = array( 'registration', 'legacy', 'email_change' );
 
 	/**
-	 * Run an operation under a site-specific lock. Never proceed unlocked.
+	 * Advisory lock key for one purpose and account.
 	 *
+	 * A single site-wide key serialized every verification request behind one
+	 * another, so a burst of registrations could exhaust the five-second wait
+	 * and return 503 to unrelated writers. The lock is now scoped per account:
+	 * failure counters, issue budgets, and every purpose's challenge metadata
+	 * all live on that account, so splitting by purpose would let two concurrent
+	 * requests race on the shared counters. Anonymous/invalid requests (no
+	 * resolvable account) use a purpose-scoped fallback key. The users-table
+	 * name keeps multisite installations isolated.
+	 *
+	 * @param string $purpose Purpose, used only for unresolved users.
+	 * @param int    $user_id User ID resolved before the lock was taken.
+	 * @param string $table   Optional users table name for deterministic tests.
+	 * @return string
+	 */
+	public static function lock_key( $purpose, $user_id, $table = '' ) {
+		global $wpdb;
+
+		$user_id = max( 0, (int) $user_id );
+		$scope   = in_array( $purpose, self::PURPOSES, true ) ? $purpose : 'unknown';
+		$table   = '' !== (string) $table
+			? (string) $table
+			: ( is_object( $wpdb ) && isset( $wpdb->users ) ? (string) $wpdb->users : 'none' );
+		$prefix  = 'penalis_otp_' . md5( $table );
+
+		return $user_id > 0
+			? $prefix . '_user_' . $user_id
+			: $prefix . '_' . $scope . '_anonymous';
+	}
+
+	/**
+	 * Run an operation under the lock for its account. Never proceed unlocked.
+	 *
+	 * @param string   $purpose   Challenge purpose.
+	 * @param int      $user_id   User whose challenge is being changed.
 	 * @param callable $operation Operation.
 	 * @return mixed
 	 */
-	private static function locked( $operation ) {
-		global $wpdb;
+	private static function locked( $purpose, $user_id, $operation ) {
 		$busy = new WP_Error( 'penalis_busy', 'Server sedang sibuk. Coba sesaat lagi.', array( 'status' => 503 ) );
-		if ( ! is_object( $wpdb ) ) {
-			return $busy;
-		}
+
 		return Penalis_Account_Status::with_advisory_lock(
-			'penalis_otp_' . md5( (string) $wpdb->users ),
+			self::lock_key( $purpose, (int) $user_id ),
 			5,
 			$operation,
 			$busy
@@ -189,6 +220,8 @@ final class Penalis_Otp {
 	 */
 	public static function issue( $purpose, $user_id, $email, $enforce_ip = true ) {
 		$prepared = self::locked(
+			$purpose,
+			(int) $user_id,
 			static function () use ( $purpose, $user_id, $email, $enforce_ip ) {
 				$user_id = (int) $user_id;
 				$user    = get_userdata( $user_id );
@@ -376,7 +409,21 @@ final class Penalis_Otp {
 	 * @return mixed
 	 */
 	public static function consume( $purpose, $id, $code, $apply, $expected_user_id = 0 ) {
+		// The locator is read once to choose the account lock. It is re-read
+		// inside the lock below, so a concurrent replacement is still refused.
+		$prelock_user = (int) $expected_user_id;
+
+		if ( $prelock_user <= 0 ) {
+			$prelocator = get_transient( 'penalis_otp_' . hash( 'sha256', (string) $id ) );
+
+			if ( is_array( $prelocator ) && isset( $prelocator[0] ) ) {
+				$prelock_user = (int) $prelocator[0];
+			}
+		}
+
 		return self::locked(
+			$purpose,
+			$prelock_user,
 			static function () use ( $purpose, $id, $code, $apply, $expected_user_id ) {
 				if ( ! in_array( $purpose, self::PURPOSES, true ) || ! Penalis_Policy::is_token_format_valid( $id ) ) {
 					return self::invalid();

@@ -459,22 +459,14 @@ final class Penalis_Editorial_Workflow {
 
 		update_post_meta( $post->ID, Penalis_Editorial_Policy::META_REVIEW_HISTORY, $history );
 
-		if (
-			class_exists( 'Penalis_Editorial_Notifications' )
-			&& ( ! function_exists( 'has_action' ) || ! has_action( 'penalis_editorial_action', array( 'Penalis_Editorial_Notifications', 'handle_editorial_action' ) ) )
-		) {
-			Penalis_Editorial_Notifications::handle_editorial_action(
-				(int) $post->ID,
-				$action,
-				$next_state,
-				$next_status,
-				$actor,
-				$feedback
-			);
-		}
-
 		/**
-		 * Fires after an editorial workflow action has been applied.
+		 * Fires once after an editorial workflow action has been applied.
+		 *
+		 * This hook is the single notification dispatch path. The default
+		 * listener is registered by `Penalis_Editorial_Notifications::init()`
+		 * during plugin bootstrap. Call it directly as well would make the
+		 * notification depend on whether a third party removed or re-added
+		 * that callback, and could deliver the same message twice.
 		 *
 		 * @param int    $post_id  Post ID.
 		 * @param string $action   Workflow action.

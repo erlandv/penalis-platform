@@ -153,6 +153,10 @@ function penalis_reset() {
 		$GLOBALS['penalis_test_lock_queries'],
 		$GLOBALS['penalis_test_on_lock']
 	);
+
+	// Mirror the production bootstrap: editorial notifications are driven by
+	// the hook, not by a second direct call from the workflow service.
+	Penalis_Editorial_Notifications::init();
 }
 
 /* -------------------------------------------------------------------------
@@ -4897,6 +4901,96 @@ penalis_same(
 );
 
 $GLOBALS['penalis_test_filters'] = array();
+
+/* -------------------------------------------------------------------------
+ * Single editorial notification dispatch (hardening)
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_admin( 20 );
+penalis_editorial_post( 900, 10, 'draft' );
+
+$GLOBALS['penalis_test_hook_calls'] = 0;
+add_action(
+	'penalis_editorial_action',
+	static function () {
+		++$GLOBALS['penalis_test_hook_calls'];
+	},
+	20,
+	6
+);
+
+$mails_before = count( $GLOBALS['penalis_test_mail'] );
+Penalis_Editorial_Workflow::apply( 900, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_same( 1, $GLOBALS['penalis_test_hook_calls'], 'A workflow action fires the editorial hook exactly once.' );
+penalis_assert( count( $GLOBALS['penalis_test_mail'] ) > $mails_before, 'The default listener sends mail through the hook.' );
+
+// Removing the default listener must actually silence notifications: a hidden
+// direct call used to re-send them and made the result depend on hook state.
+remove_action( 'penalis_editorial_action', array( 'Penalis_Editorial_Notifications', 'handle_editorial_action' ), 10 );
+penalis_editorial_post( 901, 10, 'draft' );
+$GLOBALS['penalis_test_hook_calls'] = 0;
+$mails_before = count( $GLOBALS['penalis_test_mail'] );
+Penalis_Editorial_Workflow::apply( 901, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+penalis_same( 1, $GLOBALS['penalis_test_hook_calls'], 'The hook still fires after the listener is removed.' );
+penalis_same( $mails_before, count( $GLOBALS['penalis_test_mail'] ), 'No direct dispatch bypasses the removed listener.' );
+
+/* -------------------------------------------------------------------------
+ * OTP lock partitioning (hardening)
+ * ---------------------------------------------------------------------- */
+
+$registration_lock = Penalis_Otp::lock_key( 'registration', 10, 'wp_users' );
+penalis_same(
+	$registration_lock,
+	Penalis_Otp::lock_key( 'email_change', 10, 'wp_users' ),
+	'One account keeps a single lock because failure counters and budgets are shared.'
+);
+penalis_assert(
+	false !== strpos( $registration_lock, '_user_10' ),
+	'The OTP lock name identifies the account.'
+);
+penalis_assert(
+	$registration_lock !== Penalis_Otp::lock_key( 'registration', 11, 'wp_users' ),
+	'Different accounts no longer serialize on one site-wide OTP lock.'
+);
+penalis_assert(
+	$registration_lock !== Penalis_Otp::lock_key( 'registration', 10, 'wp_2_users' ),
+	'Different users tables remain isolated.'
+);
+penalis_assert(
+	false !== strpos( Penalis_Otp::lock_key( 'unknown_purpose', 0, 'wp_users' ), '_unknown_anonymous' ),
+	'An unresolved user gets a purpose-scoped anonymous lock.'
+);
+
+penalis_reset();
+$GLOBALS['wpdb'] = new Penalis_Test_WPDB();
+penalis_auth_account( 70, Penalis_Policy::STATUS_PENDING_VERIFICATION );
+penalis_auth_account( 71, Penalis_Policy::STATUS_PENDING_VERIFICATION );
+
+$GLOBALS['penalis_test_lock_queries'] = array();
+$issued_70 = Penalis_Otp::issue( 'registration', 70, 'user70@example.com' );
+$code_70   = penalis_last_code();
+$query_70  = isset( $GLOBALS['penalis_test_lock_queries'][0] ) ? (string) $GLOBALS['penalis_test_lock_queries'][0] : '';
+penalis_assert( false !== strpos( $query_70, '_user_70' ), 'Issuing a code takes the account-scoped lock.' );
+
+$GLOBALS['penalis_test_lock_queries'] = array();
+$issued_71 = Penalis_Otp::issue( 'registration', 71, 'user71@example.com' );
+$query_71  = isset( $GLOBALS['penalis_test_lock_queries'][0] ) ? (string) $GLOBALS['penalis_test_lock_queries'][0] : '';
+penalis_assert( '' !== $query_70 && $query_70 !== $query_71, 'Two concurrent registrations take different advisory locks.' );
+
+$GLOBALS['penalis_test_lock_queries'] = array();
+Penalis_Otp::consume(
+	'registration',
+	(string) $issued_70['challenge_id'],
+	$code_70,
+	static function () {
+		return true;
+	}
+);
+$consume_query = isset( $GLOBALS['penalis_test_lock_queries'][0] ) ? (string) $GLOBALS['penalis_test_lock_queries'][0] : '';
+penalis_same( $query_70, $consume_query, 'Consume reuses the same account lock resolved from the challenge locator.' );
+unset( $GLOBALS['penalis_test_lock_queries'] );
 
 /* -------------------------------------------------------------------------
  * Report

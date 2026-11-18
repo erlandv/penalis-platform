@@ -955,24 +955,56 @@ if ( ! function_exists( 'number_format_i18n' ) ) {
 
 if ( ! function_exists( 'do_action' ) ) {
 	/**
-	 * Action no-op.
+	 * Dispatch registered callbacks, like WordPress `do_action()`.
 	 *
+	 * The stub used to be a no-op, which forced production code into a dual
+	 * dispatch path (direct call plus hook). Dispatching for real keeps the
+	 * unit tests aligned with the single hook path used in production.
+	 *
+	 * @param string $hook Hook name.
+	 * @param mixed  ...$args Arguments.
 	 * @return void
 	 */
-	function do_action() {}
+	function do_action( $hook, ...$args ) {
+		$by_priority = $GLOBALS['penalis_test_actions'][ $hook ] ?? array();
+
+		if ( array() === $by_priority ) {
+			return;
+		}
+
+		ksort( $by_priority );
+
+		foreach ( $by_priority as $callbacks ) {
+			foreach ( $callbacks as $entry ) {
+				if ( is_array( $entry ) && isset( $entry['callback'] ) ) {
+					$callback     = $entry['callback'];
+					$accepted_args = isset( $entry['accepted_args'] ) ? (int) $entry['accepted_args'] : 1;
+				} else {
+					$callback      = $entry;
+					$accepted_args = 1;
+				}
+
+				call_user_func_array( $callback, array_slice( $args, 0, max( 0, $accepted_args ) ) );
+			}
+		}
+	}
 }
 
 if ( ! function_exists( 'add_action' ) ) {
 	/**
 	 * Register a hook callback in the test registry.
 	 *
-	 * @param string   $hook     Hook.
-	 * @param callable $callback Callback.
-	 * @param int      $priority Priority.
+	 * @param string   $hook          Hook.
+	 * @param callable $callback      Callback.
+	 * @param int      $priority      Priority.
+	 * @param int      $accepted_args Accepted arguments.
 	 * @return void
 	 */
-	function add_action( $hook, $callback, $priority = 10 ) {
-		$GLOBALS['penalis_test_actions'][ $hook ][ $priority ][] = $callback;
+	function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
+		$GLOBALS['penalis_test_actions'][ $hook ][ (int) $priority ][] = array(
+			'callback'      => $callback,
+			'accepted_args' => (int) $accepted_args,
+		);
 	}
 }
 
@@ -991,7 +1023,9 @@ if ( ! function_exists( 'remove_action' ) ) {
 		}
 
 		foreach ( $GLOBALS['penalis_test_actions'][ $hook ][ $priority ] as $index => $registered ) {
-			if ( $registered === $callback ) {
+			$registered_callback = is_array( $registered ) && isset( $registered['callback'] ) ? $registered['callback'] : $registered;
+
+			if ( $registered_callback === $callback ) {
 				unset( $GLOBALS['penalis_test_actions'][ $hook ][ $priority ][ $index ] );
 				return true;
 			}
