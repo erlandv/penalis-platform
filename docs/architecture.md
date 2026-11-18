@@ -80,7 +80,7 @@ penalis-platform/
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
 │   ├── authors/                          Separate public React entry point for [penalis_authors] directory (authors.css)
-│   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, PasswordMatchHint, PasswordPairFields, PasswordStrengthMeter, Toggle, TurnstileWidget
+│   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, PasswordMatchHint, PasswordPairFields, PasswordStrengthMeter, Toast, Toggle, TurnstileWidget
 │   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings
 │   ├── lib/                              Typed API client, validation, OTP challenge helpers, deeplinks, HTML/profile/crop helpers
 │   └── styles/                           Dashboard CSS: tokens.css, main.css (@import index), section files
@@ -747,6 +747,45 @@ functions, which is why they can be tested without a DOM.
   `ConfirmDialog`, which can name the article and focuses "Tetap di sini" first.
   `beforeunload` stays as-is — closing a tab is the one prompt the browser owns,
   and it cannot be replaced by page UI.
+
+### 7.14 Toasts and View-Change Focus
+Two gaps that only show up once the dashboard is treated as a single page rather
+than a set of pages: a confirmation that appears far from the action, and a view
+change that nobody announces.
+- **Toasts are for one-line confirmations only.** "Karya tulis dihapus" and
+  "Foto profil diperbarui" are reported by a fixed stack at the bottom-right,
+  because an inline banner at the top of the screen reports an action the writer
+  took further down — and inserting it pushes the list they were looking at.
+  Anything that needs explaining (a save failure with a retry, a multi-line
+  warning) stays an inline banner: a message that expires cannot carry a button
+  the writer still needs.
+- **The live region is always mounted.** Assistive technology only announces
+  changes inside a region that already exists, so a container rendered together
+  with its first toast would be silent. `Toast.tsx` renders the empty region on
+  every page and appends into it.
+- **Errors do not expire.** `toastLifetime()` returns 0 for `danger`: a message
+  that disappears after six seconds is a message a writer may never read, and
+  the action that failed is usually the one they were waiting for. Success is
+  self-evident once seen, so it leaves on its own. The stack caps at three,
+  dropping the oldest — the newest describes what just happened.
+- **Which notices stay banners:** anything that instructs the next step,
+  carries a button, or is followed by navigation. That covers the three terminal
+  success screens in the auth gate (a notice, an explanation, and a button — the
+  screen's content, not a confirmation), the settings messages that end in
+  "Mengalihkan ke halaman login…" and a two-second redirect, and the
+  email-change instruction that has to stay visible while the code is typed.
+  A toast in any of those places would expire mid-task.
+- **A view change moves focus to the new heading.** The shell is persistent, so
+  without this a keyboard user's next Tab continues from the nav they just left
+  and a screen-reader user is told nothing. Focusing the heading *is* the
+  announcement — the heading is read as it takes focus — so there is no second
+  live region repeating it. The effect also resets the scroll position, which
+  otherwise stays wherever the previous view left it.
+- **A ref guards the first render.** `previousViewRef` starts at the current
+  view, so opening the dashboard on a deep link does not move focus away from
+  the browser's own navigation.
+- **Async views fall back to `<main>`:** a view that renders a spinner first has
+  no heading yet, and the landmark still takes focus away from the nav strip.
 
 
 

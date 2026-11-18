@@ -9,10 +9,10 @@ import type { ArticleList, ArticleSummary } from '../../lib/types';
 import { editorialStateLabel, formatDate, formatNumber, truncate } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useToast } from '../../components/toastContext';
 import {
   EmptyState,
   ErrorBanner,
-  Notice,
   PageHeading,
   Pagination,
   Spinner,
@@ -52,9 +52,9 @@ export function Articles({
   const [data, setData] = useState<ArticleList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
   const [pending, setPending] = useState<PendingAction>(null);
+  const showToast = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,10 +83,9 @@ export function Articles({
     const isResubmit = mode === 'resubmit';
     setBusyId(id);
     setError('');
-    setNotice('');
     try {
       const result = isResubmit ? await articlesApi.resubmit(id) : await articlesApi.submit(id);
-      setNotice(
+      showToast(
         result.message ||
           (isResubmit
             ? 'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.'
@@ -114,10 +113,9 @@ export function Articles({
   const remove = async (id: number) => {
     setBusyId(id);
     setError('');
-    setNotice('');
     try {
       await articlesApi.remove(id);
-      setNotice('Karya tulis dihapus.');
+      showToast('Karya tulis dihapus.');
       setPending(null);
       await load();
     } catch (caught) {
@@ -157,7 +155,6 @@ export function Articles({
         ))}
       </div>
 
-      {notice ? <Notice tone="success">{notice}</Notice> : null}
       {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
 
       {loading ? (

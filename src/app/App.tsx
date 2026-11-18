@@ -12,6 +12,7 @@ import type { Account, DashboardNotification, EditorFocus, FieldErrors, ViewName
 import { hasErrors, validatePasswordPair } from '../lib/validation';
 import { ErrorBanner, Notice, Spinner } from '../components/ui';
 import { PasswordPairFields } from '../components/PasswordPairFields';
+import { ToastProvider } from '../components/Toast';
 import { TurnstileWidget } from '../components/TurnstileWidget';
 import { TURNSTILE_REQUIRED_MESSAGE, useTurnstileGate } from '../components/useTurnstileGate';
 import { Shell } from '../components/shell';
@@ -411,52 +412,54 @@ export function App() {
   };
 
   return (
-    <Shell
-      account={account}
-      view={effectiveView}
-      onNavigate={navigate}
-      notifications={notifications}
-      onOpenNotificationArticle={openNotificationArticle}
-    >
-      {effectiveView === 'notifications' ? (
-        <Notifications account={account} controller={notifications} onOpenArticle={openNotificationArticle} />
-      ) : null}
+    <ToastProvider>
+      <Shell
+        account={account}
+        view={effectiveView}
+        onNavigate={navigate}
+        notifications={notifications}
+        onOpenNotificationArticle={openNotificationArticle}
+      >
+        {effectiveView === 'notifications' ? (
+          <Notifications account={account} controller={notifications} onOpenArticle={openNotificationArticle} />
+        ) : null}
 
-      {effectiveView === 'overview' ? (
-        <Overview
-          account={account}
-          notifications={notifications}
-          onOpenEditor={() => openEditor()}
-          onOpenArticle={(id) => openEditor(id)}
-          onOpenArticles={() => navigate('articles')}
-          onOpenNotifications={() => navigate('notifications')}
-        />
-      ) : null}
+        {effectiveView === 'overview' ? (
+          <Overview
+            account={account}
+            notifications={notifications}
+            onOpenEditor={() => openEditor()}
+            onOpenArticle={(id) => openEditor(id)}
+            onOpenArticles={() => navigate('articles')}
+            onOpenNotifications={() => navigate('notifications')}
+          />
+        ) : null}
 
-      {effectiveView === 'articles' && account.canWrite ? (
-        <Articles onEdit={(id) => openEditor(id)} onCreate={() => openEditor()} />
-      ) : null}
+        {effectiveView === 'articles' && account.canWrite ? (
+          <Articles onEdit={(id) => openEditor(id)} onCreate={() => openEditor()} />
+        ) : null}
 
-      {effectiveView === 'editor' && account.canWrite ? (
-        <Editor
-          key={`${editingId ?? 'new'}:${editorFocus ?? ''}`}
-          articleId={editingId}
-          focus={editorFocus}
-          onSaved={() => {
-            // Counts only. The editor has already put the draft id in the URL,
-            // and a full reload here would throw away the caret and any text
-            // typed while the save was in flight.
-            void loadAccount({ silent: true });
-          }}
-          onCancel={() => navigate('articles')}
-        />
-      ) : null}
+        {effectiveView === 'editor' && account.canWrite ? (
+          <Editor
+            key={`${editingId ?? 'new'}:${editorFocus ?? ''}`}
+            articleId={editingId}
+            focus={editorFocus}
+            onSaved={() => {
+              // Counts only. The editor has already put the draft id in the URL,
+              // and a full reload here would throw away the caret and any text
+              // typed while the save was in flight.
+              void loadAccount({ silent: true });
+            }}
+            onCancel={() => navigate('articles')}
+          />
+        ) : null}
 
-      {effectiveView === 'media' && account.canWrite ? <Media /> : null}
+        {effectiveView === 'media' && account.canWrite ? <Media /> : null}
 
-      {effectiveView === 'profile' ? <Profile account={account} onUpdated={setAccount} /> : null}
+        {effectiveView === 'profile' ? <Profile account={account} onUpdated={setAccount} /> : null}
 
-      {effectiveView === 'settings' ? <Settings account={account} onUpdated={setAccount} /> : null}
-    </Shell>
+        {effectiveView === 'settings' ? <Settings account={account} onUpdated={setAccount} /> : null}
+      </Shell>
+    </ToastProvider>
   );
 }

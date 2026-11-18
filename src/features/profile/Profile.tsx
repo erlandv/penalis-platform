@@ -10,7 +10,8 @@ import { accountApi, ApiError, mediaApi } from '../../lib/api';
 import { displayNameOptions } from '../../lib/profile';
 import type { Account, DisplayNameMode, FieldErrors } from '../../lib/types';
 import { validateInstagram } from '../../lib/validation';
-import { ErrorBanner, FieldError, FieldHint, Notice, PageHeading } from '../../components/ui';
+import { ErrorBanner, FieldError, FieldHint, PageHeading } from '../../components/ui';
+import { useToast } from '../../components/toastContext';
 
 export function Profile({
   account,
@@ -27,8 +28,8 @@ export function Profile({
   const [description, setDescription] = useState(account.description);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+  const showToast = useToast();
 
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState('');
@@ -51,7 +52,6 @@ export function Profile({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
-    setNotice('');
     setErrors({});
 
     const instagramError = validateInstagram(instagram);
@@ -74,7 +74,7 @@ export function Profile({
       onUpdated(updated);
       setCustomName(updated.displayNameMode === 'custom' ? updated.displayName : customName);
       setInstagram(updated.instagram ?? '');
-      setNotice('Profil kamu telah diperbarui.');
+      showToast('Profil kamu telah diperbarui.');
     } catch (caught) {
       if (caught instanceof ApiError) {
         setErrors(caught.fields);
@@ -102,7 +102,7 @@ export function Profile({
       onUpdated(updated);
       setCropTarget(null);
       setPickerOpen(false);
-      setNotice('Foto profil kamu telah diperbarui.');
+      showToast('Foto profil kamu telah diperbarui.');
     } catch (caught) {
       setAvatarError(
         caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat diperbarui.',
@@ -119,7 +119,7 @@ export function Profile({
     try {
       const updated = await accountApi.removeAvatar();
       onUpdated(updated);
-      setNotice('Foto profil kamu telah dihapus.');
+      showToast('Foto profil kamu telah dihapus.');
     } catch (caught) {
       setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat dihapus.');
     } finally {
@@ -167,7 +167,6 @@ export function Profile({
       </section>
 
       {error ? <ErrorBanner message={error} /> : null}
-      {notice ? <Notice tone="success">{notice}</Notice> : null}
 
       <form className="penalis-form penalis-form--narrow" onSubmit={submit} noValidate>
         <div className="penalis-field-row">

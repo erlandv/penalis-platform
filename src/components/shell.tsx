@@ -400,6 +400,7 @@ export function Shell({
 
   const navRef = useRef<HTMLElement>(null);
   const activeNavRef = useRef<HTMLButtonElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -461,8 +462,48 @@ export function Shell({
     });
   }, [view]);
 
-  const scrollNav = (direction: 'left' | 'right') => {
-    const nav = navRef.current;
+  /*
+   * Move focus into the new screen after a view change.
+   *
+   * The shell — header, nav strip, `<main>` — is persistent, so without this a
+   * keyboard user's next Tab continues from the nav they just left, and a
+   * screen-reader user is told nothing at all: the page changed with no focus
+   * move and no announcement. Focusing the new heading is the announcement —
+   * assistive technology reads the heading as it takes focus — and it also
+   * resets the scroll position, which otherwise stays wherever the previous
+   * view left it.
+   *
+   * The previous view is tracked in a ref so opening the dashboard on a deep
+   * link does not steal focus from the browser's own address-bar navigation.
+   */
+  const previousViewRef = useRef(view);
+
+  useEffect(() => {
+    if (previousViewRef.current === view) {
+      return;
+    }
+
+    previousViewRef.current = view;
+
+    const main = mainRef.current;
+    if (!main) {
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: 'auto' });
+
+    // Views that load asynchronously render a spinner first and have no
+    // heading yet; `<main>` is the fallback so focus still leaves the nav.
+    const target = main.querySelector<HTMLElement>('h1, h2') ?? main;
+
+    if (!target.hasAttribute('tabindex')) {
+      target.setAttribute('tabindex', '-1');
+    }
+
+    target.focus({ preventScroll: true });
+  }, [view]);
+
+  const scrollNav = (direction: 'left' | 'right') => {    const nav = navRef.current;
     if (!nav) {
       return;
     }
@@ -586,7 +627,9 @@ export function Shell({
           ) : null}
         </div>
 
-        <main className="penalis-main">{children}</main>
+        <main ref={mainRef} className="penalis-main" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </div>
   );

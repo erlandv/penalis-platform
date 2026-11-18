@@ -29,6 +29,7 @@ import { OtpForm } from '../../components/OtpForm';
 import { PasswordInput } from '../../components/PasswordInput';
 import { PasswordMatchHint } from '../../components/PasswordMatchHint';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
+import { useToast } from '../../components/toastContext';
 import { ErrorBanner, FieldError, FieldHint, Notice, PageHeading, Panel, StatusBadge } from '../../components/ui';
 
 export function Settings({ account, onUpdated }: { account: Account; onUpdated: (account: Account) => void }) {
@@ -49,7 +50,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
   );
   const [prefSaving, setPrefSaving] = useState(false);
   const [prefError, setPrefError] = useState('');
-  const [prefNotice, setPrefNotice] = useState('');
+  const showToast = useToast();
 
   useEffect(() => {
     setPreferences(normalizeNotificationPreferences(account.notificationPreferences));
@@ -252,7 +253,9 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         code,
       });
       setEmailChallenge(null);
-      setEmailNotice(result.message);
+      // The panel re-renders with the new address as its own confirmation, so
+      // this one does not need to stay on screen until the next action.
+      showToast(result.message);
 
       // The account now reports the new address. A failed refresh must not
       // turn a successful confirmation into an error message.
@@ -290,18 +293,18 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
       ...current,
       [channel]: { ...current[channel], [action]: enabled },
     }));
-    setPrefNotice('');
   };
 
   const savePreferences = async (event: FormEvent) => {
     event.preventDefault();
     setPrefSaving(true);
     setPrefError('');
-    setPrefNotice('');
 
     try {
       const result = await notificationsApi.savePreferences(preferences);
-      setPrefNotice(result.message);
+      // The table is long and the save button sits below it, so a banner above
+      // the table can be off-screen the moment it appears.
+      showToast(result.message);
       onUpdated({ ...account, notificationPreferences: result.preferences });
     } catch (caught) {
       setPrefError(
@@ -662,7 +665,6 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
           </div>
 
           {prefError ? <ErrorBanner message={prefError} /> : null}
-          {prefNotice ? <Notice tone="success">{prefNotice}</Notice> : null}
 
           <button type="submit" className="penalis-button penalis-button--primary" disabled={prefSaving}>
             {prefSaving ? 'Menyimpan…' : 'Simpan preferensi'}
