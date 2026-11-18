@@ -24,7 +24,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Penalis_Editorial_Admin {
 
-	public const PAGE_SLUG = 'penalis-review';
+	public const PAGE_SLUG         = 'penalis-review';
+	public const TRASHED_PAGE_SLUG = 'penalis-trashed';
 
 	/**
 	 * Register hooks.
@@ -34,6 +35,7 @@ final class Penalis_Editorial_Admin {
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 11 );
 		add_action( 'admin_post_penalis_review_action', array( __CLASS__, 'handle_review_action' ) );
+		add_action( 'admin_post_penalis_restore_action', array( __CLASS__, 'handle_restore_action' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_styles' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'admin_notices' ) );
 	}
@@ -54,6 +56,16 @@ final class Penalis_Editorial_Admin {
 			'edit_others_posts',
 			self::PAGE_SLUG,
 			array( __CLASS__, 'render_page' )
+		);
+
+		$trashed = Penalis_Article_Takedown::trashed_count();
+		add_submenu_page(
+			Penalis_Admin::MENU_SLUG,
+			'Karya Terhapus — Penalis Platform',
+			Penalis_Admin::format_menu_label( 'Karya Terhapus', $trashed ),
+			'edit_others_posts',
+			self::TRASHED_PAGE_SLUG,
+			array( __CLASS__, 'render_trashed_page' )
 		);
 	}
 
@@ -118,6 +130,102 @@ final class Penalis_Editorial_Admin {
 		}
 
 		self::render_list();
+	}
+
+	/**
+	 * Render the published-article takedown and recovery screen.
+	 *
+	 * @return void
+	 */
+	public static function render_trashed_page() {
+		if ( ! Penalis_Editorial_Workflow::can_review( get_current_user_id() ) ) {
+			wp_die( 'Kamu tidak memiliki izin untuk memulihkan karya tulis.' );
+		}
+
+		$posts = Penalis_Article_Takedown::trashed_posts();
+		?>
+		<div class="wrap penalis-review penalis-trashed">
+			<h1 class="wp-heading-inline">Karya Terhapus</h1>
+			<a class="page-title-action" href="<?php echo esc_url( self::list_url() ); ?>">&larr; Kembali ke review</a>
+			<hr class="wp-header-end">
+
+			<?php self::render_notices(); ?>
+
+			<p class="penalis-review__intro">
+				Karya tulis terbit yang masuk ke WordPress trash dicatat di sini agar tidak hilang tanpa jejak.
+				Gunakan <strong>Pulihkan</strong> untuk mengembalikannya ke status terbit semula. Artikel yang dihapus permanen
+				dari trash tidak dapat dipulihkan dari layar ini.
+			</p>
+
+			<table class="wp-list-table widefat fixed striped penalis-review__table">
+				<thead>
+					<tr>
+						<th scope="col">Karya tulis</th>
+						<th scope="col" style="width:20%">Penulis</th>
+						<th scope="col" style="width:17%">Di-trash</th>
+						<th scope="col" style="width:17%">Oleh</th>
+						<th scope="col" style="width:12%">Tindakan</th>
+					</tr>
+				</thead>
+				<tbody>
+				<?php if ( empty( $posts ) ) : ?>
+					<tr>
+						<td colspan="5">
+							<p class="penalis-review__empty">Belum ada karya tulis terbit yang berada di trash.</p>
+						</td>
+					</tr>
+				<?php else : ?>
+					<?php foreach ( $posts as $post ) : ?>
+						<?php
+						$author     = get_userdata( (int) $post->post_author );
+						$trashed_at = (int) get_post_meta( $post->ID, Penalis_Article_Takedown::META_TRASHED_AT, true );
+						$actor_id   = (int) get_post_meta( $post->ID, Penalis_Article_Takedown::META_TRASHED_BY, true );
+						$actor      = $actor_id > 0 ? get_userdata( $actor_id ) : null;
+						$title      = '' !== $post->post_title ? $post->post_title : '(tanpa judul)';
+						?>
+						<tr>
+							<td>
+								<strong><?php echo esc_html( $title ); ?></strong>
+								<span class="penalis-review__meta">
+									<?php echo esc_html( sprintf( 'ID #%d', (int) $post->ID ) ); ?>
+								</span>
+							</td>
+							<td><?php echo esc_html( $author ? $author->display_name : 'Penulis tidak ditemukan' ); ?></td>
+							<td><?php echo esc_html( Penalis_Datetime::format( $trashed_at, 'j M Y H:i' ) ); ?></td>
+							<td><?php echo esc_html( $actor ? $actor->display_name : 'Sistem / tidak diketahui' ); ?></td>
+							<td>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+									<input type="hidden" name="action" value="penalis_restore_action">
+									<input type="hidden" name="post_id" value="<?php echo esc_attr( (string) $post->ID ); ?>">
+									<input type="hidden" name="penalis_action" value="restore">
+									<?php wp_nonce_field( 'penalis_restore_' . $post->ID ); ?>
+									<button
+										type="submit"
+										class="button button-small"
+										data-penalis-restore
+										data-penalis-restore-title="<?php echo esc_attr( $title ); ?>"
+									>
+										Pulihkan
+									</button>
+								</form>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				<?php endif; ?>
+				</tbody>
+			</table>
+
+			<?php
+			Penalis_Admin::render_confirm_modal(
+				'penalis-restore-confirm',
+				'Pulihkan karya tulis dari trash?',
+				'Karya tulis:',
+				'penalis-restore-confirm-context-box',
+				'penalis-restore-confirm-context-text'
+			);
+			?>
+		</div>
+		<?php
 	}
 
 	/**
@@ -661,6 +769,49 @@ final class Penalis_Editorial_Admin {
 	}
 
 	/**
+	 * Restore a recorded published article from the WordPress trash.
+	 *
+	 * @return void
+	 */
+	public static function handle_restore_action() {
+		if ( ! Penalis_Editorial_Workflow::can_review( get_current_user_id() ) ) {
+			wp_die( 'Kamu tidak memiliki izin untuk memulihkan karya tulis.' );
+		}
+
+		$post_id = isset( $_POST['post_id'] ) ? (int) $_POST['post_id'] : 0;
+		$action  = isset( $_POST['penalis_action'] ) ? sanitize_key( wp_unslash( $_POST['penalis_action'] ) ) : '';
+
+		check_admin_referer( 'penalis_restore_' . $post_id );
+
+		if ( $post_id <= 0 || 'restore' !== $action ) {
+			self::redirect_trashed( 'restore_invalid' );
+		}
+
+		$result = Penalis_Article_Takedown::restore( $post_id, get_current_user_id() );
+
+		self::redirect_trashed( is_wp_error( $result ) ? $result->get_error_code() : 'restored' );
+	}
+
+	/**
+	 * Redirect back to the takedown and recovery screen.
+	 *
+	 * @param string $message Message key.
+	 * @return void
+	 */
+	private static function redirect_trashed( $message ) {
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'                   => self::TRASHED_PAGE_SLUG,
+					'penalis_review_message' => $message,
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
+	/**
 	 * Redirect back to the review screen.
 	 *
 	 * @param int    $post_id     Post ID.
@@ -710,6 +861,9 @@ final class Penalis_Editorial_Admin {
 			'penalis_not_found'         => array( 'error', 'Karya tulis tidak ditemukan.' ),
 			'penalis_not_authenticated' => array( 'error', 'Sesi kamu berakhir. Silakan login kembali.' ),
 			'penalis_account_inactive'  => array( 'error', 'Akun kamu tidak diizinkan melakukan tindakan ini.' ),
+			'restored'                  => array( 'success', 'Karya tulis berhasil dipulihkan dari trash.' ),
+			'penalis_restore_failed'    => array( 'error', 'Karya tulis tidak dapat dipulihkan. Coba lagi atau hubungi admin.' ),
+			'restore_invalid'           => array( 'error', 'Permintaan pemulihan tidak valid.' ),
 		);
 
 		$notice = isset( $messages[ $key ] ) ? $messages[ $key ] : array( 'info', 'Permintaan telah diselesaikan.' );

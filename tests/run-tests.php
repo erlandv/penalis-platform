@@ -31,6 +31,7 @@ require_once __DIR__ . '/../includes/class-roles.php';
 require_once __DIR__ . '/../includes/class-account-status.php';
 require_once __DIR__ . '/../includes/class-editorial-workflow.php';
 require_once __DIR__ . '/../includes/class-editorial-notifications.php';
+require_once __DIR__ . '/../includes/class-article-takedown.php';
 require_once __DIR__ . '/../includes/class-admin.php';
 require_once __DIR__ . '/../includes/class-editorial-admin.php';
 require_once __DIR__ . '/../includes/class-access-control.php';
@@ -2655,7 +2656,8 @@ penalis_assert( penalis_cap_denied( 'edit_post', 10, 101 ), 'A writer may not ed
 penalis_assert( penalis_cap_denied( 'edit_post', 10, 102 ), 'A writer may not edit a submission under review.' );
 penalis_assert( penalis_cap_denied( 'edit_post', 10, 103 ), 'A writer may not edit another writer\'s draft.' );
 penalis_assert( penalis_cap_denied( 'publish_post', 10, 100 ), 'A writer never gets publish_post, even on their own draft.' );
-penalis_assert( ! penalis_cap_denied( 'delete_post', 10, 101 ), 'A writer may still delete their own published article.' );
+penalis_assert( penalis_cap_denied( 'delete_post', 10, 101 ), 'A writer may not delete their own published article.' );
+penalis_assert( ! penalis_cap_denied( 'delete_post', 10, 100 ), 'A writer may still delete their own draft.' );
 penalis_assert( penalis_cap_denied( 'delete_post', 10, 103 ), 'A writer may not delete another writer\'s article.' );
 penalis_assert( ! penalis_cap_denied( 'edit_post', 10, 310 ), 'A writer may edit their own attachment.' );
 penalis_assert( penalis_cap_denied( 'edit_post', 10, 311 ), 'A writer may not edit another writer\'s attachment.' );
@@ -2664,6 +2666,7 @@ penalis_assert( penalis_cap_denied( 'edit_post', 10, 400 ), 'A writer may not re
 $GLOBALS['penalis_test_users'][20] = new WP_User( 20, array( 'administrator' ) );
 $GLOBALS['penalis_test_users'][21] = new WP_User( 21, array( 'editor' ) );
 penalis_assert( ! penalis_cap_denied( 'edit_post', 20, 101 ), 'An administrator may edit a published article.' );
+penalis_assert( ! penalis_cap_denied( 'delete_post', 20, 101 ), 'An administrator may take down a published article.' );
 penalis_assert( ! penalis_cap_denied( 'publish_post', 20, 100 ), 'An administrator keeps publish_post.' );
 penalis_assert( ! penalis_cap_denied( 'edit_post', 21, 101 ), 'An editor may edit a published article.' );
 penalis_assert( ! penalis_cap_denied( 'edit_post', 21, 311 ), 'An editor may edit any media item.' );
@@ -2986,6 +2989,62 @@ $filtered_detail_url = Penalis_Editorial_Admin::detail_url( 700, $return_args );
 penalis_assert( false !== strpos( $filtered_detail_url, 'post_id=700' ), 'Detail URLs still identify the post.' );
 penalis_assert( false !== strpos( $filtered_detail_url, 'state=rejected' ), 'Detail URLs carry the state for the back link.' );
 penalis_assert( false !== strpos( $filtered_detail_url, 's=Hujan' ), 'Detail URLs carry the active filters.' );
+
+// Published-article takedown is audited and recoverable; drafts stay disposable.
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_admin( 20 );
+penalis_editorial_post( 800, 10, 'publish' );
+penalis_editorial_post( 801, 10, 'draft' );
+
+penalis_assert( Penalis_Article_Takedown::is_protected_post( get_post( 800 ) ), 'A published article is protected from writer deletion.' );
+penalis_assert( ! Penalis_Article_Takedown::is_protected_post( get_post( 801 ) ), 'A draft is not protected from writer deletion.' );
+penalis_assert( penalis_cap_denied( 'delete_post', 10, 800 ), 'The capability layer refuses a writer deleting a published article.' );
+penalis_assert( ! penalis_cap_denied( 'delete_post', 10, 801 ), 'The capability layer still allows a writer deleting a draft.' );
+penalis_assert( ! penalis_cap_denied( 'delete_post', 20, 800 ), 'A reviewer keeps the ability to take down a published article.' );
+
+$GLOBALS['penalis_test_current_user'] = 10;
+$delete_published = Penalis_Access_Control::guard_rest_request(
+	null,
+	null,
+	new WP_REST_Request( 'DELETE', '/wp/v2/posts/800' )
+);
+penalis_assert( is_wp_error( $delete_published ), 'REST refuses a writer deleting a published article.' );
+penalis_same( 'penalis_published_delete_denied', $delete_published->get_error_code(), 'REST explains why the deletion was refused.' );
+penalis_same(
+	null,
+	Penalis_Access_Control::guard_rest_request( null, null, new WP_REST_Request( 'DELETE', '/wp/v2/posts/801' ) ),
+	'REST leaves draft deletion untouched.'
+);
+
+$GLOBALS['penalis_test_current_user'] = 20;
+$mails_before = count( $GLOBALS['penalis_test_mail'] );
+Penalis_Article_Takedown::handle_status_transition( 'trash', 'publish', get_post( 800 ) );
+penalis_assert( Penalis_Article_Takedown::has_takedown_record( get_post( 800 ) ), 'A published article entering trash is recorded.' );
+penalis_same( 20, (int) get_post_meta( 800, Penalis_Article_Takedown::META_TRASHED_BY, true ), 'The acting reviewer is recorded.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, (string) get_post_meta( 800, Penalis_Article_Takedown::META_TRASHED_STATE, true ), 'The pre-takedown editorial state is recorded.' );
+penalis_assert( count( $GLOBALS['penalis_test_mail'] ) > $mails_before, 'Reviewers are emailed about the takedown.' );
+
+$trashed_at = (int) get_post_meta( 800, Penalis_Article_Takedown::META_TRASHED_AT, true );
+Penalis_Article_Takedown::handle_status_transition( 'trash', 'publish', get_post( 800 ) );
+penalis_same( $trashed_at, (int) get_post_meta( 800, Penalis_Article_Takedown::META_TRASHED_AT, true ), 'A repeated transition does not duplicate the record.' );
+
+$GLOBALS['penalis_test_posts'][800]->post_status = 'trash';
+update_post_meta( 800, '_wp_trash_meta_status', 'publish' );
+penalis_editorial_post( 802, 10, 'draft' );
+$GLOBALS['penalis_test_posts'][802]->post_status = 'trash';
+penalis_same( 1, Penalis_Article_Takedown::trashed_count(), 'Only recorded published articles appear in recovery.' );
+penalis_same( 800, (int) Penalis_Article_Takedown::trashed_posts()[0]->ID, 'Recovery lists the recorded article.' );
+
+penalis_assert( true === Penalis_Article_Takedown::restore( 800, 20 ), 'A reviewer can restore a recorded article.' );
+penalis_same( 'publish', get_post( 800 )->post_status, 'Restoring returns the article to its published status.' );
+penalis_assert( ! Penalis_Article_Takedown::has_takedown_record( get_post( 800 ) ), 'Restoring clears the active takedown record.' );
+penalis_same( 20, (int) get_post_meta( 800, Penalis_Article_Takedown::META_RESTORED_BY, true ), 'The restoring reviewer is recorded.' );
+penalis_same( 0, Penalis_Article_Takedown::trashed_count(), 'A restored article leaves the recovery list.' );
+penalis_assert( is_wp_error( Penalis_Article_Takedown::restore( 802, 20 ) ), 'A draft without a takedown record cannot be restored here.' );
+
+$trashed_template = Penalis_Email_Settings::get_template( 'editorial_trashed' );
+penalis_assert( false !== strpos( $trashed_template['body'], '{link_trash_admin}' ), 'The takedown email exposes the recovery link placeholder.' );
 
 // Decisions are serialized per post.
 penalis_reset();
@@ -3924,7 +3983,7 @@ $html_inline_digits = Penalis_Email_Template::render( 'Nomor referensi 123456 bu
 penalis_assert( false === strpos( $html_inline_digits, 'user-select:all' ), 'Inline six-digit numbers inside prose are not promoted to an OTP box.' );
 
 // 2. Penalis_Email_Settings registry & capabilities
-penalis_same( 16, count( Penalis_Email_Settings::get_registry() ), 'There are exactly 16 configurable email templates in the registry.' );
+penalis_same( 17, count( Penalis_Email_Settings::get_registry() ), 'There are exactly 17 configurable email templates in the registry.' );
 
 $admin_user  = new WP_User( 100, array( 'administrator' ) );
 $editor_user = new WP_User( 101, array( 'editor' ) );

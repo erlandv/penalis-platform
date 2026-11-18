@@ -3,6 +3,7 @@
  *
  * 1. Article review decisions on Review Karya Tulis (`?page=penalis-review&post_id=...`)
  * 2. Writer account actions on Penulis Penalis (`?page=penalis-writers`)
+ * 3. Published-article recovery on Karya Terhapus (`?page=penalis-trashed`)
  */
 ( function () {
 	'use strict';
@@ -91,6 +92,17 @@
 			title: 'Aktifkan langsung akun penulis lama ini?',
 			description: 'Verifikasi email akan dilewati, akun langsung diaktifkan sebagai Penulis Aktif, dan link reset password dikirim ke email pemilik akun.',
 			confirmLabel: 'Ya, Aktifkan Langsung',
+			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
+		}
+	};
+
+	var RESTORE_ACTION_CONFIG = {
+		restore: {
+			badge: 'Pulihkan Karya Tulis',
+			badgeClass: 'penalis-badge penalis-badge--active',
+			title: 'Pulihkan karya tulis dari trash?',
+			description: 'Karya tulis akan kembali ke WordPress dengan status terbit seperti sebelum dihapus. Penulis tidak dapat mengeditnya tanpa review.',
+			confirmLabel: 'Ya, Pulihkan',
 			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
 		}
 	};
@@ -364,9 +376,42 @@
 		}
 	}
 
+	function initRestoreConfirmation() {
+		var articleText = document.getElementById( 'penalis-restore-confirm-context-text' );
+
+		var controller = createModalController( {
+			prefix: 'penalis-restore-confirm',
+			onOpen: function ( config, triggerEl ) {
+				if ( articleText && triggerEl ) {
+					articleText.textContent = triggerEl.getAttribute( 'data-penalis-restore-title' ) || 'Karya tulis terpilih';
+				}
+			},
+			onConfirm: function ( targetForm ) {
+				targetForm.submit();
+			}
+		} );
+
+		if ( ! controller ) {
+			return;
+		}
+
+		var restoreButtons = document.querySelectorAll( '[data-penalis-restore]' );
+		for ( var i = 0; i < restoreButtons.length; i++ ) {
+			restoreButtons[ i ].addEventListener( 'click', function ( event ) {
+				var config = RESTORE_ACTION_CONFIG.restore;
+				if ( ! config || ! this.form ) {
+					return;
+				}
+				event.preventDefault();
+				controller.open( config, this, this.form );
+			} );
+		}
+	}
+
 	function initAll() {
 		initReviewConfirmation();
 		initWriterConfirmation();
+		initRestoreConfirmation();
 	}
 
 	if ( document.readyState === 'loading' ) {

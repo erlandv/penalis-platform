@@ -50,8 +50,9 @@ penalis-platform/
 │   ├── class-editorial-policy.php        Pure editorial state machine, review cycle, notification rules
 │   ├── class-editorial-workflow.php      Serialized editorial transitions, shared state query/count helpers, and post meta persistence
 │   ├── class-editorial-notifications.php Bounded dashboard notifications and editorial email dispatch
+│   ├── class-article-takedown.php        Published-article deletion guard, trash audit, reviewer report & restore helpers
 │   ├── class-revisions.php               Revision limit for drafts so autosave cannot grow the history without bound
-│   ├── class-editorial-admin.php         Penalis → Review Karya Tulis admin review workspace
+│   ├── class-editorial-admin.php         Penalis → Review Karya Tulis and Karya Terhapus admin screens
 │   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen, shared modal & asset helpers
 │   ├── class-email-settings.php          Penalis → Pengaturan Email customizable transactional email registry & admin console
 │   ├── class-access-control.php          Login gate, capability filters, REST guards, upload validation
@@ -299,7 +300,13 @@ editors.
      metadata header, unified decision form with an accessible confirmation
      modal, link to the native WordPress editor for pre-publication corrections,
      and a vertical review history timeline.
-3. **Penalis → Penulis Penalis** (`?page=penalis-writers`, `Penalis_Admin::render_page()`)
+3. **Penalis → Karya Terhapus** (`?page=penalis-trashed`, `Penalis_Editorial_Admin::render_trashed_page()`)
+   - Recovery console for published articles that entered the WordPress trash.
+     Each entry records the takedown time, acting user, and original editorial
+     state; a reviewer can restore it through `wp_untrash_post()` with an
+     explicit confirmation. Untrashing from the native Posts screen clears the
+     same record, so the console never shows an already-live article.
+4. **Penalis → Penulis Penalis** (`?page=penalis-writers`, `Penalis_Admin::render_page()`)
    - Account management table with status tabs (`Semua yang dikelola`, `Aktif`,
      `Menunggu verifikasi`, `Ditangguhkan`, `Akun lama`), search toolbar,
      Instagram handle column (`@username`), collapsible audit history, and
@@ -307,7 +314,7 @@ editors.
      `Aktifkan kembali`, `Kirim ulang verifikasi`, `Kirim link aktivasi`,
      `Aktifkan langsung`). Site-wide settings moved to **Pengaturan**; the screen
      only links there.
-4. **Penalis → Pengaturan** (`?page=penalis-settings`, `Penalis_Settings::render_page()`)
+5. **Penalis → Pengaturan** (`?page=penalis-settings`, `Penalis_Settings::render_page()`)
    - Centralized home for every site-wide setting, administrator-only
      (`manage_options`). One tab per setting group, rendered server-side
      (`&tab=<slug>`) so a tab can be linked, bookmarked, and restored after
@@ -458,7 +465,7 @@ writers (e.g., *login*, *logout*, *dashboard*, *password*, *link*,
 ### 7.5 Customizable Transactional Emails & Markdown Support
 Transactional emails can be adjusted by non-technical administrators via
 `Penalis_Email_Settings` without modifying PHP code.
-- **Unified Registry:** All 15 email types define standard defaults, metadata,
+- **Unified Registry:** All 17 email types define standard defaults, metadata,
   allowed variables (`{tag}`), and mandatory required tags.
 - **Markdown & CTA Buttons:** Body copy supports inline links
   (`[WhatsApp Group](url)`), bold text (`**bold**`), and standalone links

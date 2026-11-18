@@ -77,14 +77,19 @@ unauthorized publishing:
    - `publish_post` for all writers (writers can never publish directly);
    - `edit_post` when the post is not owned by the writer, is already published,
      or is locked by its editorial state (`pending_review` or `rejected`);
-   - `delete_post` when the post or attachment is not owned by the writer or is
-     currently under review (`pending`).
+   - `delete_post` when the post or attachment is not owned by the writer, or
+     when the post is a published article (`publish` status or editorial state
+     `published`). Writers keep deleting their own drafts; reviewer takedowns
+     are audited and recoverable from **Penalis → Karya Terhapus**.
 4. **REST Dispatch Guard (`rest_pre_dispatch`):**
    - Blocks restricted users from administrative core routes (`/wp/v2/users`,
      `/wp/v2/settings`, `/wp/v2/plugins`, `/wp/v2/themes`, `/wp/v2/pages`,
      `/wp/v2/templates`, `/wp/v2/menus`, `/wp/v2/widgets`, etc.), allowing only
      `GET /wp/v2/users/me` and `GET /wp/v2/block-types`.
    - Blocks cross-writer reads of single posts and media items by ID (`404`).
+   - Refuses `DELETE /wp/v2/posts/<id>` on a published article with
+     `penalis_published_delete_denied` (403) instead of a generic capability
+     error, so the writer knows to contact a reviewer.
    - Blocks non-allowlisted write routes and verifies media parent ownership
      before upload processing begins.
 5. **REST Post & Media Insert Filters (`rest_pre_insert_post`, `rest_pre_insert_attachment`):**

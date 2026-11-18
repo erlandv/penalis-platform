@@ -427,6 +427,22 @@ JS;
 				),
 				'required_tags'   => array(),
 			),
+			'editorial_trashed'         => array(
+				'title'           => 'Karya Terbit Masuk Trash (Untuk Tim Reviewer)',
+				'description'     => 'Dikirim ke semua reviewer (Editor & Admin) saat karya tulis yang sedang terbit masuk ke WordPress trash.',
+				'group'           => 'kurasi',
+				'default_subject' => '[{nama_situs}] Karya terbit masuk trash: {judul_karya}',
+				'default_body'    => "Sebuah karya tulis yang sedang terbit di {nama_situs} telah masuk ke WordPress trash.\n\nJudul Karya: {judul_karya}\nPenulis: {nama_penulis} ({username_penulis})\n\nPeriksa dan pulihkan dari konsol Penalis:\n\n{link_trash_admin}",
+				'default_footer'  => 'Email ini dikirim otomatis untuk tim editorial Penalis agar karya yang terbit tidak hilang tanpa tercatat.',
+				'tags'            => array(
+					'{judul_karya}'      => 'Judul karya tulis yang masuk trash',
+					'{nama_penulis}'     => 'Nama tampilan penulis karya',
+					'{username_penulis}' => 'Username penulis',
+					'{link_trash_admin}' => 'Tautan ke halaman Karya Terhapus di wp-admin (Wajib)',
+					'{nama_situs}'       => 'Nama website situs',
+				),
+				'required_tags'   => array( '{link_trash_admin}' ),
+			),
 		);
 	}
 

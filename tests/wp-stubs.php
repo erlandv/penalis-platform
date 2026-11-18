@@ -1429,6 +1429,28 @@ if ( ! function_exists( 'wp_update_post' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wp_untrash_post' ) ) {
+	/**
+	 * Restore a trashed post double to its stored pre-trash status.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	function wp_untrash_post( $post_id ) {
+		$post = get_post( (int) $post_id );
+
+		if ( ! $post ) {
+			return false;
+		}
+
+		$status = get_post_meta( (int) $post_id, '_wp_trash_meta_status', true );
+		$post->post_status = '' !== $status ? (string) $status : 'publish';
+		delete_post_meta( (int) $post_id, '_wp_trash_meta_status' );
+
+		return true;
+	}
+}
+
 if ( ! class_exists( 'WP_Comment' ) ) {
 	/**
 	 * Minimal comment stub for avatar identifier resolution.
@@ -1969,6 +1991,8 @@ if ( ! class_exists( 'WP_Query' ) ) {
 
 				if ( 'NOT EXISTS' === $compare ) {
 					$clause_match = ! $exists;
+				} elseif ( 'EXISTS' === $compare ) {
+					$clause_match = $exists;
 				} else {
 					$expected     = isset( $clause['value'] ) ? (string) $clause['value'] : '';
 					$clause_match = $exists && $actual === $expected;

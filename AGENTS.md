@@ -266,6 +266,10 @@ Summary of rules that must always hold:
 - Keep all eight authorization layers intact (`can_write()`, `user_has_cap`,
   `map_meta_cap`, `rest_pre_dispatch`, `rest_pre_insert_post`,
   `wp_insert_post_data`, query forcing, and upload validation).
+- A writer may delete their own draft, but never a `published` article. The
+  `delete_post` exemption in `Penalis_Access_Control::map_meta_cap()` applies
+  only when `Penalis_Article_Takedown::is_protected_post()` is false. Reviewer
+  takedowns are recorded and recoverable through `Penalis → Karya Terhapus`.
 - Every public endpoint must enforce rate limits, check the `penalis_website`
   honeypot where applicable, verify Cloudflare Turnstile via `Penalis_Turnstile`
   when *Simple Cloudflare Turnstile* is active and enabled, and return generic

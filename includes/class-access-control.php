@@ -465,6 +465,21 @@ final class Penalis_Access_Control {
 			}
 		}
 
+		// A published article is live public content. Give the writer a clear
+		// reason instead of a generic capability failure; the capability layer
+		// below still refuses the same deletion through every other path.
+		if ( 'DELETE' === $method && 1 === preg_match( '#^/wp/v2/posts/(\d+)#', $route, $matches ) ) {
+			$target = get_post( (int) $matches[1] );
+
+			if ( $target && Penalis_Article_Takedown::is_protected_post( $target ) ) {
+				return new WP_Error(
+					'penalis_published_delete_denied',
+					'Karya tulis yang sudah terbit tidak dapat dihapus penulis. Hubungi admin jika ada yang perlu diperbaiki.',
+					array( 'status' => 403 )
+				);
+			}
+		}
+
 		// Any write operation requires an active writer account, except the
 		// account and verification routes that pending users may legitimately
 		// use.
@@ -1175,11 +1190,15 @@ final class Penalis_Access_Control {
 			return $caps;
 		}
 
-		// Deleting is a content takedown, not an edit: a writer may still
-		// remove their own article, including a published one, which is the
-		// existing dashboard behaviour. Only editing and publishing are locked
-		// by the editorial state.
+		// Deleting a draft is part of owning a draft, but a published article
+		// is live public content. A writer cannot take it down through REST,
+		// wp-admin, or a direct `delete_post` capability check; only a reviewer
+		// may do that, and the takedown is audited for later restoration.
 		if ( 'delete_post' === $cap ) {
+			if ( Penalis_Article_Takedown::is_protected_post( $post ) ) {
+				$caps[] = 'do_not_allow';
+			}
+
 			return $caps;
 		}
 
