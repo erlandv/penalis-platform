@@ -76,7 +76,7 @@ administrators and editors) without writer status can also read them.
 | `/articles/(?P<id>\d+)/publish` | `POST` | `reject_legacy_publish` | Legacy route retained for explicit refusal; always returns `403 penalis_publish_forbidden` |
 | `/articles/(?P<id>\d+)/unpublish` | `POST` | `reject_legacy_publish` | Legacy route retained for explicit refusal; always returns `403 penalis_publish_forbidden` |
 | `/media` | `GET` | `list_media` | Paginated list of image attachments owned by the current writer |
-| `/tags` | `POST` | `create_tag` | Create or resolve a post tag by name (rate-limited to 30/hour per user) |
+| `/tags` | `POST` | `create_tag` | Create or resolve a post tag by name (rate-limited per user, 30/hour by default; configurable at Pengaturan → Batas Percobaan) |
 
 > **Note on Administrator Review Actions:** Administrator review decisions
 > (`approve`, `request_changes`, `reject`, `reopen`) and writer account status

@@ -71,7 +71,7 @@ penalis-platform/
 │   ├── class-authors.php                 Public authors directory ([penalis_authors]) and verified badge integration
 │   ├── class-emails.php                  Centralized template-driven transactional email dispatcher and failure tracking
 │   ├── class-email-template.php          Branded responsive HTML email layout and Markdown renderer
-│   ├── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting
+│   ├── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting, configurable limits, proxy-aware client IP
 │   └── class-turnstile.php               Optional Cloudflare Turnstile adapter via Simple Cloudflare Turnstile
 ├── assets/
 │   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email)

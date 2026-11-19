@@ -67,6 +67,11 @@ final class Penalis_Settings {
 	public const OPTION_REMOVE_DATA_AUDIT = 'penalis_remove_data_audit';
 
 	/**
+	 * Option recording who last changed a rate limit, and which values moved.
+	 */
+	public const OPTION_RATE_AUDIT = 'penalis_rate_limits_audit';
+
+	/**
 	 * Register hooks.
 	 *
 	 * @return void
@@ -77,6 +82,8 @@ final class Penalis_Settings {
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_scripts' ) );
 		add_action( 'admin_post_penalis_save_captcha', array( __CLASS__, 'handle_save_captcha' ) );
 		add_action( 'admin_post_penalis_save_registration', array( __CLASS__, 'handle_save_registration' ) );
+		add_action( 'admin_post_penalis_save_rate_limits', array( __CLASS__, 'handle_save_rate_limits' ) );
+		add_action( 'admin_post_penalis_reset_rate_limits', array( __CLASS__, 'handle_reset_rate_limits' ) );
 		add_action( 'admin_post_penalis_save_data', array( __CLASS__, 'handle_save_data' ) );
 	}
 
@@ -200,6 +207,11 @@ JS;
 				'title'  => 'Pendaftaran Penulis',
 				'render' => array( __CLASS__, 'render_registration_tab' ),
 			),
+			'rate-limit'   => array(
+				'label'  => 'Batas Percobaan',
+				'title'  => 'Batas Percobaan & Proxy',
+				'render' => array( __CLASS__, 'render_rate_limit_tab' ),
+			),
 			'avatar'       => array(
 				'label'  => 'Foto Profil',
 				'title'  => 'Foto Profil Bawaan',
@@ -276,6 +288,17 @@ JS;
 	 */
 	public static function registration_audit() {
 		$audit = get_option( self::OPTION_REGISTRATION_AUDIT, array() );
+
+		return is_array( $audit ) && isset( $audit['time'] ) ? $audit : array();
+	}
+
+	/**
+	 * Audit entry for the most recent rate-limit change.
+	 *
+	 * @return array<string,mixed> Empty when the limits have never been changed.
+	 */
+	public static function rate_audit() {
+		$audit = get_option( self::OPTION_RATE_AUDIT, array() );
 
 		return is_array( $audit ) && isset( $audit['time'] ) ? $audit : array();
 	}
@@ -401,10 +424,11 @@ JS;
 	 */
 	public static function message_for( $key ) {
 		$messages = array(
-			'saved'        => 'Pengaturan berhasil disimpan.',
-			'reset_single' => 'Template email telah dikembalikan ke teks bawaan.',
-			'reset_all'    => 'Semua template email telah dikembalikan ke teks bawaan.',
-			'avatar_saved' => 'Foto profil bawaan telah diperbarui.',
+			'saved'             => 'Pengaturan berhasil disimpan.',
+			'reset_single'      => 'Template email telah dikembalikan ke teks bawaan.',
+			'reset_all'         => 'Semua template email telah dikembalikan ke teks bawaan.',
+			'avatar_saved'      => 'Foto profil bawaan telah diperbarui.',
+			'rate_limits_reset' => 'Batas percobaan dikembalikan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.',
 		);
 
 		$key = sanitize_key( (string) $key );
@@ -422,6 +446,7 @@ JS;
 		$errors = array(
 			'avatar_invalid' => 'Pilih gambar yang valid untuk foto profil bawaan.',
 			'data_confirm'   => 'Ketik HAPUS pada kolom konfirmasi untuk mengaktifkan penghapusan data.',
+			'proxy_invalid'  => 'Sebagian entri proxy tidak valid dan diabaikan. Gunakan format alamat IP (mis. 203.0.113.10) atau CIDR (mis. 10.0.0.0/8).',
 		);
 
 		$key = sanitize_key( (string) $key );
@@ -677,6 +702,233 @@ JS;
 				</p>
 			</form>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the Batas Percobaan tab.
+	 *
+	 * @return void
+	 */
+	public static function render_rate_limit_tab() {
+		$actions  = Penalis_Rate_Limiter::actions();
+		$rules    = Penalis_Rate_Limiter::limits();
+		$defaults = Penalis_Rate_Limiter::defaults();
+		$proxies  = get_option( Penalis_Rate_Limiter::OPTION_PROXIES, '' );
+		$proxies  = is_string( $proxies ) ? $proxies : '';
+
+		$remote = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( (string) $_SERVER['REMOTE_ADDR'] ) ) : '';
+		?>
+		<div class="penalis-settings__warning">
+			<p>
+				<strong>Pengaturan ini bersifat sensitif dan dapat memengaruhi keamanan situs.</strong>
+				Biarkan apa adanya jika Anda tidak yakin, atau gunakan tombol <em>Kembalikan ke Default</em>
+				di bagian bawah halaman.
+			</p>
+		</div>
+
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<input type="hidden" name="action" value="penalis_save_rate_limits" />
+			<?php wp_nonce_field( 'penalis_save_rate_limits' ); ?>
+
+			<div class="penalis-settings__panel">
+				<h2>Batas percobaan</h2>
+				<p class="description">
+					Setiap alur sensitif dibatasi jumlah percobaannya per jendela waktu. Nilai yang lebih
+					kecil lebih aman tetapi lebih mudah mengganggu penulis yang salah memasukkan data;
+					biarkan bawaan bila tidak ada alasan khusus.
+				</p>
+
+				<table class="widefat striped penalis-settings__table">
+					<thead>
+						<tr>
+							<th scope="col">Alur</th>
+							<th scope="col">Maksimal percobaan</th>
+							<th scope="col">Per (menit)</th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $actions as $action => $meta ) : ?>
+							<?php $rule = $rules[ $action ]; ?>
+							<tr>
+								<th scope="row">
+									<label for="penalis-rl-<?php echo esc_attr( $action ); ?>">
+										<?php echo esc_html( (string) $meta['label'] ); ?>
+									</label>
+									<p class="description"><?php echo esc_html( (string) $meta['description'] ); ?></p>
+								</th>
+								<td>
+									<input
+										id="penalis-rl-<?php echo esc_attr( $action ); ?>"
+										type="number"
+										class="small-text"
+										name="penalis_rate_limits[<?php echo esc_attr( $action ); ?>][limit]"
+										value="<?php echo esc_attr( (string) $rule['limit'] ); ?>"
+										placeholder="<?php echo esc_attr( (string) $defaults[ $action ]['limit'] ); ?>"
+										min="1"
+										max="<?php echo esc_attr( (string) Penalis_Rate_Limiter::MAX_LIMIT ); ?>"
+										step="1"
+									/>
+								</td>
+								<td>
+									<input
+										type="number"
+										class="small-text"
+										name="penalis_rate_limits[<?php echo esc_attr( $action ); ?>][window]"
+										value="<?php echo esc_attr( (string) max( 1, (int) round( $rule['window'] / MINUTE_IN_SECONDS ) ) ); ?>"
+										placeholder="<?php echo esc_attr( (string) (int) round( $defaults[ $action ]['window'] / MINUTE_IN_SECONDS ) ); ?>"
+										min="1"
+										max="<?php echo esc_attr( (string) ( Penalis_Rate_Limiter::MAX_WINDOW / MINUTE_IN_SECONDS ) ); ?>"
+										step="1"
+										aria-label="<?php echo esc_attr( 'Jendela waktu untuk ' . (string) $meta['label'] . ' dalam menit' ); ?>"
+									/>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+
+				<p class="penalis-settings__note">
+					Nilai di luar rentang yang wajar diabaikan dan dikembalikan ke bawaan saat disimpan.
+				</p>
+
+				<?php
+				$audit = self::rate_audit();
+
+				if ( ! empty( $audit ) ) :
+					$audit_user = isset( $audit['user_login'] ) && '' !== (string) $audit['user_login']
+						? (string) $audit['user_login']
+						: 'administrator';
+					$audit_time = Penalis_Datetime::format( (int) $audit['time'], 'j M Y H:i' );
+					$audit_diff = isset( $audit['changes'] ) && is_array( $audit['changes'] ) ? $audit['changes'] : array();
+					$shown      = array_slice( $audit_diff, 0, 8, true );
+					$remaining  = count( $audit_diff ) - count( $shown );
+					?>
+					<div class="penalis-settings__audit">
+						<p>
+							<strong>Terakhir diubah</strong> oleh <code><?php echo esc_html( $audit_user ); ?></code>
+							pada <?php echo esc_html( $audit_time ); ?>.
+						</p>
+
+						<?php if ( 'reset' === (string) $audit['action'] ) : ?>
+							<p class="description">
+								Nilai yang berlaku saat itu dikembalikan ke bawaan.
+								<?php if ( ! empty( $shown ) ) : ?>
+									Sebelumnya:
+									<?php
+									$previous = array();
+
+									foreach ( $shown as $changed_action => $change ) {
+										$label      = isset( $actions[ $changed_action ] ) ? (string) $actions[ $changed_action ]['label'] : (string) $changed_action;
+										$previous[] = $label . ' ' . (int) $change['from']['limit'] . ' per ' . (int) round( $change['from']['window'] / MINUTE_IN_SECONDS ) . ' menit';
+									}
+
+									echo esc_html( implode( '; ', $previous ) );
+									?>
+								<?php endif; ?>
+							</p>
+						<?php elseif ( ! empty( $shown ) ) : ?>
+							<ul class="penalis-settings__audit-list">
+								<?php foreach ( $shown as $changed_action => $change ) : ?>
+									<?php
+									$label = isset( $actions[ $changed_action ] ) ? (string) $actions[ $changed_action ]['label'] : (string) $changed_action;
+									$parts = array();
+
+									if ( (int) $change['from']['limit'] !== (int) $change['to']['limit'] ) {
+										$parts[] = sprintf(
+											'maksimal %d → %d percobaan',
+											(int) $change['from']['limit'],
+											(int) $change['to']['limit']
+										);
+									}
+
+									if ( (int) $change['from']['window'] !== (int) $change['to']['window'] ) {
+										$parts[] = sprintf(
+											'jendela %d → %d menit',
+											(int) round( $change['from']['window'] / MINUTE_IN_SECONDS ),
+											(int) round( $change['to']['window'] / MINUTE_IN_SECONDS )
+										);
+									}
+									?>
+									<li>
+										<?php echo esc_html( $label ); ?>:
+										<?php echo esc_html( implode( ', ', $parts ) ); ?>
+									</li>
+								<?php endforeach; ?>
+							</ul>
+
+							<?php if ( $remaining > 0 ) : ?>
+								<p class="description">
+									<?php echo esc_html( sprintf( 'dan %d nilai lainnya.', $remaining ) ); ?>
+								</p>
+							<?php endif; ?>
+						<?php endif; ?>
+					</div>
+				<?php endif; ?>
+			</div>
+
+			<div class="penalis-settings__panel">
+				<h2>Alamat IP di balik proxy</h2>
+				<p class="description">
+					Pembatasan di atas bekerja per alamat IP. Bila situs berada di balik reverse proxy atau
+					CDN, alamat yang terlihat oleh server adalah alamat proxy, sehingga semua pengunjung
+					berbagi satu kuota. Isi daftar proxy di bawah agar Penalis membaca alamat asli
+					pengunjung dari header proxy.
+				</p>
+
+				<p class="penalis-settings__note">
+					IP yang terdeteksi untuk kunjungan ini:
+					<code><?php echo esc_html( Penalis_Rate_Limiter::client_ip() ); ?></code>
+					<span class="penalis-settings__muted">
+						(alamat koneksi langsung: <code><?php echo esc_html( '' !== $remote ? $remote : 'tidak diketahui' ); ?></code>)
+					</span>
+				</p>
+
+				<p>
+					<label for="penalis-trusted-proxies">Daftar proxy tepercaya</label>
+					<br />
+					<textarea
+						id="penalis-trusted-proxies"
+						name="penalis_trusted_proxies"
+						rows="4"
+						class="large-text code"
+						aria-describedby="penalis-trusted-proxies-help"
+					><?php echo esc_textarea( $proxies ); ?></textarea>
+				</p>
+				<p class="description" id="penalis-trusted-proxies-help">
+					Satu alamat per baris, boleh berupa CIDR. Contoh Cloudflare:
+					<code>173.245.48.0/20</code>, <code>103.21.244.0/22</code>. Kosongkan bila situs
+					diakses langsung tanpa proxy.
+				</p>
+
+				<p class="penalis-settings__note">
+					Header proxy hanya dibaca bila koneksi datang dari salah satu alamat di daftar ini.
+					Tanpa syarat itu, siapa pun bisa mengirim header sendiri dan memilih kuota orang lain.
+				</p>
+			</div>
+
+			<p class="submit">
+				<button type="submit" class="button button-primary">Simpan pengaturan</button>
+			</p>
+		</form>
+
+		<?php
+		/*
+		 * The reset lives in its own form below the main one, for two reasons:
+		 * pressing Enter in a number field submits the first button of a form,
+		 * and that must be "Simpan", never "Kembalikan ke Default". It also
+		 * keeps the action scoped to the numbers — clearing the proxy list on a
+		 * site behind a CDN would silently put every visitor in one bucket.
+		 */
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="penalis-settings__reset">
+			<input type="hidden" name="action" value="penalis_reset_rate_limits" />
+			<?php wp_nonce_field( 'penalis_reset_rate_limits' ); ?>
+			<button type="submit" class="button">Kembalikan ke Default</button>
+			<span class="description">
+				Mengembalikan 12 batas percobaan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.
+			</span>
+		</form>
 		<?php
 	}
 
@@ -1025,6 +1277,109 @@ JS;
 	}
 
 	/**
+	 * Handle the rate-limit and trusted-proxy submission.
+	 *
+	 * Out-of-range numbers fall back to the default instead of being clamped:
+	 * a mistyped "0" should not silently become "one attempt per hour", and a
+	 * mistyped "99999" should not disable the limiter either.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_rate_limits() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_save_rate_limits' );
+
+		$raw = isset( $_POST['penalis_rate_limits'] ) && is_array( $_POST['penalis_rate_limits'] )
+			? wp_unslash( $_POST['penalis_rate_limits'] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Cast to integers below.
+			: array();
+
+		$clean = array();
+
+		foreach ( Penalis_Rate_Limiter::defaults() as $action => $default ) {
+			$limit   = isset( $raw[ $action ]['limit'] ) ? absint( $raw[ $action ]['limit'] ) : 0;
+			$minutes = isset( $raw[ $action ]['window'] ) ? absint( $raw[ $action ]['window'] ) : 0;
+
+			$clean[ $action ] = array(
+				'limit'  => ( $limit >= 1 && $limit <= Penalis_Rate_Limiter::MAX_LIMIT ) ? $limit : $default['limit'],
+				'window' => ( $minutes >= 1 && ( $minutes * MINUTE_IN_SECONDS ) <= Penalis_Rate_Limiter::MAX_WINDOW )
+					? $minutes * MINUTE_IN_SECONDS
+					: $default['window'],
+			);
+		}
+
+		$changes = Penalis_Rate_Limiter::diff( Penalis_Rate_Limiter::limits(), $clean );
+
+		if ( ! empty( $changes ) ) {
+			self::record_rate_audit( 'save', $changes );
+		}
+
+		update_option( Penalis_Rate_Limiter::OPTION_LIMITS, $clean, false );
+
+		$raw_proxies = isset( $_POST['penalis_trusted_proxies'] )
+			? sanitize_textarea_field( wp_unslash( $_POST['penalis_trusted_proxies'] ) )
+			: '';
+
+		$valid   = array();
+		$invalid = 0;
+
+		foreach ( preg_split( '/[\r\n,]+/', $raw_proxies ) as $entry ) {
+			$entry = trim( (string) $entry );
+
+			if ( '' === $entry ) {
+				continue;
+			}
+
+			if ( Penalis_Rate_Limiter::is_valid_proxy_entry( $entry ) ) {
+				$valid[] = $entry;
+			} else {
+				++$invalid;
+			}
+		}
+
+		update_option( Penalis_Rate_Limiter::OPTION_PROXIES, implode( "\n", array_unique( $valid ) ), false );
+
+		if ( $invalid > 0 ) {
+			self::redirect_to_tab( 'rate-limit', '', array( 'penalis_error' => 'proxy_invalid' ) );
+		}
+
+		self::redirect_to_tab( 'rate-limit' );
+	}
+
+	/**
+	 * Restore every rate limit to its built-in default.
+	 *
+	 * Deleting the option is the reset: `Penalis_Rate_Limiter::limits()` already
+	 * falls back to `defaults()` for anything missing, so there is no second
+	 * copy of the numbers to keep in sync.
+	 *
+	 * The trusted proxy list is deliberately untouched — it describes the
+	 * network the site runs on, not a tuning value, and clearing it on a site
+	 * behind a CDN would put every visitor into one rate-limit bucket.
+	 *
+	 * @return void
+	 */
+	public static function handle_reset_rate_limits() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_reset_rate_limits' );
+
+		$changes = Penalis_Rate_Limiter::diff( Penalis_Rate_Limiter::limits(), Penalis_Rate_Limiter::defaults() );
+
+		delete_option( Penalis_Rate_Limiter::OPTION_LIMITS );
+
+		if ( ! empty( $changes ) ) {
+			self::record_rate_audit( 'reset', $changes );
+		}
+
+		self::redirect_to_tab( 'rate-limit', 'rate_limits_reset' );
+	}
+
+	/**
 	 * Handle the uninstall opt-in submission.
 	 *
 	 * Enabling data removal is destructive, so the transition from off to on
@@ -1108,6 +1463,33 @@ JS;
 				'user_id'    => $user ? (int) $user->ID : 0,
 				'user_login' => $user ? (string) $user->user_login : '',
 				'time'       => time(),
+			),
+			false
+		);
+	}
+
+	/**
+	 * Record who moved which rate limit, and from what to what.
+	 *
+	 * The diff is stored rather than the whole table: "registration 5 → 8" is
+	 * the sentence an administrator needs after a lockout, and the eleven
+	 * unchanged values are noise.
+	 *
+	 * @param string $action  `save` or `reset`.
+	 * @param array  $changes Action => from/to pair, as produced by `Penalis_Rate_Limiter::diff()`.
+	 * @return void
+	 */
+	private static function record_rate_audit( $action, array $changes ) {
+		$user = wp_get_current_user();
+
+		update_option(
+			self::OPTION_RATE_AUDIT,
+			array(
+				'action'     => 'reset' === $action ? 'reset' : 'save',
+				'user_id'    => $user ? (int) $user->ID : 0,
+				'user_login' => $user ? (string) $user->user_login : '',
+				'time'       => time(),
+				'changes'    => $changes,
 			),
 			false
 		);

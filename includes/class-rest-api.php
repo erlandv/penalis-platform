@@ -1085,14 +1085,14 @@ final class Penalis_Rest_Api {
 	public static function update_password( $request ) {
 		$user_id = get_current_user_id();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'password_change', 5, HOUR_IN_SECONDS, (string) $user_id ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'password_change', (string) $user_id ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak percobaan. Silakan coba lagi nanti.',
 				array( 'status' => 429 )
 			);
 		}
-		Penalis_Rate_Limiter::hit( 'password_change', HOUR_IN_SECONDS, (string) $user_id );
+		Penalis_Rate_Limiter::register( 'password_change', (string) $user_id );
 
 		$current = (string) $request->get_param( 'current_password' );
 		$new     = (string) $request->get_param( 'new_password' );
@@ -1565,7 +1565,7 @@ final class Penalis_Rest_Api {
 	public static function create_tag( $request ) {
 		$user_id = get_current_user_id();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'tag_create', 30, HOUR_IN_SECONDS, (string) $user_id ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'tag_create', (string) $user_id ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak tag dibuat. Silakan coba lagi nanti.',
@@ -1585,7 +1585,7 @@ final class Penalis_Rest_Api {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'tag_create', HOUR_IN_SECONDS, (string) $user_id );
+		Penalis_Rate_Limiter::register( 'tag_create', (string) $user_id );
 
 		$existing = get_term_by( 'name', $name, 'post_tag' );
 		if ( $existing instanceof WP_Term ) {

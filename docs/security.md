@@ -260,6 +260,49 @@ Transient-based rate limits (`Penalis_Rate_Limiter`):
 | Username change | Per IP / Per user | 5 / hour per IP, 3 / hour per user |
 | Tag creation | Per user | 30 / hour |
 
+Every value above is a **default**. An administrator can change the attempts and
+the window per action at **Pengaturan → Batas Percobaan**
+(`Penalis_Rate_Limiter::actions()`). A value outside the accepted range falls
+back to the default instead of being clamped: a mistyped `0` must not silently
+become "one attempt per hour", and a mistyped `99999` must not disable the
+limiter. Call sites never pass numbers — they call `guard()` / `register()`, so
+a new limit applies everywhere at once.
+
+Because a wrong number here can lock writers out, the screen carries a warning
+banner and a **Kembalikan ke Default** action. The reset deletes the option
+rather than rewriting the numbers, so there is no second copy to keep in sync,
+and it deliberately leaves the trusted proxy list alone — that list describes
+the network the site runs on, not a tuning value.
+
+Every change is attributed: `penalis_rate_limits_audit` stores the acting user,
+the time, and **only the values that moved** (`5 → 8 percobaan`), because after
+a lockout the question is "who raised this and to what", not a copy of the
+eleven rows that stayed the same. Saving without changes writes no entry, and a
+reset records the values that were replaced.
+
+#### Client IP resolution behind a proxy
+
+Limits key on the client address, so the address has to be right.
+
+- **`REMOTE_ADDR` is the only value a client cannot forge.** It is the default
+  answer and the fallback for every other case.
+- **The proxy list is the permission slip.** Proxy headers are read only when
+  the immediate peer is in `penalis_trusted_proxies` (addresses or CIDR). Without
+  that check, anyone could send `X-Forwarded-For: 1.2.3.4` and choose their own
+  rate-limit bucket — or pin someone else's.
+- **`X-Forwarded-For` is read right to left.** The rightmost entries are the hops
+  your own infrastructure appended; everything further left is client-supplied.
+  The walk returns the first address that is not itself a trusted proxy.
+- **`CF-Connecting-IP` wins when the peer is trusted**, because Cloudflare states
+  the client address directly and there is nothing to parse.
+- **An unusable address becomes `unknown`**, which means every such request
+  shares one bucket. The settings screen prints the detected address next to the
+  proxy list, so a misconfiguration is visible instead of silent.
+- **Legacy escape hatch:** `penalis_trust_proxy_headers` still forces header
+  reading when no list is configured. It is only safe on a host that strips
+  inbound `X-Forwarded-For`; prefer the list.
+
+
 ### 7.1 Email Template Security & Secret Preservation
 - **Capability Isolation:** Viewing and saving email templates requires
   `manage_options` (`Penalis_Email_Settings::can_manage()`). Editors and writers

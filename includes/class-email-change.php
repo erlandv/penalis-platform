@@ -50,7 +50,7 @@ final class Penalis_Email_Change {
 
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'email_change_ip', 5, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'email_change_ip', $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak permintaan perubahan email. Silakan coba lagi nanti.',
@@ -58,7 +58,7 @@ final class Penalis_Email_Change {
 			);
 		}
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'email_change_user', 3, HOUR_IN_SECONDS, (string) $user_id ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'email_change_user', (string) $user_id ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak permintaan perubahan email. Silakan coba lagi nanti.',
@@ -66,8 +66,8 @@ final class Penalis_Email_Change {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'email_change_ip', HOUR_IN_SECONDS, $ip );
-		Penalis_Rate_Limiter::hit( 'email_change_user', HOUR_IN_SECONDS, (string) $user_id );
+		Penalis_Rate_Limiter::register( 'email_change_ip', $ip );
+		Penalis_Rate_Limiter::register( 'email_change_user', (string) $user_id );
 
 		// Re-authentication: a hijacked session must not be able to move the
 		// account to an address the attacker controls.
@@ -195,7 +195,7 @@ final class Penalis_Email_Change {
 		$user_id = (int) $user_id;
 		$ip      = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'otp_verify_ip', 20, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'otp_verify_ip', $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak percobaan. Silakan coba lagi nanti.',
@@ -203,7 +203,7 @@ final class Penalis_Email_Change {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'otp_verify_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::register( 'otp_verify_ip', $ip );
 
 		$result = Penalis_Otp::consume(
 			'email_change',

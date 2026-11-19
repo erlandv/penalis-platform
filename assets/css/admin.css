@@ -1337,6 +1337,104 @@ body.penalis-modal-open {
 	margin-top: 14px;
 }
 
+/*
+ * Rate-limit table.
+ *
+ * The action label and its explanation share a row, so the first column needs
+ * room for a sentence; the two number inputs stay narrow because they hold at
+ * most four digits.
+ */
+.penalis-settings__table {
+	margin: 4px 0 14px;
+}
+
+.penalis-settings__table th[scope='row'] {
+	width: 62%;
+	font-weight: 600;
+}
+
+.penalis-settings__table th[scope='row'] .description {
+	margin: 2px 0 0;
+	font-weight: 400;
+}
+
+.penalis-settings__table td {
+	vertical-align: top;
+}
+
+.penalis-settings__muted {
+	color: #646970;
+}
+
+/*
+ * "This is sensitive" banner.
+ *
+ * Amber rather than red: the screen is not broken, but a wrong number here can
+ * lock writers out, so it must not read as ordinary help text either.
+ */
+.penalis-settings__warning {
+	margin: 0 0 18px;
+	padding: 12px 16px;
+	border-left: 3px solid #dba617;
+	background: #fcf9e8;
+	font-size: 12px;
+	line-height: 1.6;
+	color: #3c434a;
+}
+
+.penalis-settings__warning p {
+	margin: 0;
+}
+
+/* Reset sits outside the main form, so it reads as a separate action. */
+.penalis-settings__reset {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+	margin: 0;
+	padding-top: 16px;
+	/* #dcdcde, not #f0f0f1: this row sits on the page background, where the
+	   lighter WordPress divider colour is invisible. */
+	border-top: 1px solid #dcdcde;
+}
+
+.penalis-settings__reset .description {
+	margin: 0;
+	color: #646970;
+	font-size: 12px;
+}
+
+/*
+ * Last-change record for the rate limits.
+ *
+ * Quiet on purpose: it is reference information, not a second warning. The
+ * warning is the banner at the top of the tab.
+ */
+.penalis-settings__audit {
+	margin: 14px 0 0;
+	padding: 12px 14px;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fff;
+	font-size: 12px;
+	line-height: 1.6;
+}
+
+.penalis-settings__audit p {
+	margin: 0;
+}
+
+.penalis-settings__audit-list {
+	margin: 6px 0 0;
+	padding-left: 18px;
+	list-style: disc;
+}
+
+.penalis-settings__audit-list li {
+	margin: 2px 0;
+}
+
 .penalis-settings__confirm label {
 	display: block;
 	margin-bottom: 4px;

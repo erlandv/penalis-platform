@@ -51,7 +51,7 @@ final class Penalis_Legacy_Activation {
 	public static function request( $data ) {
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'legacy_activate_ip', 5, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'legacy_activate_ip', $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak permintaan. Silakan coba lagi nanti.',
@@ -59,7 +59,7 @@ final class Penalis_Legacy_Activation {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'legacy_activate_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::register( 'legacy_activate_ip', $ip );
 
 		// A filled honeypot is a silent no-op so bots cannot distinguish a
 		// rejected request from an accepted one.
@@ -99,7 +99,7 @@ final class Penalis_Legacy_Activation {
 	public static function activate( $data ) {
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'otp_verify_ip', 20, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'otp_verify_ip', $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak percobaan. Silakan coba lagi nanti.',
@@ -107,7 +107,7 @@ final class Penalis_Legacy_Activation {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'otp_verify_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::register( 'otp_verify_ip', $ip );
 
 		$password = isset( $data['password'] ) ? (string) $data['password'] : '';
 		$error    = Penalis_Policy::validate_password( $password );

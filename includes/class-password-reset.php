@@ -46,7 +46,7 @@ final class Penalis_Password_Reset {
 	public static function request( $data ) {
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'password_forgot_ip', 5, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'password_forgot_ip', $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak permintaan. Silakan coba lagi nanti.',
@@ -54,7 +54,7 @@ final class Penalis_Password_Reset {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'password_forgot_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::register( 'password_forgot_ip', $ip );
 
 		// A filled honeypot is a silent no-op so bots cannot distinguish a
 		// rejected request from an accepted one.
@@ -79,11 +79,11 @@ final class Penalis_Password_Reset {
 
 		// Per-account throttle: stops this endpoint from being used to
 		// mail-bomb a single address. The subject is hashed by the limiter.
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'password_forgot_account', 3, HOUR_IN_SECONDS, $user->user_email ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'password_forgot_account', $user->user_email ) ) {
 			return array( 'message' => self::GENERIC_MESSAGE );
 		}
 
-		Penalis_Rate_Limiter::hit( 'password_forgot_account', HOUR_IN_SECONDS, $user->user_email );
+		Penalis_Rate_Limiter::register( 'password_forgot_account', $user->user_email );
 
 		if ( ! self::is_reset_allowed( $user ) ) {
 			return array( 'message' => self::GENERIC_MESSAGE );
@@ -111,7 +111,7 @@ final class Penalis_Password_Reset {
 	public static function reset( $data ) {
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'password_reset_ip', 10, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'password_reset_ip', $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak percobaan. Silakan coba lagi nanti.',
@@ -119,7 +119,7 @@ final class Penalis_Password_Reset {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'password_reset_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::register( 'password_reset_ip', $ip );
 
 		$key      = isset( $data['key'] ) ? trim( (string) $data['key'] ) : '';
 		$login    = isset( $data['login'] ) ? trim( (string) $data['login'] ) : '';

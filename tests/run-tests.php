@@ -4560,7 +4560,7 @@ penalis_same( array(), Penalis_Settings::audit(), 'The audit trail is empty unti
 $penalis_settings_tabs = Penalis_Settings::tabs();
 
 penalis_same(
-	array( 'captcha', 'registration', 'avatar', 'email', 'data' ),
+	array( 'captcha', 'registration', 'rate-limit', 'avatar', 'email', 'data' ),
 	array_keys( $penalis_settings_tabs ),
 	'The settings screen exposes Keamanan, Pendaftaran, Foto Profil, Email, and Data tabs in that order.'
 );
@@ -5186,6 +5186,139 @@ penalis_same(
 	$account_payload['notificationPreferences']['dashboard']['submit'],
 	'The account payload exposes saved preferences to the dashboard.'
 );
+
+/* -------------------------------------------------------------------------
+ * Rate limiter: proxy-aware client IP and configurable rules
+ * ---------------------------------------------------------------------- */
+
+penalis_same( true, Penalis_Rate_Limiter::ip_in_range( '203.0.113.10', '203.0.113.10' ), 'An address matches itself.' );
+penalis_same( true, Penalis_Rate_Limiter::ip_in_range( '203.0.113.10', '203.0.113.0/24' ), 'An address matches its IPv4 range.' );
+penalis_same( false, Penalis_Rate_Limiter::ip_in_range( '203.0.114.10', '203.0.113.0/24' ), 'A neighbouring range does not match.' );
+penalis_same( true, Penalis_Rate_Limiter::ip_in_range( '203.0.113.10', '0.0.0.0/0' ), 'A /0 range matches every IPv4 address.' );
+penalis_same( true, Penalis_Rate_Limiter::ip_in_range( '2001:db8::1', '2001:db8::/32' ), 'An address matches its IPv6 range.' );
+penalis_same( false, Penalis_Rate_Limiter::ip_in_range( '2001:db9::1', '2001:db8::/32' ), 'A neighbouring IPv6 range does not match.' );
+penalis_same( false, Penalis_Rate_Limiter::ip_in_range( '203.0.113.10', '2001:db8::/32' ), 'An IPv4 address never matches an IPv6 range.' );
+penalis_same( false, Penalis_Rate_Limiter::ip_in_range( 'bukan-ip', '203.0.113.0/24' ), 'A malformed address matches nothing.' );
+
+penalis_same( true, Penalis_Rate_Limiter::is_valid_proxy_entry( '10.0.0.1' ), 'A plain address is a valid proxy entry.' );
+penalis_same( true, Penalis_Rate_Limiter::is_valid_proxy_entry( '10.0.0.0/8' ), 'A CIDR range is a valid proxy entry.' );
+penalis_same( false, Penalis_Rate_Limiter::is_valid_proxy_entry( '10.0.0.0/33' ), 'A prefix longer than the address is rejected.' );
+penalis_same( false, Penalis_Rate_Limiter::is_valid_proxy_entry( 'proxy.internal' ), 'A hostname is not a proxy entry.' );
+penalis_same( false, Penalis_Rate_Limiter::is_valid_proxy_entry( '' ), 'An empty entry is rejected.' );
+
+$penalis_original_server = isset( $_SERVER ) ? $_SERVER : array();
+
+$GLOBALS['penalis_test_options']['penalis_trusted_proxies'] = '';
+$_SERVER = array(
+	'REMOTE_ADDR'          => '198.51.100.7',
+	'HTTP_X_FORWARDED_FOR' => '9.9.9.9',
+);
+penalis_same( '198.51.100.7', Penalis_Rate_Limiter::client_ip(), 'Without a trusted proxy the forwarded header is ignored.' );
+
+$GLOBALS['penalis_test_options']['penalis_trusted_proxies'] = "10.0.0.1\n10.0.0.2";
+$_SERVER = array(
+	'REMOTE_ADDR'          => '10.0.0.1',
+	'HTTP_X_FORWARDED_FOR' => '9.9.9.9, 203.0.113.10',
+);
+penalis_same( '203.0.113.10', Penalis_Rate_Limiter::client_ip(), 'The chain is read from the right, so a spoofed left entry is ignored.' );
+
+$_SERVER = array(
+	'REMOTE_ADDR'          => '10.0.0.2',
+	'HTTP_X_FORWARDED_FOR' => '203.0.113.10, 10.0.0.1',
+);
+penalis_same( '203.0.113.10', Penalis_Rate_Limiter::client_ip(), 'Trusted hops are skipped while walking the chain.' );
+
+$_SERVER = array(
+	'REMOTE_ADDR'          => '198.51.100.7',
+	'HTTP_X_FORWARDED_FOR' => '203.0.113.10',
+);
+penalis_same( '198.51.100.7', Penalis_Rate_Limiter::client_ip(), 'A request from an untrusted peer keeps its own address.' );
+
+$_SERVER = array(
+	'REMOTE_ADDR'            => '10.0.0.1',
+	'HTTP_CF_CONNECTING_IP'  => '203.0.113.99',
+	'HTTP_X_FORWARDED_FOR'   => '9.9.9.9',
+);
+penalis_same( '203.0.113.99', Penalis_Rate_Limiter::client_ip(), 'The Cloudflare header wins when the peer is trusted.' );
+
+$_SERVER = array( 'REMOTE_ADDR' => 'bukan-ip' );
+penalis_same( 'unknown', Penalis_Rate_Limiter::client_ip(), 'An unusable connection address falls back to unknown.' );
+
+$_SERVER = $penalis_original_server;
+
+$penalis_defaults = Penalis_Rate_Limiter::defaults();
+penalis_same( 5, $penalis_defaults['registration_ip']['limit'], 'Registration allows five attempts by default.' );
+penalis_same( HOUR_IN_SECONDS, $penalis_defaults['registration_ip']['window'], 'Default windows are one hour.' );
+penalis_same( 12, count( $penalis_defaults ), 'Every throttled action has a rule.' );
+
+$GLOBALS['penalis_test_options']['penalis_rate_limits'] = array(
+	'registration_ip' => array(
+		'limit'  => 2,
+		'window' => 120,
+	),
+);
+$penalis_rule = Penalis_Rate_Limiter::rule( 'registration_ip' );
+penalis_same( 2, $penalis_rule['limit'], 'A stored limit overrides the default.' );
+penalis_same( 120, $penalis_rule['window'], 'A stored window overrides the default.' );
+
+$GLOBALS['penalis_test_options']['penalis_rate_limits'] = array(
+	'registration_ip' => array(
+		'limit'  => 0,
+		'window' => 5,
+	),
+);
+$penalis_fallback = Penalis_Rate_Limiter::rule( 'registration_ip' );
+penalis_same( 5, $penalis_fallback['limit'], 'A zero limit falls back to the default.' );
+penalis_same( HOUR_IN_SECONDS, $penalis_fallback['window'], 'A window under a minute falls back to the default.' );
+
+// "Kembalikan ke Default" deletes the option; the rules must snap back to the
+// built-in values with no second copy to keep in sync.
+delete_option( Penalis_Rate_Limiter::OPTION_LIMITS );
+$penalis_after_reset = Penalis_Rate_Limiter::rule( 'registration_ip' );
+penalis_same( $penalis_defaults['registration_ip'], $penalis_after_reset, 'Deleting the option restores the defaults.' );
+
+// The audit stores only what moved, so the record reads as a sentence.
+$penalis_before_diff = array(
+	'registration_ip' => array(
+		'limit'  => 5,
+		'window' => HOUR_IN_SECONDS,
+	),
+	'tag_create'      => array(
+		'limit'  => 30,
+		'window' => HOUR_IN_SECONDS,
+	),
+);
+$penalis_after_diff  = array(
+	'registration_ip' => array(
+		'limit'  => 8,
+		'window' => HOUR_IN_SECONDS,
+	),
+	'tag_create'      => array(
+		'limit'  => 30,
+		'window' => 1800,
+	),
+);
+$penalis_diff        = Penalis_Rate_Limiter::diff( $penalis_before_diff, $penalis_after_diff );
+penalis_same( 2, count( $penalis_diff ), 'Only the actions that moved appear in the audit.' );
+penalis_same( 5, $penalis_diff['registration_ip']['from']['limit'], 'The audit keeps the previous limit.' );
+penalis_same( 8, $penalis_diff['registration_ip']['to']['limit'], 'The audit keeps the new limit.' );
+penalis_same( 1800, $penalis_diff['tag_create']['to']['window'], 'A window-only change is recorded too.' );
+penalis_same( array(), Penalis_Rate_Limiter::diff( $penalis_before_diff, $penalis_before_diff ), 'Saving without changes writes no audit entry.' );
+
+$GLOBALS['penalis_test_options']['penalis_rate_limits'] = array(
+	'tag_create' => array(
+		'limit'  => 2,
+		'window' => 60,
+	),
+);
+Penalis_Rate_Limiter::clear( 'tag_create', 'writer-1' );
+penalis_same( true, Penalis_Rate_Limiter::guard( 'tag_create', 'writer-1' ), 'A fresh subject is allowed.' );
+Penalis_Rate_Limiter::register( 'tag_create', 'writer-1' );
+Penalis_Rate_Limiter::register( 'tag_create', 'writer-1' );
+penalis_same( false, Penalis_Rate_Limiter::guard( 'tag_create', 'writer-1' ), 'The configured limit blocks the third attempt.' );
+penalis_same( true, Penalis_Rate_Limiter::guard( 'tag_create', 'writer-2' ), 'A different subject keeps its own quota.' );
+
+unset( $GLOBALS['penalis_test_options']['penalis_rate_limits'] );
 
 /* -------------------------------------------------------------------------
  * Report

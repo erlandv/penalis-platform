@@ -41,7 +41,7 @@ final class Penalis_Registration {
 
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'registration_ip', 5, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'registration_ip', $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak percobaan pendaftaran. Silakan coba lagi nanti.',
@@ -51,7 +51,7 @@ final class Penalis_Registration {
 
 		// Count every attempt, including invalid ones, so validation and
 		// duplicate checks cannot be used for high-volume probing.
-		Penalis_Rate_Limiter::hit( 'registration_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::register( 'registration_ip', $ip );
 
 		$errors = Penalis_Policy::validate_registration( $data );
 
@@ -245,7 +245,7 @@ final class Penalis_Registration {
 	public static function verify( $challenge_id, $code ) {
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'otp_verify_ip', 20, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'otp_verify_ip', $ip ) ) {
 			return new WP_Error(
 				'penalis_rate_limited',
 				'Terlalu banyak percobaan verifikasi. Silakan coba lagi nanti.',
@@ -253,7 +253,7 @@ final class Penalis_Registration {
 			);
 		}
 
-		Penalis_Rate_Limiter::hit( 'otp_verify_ip', HOUR_IN_SECONDS, $ip );
+		Penalis_Rate_Limiter::register( 'otp_verify_ip', $ip );
 
 		$result = Penalis_Otp::consume(
 			'registration',

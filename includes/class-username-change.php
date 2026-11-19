@@ -56,16 +56,16 @@ final class Penalis_Username_Change {
 
 		$ip = Penalis_Rate_Limiter::client_ip();
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'username_change_ip', 5, HOUR_IN_SECONDS, $ip ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'username_change_ip', $ip ) ) {
 			return self::rate_limited();
 		}
 
-		if ( ! Penalis_Rate_Limiter::is_allowed( 'username_change_user', 3, HOUR_IN_SECONDS, (string) $user_id ) ) {
+		if ( ! Penalis_Rate_Limiter::guard( 'username_change_user', (string) $user_id ) ) {
 			return self::rate_limited();
 		}
 
-		Penalis_Rate_Limiter::hit( 'username_change_ip', HOUR_IN_SECONDS, $ip );
-		Penalis_Rate_Limiter::hit( 'username_change_user', HOUR_IN_SECONDS, (string) $user_id );
+		Penalis_Rate_Limiter::register( 'username_change_ip', $ip );
+		Penalis_Rate_Limiter::register( 'username_change_user', (string) $user_id );
 
 		// Re-authentication: a hijacked session must not be able to rename the
 		// account and lock the real owner out of their own login.

@@ -61,6 +61,10 @@ $penalis_options = array(
 	// The delivery log stores recipients' addresses, so it must not outlive the
 	// data the administrator asked to remove.
 	'penalis_email_log',
+	// Throttle overrides, the trusted proxy list, and who last changed them.
+	'penalis_rate_limits',
+	'penalis_trusted_proxies',
+	'penalis_rate_limits_audit',
 );
 foreach ( $penalis_options as $penalis_option ) {
 	delete_option( $penalis_option );
