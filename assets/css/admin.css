@@ -106,6 +106,156 @@
 	margin: 0 0 22px;
 }
 
+/*
+ * Trend section on the overview.
+ *
+ * The chart is a list of weeks, not a canvas: every number is also text, so it
+ * reads without colour, without hover, and without JavaScript. Bars are pure
+ * decoration sized by inline height.
+ */
+.penalis-trend {
+	display: grid;
+	grid-template-columns: 2fr 1fr;
+	gap: 14px;
+}
+
+.penalis-trend__card {
+	padding: 16px 18px;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.penalis-trend__card--authors {
+	grid-column: 1 / -1;
+}
+
+.penalis-trend__card-title {
+	margin: 0 0 12px;
+	font-size: 12.5px;
+	font-weight: 600;
+	color: #50575e;
+}
+
+.penalis-trend__card-title--spaced {
+	margin-top: 20px;
+}
+
+.penalis-trend__bars {
+	display: flex;
+	align-items: flex-end;
+	gap: 6px;
+	height: 150px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.penalis-trend__bar-item {
+	display: flex;
+	flex: 1 1 0;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	height: 100%;
+}
+
+.penalis-trend__bar-value {
+	font-size: 11px;
+	color: #50575e;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Absolute bar: a percentage height needs a definite parent, which a flex
+   item does not give reliably across browsers. */
+.penalis-trend__bar-track {
+	position: relative;
+	flex: 1 1 auto;
+	width: 100%;
+	background: #f6f7f7;
+	border-radius: 3px;
+}
+
+.penalis-trend__bar {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	background: #2271b1;
+	border-radius: 3px 3px 0 0;
+}
+
+.penalis-trend__bar.is-empty {
+	background: #dcdcde;
+}
+
+.penalis-trend__bar-label {
+	font-size: 10.5px;
+	color: #646970;
+	white-space: nowrap;
+}
+
+.penalis-trend__value {
+	margin: 0;
+	font-size: 26px;
+	font-weight: 700;
+	line-height: 1.15;
+	color: #1d2327;
+	font-variant-numeric: tabular-nums;
+}
+
+.penalis-trend__unit {
+	margin-left: 3px;
+	font-size: 14px;
+	font-weight: 400;
+	color: #50575e;
+}
+
+.penalis-trend__hint {
+	margin: 4px 0 0;
+	font-size: 12px;
+	color: #646970;
+}
+
+.penalis-trend__authors {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 28px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.penalis-trend__author {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.penalis-trend__author-name {
+	font-weight: 600;
+}
+
+.penalis-trend__author-count {
+	font-size: 12px;
+	color: #646970;
+}
+
+.penalis-overview__note {
+	max-width: 760px;
+	margin: 10px 0 0;
+	font-size: 12px;
+	line-height: 1.6;
+	color: #646970;
+}
+
+@media screen and (max-width: 960px) {
+	.penalis-trend {
+		grid-template-columns: 1fr;
+	}
+}
+
 .penalis-overview .penalis-overview__section-title {
 	margin: 0 0 10px;
 	padding: 0;

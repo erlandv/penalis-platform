@@ -39,6 +39,7 @@ require_once __DIR__ . '/../includes/class-rest-api.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
 require_once __DIR__ . '/../includes/class-dashboard.php';
 require_once __DIR__ . '/../includes/class-rate-limiter.php';
+require_once __DIR__ . '/../includes/class-analytics.php';
 require_once __DIR__ . '/../includes/class-activator.php';
 require_once __DIR__ . '/../includes/class-email-template.php';
 require_once __DIR__ . '/../includes/class-email-settings.php';
@@ -5319,6 +5320,42 @@ penalis_same( false, Penalis_Rate_Limiter::guard( 'tag_create', 'writer-1' ), 'T
 penalis_same( true, Penalis_Rate_Limiter::guard( 'tag_create', 'writer-2' ), 'A different subject keeps its own quota.' );
 
 unset( $GLOBALS['penalis_test_options']['penalis_rate_limits'] );
+
+/* -------------------------------------------------------------------------
+ * Analytics: week buckets, median, approval rate
+ * ---------------------------------------------------------------------- */
+
+penalis_same( null, Penalis_Analytics::median( array() ), 'The median of nothing is null, not zero.' );
+penalis_same( 3.0, Penalis_Analytics::median( array( 5, 1, 3 ) ), 'An odd sample returns the middle value.' );
+penalis_same( 2.5, Penalis_Analytics::median( array( 4, 1, 3, 2 ) ), 'An even sample averages the two middle values.' );
+penalis_same( 7.0, Penalis_Analytics::median( array( 7, 7, 7 ) ), 'Identical values return that value.' );
+
+$penalis_duration = Penalis_Analytics::duration( 0.00087 );
+penalis_same( 'menit', $penalis_duration['unit'], 'A sub-hour turnaround is shown in minutes.' );
+penalis_same( 1.0, $penalis_duration['value'], 'A minute and a quarter rounds to one minute.' );
+penalis_same( array( 'value' => 12.0, 'unit' => 'jam' ), Penalis_Analytics::duration( 0.5 ), 'Half a day is twelve hours.' );
+penalis_same( array( 'value' => 3.4, 'unit' => 'hari' ), Penalis_Analytics::duration( 3.44 ), 'Days keep one decimal.' );
+penalis_same( null, Penalis_Analytics::duration( null ), 'No data yields no duration.' );
+
+penalis_same( null, Penalis_Analytics::rate( 0, 0 ), 'No decisions means no percentage.' );
+penalis_same( 100.0, Penalis_Analytics::rate( 3, 0 ), 'All approvals is 100%.' );
+penalis_same( 75.0, Penalis_Analytics::rate( 3, 1 ), 'Three of four is 75%.' );
+penalis_same( 66.7, Penalis_Analytics::rate( 2, 1 ), 'The rate is rounded to one decimal.' );
+
+$penalis_bounds = array( 1000, 2000, 3000 );
+penalis_same( array( 1, 1 ), Penalis_Analytics::bucket_timestamps( array( 1000, 2500 ), $penalis_bounds ), 'Each timestamp lands in its own week.' );
+penalis_same( array( 2, 0 ), Penalis_Analytics::bucket_timestamps( array( 1000, 1999 ), $penalis_bounds ), 'The upper bound of a week is exclusive.' );
+penalis_same( array( 0, 0 ), Penalis_Analytics::bucket_timestamps( array( 999, 3000 ), $penalis_bounds ), 'Timestamps outside the window are ignored.' );
+penalis_same( array(), Penalis_Analytics::bucket_timestamps( array( 1000 ), array( 1000 ) ), 'A window without weeks yields no buckets.' );
+
+$penalis_week_bounds = Penalis_Analytics::week_boundaries( 8, strtotime( '2026-11-19 10:00:00' ) );
+penalis_same( 9, count( $penalis_week_bounds ), 'Eight weeks produce nine boundaries.' );
+
+$penalis_first_week = ( new DateTimeImmutable( '@' . $penalis_week_bounds[0] ) )->setTimezone( Penalis_Datetime::site_timezone() );
+penalis_same( '1', $penalis_first_week->format( 'N' ), 'Weeks start on Monday.' );
+penalis_same( '00:00', $penalis_first_week->format( 'H:i' ), 'Weeks start at midnight.' );
+penalis_assert( $penalis_week_bounds[8] > strtotime( '2026-11-19 10:00:00' ), 'The window ends after the reference date.' );
+penalis_same( 8, count( Penalis_Analytics::bucket_timestamps( array(), $penalis_week_bounds ) ), 'Buckets match the requested week count.' );
 
 /* -------------------------------------------------------------------------
  * Report

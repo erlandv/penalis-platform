@@ -54,6 +54,7 @@ penalis-platform/
 │   ├── class-revisions.php               Revision limit for drafts so autosave cannot grow the history without bound
 │   ├── class-editorial-admin.php         Penalis → Review Karya Tulis and Karya Terhapus admin screens
 │   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen, shared modal & asset helpers
+│   ├── class-analytics.php               Eight-week submission/review trend metrics for the Ringkasan screen
 │   ├── class-email-settings.php          Penalis → Pengaturan Email customizable transactional email registry & admin console
 │   ├── class-email-log.php               Capped delivery log for transactional email; never stores one-time secrets
 │   ├── class-email-log-admin.php         Penalis → Log Email screen: test send, template preview, resend
@@ -814,6 +815,28 @@ change that nobody announces.
   the browser's own navigation.
 - **Async views fall back to `<main>`:** a view that renders a spinner first has
   no heading yet, and the landmark still takes focus away from the nav strip.
+
+### 7.15 Overview Trend Metrics
+The Ringkasan screen shows an eight-week trend (`Penalis_Analytics`) computed
+entirely from the editorial metadata the review workflow already writes. There is
+no second source of truth and no extra table.
+- **Submissions per week** counts articles whose *latest* `_penalis_submitted_at`
+  falls in that week. The meta is overwritten on every resubmission, so this is
+  "articles submitted that week", not "every submit event in history".
+- **Time to publish** is the median from the last submission to the approving
+  review. Median, not mean: one article that sat for two months must not define
+  the typical turnaround.
+- **Approval rate** compares published against rejected decisions in the window.
+  "Changes requested" is excluded — it is not a decision yet, and counting it as
+  a rejection would understate the rate.
+- **Durations pick their own unit.** A community that approves in minutes would
+  read "0,0 hari"; `duration()` returns minutes under an hour, hours under a day,
+  days above.
+- **The chart is a list, not a canvas.** Every bar carries its value and week
+  label as text, so the numbers read without colour, hover, or JavaScript.
+- **Weeks start on Monday in the site timezone,** and boundaries are computed
+  with `modify( '+1 week' )` so a daylight-saving shift moves the boundary with
+  local midnight instead of sliding the week by an hour.
 
 
 

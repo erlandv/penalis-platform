@@ -419,6 +419,120 @@ final class Penalis_Admin {
 				</div>
 			</div>
 
+			<?php
+			$trend_weeks  = Penalis_Analytics::DEFAULT_WEEKS;
+			$trend_bounds = Penalis_Analytics::week_boundaries( $trend_weeks );
+			$trend_series = Penalis_Analytics::weekly_submissions( $trend_weeks );
+			$trend_since  = (int) $trend_bounds[0];
+			$trend_rate   = Penalis_Analytics::approval_rate( $trend_since );
+			$trend_ttp    = Penalis_Analytics::time_to_publish( $trend_since );
+			$trend_top    = Penalis_Analytics::top_authors( $trend_since );
+			$trend_counts = array_column( $trend_series, 'count' );
+			$trend_peak   = max( 1, $trend_counts ? (int) max( $trend_counts ) : 0 );
+			$trend_total  = (int) array_sum( $trend_counts );
+			?>
+			<div class="penalis-overview__section">
+				<h2 class="penalis-overview__section-title">Tren <?php echo esc_html( (string) $trend_weeks ); ?> Minggu Terakhir</h2>
+
+				<div class="penalis-trend">
+					<div class="penalis-trend__card penalis-trend__card--chart">
+						<h3 class="penalis-trend__card-title">Karya tulis disubmit per minggu</h3>
+
+						<?php if ( 0 === $trend_total ) : ?>
+							<p class="penalis-overview__empty">
+								Belum ada karya tulis yang disubmit dalam <?php echo esc_html( (string) $trend_weeks ); ?> minggu terakhir.
+							</p>
+						<?php else : ?>
+							<ul class="penalis-trend__bars">
+								<?php foreach ( $trend_series as $trend_bucket ) : ?>
+									<?php
+									$trend_height = (int) round( ( (int) $trend_bucket['count'] / $trend_peak ) * 100 );
+									?>
+									<li class="penalis-trend__bar-item">
+										<span class="penalis-trend__bar-value"><?php echo esc_html( number_format_i18n( (int) $trend_bucket['count'] ) ); ?></span>
+										<span class="penalis-trend__bar-track">
+											<span class="penalis-trend__bar <?php echo 0 === (int) $trend_bucket['count'] ? 'is-empty' : ''; ?>" style="height: <?php echo esc_attr( (string) max( 3, $trend_height ) ); ?>%"></span>
+										</span>
+										<span class="penalis-trend__bar-label"><?php echo esc_html( Penalis_Datetime::format( (int) $trend_bucket['start'], 'j M' ) ); ?></span>
+									</li>
+								<?php endforeach; ?>
+							</ul>
+						<?php endif; ?>
+					</div>
+
+					<div class="penalis-trend__card">
+						<h3 class="penalis-trend__card-title">Rata-rata waktu terbit</h3>
+						<?php
+						$trend_duration = Penalis_Analytics::duration( $trend_ttp['median_days'] );
+						$trend_decimals = ( null !== $trend_duration && floor( (float) $trend_duration['value'] ) !== (float) $trend_duration['value'] ) ? 1 : 0;
+						?>
+						<p class="penalis-trend__value">
+							<?php if ( null === $trend_duration ) : ?>
+								&mdash;
+							<?php else : ?>
+								<?php echo esc_html( number_format_i18n( (float) $trend_duration['value'], $trend_decimals ) ); ?>
+								<span class="penalis-trend__unit"><?php echo esc_html( (string) $trend_duration['unit'] ); ?></span>
+							<?php endif; ?>
+						</p>
+						<p class="penalis-trend__hint">
+							<?php
+							echo esc_html(
+								0 === (int) $trend_ttp['sample']
+									? 'Belum ada karya yang terbit pada rentang ini.'
+									: sprintf( 'Median dari %s karya yang terbit.', number_format_i18n( (int) $trend_ttp['sample'] ) )
+							);
+							?>
+						</p>
+
+						<h3 class="penalis-trend__card-title penalis-trend__card-title--spaced">Tingkat persetujuan</h3>
+						<p class="penalis-trend__value">
+							<?php if ( null === $trend_rate['rate'] ) : ?>
+								&mdash;
+							<?php else : ?>
+								<?php echo esc_html( number_format_i18n( (float) $trend_rate['rate'], 1 ) ); ?><span class="penalis-trend__unit">%</span>
+							<?php endif; ?>
+						</p>
+						<p class="penalis-trend__hint">
+							<?php
+							echo esc_html(
+								null === $trend_rate['rate']
+									? 'Belum ada keputusan review pada rentang ini.'
+									: sprintf(
+										'%s disetujui, %s ditolak.',
+										number_format_i18n( (int) $trend_rate['approved'] ),
+										number_format_i18n( (int) $trend_rate['rejected'] )
+									)
+							);
+							?>
+						</p>
+					</div>
+
+					<div class="penalis-trend__card penalis-trend__card--authors">
+						<h3 class="penalis-trend__card-title">Penulis teratas</h3>
+						<?php if ( empty( $trend_top ) ) : ?>
+							<p class="penalis-trend__hint">Belum ada karya yang terbit pada rentang ini.</p>
+						<?php else : ?>
+							<ol class="penalis-trend__authors">
+								<?php foreach ( $trend_top as $trend_author ) : ?>
+									<li class="penalis-trend__author">
+										<span class="penalis-trend__author-name"><?php echo esc_html( (string) $trend_author['name'] ); ?></span>
+										<span class="penalis-trend__author-count">
+											<?php echo esc_html( sprintf( '%s karya', number_format_i18n( (int) $trend_author['count'] ) ) ); ?>
+										</span>
+									</li>
+								<?php endforeach; ?>
+							</ol>
+						<?php endif; ?>
+					</div>
+				</div>
+
+				<p class="penalis-overview__note">
+					Angka dihitung dari metadata alur review. Waktu terbit diukur dari submit terakhir sampai
+					persetujuan, dan tingkat persetujuan hanya membandingkan karya yang disetujui dengan yang
+					ditolak pada rentang ini.
+				</p>
+			</div>
+
 			<div class="penalis-overview__panels">
 				<div class="penalis-overview__card">
 					<div class="penalis-overview__card-header">
