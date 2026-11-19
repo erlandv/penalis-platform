@@ -836,6 +836,18 @@ if ( ! function_exists( 'sanitize_key' ) ) {
 	}
 }
 
+if ( ! function_exists( 'absint' ) ) {
+	/**
+	 * Absolute integer.
+	 *
+	 * @param mixed $value Value.
+	 * @return int
+	 */
+	function absint( $value ) {
+		return abs( (int) $value );
+	}
+}
+
 if ( ! function_exists( 'sanitize_email' ) ) {
 	/**
 	 * Sanitize an email.

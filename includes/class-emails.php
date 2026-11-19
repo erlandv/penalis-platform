@@ -230,16 +230,14 @@ final class Penalis_Emails {
 		$review_url = admin_url( 'admin.php?page=penalis-review&post_id=' . (int) $post->ID );
 
 		$key      = 'editorial_' . $action;
-		$rendered = Penalis_Email_Settings::render(
-			$key,
-			array(
-				'{judul_karya}'       => $title,
-				'{nama_penulis}'      => $author->display_name,
-				'{username_penulis}'  => $author->user_login,
-				'{review_cycle}'      => (string) $cycle,
-				'{link_review_admin}' => $review_url,
-			)
+		$vars     = array(
+			'{judul_karya}'       => $title,
+			'{nama_penulis}'      => $author->display_name,
+			'{username_penulis}'  => $author->user_login,
+			'{review_cycle}'      => (string) $cycle,
+			'{link_review_admin}' => $review_url,
 		);
+		$rendered = Penalis_Email_Settings::render( $key, $vars );
 
 		$any_sent = false;
 
@@ -248,7 +246,13 @@ final class Penalis_Emails {
 				$recipient_email,
 				$rendered['subject'],
 				$rendered['body'],
-				$rendered['footer']
+				$rendered['footer'],
+				array(
+					'template' => $key,
+					'vars'     => $vars,
+					'post_id'  => (int) $post->ID,
+					'user_id'  => $author_id,
+				)
 			);
 
 			if ( $sent ) {
@@ -373,7 +377,12 @@ final class Penalis_Emails {
 			$recipient,
 			$rendered['subject'],
 			$rendered['body'],
-			$rendered['footer']
+			$rendered['footer'],
+			array(
+				'template' => (string) $template_key,
+				'vars'     => is_array( $vars ) ? $vars : array(),
+				'user_id'  => (int) $failure_user_id,
+			)
 		);
 
 		if ( ! $sent && $failure_user_id > 0 && '' !== $failure_context ) {
@@ -403,10 +412,51 @@ final class Penalis_Emails {
 	 * @param string $subject        Subject.
 	 * @param string $message        Plain-text source content.
 	 * @param string $footer_context Purpose-specific recipient guidance.
+	 * @param array  $log_context    Optional delivery-log fields (template, vars, ids).
 	 * @return bool Whether wp_mail accepted the message.
 	 */
-	public static function send_mail( $to, $subject, $message, $footer_context = '' ) {
+	public static function send_mail( $to, $subject, $message, $footer_context = '', $log_context = array() ) {
 		$html = Penalis_Email_Template::render( (string) $message, (string) $subject, (string) $footer_context );
-		return (bool) wp_mail( $to, $subject, $html, array( 'Content-Type: text/html; charset=UTF-8' ) );
+
+		/*
+		 * `wp_mail()` answers with a boolean only; the reason for a failure is
+		 * published as an action. Capturing it is what turns the log entry into
+		 * something actionable — "Could not instantiate mail function" is a
+		 * configuration problem, "Invalid address" is a typo, and they need
+		 * different fixes.
+		 */
+		$failure = '';
+
+		$capture = static function ( $error ) use ( &$failure ) {
+			if ( is_wp_error( $error ) ) {
+				$failure = (string) $error->get_error_message();
+			}
+		};
+
+		add_action( 'wp_mail_failed', $capture );
+
+		try {
+			$sent = (bool) wp_mail( $to, $subject, $html, array( 'Content-Type: text/html; charset=UTF-8' ) );
+		} finally {
+			// The listener must never outlive this call: a leftover callback
+			// would capture a later message's error into this variable.
+			remove_action( 'wp_mail_failed', $capture );
+		}
+
+		if ( class_exists( 'Penalis_Email_Log' ) ) {
+			Penalis_Email_Log::record(
+				array_merge(
+					is_array( $log_context ) ? $log_context : array(),
+					array(
+						'to'      => (string) $to,
+						'subject' => (string) $subject,
+						'status'  => $sent ? Penalis_Email_Log::STATUS_SENT : Penalis_Email_Log::STATUS_FAILED,
+						'error'   => $sent ? '' : $failure,
+					)
+				)
+			);
+		}
+
+		return $sent;
 	}
 }

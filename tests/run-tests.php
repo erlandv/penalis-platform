@@ -44,6 +44,8 @@ require_once __DIR__ . '/../includes/class-email-template.php';
 require_once __DIR__ . '/../includes/class-email-settings.php';
 require_once __DIR__ . '/../includes/class-settings.php';
 require_once __DIR__ . '/../includes/class-emails.php';
+require_once __DIR__ . '/../includes/class-email-log.php';
+require_once __DIR__ . '/../includes/class-email-log-admin.php';
 require_once __DIR__ . '/../includes/class-author-history.php';
 require_once __DIR__ . '/../includes/class-username-change.php';
 require_once __DIR__ . '/../includes/class-password-reset.php';
@@ -5060,6 +5062,123 @@ $preferences_data     = $preferences_response->get_data();
 penalis_same( false, $preferences_data['preferences']['dashboard']['submit'], 'The REST endpoint persists dashboard opt-outs.' );
 penalis_same( false, $preferences_data['preferences']['email']['reject'], 'The REST endpoint persists email opt-outs.' );
 penalis_same( true, $preferences_data['preferences']['email']['submit'], 'The REST endpoint keeps unsent actions enabled.' );
+
+// Email delivery log: every attempt is kept, newest first, capped, and never
+// stores a one-time secret.
+Penalis_Email_Log::clear();
+
+$log_sent = Penalis_Email_Log::record(
+	array(
+		'to'       => 'penulis@example.com',
+		'template' => 'editorial_approve',
+		'subject'  => 'Karya tulis kamu disetujui',
+		'status'   => Penalis_Email_Log::STATUS_SENT,
+		'vars'     => array(
+			'{judul_karya}'  => 'Puisi Senja',
+			'{nama_penulis}' => 'Siti',
+		),
+		'user_id'  => 10,
+		'post_id'  => 500,
+	)
+);
+penalis_same( Penalis_Email_Log::STATUS_SENT, $log_sent['status'], 'A successful attempt is stored as sent.' );
+penalis_assert( ! empty( $log_sent['resendable'] ), 'An entry without a secret can be resent.' );
+penalis_same( 'penulis@example.com', $log_sent['to'], 'The recipient is stored.' );
+
+$log_secret = Penalis_Email_Log::record(
+	array(
+		'to'       => 'baru@example.com',
+		'template' => 'otp_registration',
+		'subject'  => 'Kode verifikasi',
+		'status'   => Penalis_Email_Log::STATUS_SENT,
+		'vars'     => array( '{kode_otp}' => '123456' ),
+	)
+);
+penalis_same( array(), $log_secret['vars'], 'A payload containing an OTP is not stored.' );
+penalis_assert( empty( $log_secret['resendable'] ), 'An entry carrying a secret cannot be resent.' );
+penalis_assert( Penalis_Email_Log::has_secret( array( '{link_reset_password}' => 'https://example.com/reset' ) ), 'Reset links are treated as secrets.' );
+penalis_assert( ! Penalis_Email_Log::has_secret( array( '{judul_karya}' => 'Puisi' ) ), 'Ordinary placeholders are not secrets.' );
+
+$log_test = Penalis_Email_Log::record(
+	array(
+		'to'       => 'admin@example.com',
+		'template' => 'editorial_approve',
+		'status'   => Penalis_Email_Log::STATUS_SENT,
+		'vars'     => array( '{judul_karya}' => 'Contoh' ),
+		'test'     => true,
+	)
+);
+penalis_assert( empty( $log_test['resendable'] ), 'A test send cannot be resent.' );
+
+$log_failed = Penalis_Email_Log::record(
+	array(
+		'to'       => 'gagal@example.com',
+		'template' => 'editorial_reject',
+		'status'   => Penalis_Email_Log::STATUS_FAILED,
+		'error'    => 'Could not instantiate mail function.',
+	)
+);
+penalis_same( 'Could not instantiate mail function.', $log_failed['error'], 'The failure reason is kept for the log.' );
+
+$log_entries = Penalis_Email_Log::entries();
+penalis_same( 4, count( $log_entries ), 'Every attempt is stored.' );
+penalis_same( $log_failed['id'], $log_entries[0]['id'], 'The newest attempt is first.' );
+penalis_same( 1, count( Penalis_Email_Log::filter( $log_entries, Penalis_Email_Log::STATUS_FAILED, '' ) ), 'Filtering by status returns only failures.' );
+penalis_same( 2, count( Penalis_Email_Log::filter( $log_entries, '', 'editorial_approve' ) ), 'Filtering by template returns only that template.' );
+penalis_same( $log_sent['id'], Penalis_Email_Log::find( $log_sent['id'] )['id'], 'An entry can be found by identifier.' );
+penalis_same( null, Penalis_Email_Log::find( 'e_missing' ), 'An unknown identifier returns nothing.' );
+
+for ( $i = 0; $i < Penalis_Email_Log::MAX_ENTRIES + 5; $i++ ) {
+	Penalis_Email_Log::record(
+		array(
+			'to'     => 'bulk@example.com',
+			'status' => Penalis_Email_Log::STATUS_SENT,
+		)
+	);
+}
+penalis_same( Penalis_Email_Log::MAX_ENTRIES, count( Penalis_Email_Log::entries() ), 'The log is capped at the configured length.' );
+
+Penalis_Email_Log::clear();
+penalis_same( 0, count( Penalis_Email_Log::entries() ), 'Clearing removes every entry.' );
+
+// A real send through the mailer writes a log entry with the template context.
+$GLOBALS['penalis_test_mail'] = array();
+Penalis_Emails::send_mail(
+	'penulis@example.com',
+	'Subjek uji',
+	'Isi uji',
+	'Footer uji',
+	array(
+		'template' => 'editorial_approve',
+		'vars'     => array( '{judul_karya}' => 'Puisi Senja' ),
+	)
+);
+$mailer_entries = Penalis_Email_Log::entries();
+penalis_same( 1, count( $mailer_entries ), 'Sending an email records exactly one attempt.' );
+penalis_same( 'editorial_approve', $mailer_entries[0]['template'], 'The log keeps the template key from the caller.' );
+penalis_same( Penalis_Email_Log::STATUS_SENT, $mailer_entries[0]['status'], 'A send accepted by wp_mail is logged as sent.' );
+Penalis_Email_Log::clear();
+
+penalis_assert(
+	Penalis_Admin::is_penalis_screen( 'penalis_page_penalis-email-log' ),
+	'The email log screen is recognized so shared admin styles load.'
+);
+penalis_same(
+	array( 'history', 'tools' ),
+	array_keys( Penalis_Email_Log_Admin::tabs() ),
+	'The email log exposes history and tools tabs in order.'
+);
+penalis_same(
+	'history',
+	Penalis_Email_Log_Admin::current_tab(),
+	'History is the default email log tab.'
+);
+$email_log_samples = Penalis_Email_Log_Admin::sample_variables( 'otp_registration' );
+penalis_same(
+	'123456',
+	$email_log_samples['{kode_otp}'],
+	'Test previews populate OTP placeholders with sample data.'
+);
 
 $account_payload = Penalis_Rest_Api::get_account()->get_data();
 penalis_same(

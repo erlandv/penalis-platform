@@ -56,6 +56,11 @@ $penalis_options = array(
 	'penalis_dashboard_captcha_audit',
 	'penalis_registration_audit',
 	'penalis_remove_data_audit',
+	// Customized email copy is site content, not operational state.
+	'penalis_email_templates',
+	// The delivery log stores recipients' addresses, so it must not outlive the
+	// data the administrator asked to remove.
+	'penalis_email_log',
 );
 foreach ( $penalis_options as $penalis_option ) {
 	delete_option( $penalis_option );

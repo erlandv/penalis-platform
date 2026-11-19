@@ -73,6 +73,7 @@ final class Penalis_Plugin {
 			Penalis_Admin::init();
 			Penalis_Editorial_Admin::init();
 			Penalis_Email_Settings::init();
+			Penalis_Email_Log_Admin::init();
 			Penalis_Settings::init();
 		}
 

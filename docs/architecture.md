@@ -55,6 +55,8 @@ penalis-platform/
 │   ├── class-editorial-admin.php         Penalis → Review Karya Tulis and Karya Terhapus admin screens
 │   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen, shared modal & asset helpers
 │   ├── class-email-settings.php          Penalis → Pengaturan Email customizable transactional email registry & admin console
+│   ├── class-email-log.php               Capped delivery log for transactional email; never stores one-time secrets
+│   ├── class-email-log-admin.php         Penalis → Log Email screen: test send, template preview, resend
 │   ├── class-access-control.php          Login gate, capability filters, REST guards, upload validation
 │   ├── class-rest-api.php                penalis/v1 REST endpoints
 │   ├── class-registration.php            Self-service writer registration and email verification
@@ -486,6 +488,32 @@ Transactional emails can be adjusted by non-technical administrators via
 - **Recipient Isolation:** Reviewer notifications are dispatched individually in
   a loop rather than pooled via CC/BCC, ensuring private delivery across
   administrators, editors, and the site notification address.
+- **Delivery log (Penalis → Log Email):** every attempt that passes through
+  `Penalis_Emails::send_mail()` is recorded with its recipient, template,
+  subject, status, and — when `wp_mail()` failed — the reason published by the
+  `wp_mail_failed` action. The boolean `wp_mail()` returns cannot tell a broken
+  mail transport from a mistyped address; the reason can.
+- **The log is capped, not archived:** it lives in one option
+  (`penalis_email_log`), newest first, capped at 100 entries, and two sends
+  finishing in the same instant can drop one entry. That is the trade for having
+  no schema and no migration; clearing it is one `delete_option()`. It is also
+  removed by the opt-in uninstall, because it stores recipients' addresses.
+- **Secrets are never stored:** `{kode_otp}`, `{link_reset_password}`, and
+  `{link_aktivasi}` are one-time credentials until they expire or are used. An
+  entry carrying any of them stores no payload at all and is not resendable,
+  because the message it produced cannot be reproduced.
+- **Preview and test send use sample data:** `sample_variables()` fills every
+  tag the registry declares with a readable stand-in, so an administrator can
+  check the branded layout without minting a working code. Resending re-renders
+  the stored payload, which is why only non-secret, non-test entries offer it.
+- **Two tabs, not one long page:** *Riwayat pengiriman* opens first — it answers
+  the question an administrator actually has — and *Kirim percobaan* holds the
+  test form and preview. With a full 100-entry history, one page pushed the form
+  below the fold; every action now redirects to the history tab so the entry
+  that proves what happened is on screen.
+- **Both options are removed on the opt-in uninstall:** `penalis_email_templates`
+  (site content) and `penalis_email_log` (recipients' addresses) live in
+  `uninstall.php`, so "remove data" means all of it.
 
 ### 7.6 Post Views Counter Integration
 Penalis Platform integrates with the [Post Views Counter](https://wordpress.org/plugins/post-views-counter/)
