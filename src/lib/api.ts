@@ -21,6 +21,9 @@ import type {
   MediaList,
   NotificationList,
   NotificationPreferences,
+  ReviewDecisionAction,
+  ReviewDecisionResult,
+  ReviewQueueList,
   Term,
 } from './types';
 
@@ -604,6 +607,26 @@ function mapWpMedia(media: WpMediaPayload, fallbackTitle = '', fallbackMime = ''
     date: media.date_gmt ?? '',
   };
 }
+
+/* --------------------------- Review queue ---------------------------- */
+
+export const reviewApi = {
+  queue: (page: number) => request<ReviewQueueList>(`/review/queue?page=${page}&per_page=10`),
+
+  /**
+   * Record a decision.
+   *
+   * `expectedCycle` is the cycle the reviewer saw on screen. The server treats
+   * a missing or different cycle as stale, which is what stops a second
+   * reviewer from overwriting a round they never read.
+   */
+  decide: (id: number, action: ReviewDecisionAction, feedback: string, expectedCycle: number) =>
+    request<ReviewDecisionResult>(`/articles/${id}/decision`, {
+      method: 'POST',
+      body: { action, feedback, expected_cycle: expectedCycle },
+      retryAuth: true,
+    }),
+};
 
 export const mediaApi = {
   list: (page: number) => request<MediaList>(`/media?page=${page}&per_page=20`),

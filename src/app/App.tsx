@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { accountApi, ApiError, passwordApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
 import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, readParam } from '../lib/deeplink';
-import { canReceiveNotifications } from '../lib/permissions';
+import { canReceiveNotifications, canReview } from '../lib/permissions';
 import type { Account, DashboardNotification, EditorFocus, FieldErrors, ViewName } from '../lib/types';
 import { hasErrors, validatePasswordPair } from '../lib/validation';
 import { ErrorBanner, Notice, Spinner } from '../components/ui';
@@ -26,6 +26,7 @@ import { Settings } from '../features/settings/Settings';
 import { Media } from '../features/media/Media';
 import { Notifications } from '../features/notifications/Notifications';
 import { useNotifications } from '../features/notifications/useNotifications';
+import { ReviewQueue } from '../features/review/ReviewQueue';
 
 /**
  * Password reset form reached from the reset email.
@@ -344,7 +345,11 @@ export function App() {
   }
 
   const navigate = (next: ViewName) => {
-    if (!account.canWrite && !['overview', 'notifications', 'profile', 'settings'].includes(next)) {
+    if (
+      !account.canWrite &&
+      !['overview', 'notifications', 'profile', 'settings'].includes(next) &&
+      !(next === 'review' && canReview(account))
+    ) {
       return;
     }
 
@@ -394,18 +399,22 @@ export function App() {
   const writeOnlyViews: ViewName[] = ['articles', 'editor', 'media'];
   const effectiveView =
     (!account.canWrite && writeOnlyViews.includes(view)) ||
-    (view === 'notifications' && !canReceiveNotifications(account))
+    (view === 'notifications' && !canReceiveNotifications(account)) ||
+    (view === 'review' && !canReview(account))
       ? 'overview'
       : view;
 
   /*
-   * A notification opens the writer's editor for the article, or the wp-admin
-   * review screen for a reviewer who has no writer capabilities.
+   * A notification opens the writer's editor for the article, or the review
+   * queue for a reviewer. Reviewers without writer capabilities used to be sent
+   * to wp-admin; the queue now lives in the dashboard, so they stay in it.
    */
   const openNotificationArticle = (item: DashboardNotification) => {
     if (account.canWrite) {
       // A decision that carries revision notes opens the feedback panel.
       openEditor(item.articleId, item.feedback ? 'feedback' : null);
+    } else if (canReview(account)) {
+      navigate('review');
     } else if (item.reviewUrl) {
       window.location.assign(item.reviewUrl);
     }
@@ -432,8 +441,11 @@ export function App() {
             onOpenArticle={(id) => openEditor(id)}
             onOpenArticles={() => navigate('articles')}
             onOpenNotifications={() => navigate('notifications')}
+            onOpenReview={() => navigate('review')}
           />
         ) : null}
+
+        {effectiveView === 'review' && canReview(account) ? <ReviewQueue account={account} /> : null}
 
         {effectiveView === 'articles' && account.canWrite ? (
           <Articles onEdit={(id) => openEditor(id)} onCreate={() => openEditor()} />

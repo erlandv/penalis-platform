@@ -6,8 +6,8 @@
 
 import { useEffect, useState } from 'react';
 
-import { articlesApi, ApiError } from '../../lib/api';
-import { canReceiveNotifications } from '../../lib/permissions';
+import { articlesApi, ApiError, reviewApi } from '../../lib/api';
+import { canReceiveNotifications, canReview } from '../../lib/permissions';
 import type { Account, ArticleList, DashboardNotification } from '../../lib/types';
 import { editorialStateLabel, formatDate, formatNumber } from '../../lib/format';
 import { Icon } from '../../components/icons';
@@ -33,6 +33,7 @@ export function Overview({
   onOpenArticle,
   onOpenArticles,
   onOpenNotifications,
+  onOpenReview,
 }: {
   account: Account;
   notifications: NotificationsController;
@@ -40,10 +41,20 @@ export function Overview({
   onOpenArticle: (id: number) => void;
   onOpenArticles: () => void;
   onOpenNotifications: () => void;
+  onOpenReview: () => void;
 }) {
   const [data, setData] = useState<ArticleList | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(account.canWrite);
+
+  /*
+   * A reviewer without writer capabilities gets a different overview: the
+   * writer panels (article counts, "Karya terbaru") are all zeros for them and
+   * the queue is the reason they are here.
+   */
+  const isReviewerOnly = canReview(account) && !account.canWrite;
+  const [queueTotal, setQueueTotal] = useState<number | null>(null);
+  const [queueError, setQueueError] = useState('');
 
   const {
     data: notificationData,
@@ -87,6 +98,33 @@ export function Overview({
     };
   }, [account.canWrite]);
 
+  // Reviewers land here first, so the queue size belongs on this screen.
+  useEffect(() => {
+    if (!isReviewerOnly) {
+      return;
+    }
+
+    let cancelled = false;
+    setQueueError('');
+
+    reviewApi
+      .queue(1)
+      .then((result) => {
+        if (!cancelled) {
+          setQueueTotal(result.total);
+        }
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setQueueError(caught instanceof ApiError ? caught.message : 'Antrean review tidak dapat dimuat.');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isReviewerOnly]);
+
   const openNotificationArticle = (item: DashboardNotification) => {
     if (!item.isRead) {
       // Navigating to the article should never be blocked by a read-receipt failure.
@@ -112,8 +150,8 @@ export function Overview({
           <p className="penalis-muted">
             {account.canWrite
               ? 'Di dashboard penulis ini kamu dapat menulis draft, submit karya tulis untuk di-review admin, dan memantau status submit karyamu di satu tempat. Jadi, mau menulis apa hari ini?'
-              : account.isReviewer
-                ? 'Kamu login sebagai Reviewer. Gunakan Review Karya Tulis di WordPress Admin untuk mengambil keputusan.'
+              : isReviewerOnly
+                ? 'Kamu masuk sebagai reviewer. Karya tulis penulis dikurasi dari antrean review di dashboard ini.'
                 : 'Akun Penalis kamu belum dapat mengelola karya tulis. Hubungi admin jika ada pertanyaan.'}
           </p>
         </div>
@@ -122,14 +160,40 @@ export function Overview({
         </div>
       </section>
 
-      <section className="penalis-cards" aria-label="Ringkasan karya tulis">
-        <StatCard label="Total karya" value={counts.all} />
-        <StatCard label="Total views" value={counts.views ?? 0} />
-        <StatCard label="Diterbitkan" value={counts.publish} />
-        <StatCard label="Review" value={counts.pending} />
-        <StatCard label="Revisi" value={counts.changes_requested ?? 0} />
-        <StatCard label="Draft" value={counts.draft} />
-      </section>
+      {isReviewerOnly ? (
+        <Panel
+          title="Antrean review"
+          aside={
+            <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenReview}>
+              Buka antrean review
+            </button>
+          }
+        >
+          {queueError ? (
+            <ErrorBanner message={queueError} />
+          ) : queueTotal === null ? (
+            <Spinner label="Memuat antrean review…" />
+          ) : queueTotal === 0 ? (
+            <p className="penalis-muted">
+              Tidak ada karya tulis yang menunggu review. Antrean akan terisi saat penulis mengirim karya.
+            </p>
+          ) : (
+            <p>
+              <strong>{formatNumber(queueTotal)}</strong> karya tulis menunggu keputusan. Buka antrean untuk
+              membaca dan memutuskan.
+            </p>
+          )}
+        </Panel>
+      ) : (
+        <section className="penalis-cards" aria-label="Ringkasan karya tulis">
+          <StatCard label="Total karya" value={counts.all} />
+          <StatCard label="Total views" value={counts.views ?? 0} />
+          <StatCard label="Diterbitkan" value={counts.publish} />
+          <StatCard label="Review" value={counts.pending} />
+          <StatCard label="Revisi" value={counts.changes_requested ?? 0} />
+          <StatCard label="Draft" value={counts.draft} />
+        </section>
+      )}
 
       {canSeeNotifications ? (
         <div className="penalis-quick-actions" role="group" aria-label="Aksi cepat">
@@ -194,51 +258,54 @@ export function Overview({
         </Panel>
       ) : null}
 
-      <Panel title="Karya terbaru">
-        {!account.canWrite ? (
-          <p className="penalis-muted">
-            Kamu dapat menulis dan submit karya tulismu setelah alamat email kamu dikonfirmasi.
-          </p>
-        ) : loading ? (
-          <Spinner label="Memuat karya tulismu…" />
-        ) : error ? (
-          <ErrorBanner message={error} />
-        ) : data && data.items.length === 0 ? (
-          <EmptyState
-            title="Belum ada karya"
-            description="Karya tulis pertama kamu dimulai di sini. Kamu dapat menyimpan draft dan kembali kapan saja."
-            action={
-              <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
-                Buat karya tulis pertama
-              </button>
-            }
-          />
-        ) : (
-          <ul className="penalis-article-list">
-            {data?.items.slice(0, PREVIEW_ARTICLES).map((article) => (
-              <li key={article.id} className="penalis-article-row">
-                <div>
-                  <strong>{article.title || 'Tanpa judul'}</strong>
-                  <p className="penalis-muted">{article.excerpt}</p>
-                </div>
-                <div className="penalis-article-row__meta">
-                  <StatusBadge
-                    status={article.editorialState}
-                    label={article.editorialStateLabel || editorialStateLabel(article.editorialState)}
-                  />
-                  {article.editorialState === 'published' ? (
-                    <span className="penalis-article-views" aria-label={`${formatNumber(article.views)} views`}>
-                      <Icon name="eye" />
-                      <span>{formatNumber(article.views)} views</span>
-                    </span>
-                  ) : null}
-                  <span>{formatDate(article.modified)}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
+      {/* Writer-only panel: a reviewer has no articles of their own here. */}
+      {!isReviewerOnly ? (
+        <Panel title="Karya terbaru">
+          {!account.canWrite ? (
+            <p className="penalis-muted">
+              Kamu dapat menulis dan submit karya tulismu setelah alamat email kamu dikonfirmasi.
+            </p>
+          ) : loading ? (
+            <Spinner label="Memuat karya tulismu…" />
+          ) : error ? (
+            <ErrorBanner message={error} />
+          ) : data && data.items.length === 0 ? (
+            <EmptyState
+              title="Belum ada karya"
+              description="Karya tulis pertama kamu dimulai di sini. Kamu dapat menyimpan draft dan kembali kapan saja."
+              action={
+                <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
+                  Buat karya tulis pertama
+                </button>
+              }
+            />
+          ) : (
+            <ul className="penalis-article-list">
+              {data?.items.slice(0, PREVIEW_ARTICLES).map((article) => (
+                <li key={article.id} className="penalis-article-row">
+                  <div>
+                    <strong>{article.title || 'Tanpa judul'}</strong>
+                    <p className="penalis-muted">{article.excerpt}</p>
+                  </div>
+                  <div className="penalis-article-row__meta">
+                    <StatusBadge
+                      status={article.editorialState}
+                      label={article.editorialStateLabel || editorialStateLabel(article.editorialState)}
+                    />
+                    {article.editorialState === 'published' ? (
+                      <span className="penalis-article-views" aria-label={`${formatNumber(article.views)} views`}>
+                        <Icon name="eye" />
+                        <span>{formatNumber(article.views)} views</span>
+                      </span>
+                    ) : null}
+                    <span>{formatDate(article.modified)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      ) : null}
     </div>
   );
 }

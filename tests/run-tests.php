@@ -5322,6 +5322,143 @@ penalis_same( true, Penalis_Rate_Limiter::guard( 'tag_create', 'writer-2' ), 'A 
 unset( $GLOBALS['penalis_test_options']['penalis_rate_limits'] );
 
 /* -------------------------------------------------------------------------
+ * Review queue REST endpoints
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+penalis_editorial_writer( 10 );
+penalis_editorial_admin( 20 );
+
+$penalis_queue_post            = penalis_editorial_post( 900, 10, 'draft' );
+$penalis_queue_post->post_title   = 'Puisi Senja';
+$penalis_queue_post->post_excerpt = 'Baris pertama puisi.';
+
+$GLOBALS['penalis_test_current_user'] = 10;
+penalis_assert(
+	! is_wp_error( Penalis_Editorial_Workflow::apply( 900, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) ) ),
+	'The writer can submit the article for review.'
+);
+
+// A writer is refused before any query runs.
+$penalis_denied = Penalis_Rest_Api::require_reviewer();
+penalis_assert( is_wp_error( $penalis_denied ), 'A writer is refused by the reviewer guard.' );
+penalis_same( 'penalis_review_forbidden', $penalis_denied->get_error_code(), 'The reviewer guard returns a specific error.' );
+
+$GLOBALS['penalis_test_current_user'] = 20;
+penalis_same( true, Penalis_Rest_Api::require_reviewer(), 'An administrator passes the reviewer guard.' );
+
+$penalis_queue      = Penalis_Rest_Api::list_review_queue(
+	new WP_REST_Request( 'GET', '/penalis/v1/review/queue', array( 'page' => 1, 'per_page' => 10 ) )
+);
+$penalis_queue_data = $penalis_queue->get_data();
+penalis_same( 1, count( $penalis_queue_data['items'] ), 'The queue lists the pending article.' );
+penalis_same( 1, $penalis_queue_data['total'], 'The queue reports the pending total.' );
+penalis_same( 900, $penalis_queue_data['items'][0]['id'], 'The queue row carries the article ID.' );
+penalis_same( 'Puisi Senja', $penalis_queue_data['items'][0]['title'], 'The queue row carries the title.' );
+penalis_same( 'User 10', $penalis_queue_data['items'][0]['authorName'], 'The queue row carries the author name.' );
+penalis_same( 'user10', $penalis_queue_data['items'][0]['authorLogin'], 'The queue row carries the author login.' );
+penalis_same( 1, $penalis_queue_data['items'][0]['reviewCycle'], 'The queue row carries the review cycle.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $penalis_queue_data['items'][0]['editorialState'], 'The queue row carries the editorial state.' );
+penalis_assert( '' !== $penalis_queue_data['items'][0]['submittedAt'], 'The queue row carries the submission time.' );
+
+$penalis_decision      = Penalis_Rest_Api::decide_article(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/articles/900/decision',
+		array(
+			'id'             => 900,
+			'action'         => Penalis_Editorial_Policy::ACTION_APPROVE,
+			'feedback'       => '',
+			'expected_cycle' => 1,
+		)
+	)
+);
+$penalis_decision_data = $penalis_decision->get_data();
+penalis_same( 'publish', get_post( 900 )->post_status, 'Approving through REST publishes the article.' );
+penalis_same( Penalis_Editorial_Policy::STATE_PUBLISHED, $penalis_decision_data['review']['editorialState'], 'The response carries the new editorial state.' );
+penalis_same( 'Karya tulis disetujui dan sudah terbit.', $penalis_decision_data['message'], 'The response explains what happened.' );
+
+$penalis_bad_action = Penalis_Rest_Api::decide_article(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/articles/900/decision',
+		array(
+			'id'             => 900,
+			'action'         => 'publish',
+			'expected_cycle' => 1,
+		)
+	)
+);
+penalis_assert( is_wp_error( $penalis_bad_action ), 'A writer action is refused by the decision endpoint.' );
+penalis_same( 'penalis_invalid_action', $penalis_bad_action->get_error_code(), 'An unknown action reports the invalid-action code.' );
+
+// A decision without the cycle the reviewer saw is stale by definition.
+penalis_editorial_post( 901, 10, 'draft' );
+$GLOBALS['penalis_test_current_user'] = 10;
+Penalis_Editorial_Workflow::apply( 901, Penalis_Editorial_Policy::ACTION_SUBMIT, array( 'actor_id' => 10 ) );
+$GLOBALS['penalis_test_current_user'] = 20;
+
+$penalis_stale = Penalis_Rest_Api::decide_article(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/articles/901/decision',
+		array(
+			'id'             => 901,
+			'action'         => Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+			'feedback'       => 'Perbaiki paragraf kedua.',
+			'expected_cycle' => 0,
+		)
+	)
+);
+penalis_assert( is_wp_error( $penalis_stale ), 'A decision without the reviewed cycle is refused.' );
+penalis_same( 'penalis_editorial_denied', $penalis_stale->get_error_code(), 'The stale decision reports the editorial denial.' );
+
+// Requesting changes needs feedback, and the rule lives in the workflow, not here.
+$penalis_no_feedback = Penalis_Rest_Api::decide_article(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/articles/901/decision',
+		array(
+			'id'             => 901,
+			'action'         => Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+			'feedback'       => '   ',
+			'expected_cycle' => 1,
+		)
+	)
+);
+penalis_assert( is_wp_error( $penalis_no_feedback ), 'Requesting changes without feedback is refused.' );
+
+$penalis_changes = Penalis_Rest_Api::decide_article(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/articles/901/decision',
+		array(
+			'id'             => 901,
+			'action'         => Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES,
+			'feedback'       => 'Perbaiki paragraf kedua.',
+			'expected_cycle' => 1,
+		)
+	)
+);
+penalis_same( 'draft', get_post( 901 )->post_status, 'Requesting changes returns the article to draft.' );
+penalis_same( 'Catatan revisi dikirim ke penulis.', $penalis_changes->get_data()['message'], 'The response names the outcome.' );
+
+// A writer cannot decide even by calling the handler directly.
+$GLOBALS['penalis_test_current_user'] = 10;
+$penalis_writer_decision = Penalis_Rest_Api::decide_article(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/articles/901/decision',
+		array(
+			'id'             => 901,
+			'action'         => Penalis_Editorial_Policy::ACTION_APPROVE,
+			'expected_cycle' => 1,
+		)
+	)
+);
+penalis_assert( is_wp_error( $penalis_writer_decision ), 'The workflow refuses a decision from a writer even when the guard is bypassed.' );
+
+/* -------------------------------------------------------------------------
  * Analytics: week buckets, median, approval rate
  * ---------------------------------------------------------------------- */
 

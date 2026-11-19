@@ -13,7 +13,7 @@ import {
 
 import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
-import { canReceiveNotifications } from '../lib/permissions';
+import { canReceiveNotifications, canReview } from '../lib/permissions';
 import type { Account, AccountStatus, DashboardNotification, ViewName } from '../lib/types';
 import { toActiveChallenge, type ActiveChallenge } from '../lib/otp';
 import { Icon, type IconName } from './icons';
@@ -32,6 +32,7 @@ import type { NotificationsController } from '../features/notifications/useNotif
 const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: IconName }> = [
   { view: 'overview', label: 'Ringkasan', icon: 'layoutDashboard' },
   { view: 'notifications', label: 'Notifikasi', icon: 'bell' },
+  { view: 'review', label: 'Review Karya', icon: 'check' },
   { view: 'articles', label: 'Daftar Karya', icon: 'fileText' },
   { view: 'editor', label: 'Buat Karya', icon: 'edit' },
   { view: 'media', label: 'Media', icon: 'image' },
@@ -339,7 +340,7 @@ function AccountMenu({
               <span>Pengaturan akun</span>
             </button>
 
-            {adminUrl || reviewUrl ? (
+            {adminUrl || reviewUrl || canReview(account) ? (
               <>
                 <div className="penalis-account__divider" role="separator" />
                 {adminUrl ? (
@@ -349,7 +350,19 @@ function AccountMenu({
                   </a>
                 ) : null}
 
-                {reviewUrl ? (
+                {canReview(account) ? (
+                  // The queue lives in the dashboard now; sending a reviewer to
+                  // wp-admin would take them out of the interface they are in.
+                  <button
+                    type="button"
+                    className="penalis-account__item"
+                    role="menuitem"
+                    onClick={() => onNavigate('review')}
+                  >
+                    <Icon name="check" />
+                    <span>Review karya tulis</span>
+                  </button>
+                ) : reviewUrl ? (
                   <a className="penalis-account__item" role="menuitem" href={reviewUrl}>
                     <Icon name="fileText" />
                     <span>Review karya tulis</span>
@@ -541,33 +554,46 @@ export function Shell({
         </div>
       </header>
 
-      {account.isAdministrator ? (
-        <Notice tone="info">
-          Kamu login sebagai Admin. Dashboard ini khusus untuk penulis; gunakan
-          WordPress Admin untuk mengelola konten para penulis.
-        </Notice>
-      ) : account.isReviewer ? (
-        <Notice tone="info">
-          <p>
-            Kamu login sebagai Reviewer. Dashboard ini khusus untuk penulis; gunakan 
-            WordPress Admin untuk mengelola konten para penulis.
-          </p>
-        </Notice>
-      ) : (
-        <StatusBanner
-          status={account.status}
-          email={account.email}
-          needsPassword={account.needsPassword}
-        />
-      )}
+      {/*
+       * No role banner here.
+       *
+       * This strip used to say "dashboard ini khusus untuk penulis, pakai
+       * WordPress Admin" to every administrator and reviewer, on every screen.
+       * It was wrong twice over: reviewers now work the queue inside the
+       * dashboard, and an administrator who also writes was being told the
+       * dashboard was not for them. Orientation belongs on the overview, where
+       * a reviewer lands, not on every page.
+       */}
+      <StatusBanner
+        status={account.status}
+        email={account.email}
+        needsPassword={account.needsPassword}
+      />
 
       <div className="penalis-layout">
         <div className="penalis-nav-wrap">
           <nav ref={navRef} className="penalis-nav" aria-label="Bagian dashboard">
-            {NAV_ITEMS.filter((item) => item.view !== 'notifications' || notificationsEnabled).map((item) => {
+            {NAV_ITEMS.filter((item) => {
+              if (item.view === 'notifications') {
+                return notificationsEnabled;
+              }
+
+              // A writer has no use for a review queue, and a reviewer has no
+              // use for a disabled one: hide it instead of greying it out.
+              if (item.view === 'review') {
+                return canReview(account);
+              }
+
+              return true;
+            }).map((item) => {
               const isActive = view === item.view;
               const disabled =
-                !canWrite && item.view !== 'overview' && item.view !== 'notifications' && item.view !== 'profile' && item.view !== 'settings';
+                !canWrite &&
+                item.view !== 'overview' &&
+                item.view !== 'notifications' &&
+                item.view !== 'profile' &&
+                item.view !== 'settings' &&
+                item.view !== 'review';
               const disabledHint = account.isReviewer
                 ? 'Hanya tersedia untuk akun penulis'
                 : 'Tersedia setelah email kamu dikonfirmasi';

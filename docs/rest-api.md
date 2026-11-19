@@ -71,6 +71,8 @@ administrators and editors) without writer status can also read them.
 | `/articles` | `GET` | `list_articles` | Paginated list of the current writer's articles (`status`: `all`, `draft`, `pending_review`, `changes_requested`, `rejected`, `published`); includes per-article `views` (`0` for unpublished articles) and author-wide `counts.views` via Post Views Counter |
 | `/articles/(?P<id>\d+)` | `GET` | `get_article` | Single article with editorial metadata and lifetime `views` (`0` when unpublished); readable only by the article owner or a reviewer (`edit_others_posts`, i.e. administrator or editor) (`404` otherwise) |
 | `/articles/(?P<id>\d+)/review` | `GET` | `get_article_review` | Editorial state, capability flags (`canEdit`, `canSubmit`, `canResubmit`), active feedback, review cycle, and bounded review history |
+| `/articles/(?P<id>\d+)/decision` | `POST` | `decide_article` | Reviewer-only (`edit_others_posts`): `action` (`approve`, `request_changes`, `reject`), `feedback`, and `expected_cycle`. Runs `Penalis_Editorial_Workflow::apply()`, so the per-article lock, the stale-cycle guard and the feedback requirement are the same as in wp-admin. Returns the new review payload and a `message` |
+| `/review/queue` | `GET` | `list_review_queue` | Reviewer-only: paginated `pending_review` queue, oldest first, with author, submission time and review cycle |
 | `/articles/(?P<id>\d+)/submit` | `POST` | `submit_article` | Owner-only: submit a complete `draft` article (`title` and `content` required) to `pending_review` |
 | `/articles/(?P<id>\d+)/resubmit` | `POST` | `resubmit_article` | Owner-only: resubmit a `changes_requested` article to `pending_review` |
 | `/articles/(?P<id>\d+)/publish` | `POST` | `reject_legacy_publish` | Legacy route retained for explicit refusal; always returns `403 penalis_publish_forbidden` |
@@ -78,11 +80,14 @@ administrators and editors) without writer status can also read them.
 | `/media` | `GET` | `list_media` | Paginated list of image attachments owned by the current writer |
 | `/tags` | `POST` | `create_tag` | Create or resolve a post tag by name (rate-limited per user, 30/hour by default; configurable at Pengaturan → Batas Percobaan) |
 
-> **Note on Administrator Review Actions:** Administrator review decisions
-> (`approve`, `request_changes`, `reject`, `reopen`) and writer account status
-> transitions are intentionally **not** exposed as REST endpoints. They run
-> through nonce-protected `admin-post.php` handlers (`penalis_review_action` and
-> `penalis_account_action`) inside `wp-admin`.
+> **Note on Review Actions:** Reviewer decisions are exposed twice, on purpose.
+> The dashboard queue (`POST /articles/{id}/decision`) and the wp-admin screen
+> (`admin-post.php?action=penalis_review_action`) both call
+> `Penalis_Editorial_Workflow::apply()`, which is where the state machine, the
+> per-article advisory lock, the stale-cycle guard and the feedback rule live.
+> Neither entry point decides anything on its own, so the two cannot drift.
+> `reopen` and writer account status transitions remain wp-admin only
+> (`penalis_account_action`).
 
 ---
 

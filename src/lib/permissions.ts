@@ -17,3 +17,14 @@ export function canReceiveNotifications(
 ): boolean {
   return account.canWrite || account.isAdministrator || account.isReviewer;
 }
+
+/**
+ * Whether the account may work the review queue.
+ *
+ * Reviewers do not need writer capabilities: an administrator or editor
+ * without the writer role still curates the site. This is the client mirror of
+ * `Penalis_Editorial_Workflow::can_review()`; the server decides for real.
+ */
+export function canReview(account: Pick<Account, 'isAdministrator' | 'isReviewer'>): boolean {
+  return account.isAdministrator || account.isReviewer;
+}

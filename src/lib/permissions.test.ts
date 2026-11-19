@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canReceiveNotifications } from './permissions';
+import { canReceiveNotifications, canReview } from './permissions';
 
 describe('canReceiveNotifications', () => {
   it('allows active writers', () => {
@@ -14,5 +14,16 @@ describe('canReceiveNotifications', () => {
 
   it('denies accounts that can neither write nor review', () => {
     expect(canReceiveNotifications({ canWrite: false, isAdministrator: false, isReviewer: false })).toBe(false);
+  });
+});
+
+describe('canReview', () => {
+  it('allows administrators and editors', () => {
+    expect(canReview({ isAdministrator: true, isReviewer: true })).toBe(true);
+    expect(canReview({ isAdministrator: false, isReviewer: true })).toBe(true);
+  });
+
+  it('denies writers and plain accounts', () => {
+    expect(canReview({ isAdministrator: false, isReviewer: false })).toBe(false);
   });
 });

@@ -226,6 +226,36 @@ export interface ArticleList {
   counts: AccountCounts;
 }
 
+/** One article waiting in the reviewer queue. */
+export interface ReviewQueueItem {
+  id: number;
+  title: string;
+  excerpt: string;
+  authorName: string;
+  authorLogin: string;
+  /** GMT `Y-m-d H:i:s`, empty when the article has never been submitted. */
+  submittedAt: string;
+  reviewCycle: number;
+  editorialState: EditorialState;
+  editorialStateLabel: string;
+}
+
+export interface ReviewQueueList {
+  items: ReviewQueueItem[];
+  total: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
+}
+
+/** Reviewer actions exposed by `POST /articles/{id}/decision`. */
+export type ReviewDecisionAction = 'approve' | 'request_changes' | 'reject';
+
+export interface ReviewDecisionResult {
+  message: string;
+  review: ArticleReview;
+}
+
 export interface ArticleTerm {
   id: number;
   name: string;
@@ -317,4 +347,5 @@ export type ViewName =
   | 'editor'
   | 'profile'
   | 'settings'
-  | 'media';
+  | 'media'
+  | 'review';

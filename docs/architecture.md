@@ -140,8 +140,15 @@ Account status is managed by `Penalis_Account_Status` and validated by
 Reviewers (administrators and editors) are created in `wp-admin` and have no
 Penalis status metadata. They are not a fourth status: the dashboard API admits
 them through `edit_others_posts`, reports `isReviewer: true`, and keeps
-`canWrite: false`, so `/dashboard/` opens in a read-only reviewer mode instead
-of showing "Akun tidak tersedia".
+`canWrite: false`, so `/dashboard/` opens in reviewer mode instead of showing
+"Akun tidak tersedia".
+
+Reviewer mode is not read-only any more: the queue is worked in the dashboard
+(§7.16). A reviewer-only account sees a different overview — hero copy that
+names their role, an "Antrean review" panel with the pending count and a CTA,
+and notifications. The writer panels (article counts, "Karya terbaru") are
+hidden rather than shown at zero, and there is no standing banner telling them
+the dashboard is not for them.
 
 ```text
 pending_verification ──► active ◄──► suspended
@@ -837,6 +844,26 @@ no second source of truth and no extra table.
 - **Weeks start on Monday in the site timezone,** and boundaries are computed
   with `modify( '+1 week' )` so a daylight-saving shift moves the boundary with
   local midnight instead of sliding the week by an hour.
+
+### 7.16 Review Queue in the Dashboard
+Reviewers work the queue at `/dashboard/?view=review` instead of switching to
+wp-admin. The view is `src/features/review/ReviewQueue.tsx`.
+- **One service, two entry points.** `POST /articles/{id}/decision` calls
+  `Penalis_Editorial_Workflow::apply()`, exactly like the wp-admin handler. The
+  state machine, the per-article advisory lock, the stale-cycle guard and the
+  "feedback is required" rule live there, so the SPA cannot approve something
+  wp-admin would refuse.
+- **The reviewer does not need writer capabilities.** `require_reviewer()` checks
+  `edit_others_posts` on its own; an administrator without the writer role can
+  clear the queue. The nav item is hidden for writers rather than shown disabled.
+- **`expected_cycle` is mandatory.** The client sends the cycle it displayed.
+  The policy treats a missing cycle as stale, which is what stops a second
+  reviewer from overwriting a round they never read.
+- **A failed decision keeps the dialog open.** A stale cycle or a lock is
+  recoverable once the reviewer reads the reason; closing would discard the
+  notes they typed.
+- **Queue order is oldest first.** A review queue is worked front to back, so
+  `modified ASC` puts the longest wait on screen.
 
 
 

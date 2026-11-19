@@ -373,6 +373,26 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/review/queue',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'list_review_queue' ),
+				'permission_callback' => array( __CLASS__, 'require_reviewer' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/articles/(?P<id>\d+)/decision',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'decide_article' ),
+				'permission_callback' => array( __CLASS__, 'require_reviewer' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/articles/(?P<id>\d+)/submit',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -600,6 +620,31 @@ final class Penalis_Rest_Api {
 		}
 
 		return self::require_active_writer();
+	}
+
+	/**
+	 * Require a reviewer (administrator or editor).
+	 *
+	 * Reviewers do not need writer capabilities: an administrator without the
+	 * writer role must still be able to clear the queue.
+	 *
+	 * @return true|WP_Error
+	 */
+	public static function require_reviewer() {
+		$check = self::require_logged_in();
+		if ( is_wp_error( $check ) ) {
+			return $check;
+		}
+
+		if ( ! Penalis_Editorial_Workflow::can_review( get_current_user_id() ) ) {
+			return new WP_Error(
+				'penalis_review_forbidden',
+				'Kamu tidak memiliki izin untuk me-review karya tulis.',
+				array( 'status' => 403 )
+			);
+		}
+
+		return true;
 	}
 
 	/**
@@ -1261,6 +1306,136 @@ final class Penalis_Rest_Api {
 		}
 
 		return new WP_REST_Response( self::prepare_article_review( $post ), 200 );
+	}
+
+	/**
+	 * List the articles currently waiting for a reviewer.
+	 *
+	 * Ordered oldest first: a review queue is worked front to back, so the
+	 * article that has waited longest is the one on screen.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public static function list_review_queue( $request ) {
+		$page     = max( 1, (int) $request->get_param( 'page' ) );
+		$per_page = (int) $request->get_param( 'per_page' );
+		$per_page = $per_page > 0 ? min( 50, $per_page ) : 10;
+
+		$args = array_merge(
+			Penalis_Editorial_Workflow::state_query_clauses( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ),
+			array(
+				'post_type'           => 'post',
+				'posts_per_page'      => $per_page,
+				'paged'               => $page,
+				'orderby'             => 'modified',
+				'order'               => 'ASC',
+				'ignore_sticky_posts' => true,
+				'no_found_rows'       => false,
+			)
+		);
+
+		$query = new WP_Query( $args );
+		$items = array();
+
+		foreach ( $query->posts as $post ) {
+			$items[] = self::prepare_review_queue_item( $post );
+		}
+
+		return new WP_REST_Response(
+			array(
+				'items'      => $items,
+				'total'      => (int) $query->found_posts,
+				'page'       => $page,
+				'perPage'    => $per_page,
+				'totalPages' => (int) $query->max_num_pages,
+			),
+			200
+		);
+	}
+
+	/**
+	 * Record a reviewer decision on an article.
+	 *
+	 * The state machine, the per-post advisory lock, the stale-cycle guard and
+	 * the reviewer capability check all live in `Penalis_Editorial_Workflow::apply()`,
+	 * which the wp-admin screen calls too. This handler only validates the
+	 * request shape and translates the result, so the two entry points cannot
+	 * drift apart.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function decide_article( $request ) {
+		$post_id  = (int) $request->get_param( 'id' );
+		$action   = sanitize_key( (string) $request->get_param( 'action' ) );
+		$feedback = sanitize_textarea_field( (string) $request->get_param( 'feedback' ) );
+		$cycle    = (int) $request->get_param( 'expected_cycle' );
+
+		if ( ! Penalis_Editorial_Policy::is_reviewer_action( $action ) ) {
+			return new WP_Error(
+				'penalis_invalid_action',
+				'Aksi review tidak dikenal.',
+				array( 'status' => 400 )
+			);
+		}
+
+		$result = Penalis_Editorial_Workflow::apply(
+			$post_id,
+			$action,
+			array(
+				'actor_id'       => get_current_user_id(),
+				'feedback'       => $feedback,
+				'expected_cycle' => $cycle,
+			)
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		$messages = array(
+			Penalis_Editorial_Policy::ACTION_APPROVE => 'Karya tulis disetujui dan sudah terbit.',
+			Penalis_Editorial_Policy::ACTION_REQUEST_CHANGES => 'Catatan revisi dikirim ke penulis.',
+			Penalis_Editorial_Policy::ACTION_REJECT  => 'Karya tulis ditolak dan penulis menerima pemberitahuan.',
+		);
+
+		$post = get_post( $post_id );
+
+		return new WP_REST_Response(
+			array(
+				'message' => isset( $messages[ $action ] ) ? $messages[ $action ] : 'Keputusan review tersimpan.',
+				'review'  => $post ? self::prepare_article_review( $post ) : array(),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Prepare one row of the review queue.
+	 *
+	 * @param WP_Post $post Post.
+	 * @return array<string,mixed>
+	 */
+	private static function prepare_review_queue_item( $post ) {
+		$author    = get_userdata( (int) $post->post_author );
+		$submitted = Penalis_Editorial_Workflow::get_submitted_at( $post );
+		$state     = Penalis_Editorial_Workflow::get_state( $post );
+
+		return array(
+			'id'                  => (int) $post->ID,
+			'title'               => $post->post_title,
+			'excerpt'             => wp_trim_words(
+				wp_strip_all_tags( '' !== $post->post_excerpt ? $post->post_excerpt : $post->post_content ),
+				40
+			),
+			'authorName'          => $author ? (string) $author->display_name : '',
+			'authorLogin'         => $author ? (string) $author->user_login : '',
+			'submittedAt'         => $submitted > 0 ? gmdate( 'Y-m-d H:i:s', $submitted ) : '',
+			'reviewCycle'         => max( 1, Penalis_Editorial_Workflow::get_review_cycle( $post ) ),
+			'editorialState'      => $state,
+			'editorialStateLabel' => Penalis_Editorial_Policy::state_label( $state ),
+		);
 	}
 
 	/**
