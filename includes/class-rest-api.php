@@ -1377,7 +1377,7 @@ final class Penalis_Rest_Api {
 		$feedback = sanitize_textarea_field( (string) $request->get_param( 'feedback' ) );
 		$cycle    = (int) $request->get_param( 'expected_cycle' );
 
-		if ( ! Penalis_Editorial_Policy::is_reviewer_action( $action ) ) {
+		if ( ! Penalis_Editorial_Policy::requires_review_cycle( $action ) ) {
 			return new WP_Error(
 				'penalis_invalid_action',
 				'Aksi review tidak dikenal.',

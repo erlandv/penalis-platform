@@ -234,7 +234,15 @@ export function App() {
     const requested = params.get('view');
     const requestedId = Number(params.get('id'));
 
-    if (requested === 'editor' || requested === 'articles' || requested === 'media' || requested === 'profile' || requested === 'settings' || requested === 'notifications') {
+    if (
+      requested === 'editor' ||
+      requested === 'articles' ||
+      requested === 'media' ||
+      requested === 'profile' ||
+      requested === 'settings' ||
+      requested === 'notifications' ||
+      requested === 'review'
+    ) {
       setView(requested);
       if (requested === 'editor' && Number.isFinite(requestedId) && requestedId > 0) {
         setEditingId(requestedId);
@@ -410,11 +418,11 @@ export function App() {
    * to wp-admin; the queue now lives in the dashboard, so they stay in it.
    */
   const openNotificationArticle = (item: DashboardNotification) => {
-    if (account.canWrite) {
+    if (canReview(account) && (!account.canWrite || item.type === 'submit' || item.type === 'resubmit')) {
+      navigate('review');
+    } else if (account.canWrite) {
       // A decision that carries revision notes opens the feedback panel.
       openEditor(item.articleId, item.feedback ? 'feedback' : null);
-    } else if (canReview(account)) {
-      navigate('review');
     } else if (item.reviewUrl) {
       window.location.assign(item.reviewUrl);
     }

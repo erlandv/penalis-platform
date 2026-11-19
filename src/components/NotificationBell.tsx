@@ -115,6 +115,7 @@ export function NotificationBell({
                   items={preview}
                   account={account}
                   markingId={markingId}
+                  showAdminLink={false}
                   onMarkRead={(id) => void markRead(id)}
                   onOpenArticle={(item) => {
                     close();

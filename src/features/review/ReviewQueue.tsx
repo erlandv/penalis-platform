@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { ApiError, articlesApi, mediaApi, reviewApi } from '../../lib/api';
+import { ApiError, articlesApi, isStaleEditorialError, mediaApi, reviewApi } from '../../lib/api';
 import { editorialStateLabel, formatDateTime, formatNumber, truncate } from '../../lib/format';
 import { buildPreviewDocument, countWords } from '../../lib/html';
 import type { Account, Article, ReviewDecisionAction, ReviewQueueItem, ReviewQueueList } from '../../lib/types';
@@ -31,6 +31,8 @@ export function ReviewQueue({ account }: { account: Account }) {
   const [pending, setPending] = useState<{ item: ReviewQueueItem; action: ReviewDecisionAction } | null>(null);
   const [feedback, setFeedback] = useState('');
   const [decisionError, setDecisionError] = useState('');
+  const [decisionStale, setDecisionStale] = useState(false);
+  const [refreshingStale, setRefreshingStale] = useState(false);
 
   const [readingItem, setReadingItem] = useState<ReviewQueueItem | null>(null);
   const [articleDetail, setArticleDetail] = useState<Article | null>(null);
@@ -52,7 +54,12 @@ export function ReviewQueue({ account }: { account: Account }) {
     setError('');
 
     try {
-      setData(await reviewApi.queue(page));
+      const result = await reviewApi.queue(page);
+      if (result.items.length === 0 && result.total > 0 && page > 1) {
+        setPage(Math.min(page - 1, Math.max(1, result.totalPages)));
+        return;
+      }
+      setData(result);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Antrean review tidak dapat dimuat.');
     } finally {
@@ -120,16 +127,85 @@ export function ReviewQueue({ account }: { account: Account }) {
     setPending({ item, action });
     setFeedback('');
     setDecisionError('');
+    setDecisionStale(false);
   };
 
   const closeDecision = () => {
-    if (busyId !== null) {
+    if (busyId !== null || refreshingStale) {
       return;
     }
 
     setPending(null);
     setFeedback('');
     setDecisionError('');
+    setDecisionStale(false);
+  };
+
+  const refreshStaleDecision = async () => {
+    if (!pending || refreshingStale) {
+      return;
+    }
+
+    setRefreshingStale(true);
+    try {
+      const freshReview = await articlesApi.review(pending.item.id);
+      await load();
+
+      if (freshReview.editorialState !== 'pending_review') {
+        const currentLabel =
+          freshReview.editorialStateLabel || editorialStateLabel(freshReview.editorialState);
+        setPending(null);
+        setFeedback('');
+        setDecisionStale(false);
+        setDecisionError('');
+        closeReader();
+        showToast(`Karya tulis sudah diproses (status: ${currentLabel}).`);
+        return;
+      }
+
+      setPending((current) =>
+        current
+          ? {
+              ...current,
+              item: {
+                ...current.item,
+                reviewCycle: freshReview.reviewCycle,
+                editorialState: freshReview.editorialState,
+                editorialStateLabel: freshReview.editorialStateLabel,
+              },
+            }
+          : null,
+      );
+      if (readingItem && readingItem.id === pending.item.id) {
+        setReadingItem((current) =>
+          current ? { ...current, reviewCycle: freshReview.reviewCycle } : null,
+        );
+        setArticleDetail((current) =>
+          current
+            ? {
+                ...current,
+                reviewCycle: freshReview.reviewCycle,
+                editorialState: freshReview.editorialState,
+                editorialStateLabel: freshReview.editorialStateLabel,
+                feedback: freshReview.feedback,
+                reviewedAt: freshReview.reviewedAt,
+                reviewHistory: freshReview.reviewHistory,
+              }
+            : null,
+        );
+      }
+      setDecisionStale(false);
+      setDecisionError('');
+      showToast(`Status karya diperbarui ke Cycle ${freshReview.reviewCycle}. Silakan kirim keputusan.`);
+    } catch (caught) {
+      setDecisionError(
+        caught instanceof ApiError
+          ? caught.message
+          : 'Status terbaru karya tulis tidak dapat dimuat.',
+      );
+    } finally {
+      setRefreshingStale(false);
+    }
   };
 
   const submitDecision = async () => {
@@ -140,22 +216,29 @@ export function ReviewQueue({ account }: { account: Account }) {
     const { item, action } = pending;
     setBusyId(item.id);
     setDecisionError('');
+    setDecisionStale(false);
 
     try {
       const result = await reviewApi.decide(item.id, action, feedback.trim(), item.reviewCycle);
       showToast(result.message);
       setPending(null);
       setFeedback('');
+      setDecisionStale(false);
       closeReader();
       await load();
     } catch (caught) {
       // Keep the dialog open: a stale cycle or a lock is recoverable once the
       // reviewer sees the reason, and closing would throw away their notes.
+      const stale = isStaleEditorialError(caught);
+      setDecisionStale(stale);
       setDecisionError(
         caught instanceof ApiError
           ? caught.message
           : 'Keputusan tidak dapat disimpan. Silakan coba lagi.'
       );
+      if (stale) {
+        void load();
+      }
     } finally {
       setBusyId(null);
     }
@@ -183,7 +266,7 @@ export function ReviewQueue({ account }: { account: Account }) {
     const readerDocument = articleDetail ? buildPreviewDocument(articleDetail.content) : '';
 
     return (
-      <div className="penalis-stack">
+      <>
         <div className="penalis-review__reader-header">
           <button type="button" className="penalis-back-link" onClick={closeReader}>
             <Icon name="arrowLeft" />
@@ -360,12 +443,12 @@ export function ReviewQueue({ account }: { account: Account }) {
             </aside>
           </div>
         ) : null}
-      </div>
+      </>
     );
   };
 
   return (
-    <div className="penalis-review">
+    <div className="penalis-review penalis-stack">
       {readingItem ? (
         renderReader(readingItem)
       ) : (
@@ -374,8 +457,8 @@ export function ReviewQueue({ account }: { account: Account }) {
             title="Review Karya Tulis"
             description={
               account.canWrite
-                ? 'Karya tulis yang menunggu keputusan. Setiap keputusan tercatat di riwayat karya.'
-                : 'Karya tulis yang menunggu keputusan dari reviewer.'
+                ? 'Daftar karya tulis yang menunggu keputusan. Setiap keputusan tercatat di riwayat karya.'
+                : 'Daftar karya tulis yang menunggu keputusan dari reviewer.'
             }
           />
 
@@ -393,6 +476,15 @@ export function ReviewQueue({ account }: { account: Account }) {
               {data?.items.map((item) => (
                 <li key={item.id} className="penalis-review__item">
                   <div className="penalis-review__main">
+                    <div className="penalis-review__item-head">
+                      <span className="penalis-review__cycle-pill">Cycle {item.reviewCycle}</span>
+                      <span className="penalis-review__submitted">
+                        {item.submittedAt
+                          ? `Dikirim ${formatDateTime(item.submittedAt)}`
+                          : 'Waktu submit tidak tercatat'}
+                      </span>
+                    </div>
+
                     <h3 className="penalis-review__title">
                       <button
                         type="button"
@@ -402,13 +494,17 @@ export function ReviewQueue({ account }: { account: Account }) {
                         {item.title || 'Tanpa judul'}
                       </button>
                     </h3>
-                    {item.excerpt ? <p className="penalis-muted">{truncate(item.excerpt, 160)}</p> : null}
+
+                    {item.excerpt ? (
+                      <p className="penalis-review__excerpt">{truncate(item.excerpt, 160)}</p>
+                    ) : null}
+
                     <p className="penalis-review__meta">
+                      <span>Penulis: </span>
                       <strong>{item.authorName || item.authorLogin}</strong>
-                      <span aria-hidden="true"> · </span>
-                      Cycle {item.reviewCycle}
-                      <span aria-hidden="true"> · </span>
-                      {item.submittedAt ? `Dikirim ${formatDateTime(item.submittedAt)}` : 'Waktu submit tidak tercatat'}
+                      {item.authorName && item.authorLogin && item.authorName !== item.authorLogin ? (
+                        <span> (@{item.authorLogin})</span>
+                      ) : null}
                     </p>
                   </div>
 
@@ -470,7 +566,12 @@ export function ReviewQueue({ account }: { account: Account }) {
                 <span className="penalis-muted"> oleh {pending.item.authorName || pending.item.authorLogin}</span>
               </p>
 
-              {decisionError ? <ErrorBanner message={decisionError} /> : null}
+              {decisionError ? (
+                <ErrorBanner
+                  message={decisionError}
+                  onRetry={decisionStale ? () => void refreshStaleDecision() : undefined}
+                />
+              ) : null}
 
               <label className="penalis-field" htmlFor="review-feedback">
                 <span>
@@ -482,6 +583,7 @@ export function ReviewQueue({ account }: { account: Account }) {
                   value={feedback}
                   onChange={(event) => setFeedback(event.target.value)}
                   aria-describedby="review-feedback-hint"
+                  placeholder="Tulis catatan review atau feedback perbaikan untuk penulis..."
                   required={option.requiresFeedback}
                 />
                 <span className="penalis-field-hint" id="review-feedback-hint">
@@ -497,7 +599,7 @@ export function ReviewQueue({ account }: { account: Account }) {
                 type="button"
                 className="penalis-button penalis-button--ghost"
                 onClick={closeDecision}
-                disabled={busyId !== null}
+                disabled={busyId !== null || refreshingStale}
               >
                 Batal
               </button>
@@ -505,9 +607,9 @@ export function ReviewQueue({ account }: { account: Account }) {
                 type="button"
                 className={`penalis-button penalis-button--${option.value === 'reject' ? 'danger-solid' : 'primary'}`}
                 onClick={() => void submitDecision()}
-                disabled={busyId !== null || !canSubmitDecision(pending.action, feedback)}
+                disabled={busyId !== null || refreshingStale || !canSubmitDecision(pending.action, feedback)}
               >
-                {busyId !== null ? 'Menyimpan…' : option.label}
+                {busyId !== null ? 'Menyimpan…' : refreshingStale ? 'Memperbarui…' : option.label}
               </button>
             </div>
           </div>

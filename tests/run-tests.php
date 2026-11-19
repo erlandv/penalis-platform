@@ -5406,6 +5406,20 @@ $penalis_bad_action = Penalis_Rest_Api::decide_article(
 penalis_assert( is_wp_error( $penalis_bad_action ), 'A writer action is refused by the decision endpoint.' );
 penalis_same( 'penalis_invalid_action', $penalis_bad_action->get_error_code(), 'An unknown action reports the invalid-action code.' );
 
+$penalis_reopen_action = Penalis_Rest_Api::decide_article(
+	new WP_REST_Request(
+		'POST',
+		'/penalis/v1/articles/900/decision',
+		array(
+			'id'             => 900,
+			'action'         => Penalis_Editorial_Policy::ACTION_REOPEN,
+			'expected_cycle' => 1,
+		)
+	)
+);
+penalis_assert( is_wp_error( $penalis_reopen_action ), 'Reopen remains wp-admin only and is refused by the decision endpoint.' );
+penalis_same( 'penalis_invalid_action', $penalis_reopen_action->get_error_code(), 'Reopen reports the invalid-action code on REST.' );
+
 // A decision without the cycle the reviewer saw is stale by definition.
 penalis_editorial_post( 901, 10, 'draft' );
 $GLOBALS['penalis_test_current_user'] = 10;

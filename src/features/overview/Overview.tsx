@@ -4,11 +4,11 @@
  * entry point with a single action bar.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { articlesApi, ApiError, reviewApi } from '../../lib/api';
 import { canReceiveNotifications, canReview } from '../../lib/permissions';
-import type { Account, ArticleList, DashboardNotification } from '../../lib/types';
+import type { Account, ArticleList, DashboardNotification, ReviewQueueList } from '../../lib/types';
 import { editorialStateLabel, formatDate, formatNumber } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import {
@@ -53,8 +53,10 @@ export function Overview({
    * the queue is the reason they are here.
    */
   const isReviewerOnly = canReview(account) && !account.canWrite;
-  const [queueTotal, setQueueTotal] = useState<number | null>(null);
+  const [queueData, setQueueData] = useState<ReviewQueueList | null>(null);
+  const [queueLoading, setQueueLoading] = useState(isReviewerOnly);
   const [queueError, setQueueError] = useState('');
+  const queueRequestRef = useRef(0);
 
   const {
     data: notificationData,
@@ -98,37 +100,50 @@ export function Overview({
     };
   }, [account.canWrite]);
 
-  // Reviewers land here first, so the queue size belongs on this screen.
+  const loadQueue = useCallback(async () => {
+    const requestId = queueRequestRef.current + 1;
+    queueRequestRef.current = requestId;
+    setQueueLoading(true);
+    setQueueError('');
+
+    try {
+      const result = await reviewApi.queue(1);
+      if (queueRequestRef.current === requestId) {
+        setQueueData(result);
+      }
+    } catch (caught: unknown) {
+      if (queueRequestRef.current === requestId) {
+        setQueueError(caught instanceof ApiError ? caught.message : 'Antrean review tidak dapat dimuat.');
+      }
+    } finally {
+      if (queueRequestRef.current === requestId) {
+        setQueueLoading(false);
+      }
+    }
+  }, []);
+
+  // Reviewers land here first, so the queue summary belongs on this screen.
   useEffect(() => {
     if (!isReviewerOnly) {
       return;
     }
 
-    let cancelled = false;
-    setQueueError('');
-
-    reviewApi
-      .queue(1)
-      .then((result) => {
-        if (!cancelled) {
-          setQueueTotal(result.total);
-        }
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setQueueError(caught instanceof ApiError ? caught.message : 'Antrean review tidak dapat dimuat.');
-        }
-      });
+    void loadQueue();
 
     return () => {
-      cancelled = true;
+      queueRequestRef.current += 1;
     };
-  }, [isReviewerOnly]);
+  }, [isReviewerOnly, loadQueue]);
 
   const openNotificationArticle = (item: DashboardNotification) => {
     if (!item.isRead) {
       // Navigating to the article should never be blocked by a read-receipt failure.
       void markRead(item.id);
+    }
+
+    if (canReview(account) && (!account.canWrite || item.type === 'submit' || item.type === 'resubmit')) {
+      onOpenReview();
+      return;
     }
 
     onOpenArticle(item.articleId);
@@ -151,7 +166,7 @@ export function Overview({
             {account.canWrite
               ? 'Di dashboard penulis ini kamu dapat menulis draft, submit karya tulis untuk di-review admin, dan memantau status submit karyamu di satu tempat. Jadi, mau menulis apa hari ini?'
               : isReviewerOnly
-                ? 'Kamu masuk sebagai reviewer. Karya tulis penulis dikurasi dari antrean review di dashboard ini.'
+                ? 'Kamu login sebagai reviewer. Karya tulis dapat dikurasi dari antrean review di dashboard ini.'
                 : 'Akun Penalis kamu belum dapat mengelola karya tulis. Hubungi admin jika ada pertanyaan.'}
           </p>
         </div>
@@ -162,26 +177,52 @@ export function Overview({
 
       {isReviewerOnly ? (
         <Panel
-          title="Antrean review"
-          aside={
-            <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenReview}>
-              Buka antrean review
-            </button>
+          label="Antrean review"
+          header={
+            <div className="penalis-notification-header">
+              <h3>Antrean review</h3>
+              {queueData ? (
+                <StatusBadge
+                  status={queueData.total > 0 ? 'pending_review' : 'published'}
+                  label={
+                    queueData.total > 0
+                      ? `${formatNumber(queueData.total)} menunggu review`
+                      : 'Antrean bersih'
+                  }
+                />
+              ) : null}
+            </div>
           }
         >
           {queueError ? (
-            <ErrorBanner message={queueError} />
-          ) : queueTotal === null ? (
+            <ErrorBanner message={queueError} onRetry={() => void loadQueue()} />
+          ) : queueLoading || queueData === null ? (
             <Spinner label="Memuat antrean review…" />
-          ) : queueTotal === 0 ? (
-            <p className="penalis-muted">
-              Tidak ada karya tulis yang menunggu review. Antrean akan terisi saat penulis mengirim karya.
-            </p>
           ) : (
-            <p>
-              <strong>{formatNumber(queueTotal)}</strong> karya tulis menunggu keputusan. Buka antrean untuk
-              membaca dan memutuskan.
-            </p>
+            <div className="penalis-overview-queue__callout">
+              <div className="penalis-overview-queue__summary">
+                <p className="penalis-overview-queue__headline">
+                  {queueData.total > 0 ? (
+                    <>
+                      Ada <strong>{formatNumber(queueData.total)} karya tulis</strong> yang menunggu untuk di-review.
+                    </>
+                  ) : (
+                    <strong>Tidak ada karya tulis yang menunggu review saat ini.</strong>
+                  )}
+                </p>
+                <p className="penalis-overview-queue__subtext penalis-muted">
+                  {queueData.total > 0
+                    ? 'Penulis sudah meluangkan waktunya untuk berkontribusi karya kepada Penalis, mohon hargai usaha mereka dengan segera review karya tulis dan berikan kepastian.'
+                    : 'Semua kiriman karya tulis telah diproses. Antrean akan terisi saat penulis mengirim karya baru atau hasil revisi.'}
+                </p>
+              </div>
+
+              <div className="penalis-overview-queue__cta">
+                <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenReview}>
+                  Buka antrean review
+                </button>
+              </div>
+            </div>
           )}
         </Panel>
       ) : (

@@ -76,7 +76,7 @@ export function Notifications({
     <div className="penalis-stack">
       <PageHeading
         title="Notifikasi"
-        description="Status submit karya tulis, catatan revisi, dan penerbitan muncul di sini. Buka notifikasi untuk langsung menuju karya tulis atau catatan review yang dimaksud."
+        description="Pemberitahuan status submit karya tulis muncul di sini. Buka notifikasi untuk melihat detailnya."
       />
 
       <div className="penalis-notifications">
