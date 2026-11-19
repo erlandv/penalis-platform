@@ -257,64 +257,130 @@
  * Reviewer queue.
  *
  * One card per submission with the decision buttons on the right, so a
- * reviewer can work down the list without opening each article. On a phone the
- * buttons move under the excerpt and share the width equally.
+ * reviewer can open the full manuscript or decide directly from the list. On a
+ * phone the buttons move under the excerpt and share the width equally.
  */
 .penalis-review__list {
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
-	margin: 0;
-	padding: 0;
-	list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .penalis-review__item {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: 1rem;
-	padding: 1rem 1.1rem;
-	border: 1px solid var(--penalis-border);
-	border-radius: var(--penalis-radius);
-	background: var(--penalis-surface);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-surface);
 }
 
 .penalis-review__main {
-	flex: 1 1 22rem;
-	min-width: 0;
+  flex: 1 1 22rem;
+  min-width: 0;
 }
 
 .penalis-review__title {
-	margin: 0 0 0.35rem;
-	font-size: 1rem;
-	line-height: 1.35;
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.penalis-review__title-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.penalis-review__title-button:hover,
+.penalis-review__title-button:focus-visible {
+  color: var(--penalis-accent-strong);
+  text-decoration: underline;
 }
 
 .penalis-review__meta {
-	margin: 0.5rem 0 0;
-	color: var(--penalis-muted);
-	font-size: 0.78rem;
+  margin: 0.5rem 0 0;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
 }
 
 .penalis-review__actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .penalis-review__dialog-subject {
-	margin: 0.75rem 0;
-	font-size: 0.9rem;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+}
+
+.penalis-review__reader-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.penalis-review__reader-header .penalis-review__meta {
+  margin-top: 0;
+}
+
+.penalis-review__reader-frame {
+  width: 100%;
+  min-height: 520px;
+  height: min(72vh, 680px);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius-control);
+  background: #ffffff;
+}
+
+.penalis-review__decision-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.penalis-review__taxonomy-group + .penalis-review__taxonomy-group {
+  margin-top: 0.9rem;
+}
+
+.penalis-review__taxonomy-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--penalis-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.penalis-review__taxonomy-group .penalis-tag-list {
+  margin-bottom: 0;
 }
 
 @media (max-width: 640px) {
-	.penalis-review__actions {
-		width: 100%;
-	}
+  .penalis-review__actions {
+    width: 100%;
+  }
 
-	.penalis-review__actions .penalis-button {
-		flex: 1 1 auto;
-	}
+  .penalis-review__actions .penalis-button,
+  .penalis-review__decision-actions .penalis-button {
+    flex: 1 1 auto;
+  }
+
+  .penalis-review__reader-frame {
+    min-height: 360px;
+    height: min(65vh, 520px);
+  }
 }

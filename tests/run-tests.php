@@ -5329,8 +5329,9 @@ penalis_reset();
 penalis_editorial_writer( 10 );
 penalis_editorial_admin( 20 );
 
-$penalis_queue_post            = penalis_editorial_post( 900, 10, 'draft' );
+$penalis_queue_post               = penalis_editorial_post( 900, 10, 'draft' );
 $penalis_queue_post->post_title   = 'Puisi Senja';
+$penalis_queue_post->post_content = '<p>Bait pertama puisi senja.</p><p>Bait kedua.</p>';
 $penalis_queue_post->post_excerpt = 'Baris pertama puisi.';
 
 $GLOBALS['penalis_test_current_user'] = 10;
@@ -5360,6 +5361,19 @@ penalis_same( 'user10', $penalis_queue_data['items'][0]['authorLogin'], 'The que
 penalis_same( 1, $penalis_queue_data['items'][0]['reviewCycle'], 'The queue row carries the review cycle.' );
 penalis_same( Penalis_Editorial_Policy::STATE_PENDING_REVIEW, $penalis_queue_data['items'][0]['editorialState'], 'The queue row carries the editorial state.' );
 penalis_assert( '' !== $penalis_queue_data['items'][0]['submittedAt'], 'The queue row carries the submission time.' );
+
+$penalis_reader_resp = Penalis_Rest_Api::get_article(
+	new WP_REST_Request( 'GET', '/penalis/v1/articles/900', array( 'id' => 900 ) )
+);
+penalis_assert( $penalis_reader_resp instanceof WP_REST_Response, 'A reviewer can read the full submission before deciding.' );
+$penalis_reader_data = $penalis_reader_resp->get_data();
+penalis_same( '<p>Bait pertama puisi senja.</p><p>Bait kedua.</p>', $penalis_reader_data['content'], 'The article detail returns the complete content.' );
+penalis_same( 'User 10', $penalis_reader_data['authorName'], 'The article detail includes the author display name.' );
+penalis_same( 'user10', $penalis_reader_data['authorLogin'], 'The article detail includes the author login.' );
+penalis_assert( array_key_exists( 'thumbnail', $penalis_reader_data ), 'The article detail includes the thumbnail field.' );
+penalis_assert( is_array( $penalis_reader_data['categories'] ), 'The article detail includes categories.' );
+penalis_assert( is_array( $penalis_reader_data['tags'] ), 'The article detail includes tags.' );
+penalis_assert( is_array( $penalis_reader_data['reviewHistory'] ), 'The article detail includes review history.' );
 
 $penalis_decision      = Penalis_Rest_Api::decide_article(
 	new WP_REST_Request(

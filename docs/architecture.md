@@ -864,6 +864,11 @@ wp-admin. The view is `src/features/review/ReviewQueue.tsx`.
   notes they typed.
 - **Queue order is oldest first.** A review queue is worked front to back, so
   `modified ASC` puts the longest wait on screen.
+- **Full manuscript reading before deciding.** Clicking a submission title or
+  **Baca karya** opens an in-page reader workspace powered by
+  `GET /articles/{id}`, displaying the complete article content inside a
+  sandboxed frame alongside word count, featured thumbnail, categories, tags,
+  latest feedback, review history, and the decision actions.
 
 
 

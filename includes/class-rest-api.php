@@ -1268,7 +1268,9 @@ final class Penalis_Rest_Api {
 			}
 		}
 
-		$review = self::prepare_article_review( $post );
+		$author    = get_userdata( (int) $post->post_author );
+		$thumbnail = get_the_post_thumbnail_url( $post, 'large' );
+		$review    = self::prepare_article_review( $post );
 
 		return new WP_REST_Response(
 			array_merge(
@@ -1277,11 +1279,14 @@ final class Penalis_Rest_Api {
 					'title'         => $post->post_title,
 					'content'       => $post->post_content,
 					'excerpt'       => $post->post_excerpt,
+					'authorName'    => $author ? (string) $author->display_name : '',
+					'authorLogin'   => $author ? (string) $author->user_login : '',
 					'date'          => $post->post_date_gmt,
 					'modified'      => $post->post_modified_gmt,
 					'link'          => 'publish' === $post->post_status ? get_permalink( $post ) : '',
 					'views'         => self::get_post_views( $post ),
 					'featuredMedia' => (int) get_post_thumbnail_id( $post ),
+					'thumbnail'     => $thumbnail ? (string) $thumbnail : '',
 					'categories'    => $categories,
 					'tags'          => $tags,
 				)

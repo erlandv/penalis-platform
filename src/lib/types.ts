@@ -266,6 +266,8 @@ export interface Article {
   title: string;
   content: string;
   excerpt: string;
+  authorName?: string;
+  authorLogin?: string;
   status: string;
   editorialState: EditorialState;
   editorialStateLabel: string;
@@ -282,6 +284,7 @@ export interface Article {
   link: string;
   views: number;
   featuredMedia: number;
+  thumbnail?: string;
   categories: ArticleTerm[];
   tags: ArticleTerm[];
 }

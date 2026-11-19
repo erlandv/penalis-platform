@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { htmlToPlainText, plainTextLength, trimTrailingEmptyParagraphs } from './html';
+import { buildPreviewDocument, countWords, htmlToPlainText, plainTextLength, trimTrailingEmptyParagraphs } from './html';
 
 describe('trimTrailingEmptyParagraphs', () => {
   it('removes a single trailing empty paragraph', () => {
@@ -85,5 +85,30 @@ describe('plainTextLength', () => {
 
   it('treats a non-breaking space as whitespace', () => {
     expect(plainTextLength('<p>&nbsp;&nbsp;</p>')).toBe(0);
+  });
+});
+
+describe('countWords', () => {
+  it('returns zero for empty or image-only HTML', () => {
+    expect(countWords('')).toBe(0);
+    expect(countWords('<p></p><img src="/foto.jpg" alt="Foto"><p>&nbsp;</p>')).toBe(0);
+  });
+
+  it('counts words across paragraphs and line breaks', () => {
+    expect(countWords('<p>Bait pertama<br>puisi senja.</p><p>Bait kedua.</p>')).toBe(6);
+  });
+});
+
+describe('buildPreviewDocument', () => {
+  it('escapes the title heading when provided', () => {
+    const doc = buildPreviewDocument('<p>Isi.</p>', 'Puisi & "Senja" <1>');
+    expect(doc).toContain('<h1>Puisi &amp; &quot;Senja&quot; &lt;1&gt;</h1>');
+    expect(doc).toContain('<p>Isi.</p>');
+  });
+
+  it('omits the heading when title is not passed', () => {
+    const doc = buildPreviewDocument('<p>Isi saja.</p>');
+    expect(doc).not.toContain('<h1>');
+    expect(doc).toContain('<p>Isi saja.</p>');
   });
 });

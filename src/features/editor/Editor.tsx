@@ -16,7 +16,7 @@ import {
   formatNumber,
   formatTime,
 } from '../../lib/format';
-import { htmlToPlainText, trimTrailingEmptyParagraphs } from '../../lib/html';
+import { buildPreviewDocument, htmlToPlainText, trimTrailingEmptyParagraphs } from '../../lib/html';
 import type {
   Article,
   ArticleReview,
@@ -996,13 +996,7 @@ export function Editor({
   }, [focus, feedback]);
 
   const previewDocument = useMemo(() => {
-    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>
-      body{font-family:Georgia,serif;line-height:1.7;color:#1f2933;max-width:720px;margin:0 auto;padding:2rem;background:#fff}
-      h1{font-size:2rem;line-height:1.2;margin-bottom:1rem}
-      img{max-width:100%;height:auto}
-      a{color:#7c3aed}
-      blockquote{border-left:4px solid #ddd;margin-left:0;padding-left:1rem;color:#52606d}
-    </style></head><body><h1>${escapeHtml(title || 'Tanpa judul')}</h1>${content}</body></html>`;
+    return buildPreviewDocument(content, title || 'Tanpa judul');
   }, [content, title]);
 
   if (loading) {
@@ -1642,13 +1636,4 @@ function describeSaveFailure(caught: unknown, fallback: string): string {
   }
 
   return caught.message;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
 }
