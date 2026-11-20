@@ -610,7 +610,7 @@ final class Penalis_Email_Log_Admin {
 			'{email}'               => '' !== (string) $user->user_email ? (string) $user->user_email : 'penulis@example.com',
 			'{nama_situs}'          => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
 			'{judul_karya}'         => 'Contoh Judul Karya Tulis',
-			'{catatan_review}'      => 'Contoh catatan review dari admin untuk penulis.',
+			'{catatan_review}'      => 'Contoh catatan review dari senator untuk penulis.',
 			'{review_cycle}'        => '1',
 			'{kode_otp}'            => '123456',
 			'{menit_berlaku}'       => '10',
@@ -620,8 +620,8 @@ final class Penalis_Email_Log_Admin {
 			'{link_karya_terbit}'   => home_url( '/contoh-karya-tulis/' ),
 			'{link_review_admin}'   => admin_url( 'admin.php?page=penalis-review' ),
 			'{link_trash_admin}'    => admin_url( 'admin.php?page=penalis-trash' ),
-			'{link_reset_password}' => home_url( '/contoh-tautan-reset/' ),
-			'{link_aktivasi}'       => home_url( '/contoh-tautan-aktivasi/' ),
+			'{link_reset_password}' => home_url( '/contoh-link-reset/' ),
+			'{link_aktivasi}'       => home_url( '/contoh-link-aktivasi/' ),
 		);
 
 		$resolved = array();

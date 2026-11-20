@@ -841,8 +841,8 @@ export function Editor({
       setNotice(
         review.message ||
         (canResubmit
-          ? 'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.'
-          : 'Karya tulis kamu telah di-submit dan sedang menunggu review admin.'),
+          ? 'Revisi karya tulis kamu telah di-submit ulang untuk di-review Senator.'
+          : 'Karya tulis kamu telah di-submit dan sedang menunggu review Senator.'),
       );
       setSubmitConfirmOpen(false);
       onSaved(targetId);
@@ -1124,7 +1124,7 @@ export function Editor({
         <Notice tone="info">
           <p>
             <strong>Karya tulis ini sudah terbit (read-only mode).</strong> Karya yang sudah terbit tidak dapat di-edit oleh
-            penulis. Jika ada perubahan atau perbaikan yang diperlukan, hubungi admin Penalis.
+            penulis. Jika ada perubahan atau perbaikan yang diperlukan, hubungi Senator Penalis.
           </p>
         </Notice>
       ) : null}
@@ -1132,8 +1132,8 @@ export function Editor({
       {editorialState === 'pending_review' ? (
         <Notice tone="info">
           <p>
-            <strong>Sedang menunggu review admin.</strong> Karya tulis ini sedang berada dalam antrean review
-            {reviewCycle > 0 ? ` (cycle ${reviewCycle})` : ''} dan dikunci sementara agar isi yang di-review admin tetap
+            <strong>Sedang menunggu review Senator.</strong> Karya tulis ini sedang berada dalam antrean review
+            {reviewCycle > 0 ? ` (cycle ${reviewCycle})` : ''} dan dikunci sementara agar isi yang di-review Senator tetap
             konsisten.
           </p>
         </Notice>
@@ -1142,7 +1142,7 @@ export function Editor({
       {editorialState === 'changes_requested' ? (
         <Notice tone="warning">
           <p>
-            <strong>Perlu revisi dari penulis.</strong> Admin telah me-review karya tulis ini dan memberikan catatan
+            <strong>Perlu revisi dari penulis.</strong> Senator telah me-review karya tulis ini dan memberikan catatan
             perbaikan. Silakan perbarui karya tulismu sesuai catatan di bawah, simpan draft bila perlu, lalu klik{' '}
             <strong>Submit Ulang</strong>.
           </p>
@@ -1153,7 +1153,7 @@ export function Editor({
         <Notice tone="warning">
           <p>
             <strong>Submit karya tulis ditolak.</strong> Karya tulis ini dikunci dan tidak dapat di-submit ulang kecuali
-            admin membukanya kembali untuk revisi.
+            dibuka kembali oleh Senator untuk revisi.
           </p>
         </Notice>
       ) : null}
@@ -1228,13 +1228,13 @@ export function Editor({
         <div className="penalis-editor__main">
           {feedback ? (
             <Panel
-              title="Catatan review admin:"
+              title="Catatan review Senator:"
               aside={
                 reviewCycle > 0 ? (
                   <span className="penalis-editorial-feedback__cycle">Cycle {reviewCycle}</span>
                 ) : null
               }
-              label="Catatan review admin"
+              label="Catatan review Senator"
               className="penalis-editorial-feedback"
               ref={feedbackRef}
               tabIndex={-1}
@@ -1567,10 +1567,10 @@ export function Editor({
             <>
               <p>
                 Karya tulis berjudul <strong>{title.trim() || 'Tanpa judul'}</strong> akan dikirim ke antrean review
-                admin Penalis.
+                Senator Penalis.
               </p>
               <p className="penalis-muted">
-                Selama proses review berlangsung, karya tulis tidak dapat diubah sampai admin memberikan keputusan
+                Selama proses review berlangsung, karya tulis tidak dapat diubah sampai Senator memberikan keputusan
                 (menyetujui untuk terbit, meminta revisi, atau menolak).
               </p>
             </>
@@ -1632,7 +1632,7 @@ function describeSaveFailure(caught: unknown, fallback: string): string {
   }
 
   if (caught.code === 'rest_cannot_create') {
-    return 'Akun kamu sedang tidak diizinkan menyimpan karya tulis. Hubungi admin Penalis jika ini keliru.';
+    return 'Akun kamu sedang tidak diizinkan menyimpan karya tulis. Hubungi Senator Penalis jika ini keliru.';
   }
 
   return caught.message;

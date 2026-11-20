@@ -38,15 +38,20 @@ that prevent account enumeration.
 ### 1.2 Signed-In Account Routes (`require_logged_in`)
 
 Accessible to any signed-in user (including `pending_verification` accounts
-viewing their status or updating their profile). Reviewers (administrators and
+viewing their status or updating their profile). Staff (administrators and
 editors, both holding `edit_others_posts`) bypass the writer status gate: they
 have no Penalis writer status, so `/account` reports `isReviewer: true`,
-`canView: true`, `canWrite: false`, and the label `Reviewer` (or
-`Administrator`).
+`canView: true`, `canWrite: false`, `role: "editor"` (or `"administrator"`),
+and the label `Reviewer` (or `Administrator`).
+
+`role` is resolved by `Penalis_Policy::dashboard_role()` and is the only value
+the dashboard uses to choose between the writer and Senator experiences. Staff
+is resolved before writer, so an account carrying both capabilities still
+reports a staff role.
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
-| `/account` | `GET` | `get_account` | Return account status, capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), `instagram`, article counts by editorial state (plus total published `counts.views`), `unreadNotifications` count, and `notificationPreferences` (per-action `dashboard`/`email` opt-outs) |
+| `/account` | `GET` | `get_account` | Return account status, resolved dashboard `role` (`administrator`, `editor`, `writer`, `pending`, `suspended`), capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), `instagram`, article counts by editorial state (plus total published `counts.views`), `unreadNotifications` count, and `notificationPreferences` (per-action `dashboard`/`email` opt-outs) |
 | `/account/profile` | `POST` | `update_profile` | Update `first_name`, `last_name`, `display_name_mode`, custom `display_name`, `description`, and optional `instagram` |
 | `/account/password` | `POST` | `update_password` | Change own password (requires `current_password`, `new_password` >= 12 chars) |
 | `/account/username` | `POST` | `change_username` | Re-authenticated `user_login` change inside a MySQL advisory lock; records 301 redirect and ends sessions |
@@ -131,7 +136,7 @@ before the Vite module executes. The TypeScript contract lives in
 | `isLoggedIn` | `boolean` | Whether the visitor is authenticated |
 | `registration` | `boolean` | Value of `penalis_registration_enabled` |
 | `turnstile` | `TurnstileConfig` | Optional Cloudflare Turnstile widget settings (`enabled`, `siteKey`, `theme`, `size`, `language`, `appearance`, `forms` per auth screen) |
-| `canWrite` | `boolean` | Result of `Penalis_Account_Status::can_write()` |
+| `role` | `DashboardRole` | Resolved role from `Penalis_Policy::dashboard_role()`: `administrator`, `editor`, `writer`, `pending`, or `suspended` (empty string for guests) |
 | `status` | `AccountStatus` | Current account status (`active`, `pending_verification`, etc.) |
 | `statusLabel` | `string` | Indonesian label for the current account status |
 | `user` | `object \| null` | Profile fields (`id`, `displayName`, `firstName`, `lastName`, `displayNameMode`, `avatarId`, `avatarUrl`, `email`, `description`, `instagram`, `authorUrl`) |
@@ -152,7 +157,8 @@ directly from transactional emails and public links:
 | `penalis_reset=<key>&penalis_user=<login>` | Core reset key + login (also accepts legacy `penalis_login`) | Set new password form |
 | `penalis_login_error=<code>` | Error code | Sign-in form with localized error banner |
 | `penalis_turnstile_error=1` | Flag | Sign-in form with CAPTCHA verification failure banner |
-| `view=editor&id=<post_id>` | Signed-in view route | Opens a specific article in the dashboard editor |
+| `view=editor&id=<post_id>` | Signed-in view route | Opens a specific article in the dashboard editor. A view the resolved role cannot open (for example `view=editor` for a Senator) is clamped to `view=overview` and the URL is rewritten |
+| `view=review&id=<post_id>` | Signed-in view route (staff) | Opens a specific submission in the reviewer reader, the same workspace **Baca karya** opens. Notification rows use this so a Senator lands on the article instead of the bare queue. A non-reviewer role is clamped to `view=overview` |
 
 > **No bearer links for verification.** Registration, legacy activation, and
 > email changes are confirmed with a six-digit code typed into the dashboard, so

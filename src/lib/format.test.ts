@@ -7,6 +7,7 @@ import {
   formatDateTime,
   formatNumber,
   formatTime,
+  getTimeGreeting,
   parseDateValue,
   statusLabel,
   statusTone,
@@ -187,5 +188,26 @@ describe('formatNumber', () => {
     expect(formatNumber(Number.POSITIVE_INFINITY)).toBe('0');
     expect(formatNumber(null)).toBe('0');
     expect(formatNumber(undefined)).toBe('0');
+  });
+});
+
+describe('getTimeGreeting', () => {
+  const atHour = (hour: number, minute = 0) => new Date(2026, 0, 15, hour, minute, 0);
+
+  it('returns Indonesian day-part greetings across local clock boundaries', () => {
+    expect(getTimeGreeting(atHour(0, 0))).toBe('Selamat malam');
+    expect(getTimeGreeting(atHour(3, 59))).toBe('Selamat malam');
+    expect(getTimeGreeting(atHour(4, 0))).toBe('Selamat pagi');
+    expect(getTimeGreeting(atHour(10, 59))).toBe('Selamat pagi');
+    expect(getTimeGreeting(atHour(11, 0))).toBe('Selamat siang');
+    expect(getTimeGreeting(atHour(14, 59))).toBe('Selamat siang');
+    expect(getTimeGreeting(atHour(15, 0))).toBe('Selamat sore');
+    expect(getTimeGreeting(atHour(17, 59))).toBe('Selamat sore');
+    expect(getTimeGreeting(atHour(18, 0))).toBe('Selamat malam');
+    expect(getTimeGreeting(atHour(23, 59))).toBe('Selamat malam');
+  });
+
+  it('falls back to a valid greeting when given an invalid Date', () => {
+    expect(getTimeGreeting(new Date('invalid'))).toMatch(/^Selamat (pagi|siang|sore|malam)$/);
   });
 });

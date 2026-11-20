@@ -439,7 +439,14 @@ final class Penalis_Dashboard {
 				'isLoggedIn'   => $user_id > 0,
 				'registration' => Penalis_Registration::is_registration_enabled(),
 				'turnstile'    => $user_id > 0 ? array( 'enabled' => false ) : Penalis_Turnstile::frontend_config(),
-				'canWrite'     => $user_id > 0 ? Penalis_Account_Status::can_write( $user_id ) : false,
+				'role'         => $user_id > 0
+					? Penalis_Policy::dashboard_role(
+						current_user_can( 'manage_options' ),
+						current_user_can( 'edit_others_posts' ),
+						Penalis_Account_Status::get_status( $user_id ),
+						Penalis_Account_Status::can_write( $user_id )
+					)
+					: '',
 				'status'       => $user_id > 0 ? Penalis_Account_Status::get_status( $user_id ) : '',
 				'statusLabel'  => $user_id > 0 ? Penalis_Policy::status_label( Penalis_Account_Status::get_status( $user_id ) ) : '',
 				'user'         => $user ? array(

@@ -83,9 +83,9 @@ penalis-platform/
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
 │   ├── authors/                          Separate public React entry point for [penalis_authors] directory (authors.css)
-│   ├── components/                       Shared UI primitives (ui.tsx), Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, PasswordMatchHint, PasswordPairFields, PasswordStrengthMeter, Toast, Toggle, TurnstileWidget
-│   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings
-│   ├── lib/                              Typed API client, validation, OTP challenge helpers, deeplinks, HTML/profile/crop helpers
+│   ├── components/                       Shared UI primitives (ui.tsx), RoleChip, Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, PasswordMatchHint, PasswordPairFields, PasswordStrengthMeter, Toast, Toggle, TurnstileWidget
+│   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings, review, notifications
+│   ├── lib/                              Typed API client, validation, OTP challenge helpers, deeplinks, HTML/profile/crop helpers, permissions.ts (role model + view access table), navigation.ts (role-specific nav groups)
 │   └── styles/                           Dashboard CSS: tokens.css, main.css (@import index), section files
 ├── build/                                Generated production Vite bundle and manifest (gitignored)
 ├── tests/
@@ -140,15 +140,35 @@ Account status is managed by `Penalis_Account_Status` and validated by
 Reviewers (administrators and editors) are created in `wp-admin` and have no
 Penalis status metadata. They are not a fourth status: the dashboard API admits
 them through `edit_others_posts`, reports `isReviewer: true`, and keeps
-`canWrite: false`, so `/dashboard/` opens in reviewer mode instead of showing
+`canWrite: false`, so `/dashboard/` opens in curation mode instead of showing
 "Akun tidak tersedia".
 
-Reviewer mode is not read-only any more: the queue is worked in the dashboard
-(§7.16). A reviewer-only account sees a different overview — hero copy that
-names their role, an "Antrean review" panel with the pending count and a CTA,
-and notifications. The writer panels (article counts, "Karya terbaru") are
-hidden rather than shown at zero, and there is no standing banner telling them
-the dashboard is not for them.
+### 3.1.1 Dashboard roles
+
+`Penalis_Policy::dashboard_role()` is the single place the server decides which
+experience `/dashboard/` renders. It returns one of five values, published on
+`GET /account` as `role` and in `window.penalisDashboard.role`:
+
+| Role | Who | Dashboard |
+| --- | --- | --- |
+| `administrator` | `manage_options` | Curation mode, title **Dashboard Senator**, chip "Senator · Administrator" |
+| `editor` | `edit_others_posts` without `manage_options` | Curation mode, chip "Senator · Editor" |
+| `writer` | `Penalis_Account_Status::can_write()` | Writing mode, title **Dashboard Penulis**, chip "Penulis" |
+| `pending` | `pending_verification` (or no write access yet) | Status screens only |
+| `suspended` | `suspended` | Status screens only |
+
+Staff is resolved **before** writer on purpose. Penalis policy is that an
+administrator or editor never writes with the staff account, so an account that
+somehow carries both the reviewer capability and writer access is still treated
+as staff; the writer UI never opens for it. A staff member who wants to publish
+logs out and signs in with their own writer account.
+
+Curation mode is not read-only: the queue is worked in the dashboard (§7.16).
+A staff account sees a different overview — hero copy that names their role, an
+"Antrean review" panel with the pending count and a CTA, notifications, and a
+note that writing happens with the writer account. The writer panels (article
+counts, "Karya terbaru") and the writer navigation entries (Daftar Karya,
+editor, Media, Profil) are not rendered at all rather than shown disabled.
 
 ```text
 pending_verification ──► active ◄──► suspended
@@ -291,7 +311,12 @@ Key invariants:
   overview panel. The list refreshes on `focus`/`visibilitychange` rather than
   on a timer, because `count_unread()` re-checks every stored entry against its
   current post. A notification with revision notes deep-links to the editor's
-  feedback panel through `penalis_focus=feedback`.
+  feedback panel through `penalis_focus=feedback`. Every row's action opens the
+  article the notification is about: a writer lands in the editor on their own
+  draft, a Senator lands in the reviewer reader on that submission
+  (`?view=review&id=<post_id>`), which is the workspace **Baca karya** opens.
+  A row never drops a Senator on the bare queue and leaves them to find the
+  article by hand.
 
 ---
 
@@ -869,6 +894,64 @@ wp-admin. The view is `src/features/review/ReviewQueue.tsx`.
   `GET /articles/{id}`, displaying the complete article content inside a
   sandboxed frame alongside word count, featured thumbnail, categories, tags,
   latest feedback, review history, and the decision actions.
+- **The open submission is URL state, not component state.** The reader is keyed
+  by `?view=review&id=<post_id>`, mirroring the writer editor's `id` parameter,
+  so a notification can deep-link to one manuscript, a reload keeps the same
+  article on screen, and Back closes the reader instead of leaving the
+  dashboard. Closing the reader replaces the history entry, so Back from the
+  queue returns to wherever the Senator came from.
+- **A processed article is readable but not decidable.** A notification can
+  outlive the round it announced (another reviewer already decided). The reader
+  still renders the manuscript and its review history but withholds the decision
+  buttons and explains why, instead of offering an action the stale-cycle guard
+  would refuse. The gate is the article's current editorial state, not the
+  presence of a decision in the history: an article returned to `draft` or
+  trashed from `wp-admin` is equally not awaiting a decision.
+- **The decision dialog belongs to the screen it was opened from.** Because the
+  reader is URL state, Back/Forward or a notification for another article can
+  swap the article underneath an open dialog. The dialog records the
+  `readingId` it was opened for and is hidden in the same render when that id
+  changes, so a confirmation for article A can never be submitted against
+  article B.
+- **Opening or closing the reader resets scroll and focus.** The shell only does
+  that on a view change, and the reader is a sub-state of Review, so the queue
+  does it itself: the page scrolls to the top and focus moves to the reader
+  heading (or the back link while the article is still loading).
+
+### 7.17 Role-Mode Dashboard Shell
+The dashboard serves two audiences from one URL, so the shell has to say which
+mode is on screen and refuse to open the other one's screens. The role model is
+the mechanism; `src/lib/permissions.ts` and `src/lib/navigation.ts` hold it.
+- **One resolved role per render.** `resolveDashboardRole()` reads the server's
+  `role` and falls back to the capability flags only for pre-role payloads.
+  Every consumer — navigation, render switch, notification rows, settings —
+  takes that value instead of re-deriving the answer from `canWrite` and
+  `isReviewer`. Staff is resolved before writer, which enforces the
+  "no hybrid accounts" rule in the UI as well as on the server.
+- **The access table is the only rule.** `VIEW_ACCESS` in `permissions.ts` maps
+  each `ViewName` to the roles that may open it. `navigate()`, the deep-link
+  clamp, and the render switch all read it, so they cannot drift apart the way
+  three hand-written conditions did.
+- **Nothing is rendered disabled.** `navGroupsForRole()` returns the groups a
+  role can actually use. A staff account has no Daftar Karya, editor, Media, or
+  Profil entry at all — a greyed-out door is still a door that never opens.
+  Writing is an action (the primary button on Ringkasan and Daftar Karya), not a
+  navigation destination.
+- **The mode is named in the header.** The title is **Dashboard Penulis** or
+  **Dashboard Senator**, with a `RoleChip` beside it ("Penulis" or
+  "Senator · Administrator"/"Senator · Editor"). The chip is text, never colour
+  alone. `.penalis-app--senator` re-points the accent tokens, so the nav, primary
+  buttons, badges and focus ring shift to the Senator palette together.
+- **Deep links clamp and say so.** A staff account opening `?view=editor` sees
+  Ringkasan plus a notice explaining that the account has no editor, and the URL
+  is rewritten so a reload does not re-request the view.
+- **Back/Forward work.** User navigation uses `pushState`; the shell listens for
+  `popstate`, so a curation round (Ringkasan → Review → read → back) stays inside
+  the dashboard instead of leaving it on the first Back.
+- **The two-accounts rule is stated once.** A Senator sees one note on
+  Ringkasan ("Ingin menulis? Logout lalu masuk dengan akun Penulis kamu") and
+  the same sentence at the foot of the account menu, rather than a standing
+  banner on every screen.
 
 
 

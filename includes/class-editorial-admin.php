@@ -856,13 +856,13 @@ final class Penalis_Editorial_Admin {
 			'done'                      => array( 'success', 'Keputusan review telah disimpan.' ),
 			'invalid_action'            => array( 'error', 'Tindakan review tersebut tidak diizinkan.' ),
 			'penalis_editorial_denied'  => array( 'error', 'Keputusan tidak dapat diterapkan pada status karya tulis saat ini.' ),
-			'penalis_editorial_busy'    => array( 'error', 'Karya tulis ini sedang diproses admin lain. Coba sesaat lagi.' ),
+			'penalis_editorial_busy'    => array( 'error', 'Karya tulis ini sedang diproses senator lain. Coba sesaat lagi.' ),
 			'penalis_editorial_failed'  => array( 'error', 'Status karya tulis tidak dapat diperbarui.' ),
 			'penalis_not_found'         => array( 'error', 'Karya tulis tidak ditemukan.' ),
 			'penalis_not_authenticated' => array( 'error', 'Sesi kamu berakhir. Silakan login kembali.' ),
 			'penalis_account_inactive'  => array( 'error', 'Akun kamu tidak diizinkan melakukan tindakan ini.' ),
 			'restored'                  => array( 'success', 'Karya tulis berhasil dipulihkan dari trash.' ),
-			'penalis_restore_failed'    => array( 'error', 'Karya tulis tidak dapat dipulihkan. Coba lagi atau hubungi admin.' ),
+			'penalis_restore_failed'    => array( 'error', 'Karya tulis tidak dapat dipulihkan. Coba lagi atau hubungi Senator Penalis.' ),
 			'restore_invalid'           => array( 'error', 'Permintaan pemulihan tidak valid.' ),
 		);
 

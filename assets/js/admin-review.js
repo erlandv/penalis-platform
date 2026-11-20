@@ -34,7 +34,7 @@
 			badge: 'Tolak Karya Tulis',
 			badgeClass: 'penalis-badge penalis-badge--rejected',
 			title: 'Tolak submit karya tulis ini?',
-			description: 'Submit karya tulis ini akan ditandai Ditolak. Penulis tidak dapat submit ulang kecuali admin membukanya kembali.',
+			description: 'Submit karya tulis ini akan ditandai Ditolak. Penulis tidak dapat submit ulang kecuali dibuka kembali oleh Senator.',
 			confirmLabel: 'Ya, Tolak Karya Tulis',
 			confirmClass: 'button penalis-confirm-modal__btn-reject',
 			requiresFeedback: true,

@@ -140,7 +140,7 @@ final class Penalis_Password_Reset {
 		if ( ! self::is_reset_allowed( $user ) ) {
 			return new WP_Error(
 				'penalis_reset_forbidden',
-				'Akun ini tidak dapat reset password. Silakan hubungi admin Penalis.',
+				'Akun ini tidak dapat reset password. Silakan hubungi Senator Penalis.',
 				array( 'status' => 403 )
 			);
 		}

@@ -18,7 +18,7 @@ const fallback: DashboardBootstrap = {
   wpRestUrl: '/wp-json/wp/v2',
   nonce: '',
   isLoggedIn: false,
-  canWrite: false,
+  role: undefined,
   status: '',
   statusLabel: '',
   registration: false,

@@ -22,10 +22,24 @@
     margin-bottom: 1rem;
   }
 
+  /*
+   * The sidebar becomes a strip. `display: contents` dissolves the group
+   * wrappers so their items join one flex row, and the group headings are
+   * hidden: a heading with nothing beside it in a horizontal strip reads as a
+   * stray label rather than as structure.
+   */
   .penalis-nav {
     flex-direction: row;
     flex-wrap: wrap;
     gap: 0.35rem;
+  }
+
+  .penalis-nav__group {
+    display: contents;
+  }
+
+  .penalis-nav__group-label {
+    display: none;
   }
 
   .penalis-nav__item {
@@ -128,20 +142,41 @@
 }
 
 /*
- * Three stat cells per row on phones. The strip keeps the six metrics in two
- * compact rows instead of six separate cards.
+ * Tablet stat strip: collapse the six metrics into 3 columns × 2 rows before
+ * the single-row tracks get narrower than ~110px, keeping borders aligned.
  */
-@media (max-width: 600px) {
-  .penalis-card {
-    flex-basis: 33.333%;
-    padding: 0.6rem 0.7rem;
+@media (min-width: 601px) and (max-width: 760px) {
+  .penalis-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .penalis-card:nth-child(3) {
+  .penalis-card:nth-child(3n) {
     border-right: 0;
   }
 
   .penalis-card:nth-child(n + 4) {
+    border-top: 1px solid var(--penalis-border);
+  }
+}
+
+/*
+ * Two stat cells per row on phones (2 columns × 3 rows) so wide numbers and
+ * uppercase labels stay on one line with matching cell borders.
+ */
+@media (max-width: 600px) {
+  .penalis-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .penalis-card {
+    padding: 0.65rem 0.8rem;
+  }
+
+  .penalis-card:nth-child(even) {
+    border-right: 0;
+  }
+
+  .penalis-card:nth-child(n + 3) {
     border-top: 1px solid var(--penalis-border);
   }
 
@@ -163,6 +198,12 @@
     white-space: nowrap;
   }
 
+  /*
+   * Span full width on the final button, and also on the first button when only
+   * two actions render (Senator with an active queue) so it does not leave an
+   * empty half-row next to itself.
+   */
+  .penalis-dashboard-root .penalis-quick-actions .penalis-button:first-of-type:nth-last-of-type(2),
   .penalis-dashboard-root .penalis-quick-actions .penalis-button:last-child {
     grid-column: 1 / -1;
   }

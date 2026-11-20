@@ -13,33 +13,26 @@ import {
 
 import { ApiError, registrationApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
-import { canReceiveNotifications, canReview } from '../lib/permissions';
-import type { Account, AccountStatus, DashboardNotification, ViewName } from '../lib/types';
+import { navGroupsForRole } from '../lib/navigation';
+import { canReceiveNotifications, isStaffRole, roleLabel } from '../lib/permissions';
+import type { Account, AccountStatus, DashboardNotification, DashboardRole, ViewName } from '../lib/types';
 import { toActiveChallenge, type ActiveChallenge } from '../lib/otp';
-import { Icon, type IconName } from './icons';
+import { Icon } from './icons';
 import { NotificationBell } from './NotificationBell';
 import { OtpForm } from './OtpForm';
+import { RoleChip } from './RoleChip';
 import { Notice, VerifiedWriterBadge } from './ui';
 import { useDisclosure } from './useDisclosure';
-import { preloadEditor } from '../features/editor/editorLoader';
 import type { NotificationsController } from '../features/notifications/useNotifications';
 
 /**
  * Navigation entries carry an icon so the sidebar reads as a set of places
  * rather than a list of words. The icon is decorative: the label is still the
  * accessible name, and the icon inherits the item's colour in every state.
+ *
+ * The list itself is role-specific and lives in `src/lib/navigation.ts`; this
+ * component only renders it.
  */
-const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: IconName }> = [
-  { view: 'overview', label: 'Ringkasan', icon: 'layoutDashboard' },
-  { view: 'notifications', label: 'Notifikasi', icon: 'bell' },
-  { view: 'review', label: 'Review Karya', icon: 'check' },
-  { view: 'articles', label: 'Daftar Karya', icon: 'fileText' },
-  { view: 'editor', label: 'Buat Karya', icon: 'edit' },
-  { view: 'media', label: 'Media', icon: 'image' },
-  { view: 'profile', label: 'Profil', icon: 'user' },
-  { view: 'settings', label: 'Pengaturan', icon: 'settings' },
-];
-
 export function StatusBanner({
   status,
   email,
@@ -187,18 +180,21 @@ function ResendBanner({ email }: { email: string }) {
  */
 function AccountMenu({
   account,
+  role,
   adminUrl,
   reviewUrl,
   logoutUrl,
   onNavigate,
 }: {
   account: Account;
+  role: DashboardRole;
   adminUrl?: string;
   reviewUrl?: string;
   logoutUrl: string;
   onNavigate: (view: ViewName) => void;
 }) {
   const [avatarError, setAvatarError] = useState(false);
+  const staff = isStaffRole(role);
   const {
     open,
     wrapperRef,
@@ -293,83 +289,103 @@ function AccountMenu({
                 <VerifiedWriterBadge account={account} size={15} />
               </div>
               <div className="penalis-account__header-meta">
-                {account.isAdministrator ? (
-                  <span className="penalis-account__badge">Admin</span>
-                ) : account.isReviewer ? (
-                  <span className="penalis-account__badge">Reviewer</span>
+                {staff ? (
+                  <span className="penalis-account__badge">Senator · {roleLabel(role)}</span>
                 ) : null}
                 <span>@{account.username}</span>
               </div>
             </div>
             <div className="penalis-account__divider" role="separator" />
 
-            <a
-              className="penalis-account__item"
-              role="menuitem"
-              href={account.authorUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-            >
-              <Icon name="externalLink" />
-              <span>Lihat profil publik</span>
-            </a>
-
-            <button
-              type="button"
-              className="penalis-account__item"
-              role="menuitem"
-              onClick={() => {
-                close();
-                onNavigate('profile');
-              }}
-            >
-              <Icon name="user" />
-              <span>Edit profil</span>
-            </button>
-
-            <button
-              type="button"
-              className="penalis-account__item"
-              role="menuitem"
-              onClick={() => {
-                close();
-                onNavigate('settings');
-              }}
-            >
-              <Icon name="settings" />
-              <span>Pengaturan akun</span>
-            </button>
-
-            {adminUrl || reviewUrl || canReview(account) ? (
+            {staff ? (
               <>
-                <div className="penalis-account__divider" role="separator" />
+                {/* A staff account has no public writing profile to link to. */}
+                <p className="penalis-account__section-label" role="presentation">
+                  Kurasi
+                </p>
+                <button
+                  type="button"
+                  className="penalis-account__item"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    onNavigate('review');
+                  }}
+                >
+                  <Icon name="check" />
+                  <span>Review karya tulis</span>
+                </button>
                 {adminUrl ? (
                   <a className="penalis-account__item" role="menuitem" href={adminUrl}>
                     <Icon name="users" />
                     <span>Kelola penulis</span>
                   </a>
                 ) : null}
-
-                {canReview(account) ? (
-                  // The queue lives in the dashboard now; sending a reviewer to
-                  // wp-admin would take them out of the interface they are in.
-                  <button
-                    type="button"
-                    className="penalis-account__item"
-                    role="menuitem"
-                    onClick={() => onNavigate('review')}
-                  >
-                    <Icon name="check" />
-                    <span>Review karya tulis</span>
-                  </button>
-                ) : reviewUrl ? (
+                {reviewUrl ? (
+                  /*
+                   * One deliberate way out of the dashboard. The queue lives
+                   * here, so this is not a per-row shortcut but an escape
+                   * hatch for the full wp-admin screen.
+                   */
                   <a className="penalis-account__item" role="menuitem" href={reviewUrl}>
-                    <Icon name="fileText" />
-                    <span>Review karya tulis</span>
+                    <Icon name="externalLink" />
+                    <span>Buka WP Admin Penalis</span>
                   </a>
                 ) : null}
+                <div className="penalis-account__divider" role="separator" />
+                <button
+                  type="button"
+                  className="penalis-account__item"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    onNavigate('settings');
+                  }}
+                >
+                  <Icon name="settings" />
+                  <span>Pengaturan akun</span>
+                </button>
               </>
-            ) : null}
+            ) : (
+              <>
+                <a
+                  className="penalis-account__item"
+                  role="menuitem"
+                  href={account.authorUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <Icon name="externalLink" />
+                  <span>Lihat profil publik</span>
+                </a>
+
+                <button
+                  type="button"
+                  className="penalis-account__item"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    onNavigate('profile');
+                  }}
+                >
+                  <Icon name="user" />
+                  <span>Edit profil</span>
+                </button>
+
+                <button
+                  type="button"
+                  className="penalis-account__item"
+                  role="menuitem"
+                  onClick={() => {
+                    close();
+                    onNavigate('settings');
+                  }}
+                >
+                  <Icon name="settings" />
+                  <span>Pengaturan akun</span>
+                </button>
+              </>
+            )}
 
             <div className="penalis-account__divider" role="separator" />
             <a
@@ -378,8 +394,14 @@ function AccountMenu({
               href={logoutUrl}
             >
               <Icon name="logout" />
-              <span>Logout</span>
+              <span>{staff ? 'Logout Senator' : 'Logout'}</span>
             </a>
+
+            {staff ? (
+              <p className="penalis-account__hint">
+                Ingin menulis? Logout lalu masuk dengan akun Penulis kamu.
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -389,6 +411,7 @@ function AccountMenu({
 
 export function Shell({
   account,
+  role,
   view,
   onNavigate,
   notifications,
@@ -396,6 +419,7 @@ export function Shell({
   children,
 }: {
   account: Account;
+  role: DashboardRole;
   view: ViewName;
   onNavigate: (view: ViewName) => void;
   notifications: NotificationsController;
@@ -403,7 +427,8 @@ export function Shell({
   children: ReactNode;
 }) {
   const bootstrap = getBootstrap();
-  const canWrite = account.canWrite;
+  const staff = isStaffRole(role);
+  const navGroups = navGroupsForRole(role);
   /*
    * Only writers and reviewers ever receive editorial notifications, so a
    * pending or suspended account must not see an always-empty bell or an
@@ -429,8 +454,10 @@ export function Shell({
      * padded content edge, so scrollLeft can be ~3px even at the beginning.
      */
     const navRect = nav.getBoundingClientRect();
-    const first = nav.firstElementChild;
-    const last = nav.lastElementChild;
+    // The nav holds one wrapper per role group, so measure the real items.
+    const items = nav.querySelectorAll<HTMLElement>('.penalis-nav__item');
+    const first = items[0];
+    const last = items[items.length - 1];
 
     setCanScrollLeft(first ? first.getBoundingClientRect().left < navRect.left - 1 : false);
     setCanScrollRight(last ? last.getBoundingClientRect().right > navRect.right + 1 : false);
@@ -454,7 +481,7 @@ export function Shell({
 
   useEffect(() => {
     updateNavOverflow();
-  }, [view, notificationsEnabled, canWrite, updateNavOverflow]);
+  }, [view, notificationsEnabled, role, updateNavOverflow]);
 
   /*
    * Keep the current section visible in the mobile scroll strip. `nearest`
@@ -530,10 +557,11 @@ export function Shell({
   };
 
   return (
-    <div className="penalis-app">
+    <div className={`penalis-app ${staff ? 'penalis-app--senator' : 'penalis-app--writer'}`} data-role={role}>
       <header className="penalis-header">
         <div className="penalis-header__title">
-          <h1>Dashboard Penulis</h1>
+          <h1>Dashboard</h1>
+          <RoleChip role={role} />
         </div>
         <div className="penalis-header__meta">
           {notificationsEnabled ? (
@@ -546,6 +574,7 @@ export function Shell({
           ) : null}
           <AccountMenu
             account={account}
+            role={role}
             adminUrl={bootstrap.adminUrl}
             reviewUrl={bootstrap.reviewUrl}
             logoutUrl={bootstrap.logoutUrl}
@@ -573,57 +602,35 @@ export function Shell({
       <div className="penalis-layout">
         <div className="penalis-nav-wrap">
           <nav ref={navRef} className="penalis-nav" aria-label="Bagian dashboard">
-            {NAV_ITEMS.filter((item) => {
-              if (item.view === 'notifications') {
-                return notificationsEnabled;
-              }
+            {navGroups.map((group) => (
+              <div
+                key={group.id}
+                className="penalis-nav__group"
+                role="group"
+                aria-labelledby={`penalis-nav-${group.id}`}
+              >
+                <p className="penalis-nav__group-label" id={`penalis-nav-${group.id}`}>
+                  {group.label}
+                </p>
+                {group.items.map((item) => {
+                  const isActive = view === item.view;
 
-              // A writer has no use for a review queue, and a reviewer has no
-              // use for a disabled one: hide it instead of greying it out.
-              if (item.view === 'review') {
-                return canReview(account);
-              }
-
-              return true;
-            }).map((item) => {
-              const isActive = view === item.view;
-              const disabled =
-                !canWrite &&
-                item.view !== 'overview' &&
-                item.view !== 'notifications' &&
-                item.view !== 'profile' &&
-                item.view !== 'settings' &&
-                item.view !== 'review';
-              const disabledHint = account.isReviewer
-                ? 'Hanya tersedia untuk akun penulis'
-                : 'Tersedia setelah email kamu dikonfirmasi';
-
-              return (
-                <button
-                  key={item.view}
-                  ref={isActive ? activeNavRef : undefined}
-                  type="button"
-                  className={`penalis-nav__item ${isActive ? 'is-active' : ''}`}
-                  onClick={() => onNavigate(item.view)}
-                  onPointerEnter={() => {
-                    if (item.view === 'editor' && !disabled) {
-                      preloadEditor();
-                    }
-                  }}
-                  onFocus={() => {
-                    if (item.view === 'editor' && !disabled) {
-                      preloadEditor();
-                    }
-                  }}
-                  aria-current={isActive ? 'page' : undefined}
-                  disabled={disabled}
-                  title={disabled ? disabledHint : undefined}
-                >
-                  <Icon name={item.icon} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
+                  return (
+                    <button
+                      key={item.view}
+                      ref={isActive ? activeNavRef : undefined}
+                      type="button"
+                      className={`penalis-nav__item ${isActive ? 'is-active' : ''}`}
+                      onClick={() => onNavigate(item.view)}
+                      aria-current={isActive ? 'page' : undefined}
+                    >
+                      <Icon name={item.icon} />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
 
           {canScrollLeft ? (

@@ -9,7 +9,8 @@
 
 import { useMemo, useState } from 'react';
 
-import type { Account, DashboardNotification } from '../../lib/types';
+import type { Account, DashboardNotification, DashboardRole } from '../../lib/types';
+import { isStaffRole } from '../../lib/permissions';
 import { EmptyState, ErrorBanner, MarkAllReadButton, PageHeading, Spinner } from '../../components/ui';
 import { Toggle } from '../../components/Toggle';
 import { NotificationList } from './NotificationList';
@@ -26,13 +27,16 @@ type Grouping = 'chronological' | 'article';
 
 export function Notifications({
   account,
+  role,
   controller,
   onOpenArticle,
 }: {
   account: Account;
+  role: DashboardRole;
   controller: NotificationsController;
   onOpenArticle: (item: DashboardNotification) => void;
 }) {
+  const staff = isStaffRole(role);
   const [filter, setFilter] = useState<NotificationFilter>('unread');
   const [grouping, setGrouping] = useState<Grouping>('chronological');
   const [visibleCount, setVisibleCount] = useState(NOTIFICATION_PAGE_SIZE);
@@ -76,7 +80,11 @@ export function Notifications({
     <div className="penalis-stack">
       <PageHeading
         title="Notifikasi"
-        description="Pemberitahuan status submit karya tulis muncul di sini. Buka notifikasi untuk melihat detailnya."
+        description={
+          staff
+            ? 'Karya tulis baru dan revisi yang menunggu keputusanmu muncul di sini. Buka notifikasi untuk langsung membaca karya tulis yang dimaksud.'
+            : 'Pemberitahuan status submit karya tulis muncul di sini. Buka notifikasi untuk melihat detailnya.'
+        }
       />
 
       <div className="penalis-notifications">
@@ -143,7 +151,9 @@ export function Notifications({
             description={
               filter === 'unread'
                 ? 'Semua notifikasi sudah kamu baca. Pilih "Sudah dibaca" atau "Semua" untuk melihat riwayat.'
-                : 'Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.'
+                : staff
+                  ? 'Karya tulis baru dan revisi yang menunggu keputusanmu akan muncul di sini.'
+                  : 'Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.'
             }
           />
         ) : (

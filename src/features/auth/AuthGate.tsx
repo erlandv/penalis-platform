@@ -40,10 +40,10 @@ const HEADINGS: Record<Mode, string> = {
 };
 
 const DESCRIPTIONS: Record<Mode, string> = {
-  login: 'Login ke dashboard dengan akun Penalis untuk mengelola karya tulis.',
-  register: 'Buat akun Penalis untuk mengakses dashboard dan mulai menulis di Penalis.',
+  login: 'Login dengan akun Penalis untuk mengakses dashboard.',
+  register: 'Buat akun Penalis untuk mengakses dashboard.',
   verify: 'Masukkan kode OTP yang kami kirim ke email kamu untuk mengaktifkan akun.',
-  forgot: 'Masukkan alamat email yang terdaftar dengan akun Penalis kamu untuk mengatur ulang password.',
+  forgot: 'Masukkan email yang terdaftar dengan akun Penalis kamu untuk mengatur ulang password.',
   activate: 'Sudah pernah mengirim karya tulis dan menjadi kontributor Penalis sebelumnya?',
   activateVerify: 'Masukkan kode OTP yang kami kirim ke email kamu, lalu buat password baru.',
 };
@@ -142,7 +142,7 @@ export function AuthGate() {
         ) : null}
         {mode === 'login' && registrationClosed ? (
           <Notice tone="warning">
-            Pendaftaran penulis baru sedang ditutup. Silakan masuk dengan akun yang sudah ada.
+            Pendaftaran penulis baru sedang ditutup. Silakan login dengan akun yang sudah ada.
           </Notice>
         ) : null}
 
@@ -160,7 +160,7 @@ export function AuthGate() {
         ) : null}
         {mode === 'verify' && !challenge ? (
           <p className="penalis-muted">
-            Sesi verifikasi tidak ditemukan. Silakan masuk, atau minta kode verifikasi baru.
+            Sesi verifikasi tidak ditemukan. Silakan login, atau minta kode verifikasi baru.
           </p>
         ) : null}
         {mode === 'forgot' ? (
@@ -184,7 +184,7 @@ export function AuthGate() {
         ) : null}
         {mode === 'activateVerify' && !challenge ? (
           <p className="penalis-muted">
-            Sesi aktivasi tidak ditemukan. Silakan masuk, atau minta kode aktivasi baru.
+            Sesi aktivasi tidak ditemukan. Silakan login, atau minta kode aktivasi baru.
           </p>
         ) : null}
 
@@ -434,7 +434,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           aria-describedby={describedBy('instagram-hint', errors.instagram && 'instagram-error')}
         />
         <FieldHint id="instagram-hint">
-          Digunakan untuk keperluan internal admin Penalis.
+          Digunakan untuk keperluan internal Senator Penalis.
         </FieldHint>
         <FieldError errors={errors} name="instagram" />
       </div>
@@ -700,11 +700,11 @@ function ForgotForm({ onDone, onFinished }: { onDone: () => void; onFinished: ()
       <div className="penalis-form">
         <Notice tone="success">{message}</Notice>
         <p className="penalis-muted">
-          Link reset password hanya dapat digunakan sekali. Jika email tidak masuk dalam beberapa menit, periksa folder
-          spam atau coba lagi nanti.
+          Link reset password hanya dapat digunakan sekali. Jika email belum diterima 
+          dalam beberapa menit, periksa folder spam atau coba lagi nanti.
         </p>
         <button type="button" className="penalis-button penalis-button--primary" onClick={onDone}>
-          Kembali ke halaman login
+          Kembali ke Halaman Login
         </button>
       </div>
     );
@@ -762,7 +762,7 @@ function ActivateForm({
         onChallenge(toActiveChallenge(result, email.trim()));
       }}
       description="Kami sudah membuatkan akun untukmu. Aktifkan dengan cara memverifikasi email yang kamu pakai saat mengirim karya, lalu buat password untuk akun tersebut."
-      hint="Tidak ingat email mana yang dipakai? Hubungi admin Penalis."
+      hint="Tidak ingat email mana yang dipakai? Hubungi Senator Penalis."
       submitLabel="Kirim Kode Aktivasi"
       busyLabel="Mengirim…"
     />

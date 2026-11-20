@@ -5,7 +5,8 @@
 import { forwardRef, type ReactNode } from 'react';
 
 import { Icon, VerifiedBadgeIcon } from './icons';
-import type { Account, FieldErrors } from '../lib/types';
+import { resolveDashboardRole } from '../lib/permissions';
+import type { Account, DashboardRole, FieldErrors } from '../lib/types';
 import { statusLabel, statusTone } from '../lib/format';
 
 export function Spinner({ label = 'Memuat…' }: { label?: string }) {
@@ -125,10 +126,17 @@ export function VerifiedWriterBadge({
   account,
   size = 15,
 }: {
-  account: Pick<Account, 'status' | 'canWrite' | 'isReviewer'>;
+  account: Pick<Account, 'status' | 'canWrite' | 'isReviewer' | 'isAdministrator'> & {
+    role?: DashboardRole;
+  };
   size?: number;
 }) {
-  if (account.status !== 'active' || !account.canWrite || account.isReviewer) {
+  /*
+   * The badge marks a verified writer, so it follows the resolved role rather
+   * than the raw capability flags: a staff account that also holds writer
+   * access is still staff, and must not look like a verified writer.
+   */
+  if (resolveDashboardRole(account) !== 'writer') {
     return null;
   }
 

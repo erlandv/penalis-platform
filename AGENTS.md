@@ -79,11 +79,18 @@ register -> verify email -> active writer -> write draft in /dashboard/ -> submi
   overview at **Penalis → Ringkasan**).
 - Active writers receive the `penalis_writer` role and use `/dashboard/` for
   overview, notifications, own articles, editor, media, profile, and settings.
-- Reviewers (administrators and editors) may also open `/dashboard/` in a
-  read-only reviewer mode: the REST account guard accepts `edit_others_posts`,
-  the dashboard shows a Reviewer notice with a shortcut to **Review Karya
-  Tulis**, and the account menu links to the same screen. They never gain
-  writer capabilities (`canWrite` stays `false`).
+- Staff — administrators and editors, called **Senator** in user-facing copy —
+  may also open `/dashboard/` in a curation mode: the REST account guard accepts
+  `edit_others_posts`, the shell renders **Dashboard Senator** with a role chip,
+  the navigation is the curation set (Ringkasan, Review Karya, Notifikasi,
+  Pengaturan), and the review queue is worked in place. They never gain writer
+  capabilities (`canWrite` stays `false`), and the writer views (Daftar Karya,
+  editor, Media, Profil) are not rendered at all rather than shown disabled.
+- **No hybrid accounts.** Penalis policy is that a staff account never writes.
+  A staff member who wants to publish logs out and signs in with their own
+  writer account. `Penalis_Policy::dashboard_role()` resolves staff before
+  writer, so an account that somehow carries both capabilities is still treated
+  as staff, and the SPA mirrors that rule in `resolveDashboardRole()`.
 - Pre-plugin contributors use **"Aktifkan akun penulis lama"** to verify their
   stored email, set a first password, and immediately become `active` while
   keeping their existing user ID, authored posts, and author archive URL.
@@ -236,7 +243,16 @@ readme.txt                  WordPress plugin readme and changelog
   - **OTP serialization:** All OTP issue/consume operations take
     `Penalis_Otp::lock_key()`, scoped per account because failure counters and
     budgets are shared across purposes. Do not reintroduce one site-wide key.
+  - **Dashboard role (`Penalis_Policy::dashboard_role()`):** The one place the
+    server decides `administrator` / `editor` / `writer` / `pending` /
+    `suspended`. `GET /account` and the SPA bootstrap both publish it as `role`.
+    Never re-derive the role from capability flags in a template or REST handler.
 - **Shared React primitives (reuse instead of duplicating):**
+  - Resolve the dashboard role once per render with `resolveDashboardRole()` in
+    `src/lib/permissions.ts`; gate every view through `canAccessView()` and pick
+    navigation with `navGroupsForRole()` in `src/lib/navigation.ts`. Never write
+    a new `account.canWrite && …` / `canReview(account)` condition in a
+    component — the access table is the only place that rule lives.
   - Always use `src/components/PasswordInput.tsx` for password fields so the
     accessible show/hide toggle stays consistent.
   - Use `<MediaPickerDialog>` in `src/components/MediaSelection.tsx` for media

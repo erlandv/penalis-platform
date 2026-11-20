@@ -38,7 +38,7 @@ export class AppErrorBoundary extends Component<Props, State> {
           <h1>Dashboard tidak dapat dimuat</h1>
           <p className="penalis-muted">
             Terjadi kesalahan saat menampilkan dashboard. Coba refresh halaman. Jika masalah berlanjut,
-            hubungi admin Penalis dan sertakan pesan error di bawah ini.
+            hubungi Senator Penalis dan sertakan pesan error di bawah ini.
           </p>
           <p className="penalis-fineprint">
             <code>{this.state.error.message}</code>

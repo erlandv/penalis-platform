@@ -8,6 +8,12 @@
  * workflow service as the wp-admin screen — including the per-article lock and
  * the stale-cycle guard — so this screen cannot approve something the admin
  * screen would refuse.
+ *
+ * The open submission is owned by the caller (`readingId`), not by this
+ * component, so `?view=review&id=<post_id>` is a real address: a notification
+ * can deep-link to one manuscript, Back closes the reader, and a reload keeps
+ * the same article on screen. That mirrors how the writer editor carries its
+ * `id`.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -15,31 +21,58 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, articlesApi, isStaleEditorialError, mediaApi, reviewApi } from '../../lib/api';
 import { editorialStateLabel, formatDateTime, formatNumber, truncate } from '../../lib/format';
 import { buildPreviewDocument, countWords } from '../../lib/html';
-import type { Account, Article, ReviewDecisionAction, ReviewQueueItem, ReviewQueueList } from '../../lib/types';
+import type { Article, ReviewDecisionAction, ReviewQueueItem, ReviewQueueList } from '../../lib/types';
 import { Dialog } from '../../components/Dialog';
 import { Icon } from '../../components/icons';
 import { useToast } from '../../components/toastContext';
-import { EmptyState, ErrorBanner, PageHeading, Pagination, Panel, Spinner, StatusBadge } from '../../components/ui';
+import {
+  EmptyState,
+  ErrorBanner,
+  Notice,
+  PageHeading,
+  Pagination,
+  Panel,
+  Spinner,
+  StatusBadge,
+} from '../../components/ui';
 import { canSubmitDecision, decisionOption } from './decision';
 
-export function ReviewQueue({ account }: { account: Account }) {
+export function ReviewQueue({
+  readingId,
+  onOpenReader,
+  onCloseReader,
+}: {
+  /** Article open in the reader, or `undefined` for the queue list. */
+  readingId?: number;
+  onOpenReader: (id: number) => void;
+  onCloseReader: () => void;
+}) {
   const [page, setPage] = useState(1);
   const [data, setData] = useState<ReviewQueueList | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [pending, setPending] = useState<{ item: ReviewQueueItem; action: ReviewDecisionAction } | null>(null);
+  const [pending, setPending] = useState<{
+    item: ReviewQueueItem;
+    action: ReviewDecisionAction;
+    /** Screen the dialog was opened from: `undefined` for the queue list. */
+    readingId?: number;
+  } | null>(null);
   const [feedback, setFeedback] = useState('');
   const [decisionError, setDecisionError] = useState('');
   const [decisionStale, setDecisionStale] = useState(false);
   const [refreshingStale, setRefreshingStale] = useState(false);
 
-  const [readingItem, setReadingItem] = useState<ReviewQueueItem | null>(null);
   const [articleDetail, setArticleDetail] = useState<Article | null>(null);
   const [articleThumbnail, setArticleThumbnail] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
+  /** Bumped by the reader's retry button to re-run the detail request. */
+  const [detailReload, setDetailReload] = useState(0);
   const detailRequestRef = useRef(0);
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const previousReadingIdRef = useRef(readingId);
 
   const showToast = useToast();
 
@@ -71,60 +104,135 @@ export function ReviewQueue({ account }: { account: Account }) {
     void load();
   }, [load]);
 
-  const closeReader = useCallback(() => {
-    detailRequestRef.current += 1;
-    setReadingItem(null);
-    setArticleDetail(null);
-    setArticleThumbnail('');
-    setDetailError('');
-    setDetailLoading(false);
-  }, []);
+  /*
+   * Load the article the caller asked for.
+   *
+   * The request is keyed on `readingId` and guarded by a monotonic counter, so
+   * a fast Back/Forward or two notification clicks cannot let an older response
+   * overwrite the article now on screen.
+   */
+  useEffect(() => {
+    if (!readingId) {
+      detailRequestRef.current += 1;
+      setArticleDetail(null);
+      setArticleThumbnail('');
+      setDetailError('');
+      setDetailLoading(false);
+      return;
+    }
 
-  const openReader = useCallback(async (item: ReviewQueueItem) => {
     const requestId = detailRequestRef.current + 1;
     detailRequestRef.current = requestId;
 
-    setReadingItem(item);
     setArticleDetail(null);
     setArticleThumbnail('');
     setDetailError('');
     setDetailLoading(true);
 
-    try {
-      const article = await articlesApi.get(item.id);
-      if (detailRequestRef.current !== requestId) {
-        return;
-      }
+    void (async () => {
+      try {
+        const article = await articlesApi.get(readingId);
+        if (detailRequestRef.current !== requestId) {
+          return;
+        }
 
-      setArticleDetail(article);
+        setArticleDetail(article);
 
-      if (article.thumbnail) {
-        setArticleThumbnail(article.thumbnail);
-      } else if (article.featuredMedia > 0) {
-        try {
-          const media = await mediaApi.get(article.featuredMedia);
-          if (detailRequestRef.current === requestId) {
-            setArticleThumbnail(media.full || media.url || media.thumbnail);
+        if (article.thumbnail) {
+          setArticleThumbnail(article.thumbnail);
+        } else if (article.featuredMedia > 0) {
+          try {
+            const media = await mediaApi.get(article.featuredMedia);
+            if (detailRequestRef.current === requestId) {
+              setArticleThumbnail(media.full || media.url || media.thumbnail);
+            }
+          } catch {
+            // A missing thumbnail preview is not fatal while reading the article.
           }
-        } catch {
-          // A missing thumbnail preview is not fatal while reading the article.
+        }
+      } catch (caught) {
+        if (detailRequestRef.current !== requestId) {
+          return;
+        }
+
+        setDetailError(caught instanceof ApiError ? caught.message : 'Isi karya tulis tidak dapat dimuat.');
+      } finally {
+        if (detailRequestRef.current === requestId) {
+          setDetailLoading(false);
         }
       }
-    } catch (caught) {
-      if (detailRequestRef.current !== requestId) {
-        return;
-      }
+    })();
+  }, [readingId, detailReload]);
 
-      setDetailError(caught instanceof ApiError ? caught.message : 'Isi karya tulis tidak dapat dimuat.');
-    } finally {
-      if (detailRequestRef.current === requestId) {
-        setDetailLoading(false);
-      }
+  /*
+   * A decision dialog belongs to the article it was opened for.
+   *
+   * The reader is URL state, so Back, Forward, or a notification for another
+   * article can swap the article underneath an open dialog. Leaving it up
+   * would show "Setujui: <article A>" over article B — or over the queue list —
+   * and submitting it would decide the wrong article. Closing it here keeps the
+   * dialog and the screen in agreement.
+   */
+  useEffect(() => {
+    setPending(null);
+    setFeedback('');
+    setDecisionError('');
+    setDecisionStale(false);
+  }, [readingId]);
+
+  /*
+   * Opening or closing the reader is a screen change inside one view, so the
+   * shell's view-change effect does not fire. Reset the scroll position and
+   * move focus into the new screen here, mirroring what the shell does for a
+   * view change: otherwise a Senator who scrolled the queue lands halfway down
+   * the article, and a keyboard user keeps focus on a row that no longer
+   * exists.
+   *
+   * The previous id is tracked in a ref so a deep link that mounts straight
+   * into the reader does not steal focus from the browser's own navigation.
+   */
+  useEffect(() => {
+    if (previousReadingIdRef.current === readingId) {
+      return;
     }
-  }, []);
+
+    previousReadingIdRef.current = readingId;
+
+    window.scrollTo({ top: 0, behavior: 'auto' });
+
+    const root = rootRef.current;
+    if (!root) {
+      return;
+    }
+
+    // The reader heading only exists once the article has loaded; the back link
+    // is always rendered, so it is the fallback that still moves focus off the
+    // row that was clicked.
+    const target =
+      root.querySelector<HTMLElement>('h2') ??
+      root.querySelector<HTMLElement>('.penalis-back-link') ??
+      root;
+
+    if (!target.hasAttribute('tabindex')) {
+      target.setAttribute('tabindex', '-1');
+    }
+
+    target.focus({ preventScroll: true });
+  }, [readingId]);
+
+  const closeReader = useCallback(() => {
+    detailRequestRef.current += 1;
+    setArticleDetail(null);
+    setArticleThumbnail('');
+    setDetailError('');
+    setDetailLoading(false);
+    onCloseReader();
+  }, [onCloseReader]);
 
   const openDecision = (item: ReviewQueueItem, action: ReviewDecisionAction) => {
-    setPending({ item, action });
+    // Record the screen the dialog belongs to, so it can be hidden the moment
+    // the reader switches to another article (or back to the queue).
+    setPending({ item, action, readingId });
     setFeedback('');
     setDecisionError('');
     setDecisionStale(false);
@@ -176,24 +284,19 @@ export function ReviewQueue({ account }: { account: Account }) {
             }
           : null,
       );
-      if (readingItem && readingItem.id === pending.item.id) {
-        setReadingItem((current) =>
-          current ? { ...current, reviewCycle: freshReview.reviewCycle } : null,
-        );
-        setArticleDetail((current) =>
-          current
-            ? {
-                ...current,
-                reviewCycle: freshReview.reviewCycle,
-                editorialState: freshReview.editorialState,
-                editorialStateLabel: freshReview.editorialStateLabel,
-                feedback: freshReview.feedback,
-                reviewedAt: freshReview.reviewedAt,
-                reviewHistory: freshReview.reviewHistory,
-              }
-            : null,
-        );
-      }
+      setArticleDetail((current) =>
+        current
+          ? {
+              ...current,
+              reviewCycle: freshReview.reviewCycle,
+              editorialState: freshReview.editorialState,
+              editorialStateLabel: freshReview.editorialStateLabel,
+              feedback: freshReview.feedback,
+              reviewedAt: freshReview.reviewedAt,
+              reviewHistory: freshReview.reviewHistory,
+            }
+          : null,
+      );
       setDecisionStale(false);
       setDecisionError('');
       showToast(`Status karya diperbarui ke Cycle ${freshReview.reviewCycle}. Silakan kirim keputusan.`);
@@ -246,24 +349,72 @@ export function ReviewQueue({ account }: { account: Account }) {
 
   const option = pending ? decisionOption(pending.action) : null;
 
-  const renderReader = (item: ReviewQueueItem) => {
-    const activeTitle = (articleDetail?.title || item.title) || 'Tanpa judul';
-    const activeState = articleDetail?.editorialState ?? item.editorialState;
+  /*
+   * A dialog is only valid while the screen still shows the article it was
+   * opened for. The reset effect above closes it on the next commit; this guard
+   * closes it in the same render, so a dialog for article A can never paint
+   * over article B for even one frame.
+   */
+  const decisionTargetMatches = pending !== null && pending.readingId === readingId;
+
+  /*
+   * The reader is opened by id, so the queue row may not be loaded (a
+   * notification can point at a submission that has since left the queue).
+   * Prefer the article payload, which is fetched fresh for this id, and fall
+   * back to the queue row for the fields it also carries.
+   */
+  const readingItem = readingId
+    ? data?.items.find((item) => item.id === readingId) ?? null
+    : null;
+
+  const renderReader = () => {
+    const activeTitle = (articleDetail?.title || readingItem?.title) || 'Tanpa judul';
+    const activeState = articleDetail?.editorialState ?? readingItem?.editorialState ?? '';
     const activeStateLabel =
       articleDetail?.editorialStateLabel ||
-      item.editorialStateLabel ||
-      editorialStateLabel(activeState);
-    const activeAuthorName = articleDetail?.authorName ?? item.authorName;
-    const activeAuthorLogin = articleDetail?.authorLogin ?? item.authorLogin;
-    const activeCycle = articleDetail?.reviewCycle || item.reviewCycle;
-    const activeSubmittedAt = articleDetail?.submittedAt || item.submittedAt;
-    const activeQueueItem: ReviewQueueItem = {
-      ...item,
-      title: articleDetail?.title ?? item.title,
-      reviewCycle: activeCycle,
-    };
+      readingItem?.editorialStateLabel ||
+      (activeState ? editorialStateLabel(activeState) : '');
+    const activeAuthorName = articleDetail?.authorName ?? readingItem?.authorName;
+    const activeAuthorLogin = articleDetail?.authorLogin ?? readingItem?.authorLogin;
+    /*
+     * `??`, not `||`: cycle 0 is a real value — a first submission that has
+     * never been reviewed. `||` would skip it and fall back to the queue row,
+     * which may be stale, and a decision sent with the wrong `expected_cycle`
+     * is refused as stale.
+     */
+    const activeCycle = articleDetail?.reviewCycle ?? readingItem?.reviewCycle ?? 0;
+    // Same reasoning as `activeCycle`: the detail payload is authoritative, so
+    // an empty value there must not be replaced by a possibly stale queue row.
+    const activeSubmittedAt = articleDetail?.submittedAt ?? readingItem?.submittedAt;
     const wordCount = articleDetail ? countWords(articleDetail.content) : 0;
     const readerDocument = articleDetail ? buildPreviewDocument(articleDetail.content) : '';
+
+    /*
+     * A notification can outlive the round it announced: another reviewer may
+     * have already approved, rejected, or sent the article back. The reader
+     * still shows the manuscript and its history, but the decision buttons are
+     * withheld — offering them would only produce a stale-cycle 409.
+     */
+    const canDecide = activeState === 'pending_review';
+    const activeQueueItem: ReviewQueueItem = {
+      id: readingId ?? 0,
+      title: activeTitle,
+      excerpt: articleDetail?.excerpt ?? readingItem?.excerpt ?? '',
+      authorName: activeAuthorName ?? '',
+      authorLogin: activeAuthorLogin ?? '',
+      submittedAt: activeSubmittedAt ?? '',
+      reviewCycle: activeCycle,
+      editorialState: activeState || 'pending_review',
+      editorialStateLabel: activeStateLabel,
+    };
+
+    /*
+     * A deep link can arrive before either source has data (the queue page may
+     * not contain this article, and the detail request is still in flight).
+     * Show the way back and the loading state instead of a header claiming
+     * "Tanpa judul · Menunggu review".
+     */
+    const hasIdentity = Boolean(articleDetail || readingItem);
 
     return (
       <>
@@ -273,28 +424,34 @@ export function ReviewQueue({ account }: { account: Account }) {
             Kembali ke antrean review
           </button>
 
-          <div className="penalis-editor-heading__title">
-            <h2>{activeTitle}</h2>
-            <StatusBadge status={activeState} label={activeStateLabel} />
-          </div>
+          {hasIdentity ? (
+            <>
+              <div className="penalis-editor-heading__title">
+                <h2>{activeTitle}</h2>
+                {activeStateLabel ? (
+                  <StatusBadge status={activeState} label={activeStateLabel} />
+                ) : null}
+              </div>
 
-          <p className="penalis-review__meta">
-            Oleh{' '}
-            <strong>{activeAuthorName || activeAuthorLogin || 'Penulis tidak diketahui'}</strong>
-            {activeAuthorName && activeAuthorLogin && activeAuthorName !== activeAuthorLogin
-              ? ` (@${activeAuthorLogin})`
-              : ''}
-            <span aria-hidden="true"> · </span>
-            Cycle {activeCycle}
-            <span aria-hidden="true"> · </span>
-            {activeSubmittedAt
-              ? `Dikirim ${formatDateTime(activeSubmittedAt)}`
-              : 'Waktu submit tidak tercatat'}
-          </p>
+              <p className="penalis-review__meta">
+                Oleh{' '}
+                <strong>{activeAuthorName || activeAuthorLogin || 'Penulis tidak diketahui'}</strong>
+                {activeAuthorName && activeAuthorLogin && activeAuthorName !== activeAuthorLogin
+                  ? ` (@${activeAuthorLogin})`
+                  : ''}
+                <span aria-hidden="true"> · </span>
+                Cycle {activeCycle}
+                <span aria-hidden="true"> · </span>
+                {activeSubmittedAt
+                  ? `Dikirim ${formatDateTime(activeSubmittedAt)}`
+                  : 'Waktu submit tidak tercatat'}
+              </p>
+            </>
+          ) : null}
         </div>
 
         {detailError ? (
-          <ErrorBanner message={detailError} onRetry={() => void openReader(item)} />
+          <ErrorBanner message={detailError} onRetry={() => setDetailReload((current) => current + 1)} />
         ) : null}
 
         {detailLoading ? <Spinner label="Memuat isi karya tulis…" /> : null}
@@ -338,36 +495,45 @@ export function ReviewQueue({ account }: { account: Account }) {
 
             <aside className="penalis-editor__side">
               <Panel title="Keputusan Review">
-                <p className="penalis-muted">
-                  Menyetujui akan langsung menerbitkan karya tulis. Meminta revisi atau menolak wajib
-                  disertai catatan untuk penulis.
-                </p>
-                <div className="penalis-review__decision-actions">
-                  <button
-                    type="button"
-                    className="penalis-button penalis-button--primary"
-                    onClick={() => openDecision(activeQueueItem, 'approve')}
-                    disabled={busyId === activeQueueItem.id}
-                  >
-                    Setujui
-                  </button>
-                  <button
-                    type="button"
-                    className="penalis-button penalis-button--ghost"
-                    onClick={() => openDecision(activeQueueItem, 'request_changes')}
-                    disabled={busyId === activeQueueItem.id}
-                  >
-                    Minta revisi
-                  </button>
-                  <button
-                    type="button"
-                    className="penalis-button penalis-button--danger"
-                    onClick={() => openDecision(activeQueueItem, 'reject')}
-                    disabled={busyId === activeQueueItem.id}
-                  >
-                    Tolak
-                  </button>
-                </div>
+                {canDecide ? (
+                  <>
+                    <p className="penalis-muted">
+                      Menyetujui akan langsung menerbitkan karya tulis. Meminta revisi atau menolak wajib
+                      disertai catatan untuk penulis.
+                    </p>
+                    <div className="penalis-review__decision-actions">
+                      <button
+                        type="button"
+                        className="penalis-button penalis-button--primary"
+                        onClick={() => openDecision(activeQueueItem, 'approve')}
+                        disabled={busyId === activeQueueItem.id}
+                      >
+                        Setujui
+                      </button>
+                      <button
+                        type="button"
+                        className="penalis-button penalis-button--ghost"
+                        onClick={() => openDecision(activeQueueItem, 'request_changes')}
+                        disabled={busyId === activeQueueItem.id}
+                      >
+                        Minta revisi
+                      </button>
+                      <button
+                        type="button"
+                        className="penalis-button penalis-button--danger"
+                        onClick={() => openDecision(activeQueueItem, 'reject')}
+                        disabled={busyId === activeQueueItem.id}
+                      >
+                        Tolak
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <Notice tone="info">
+                    Karya tulis ini tidak sedang menunggu keputusan, jadi tombol keputusan tidak
+                    ditampilkan. Riwayat review, jika ada, tercatat di panel Riwayat Review.
+                  </Notice>
+                )}
               </Panel>
 
               <Panel title="Thumbnail">
@@ -448,18 +614,14 @@ export function ReviewQueue({ account }: { account: Account }) {
   };
 
   return (
-    <div className="penalis-review penalis-stack">
-      {readingItem ? (
-        renderReader(readingItem)
+    <div className="penalis-review penalis-stack" ref={rootRef}>
+      {readingId ? (
+        renderReader()
       ) : (
         <>
           <PageHeading
             title="Review Karya Tulis"
-            description={
-              account.canWrite
-                ? 'Daftar karya tulis yang menunggu keputusan. Setiap keputusan tercatat di riwayat karya.'
-                : 'Daftar karya tulis yang menunggu keputusan dari reviewer.'
-            }
+            description="Daftar karya tulis yang menunggu keputusan. Setiap keputusan tercatat di riwayat karya."
           />
 
           {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
@@ -489,7 +651,7 @@ export function ReviewQueue({ account }: { account: Account }) {
                       <button
                         type="button"
                         className="penalis-review__title-button"
-                        onClick={() => void openReader(item)}
+                        onClick={() => onOpenReader(item.id)}
                       >
                         {item.title || 'Tanpa judul'}
                       </button>
@@ -512,7 +674,7 @@ export function ReviewQueue({ account }: { account: Account }) {
                     <button
                       type="button"
                       className="penalis-button penalis-button--soft"
-                      onClick={() => void openReader(item)}
+                      onClick={() => onOpenReader(item.id)}
                       disabled={busyId === item.id}
                     >
                       Baca karya
@@ -551,7 +713,7 @@ export function ReviewQueue({ account }: { account: Account }) {
         </>
       )}
 
-      {pending && option ? (
+      {pending && option && decisionTargetMatches ? (
         <Dialog label={`${option.label}: ${pending.item.title || 'Tanpa judul'}`} onClose={closeDecision}>
           <div className="penalis-modal__content penalis-modal__content--confirm">
             <div className="penalis-modal__header">

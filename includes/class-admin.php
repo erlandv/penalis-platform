@@ -1165,11 +1165,11 @@ final class Penalis_Admin {
 		$labels = array(
 			'registration'          => 'Pendaftaran mandiri',
 			'email_verified'        => 'Email diverifikasi',
-			'legacy_self_activated' => 'Aktivasi mandiri akun lama',
-			'legacy_converted'      => 'Konversi akun lama',
-			'admin_vouched'         => 'Diaktifkan langsung admin',
-			'admin_reactivated'     => 'Diaktifkan kembali admin',
-			'admin_suspended'       => 'Ditangguhkan admin',
+			'legacy_self_activated' => 'Aktivasi mandiri akun kontributor',
+			'legacy_converted'      => 'Konversi akun kontributor',
+			'admin_vouched'         => 'Diaktifkan langsung oleh Senator',
+			'admin_reactivated'     => 'Diaktifkan kembali oleh Senator',
+			'admin_suspended'       => 'Ditangguhkan oleh Senator',
 		);
 
 		return isset( $labels[ $reason ] ) ? $labels[ $reason ] : ( '' === $reason ? 'Tanpa keterangan' : $reason );

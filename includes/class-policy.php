@@ -171,6 +171,38 @@ final class Penalis_Policy {
 	}
 
 	/**
+	 * Resolve the dashboard role for one account.
+	 *
+	 * The React dashboard renders one of two mutually exclusive experiences:
+	 * writer or staff ("Senator" in user-facing copy). Penalis policy is that an
+	 * administrator or editor never writes with the staff account, so the staff
+	 * branch is evaluated first — an account that somehow carries both the
+	 * reviewer capability and writer access is still treated as staff, never as
+	 * a hybrid.
+	 *
+	 * This is the single source of truth for the `role` field; the client mirrors
+	 * it in `src/lib/permissions.ts` for payloads from older deployments, and the
+	 * REST routes still enforce every capability on their own.
+	 *
+	 * @param bool   $is_administrator Whether the account has `manage_options`.
+	 * @param bool   $is_reviewer      Whether the account has `edit_others_posts`.
+	 * @param string $status           Penalis account status.
+	 * @param bool   $can_write        Whether the account may write.
+	 * @return string One of administrator, editor, writer, pending, suspended.
+	 */
+	public static function dashboard_role( $is_administrator, $is_reviewer, $status, $can_write ) {
+		if ( $is_reviewer ) {
+			return $is_administrator ? 'administrator' : 'editor';
+		}
+
+		if ( $can_write ) {
+			return 'writer';
+		}
+
+		return self::STATUS_SUSPENDED === $status ? 'suspended' : 'pending';
+	}
+
+	/**
 	 * Whether an account may sign in.
 	 *
 	 * Pending verification accounts may sign in to see their status. Active

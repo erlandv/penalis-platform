@@ -47,6 +47,12 @@ Key features:
   writer profile with One User Avatar-compatible profile photos, and account
   settings (password change, verified email change, and re-authenticated
   username change with 301 author-archive redirects).
+* **Senator curation mode in the same dashboard.** Administrators and editors
+  (called **Senator** in the interface) open `/dashboard/` in a separate mode:
+  the title reads **Dashboard Senator**, a role chip names the active role, the
+  navigation is the curation set (Ringkasan, Review Karya, Notifikasi,
+  Pengaturan), and the review queue is worked in place. Writer screens are not
+  rendered at all, and a staff account never gains writer capabilities.
 * **Unified WordPress admin console (`Penalis`).** Groups **Ringkasan**,
   **Review Karya Tulis**, **Penulis Penalis**, and **Pengaturan Email** under
   one top-level menu with pending notification badges, customizable
@@ -78,10 +84,18 @@ Recommended site configuration:
 
 = Do writers use wp-admin to write articles? =
 
-No. Approved writers use the frontend dashboard at `/dashboard/`. Reviewers use
-`wp-admin` (under the **Penalis** menu) to review article submissions:
-administrators and editors can both curate articles, while only administrators
-can manage writer accounts and site-wide settings.
+No. Approved writers use the frontend dashboard at `/dashboard/`. Senators
+(administrators and editors) also use `/dashboard/` for curation — the review
+queue lives there — and use `wp-admin` (under the **Penalis** menu) for account
+management and site-wide settings: administrators and editors can both curate
+articles, while only administrators can manage writer accounts and site-wide
+settings.
+
+= Can a Senator write articles with their staff account? =
+
+No. Penalis policy is that a staff account never writes. A Senator who wants to
+publish logs out and signs in with their own writer account; the dashboard says
+so on Ringkasan and in the account menu.
 
 = Can a writer publish an article directly or edit an already published article? =
 
@@ -115,6 +129,9 @@ renamed executable files are rejected.
 * Feature: Add a dashboard-only CAPTCHA switch (`penalis_dashboard_captcha_enabled`) that silences the Turnstile widget, script, and server-side verification for `/dashboard/` forms without touching site-wide `wp-login.php` protection, with an audit trail of every change and a persistent warning while disabled.
 * Feature: Restrict editorial notifications to writers and reviewers through a shared capability predicate, so pending and suspended accounts no longer see an always-empty bell or notification view.
 * Feature: Add shared dashboard building blocks: password/confirmation fields, a hover-and-click disclosure controller, a Turnstile gate hook, and a reusable email request form.
+* Feature: Split `/dashboard/` into explicit writer and Senator modes. `Penalis_Policy::dashboard_role()` resolves one role (`administrator`, `editor`, `writer`, `pending`, `suspended`) and publishes it on `GET /account` and the SPA bootstrap; the shell renders **Dashboard Penulis** or **Dashboard Senator** with a role chip, role-specific navigation groups, and no disabled writer entries for staff.
+* Feature: Enforce the no-hybrid-account rule in the dashboard UI. A staff account that also carries writer access still resolves to staff, so the writer editor never opens for it; a deep link to a writer view lands on Ringkasan with an explanatory notice and a rewritten URL.
+* Feature: Add Back/Forward navigation to the dashboard (`pushState` + `popstate`), so a curation round stays inside the SPA instead of leaving it on the first Back.
 * Refactor: Adopt the shared components across authentication, notification bell, account menu, and settings screens for consistent popover behavior and improved keyboard and screen-reader support.
 * Fix: Bypass the Simple Cloudflare Turnstile `authenticate` check unconditionally around `wp_signon()` so dashboard login keeps working when the dashboard CAPTCHA switch is off.
 

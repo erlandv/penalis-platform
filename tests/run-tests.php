@@ -2360,12 +2360,42 @@ penalis_assert( false === $editor_data['isAdministrator'], 'The account payload 
 penalis_assert( false === $editor_data['canWrite'], 'An editor does not gain writer capabilities in the dashboard.' );
 penalis_assert( true === $editor_data['canView'], 'An editor may view the dashboard.' );
 penalis_same( 'Reviewer', $editor_data['statusLabel'], 'An editor without a writer status is labelled Reviewer.' );
+penalis_same( 'editor', $editor_data['role'], 'The account payload resolves an editor to the staff role.' );
 
 $GLOBALS['penalis_test_current_user'] = 20;
 penalis_assert( true === Penalis_Rest_Api::require_logged_in(), 'An administrator may reach the dashboard API.' );
 $admin_account = Penalis_Rest_Api::get_account()->get_data();
 penalis_assert( true === $admin_account['isReviewer'], 'The account payload marks an administrator as a reviewer.' );
 penalis_same( 'Administrator', $admin_account['statusLabel'], 'An administrator keeps the Administrator label.' );
+penalis_same( 'administrator', $admin_account['role'], 'The account payload resolves an administrator to the staff role.' );
+
+// A staff account that also holds writer access is still staff: Penalis policy
+// forbids the hybrid case, so the dashboard must not open the writer UI.
+penalis_same(
+	'editor',
+	Penalis_Policy::dashboard_role( false, true, Penalis_Policy::STATUS_ACTIVE, true ),
+	'A reviewer with writer access still resolves to staff.'
+);
+penalis_same(
+	'administrator',
+	Penalis_Policy::dashboard_role( true, true, Penalis_Policy::STATUS_ACTIVE, true ),
+	'An administrator with writer access still resolves to staff.'
+);
+penalis_same(
+	'writer',
+	Penalis_Policy::dashboard_role( false, false, Penalis_Policy::STATUS_ACTIVE, true ),
+	'An active writer resolves to the writer role.'
+);
+penalis_same(
+	'pending',
+	Penalis_Policy::dashboard_role( false, false, Penalis_Policy::STATUS_PENDING_VERIFICATION, false ),
+	'A published author without access resolves to pending.'
+);
+penalis_same(
+	'suspended',
+	Penalis_Policy::dashboard_role( false, false, Penalis_Policy::STATUS_SUSPENDED, false ),
+	'A suspended account resolves to suspended.'
+);
 
 // A writer without an active status is still refused by the dashboard API.
 penalis_auth_account( 13, Penalis_Policy::STATUS_SUSPENDED );

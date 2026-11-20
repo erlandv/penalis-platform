@@ -7,9 +7,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { articlesApi, ApiError, reviewApi } from '../../lib/api';
-import { canReceiveNotifications, canReview } from '../../lib/permissions';
-import type { Account, ArticleList, DashboardNotification, ReviewQueueList } from '../../lib/types';
-import { editorialStateLabel, formatDate, formatNumber } from '../../lib/format';
+import { canReceiveNotifications, isStaffRole, roleLabel } from '../../lib/permissions';
+import type {
+  Account,
+  ArticleList,
+  DashboardNotification,
+  DashboardRole,
+  ReviewQueueList,
+} from '../../lib/types';
+import { editorialStateLabel, formatDate, formatNumber, getTimeGreeting } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import {
   EmptyState,
@@ -28,33 +34,38 @@ const PREVIEW_ARTICLES = 3;
 
 export function Overview({
   account,
+  role,
   notifications,
   onOpenEditor,
   onOpenArticle,
+  onOpenReviewArticle,
   onOpenArticles,
   onOpenNotifications,
   onOpenReview,
 }: {
   account: Account;
+  role: DashboardRole;
   notifications: NotificationsController;
   onOpenEditor: () => void;
   onOpenArticle: (id: number) => void;
+  /** Open one submission in the reviewer reader (staff only). */
+  onOpenReviewArticle: (id: number) => void;
   onOpenArticles: () => void;
   onOpenNotifications: () => void;
   onOpenReview: () => void;
 }) {
+  const staff = isStaffRole(role);
   const [data, setData] = useState<ArticleList | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(account.canWrite);
+  const [loading, setLoading] = useState(role === 'writer');
 
   /*
-   * A reviewer without writer capabilities gets a different overview: the
-   * writer panels (article counts, "Karya terbaru") are all zeros for them and
-   * the queue is the reason they are here.
+   * A staff account gets a different overview: the writer panels (article
+   * counts, "Karya terbaru") are about work they never do, and the queue is the
+   * reason they are here.
    */
-  const isReviewerOnly = canReview(account) && !account.canWrite;
   const [queueData, setQueueData] = useState<ReviewQueueList | null>(null);
-  const [queueLoading, setQueueLoading] = useState(isReviewerOnly);
+  const [queueLoading, setQueueLoading] = useState(staff);
   const [queueError, setQueueError] = useState('');
   const queueRequestRef = useRef(0);
 
@@ -69,7 +80,7 @@ export function Overview({
   } = notifications;
 
   useEffect(() => {
-    if (!account.canWrite) {
+    if (role !== 'writer') {
       return;
     }
 
@@ -98,7 +109,7 @@ export function Overview({
     return () => {
       cancelled = true;
     };
-  }, [account.canWrite]);
+  }, [role]);
 
   const loadQueue = useCallback(async () => {
     const requestId = queueRequestRef.current + 1;
@@ -122,9 +133,9 @@ export function Overview({
     }
   }, []);
 
-  // Reviewers land here first, so the queue summary belongs on this screen.
+  // Staff land here first, so the queue summary belongs on this screen.
   useEffect(() => {
-    if (!isReviewerOnly) {
+    if (!staff) {
       return;
     }
 
@@ -133,7 +144,7 @@ export function Overview({
     return () => {
       queueRequestRef.current += 1;
     };
-  }, [isReviewerOnly, loadQueue]);
+  }, [staff, loadQueue]);
 
   const openNotificationArticle = (item: DashboardNotification) => {
     if (!item.isRead) {
@@ -141,8 +152,9 @@ export function Overview({
       void markRead(item.id);
     }
 
-    if (canReview(account) && (!account.canWrite || item.type === 'submit' || item.type === 'resubmit')) {
-      onOpenReview();
+    if (staff) {
+      // Land on the submission the notification is about, not the bare queue.
+      onOpenReviewArticle(item.articleId);
       return;
     }
 
@@ -153,78 +165,106 @@ export function Overview({
   const visibleNotifications = notificationData?.items.slice(0, PREVIEW_NOTIFICATIONS) ?? [];
   const canSeeNotifications = canReceiveNotifications(account);
 
+  const heroCopy =
+    role === 'writer'
+      ? 'Di dashboard penulis ini kamu dapat menulis draft, submit karya tulis untuk di-review Senator, dan memantau status submit karyamu di satu tempat. Jadi, mau menulis apa hari ini?'
+      : staff
+        ? 'Kamu masuk sebagai Senator Penalis. Karya tulis yang dikirim penulis menunggu keputusanmu di antrean review.'
+        : role === 'suspended'
+          ? 'Akun Penalis kamu ditangguhkan, jadi pengelolaan karya tulis tidak tersedia.'
+          : 'Konfirmasi alamat email kamu untuk mulai menulis dan mengirim karya tulis.';
+
   return (
     <div className="penalis-stack">
       <section className="penalis-hero">
         <div>
-          <p className="penalis-eyebrow">Halo sahabat Penalis</p>
+          {role !== 'suspended' ? (
+            <p className="penalis-hero__greeting">{getTimeGreeting()},</p>
+          ) : null}
           <h2 className="penalis-hero__name">
             <span>{account.displayName}</span>
             <VerifiedWriterBadge account={account} size={20} />
           </h2>
-          <p className="penalis-muted">
-            {account.canWrite
-              ? 'Di dashboard penulis ini kamu dapat menulis draft, submit karya tulis untuk di-review admin, dan memantau status submit karyamu di satu tempat. Jadi, mau menulis apa hari ini?'
-              : isReviewerOnly
-                ? 'Kamu login sebagai reviewer. Karya tulis dapat dikurasi dari antrean review di dashboard ini.'
-                : 'Akun Penalis kamu belum dapat mengelola karya tulis. Hubungi admin jika ada pertanyaan.'}
-          </p>
+          <p className="penalis-muted">{heroCopy}</p>
         </div>
         <div className="penalis-hero__status">
-          <StatusBadge status={account.status} label={account.statusLabel} />
+          {staff ? (
+            <StatusBadge status="active" label={`Senator · ${roleLabel(role)}`} />
+          ) : (
+            <StatusBadge status={account.status} label={account.statusLabel} />
+          )}
         </div>
       </section>
 
-      {isReviewerOnly ? (
-        <Panel
-          label="Antrean review"
-          header={
-            <div className="penalis-notification-header">
-              <h3>Antrean review</h3>
-              {queueData ? (
-                <StatusBadge
-                  status={queueData.total > 0 ? 'pending_review' : 'published'}
-                  label={
-                    queueData.total > 0
-                      ? `${formatNumber(queueData.total)} menunggu review`
-                      : 'Antrean bersih'
-                  }
-                />
-              ) : null}
-            </div>
-          }
-        >
-          {queueError ? (
-            <ErrorBanner message={queueError} onRetry={() => void loadQueue()} />
-          ) : queueLoading || queueData === null ? (
-            <Spinner label="Memuat antrean review…" />
-          ) : (
-            <div className="penalis-overview-queue__callout">
-              <div className="penalis-overview-queue__summary">
-                <p className="penalis-overview-queue__headline">
-                  {queueData.total > 0 ? (
-                    <>
-                      Ada <strong>{formatNumber(queueData.total)} karya tulis</strong> yang menunggu untuk di-review.
-                    </>
-                  ) : (
-                    <strong>Tidak ada karya tulis yang menunggu review saat ini.</strong>
-                  )}
-                </p>
-                <p className="penalis-overview-queue__subtext penalis-muted">
-                  {queueData.total > 0
-                    ? 'Penulis sudah meluangkan waktunya untuk berkontribusi karya kepada Penalis, mohon hargai usaha mereka dengan segera review karya tulis dan berikan kepastian.'
-                    : 'Semua kiriman karya tulis telah diproses. Antrean akan terisi saat penulis mengirim karya baru atau hasil revisi.'}
-                </p>
+      {staff ? (
+        <>
+          <Panel
+            label="Antrean review"
+            header={
+              <div className="penalis-notification-header">
+                <h3>Antrean review</h3>
+                {queueData ? (
+                  <StatusBadge
+                    status={queueData.total > 0 ? 'pending_review' : 'published'}
+                    label={
+                      queueData.total > 0
+                        ? `${formatNumber(queueData.total)} menunggu review`
+                        : 'Antrean bersih'
+                    }
+                  />
+                ) : null}
               </div>
+            }
+          >
+            {queueError ? (
+              <ErrorBanner message={queueError} onRetry={() => void loadQueue()} />
+            ) : queueLoading || queueData === null ? (
+              <Spinner label="Memuat antrean review…" />
+            ) : (
+              <div className="penalis-overview-queue__callout">
+                <div className="penalis-overview-queue__summary">
+                  <p className="penalis-overview-queue__headline">
+                    {queueData.total > 0 ? (
+                      <>
+                        Ada <strong>{formatNumber(queueData.total)} karya tulis</strong> yang menunggu untuk
+                        di-review.
+                      </>
+                    ) : (
+                      <strong>Tidak ada karya tulis yang menunggu review saat ini.</strong>
+                    )}
+                  </p>
+                  <p className="penalis-overview-queue__subtext penalis-muted">
+                    {queueData.total > 0
+                      ? 'Penulis sudah meluangkan waktunya untuk berkontribusi karya kepada Penalis, mohon hargai usaha mereka dengan segera review karya tulis dan berikan kepastian.'
+                      : 'Semua kiriman karya tulis telah diproses. Antrean akan terisi saat penulis mengirim karya baru atau hasil revisi.'}
+                  </p>
+                </div>
 
-              <div className="penalis-overview-queue__cta">
-                <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenReview}>
-                  Buka antrean review
-                </button>
+                <div className="penalis-overview-queue__cta">
+                  <button
+                    type="button"
+                    className="penalis-button penalis-button--primary"
+                    onClick={onOpenReview}
+                  >
+                    Buka antrean review
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </Panel>
+            )}
+          </Panel>
+
+          {/*
+           * The two-accounts rule, stated once where a Senator lands rather
+           * than on every screen: writing is done with the writer account.
+           */}
+          <div className="penalis-senator-note">
+            <Icon name="users" />
+            <p>
+              <strong>Ingin menulis?</strong> Akun Senator hanya untuk mengelola platform. Logout lalu masuk
+              dengan akun Penulis kamu untuk membuat karya tulis.
+            </p>
+          </div>
+        </>
       ) : (
         <section className="penalis-cards" aria-label="Ringkasan karya tulis">
           <StatCard label="Total karya" value={counts.all} />
@@ -239,7 +279,7 @@ export function Overview({
       {canSeeNotifications ? (
         <div className="penalis-quick-actions" role="group" aria-label="Aksi cepat">
           <span className="penalis-quick-actions__label">Aksi cepat</span>
-          {account.canWrite ? (
+          {role === 'writer' ? (
             <>
               <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenEditor}>
                 Buat karya baru
@@ -248,6 +288,10 @@ export function Overview({
                 Lihat semua karya
               </button>
             </>
+          ) : staff && queueData && queueData.total > 0 ? (
+            <button type="button" className="penalis-button penalis-button--primary" onClick={onOpenReview}>
+              Buka antrean review
+            </button>
           ) : null}
           <button type="button" className="penalis-button penalis-button--ghost" onClick={onOpenNotifications}>
             Lihat semua notifikasi
@@ -284,7 +328,9 @@ export function Overview({
             <ErrorBanner message={notificationsError} onRetry={() => void loadNotifications()} />
           ) : visibleNotifications.length === 0 ? (
             <p className="penalis-muted">
-              Belum ada notifikasi. Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.
+              {staff
+                ? 'Karya tulis baru dan revisi yang menunggu keputusanmu akan muncul di sini.'
+                : 'Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.'}
             </p>
           ) : (
             <NotificationList
@@ -299,12 +345,14 @@ export function Overview({
         </Panel>
       ) : null}
 
-      {/* Writer-only panel: a reviewer has no articles of their own here. */}
-      {!isReviewerOnly ? (
+      {/* Writer-only panel: staff have no articles of their own here. */}
+      {!staff ? (
         <Panel title="Karya terbaru">
-          {!account.canWrite ? (
+          {role !== 'writer' ? (
             <p className="penalis-muted">
-              Kamu dapat menulis dan submit karya tulismu setelah alamat email kamu dikonfirmasi.
+              {role === 'suspended'
+                ? 'Akun kamu ditangguhkan, jadi kamu belum dapat mengelola karya tulis.'
+                : 'Kamu dapat menulis dan submit karya tulismu setelah alamat email kamu dikonfirmasi.'}
             </p>
           ) : loading ? (
             <Spinner label="Memuat karya tulismu…" />

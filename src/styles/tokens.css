@@ -55,4 +55,17 @@
   --penalis-shadow-bar-bottom: 0 -4px 16px rgba(36, 31, 26, 0.1);
   --penalis-accent-shadow: 0 1px 3px rgba(124, 58, 237, 0.06);
   --penalis-accent-ring: 0 0 0 3px rgba(124, 58, 237, 0.15);
+
+  /*
+   * Senator (staff) accent. The dashboard serves two audiences from one URL;
+   * `.penalis-app--senator` re-points the accent tokens at this palette, so the
+   * active nav item, primary buttons, badges and focus ring all shift together
+   * without any component needing a second set of rules. The writer side keeps
+   * the purple accent declared above.
+   */
+  --penalis-senator-accent: #0f766e;
+  --penalis-senator-strong: #115e59;
+  --penalis-senator-soft: #ccfbf1;
+  --penalis-senator-border: #99f6e4;
+  --penalis-senator-soft-hover: #b8f5ea;
 }

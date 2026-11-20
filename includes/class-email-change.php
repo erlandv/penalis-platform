@@ -43,7 +43,7 @@ final class Penalis_Email_Change {
 		if ( ! self::can_change( $user_id ) ) {
 			return new WP_Error(
 				'penalis_email_change_forbidden',
-				'Alamat email akun ini belum dapat diubah. Silakan hubungi admin Penalis.',
+				'Alamat email akun ini belum dapat diubah. Silakan hubungi Senator Penalis.',
 				array( 'status' => 403 )
 			);
 		}
@@ -145,7 +145,7 @@ final class Penalis_Email_Change {
 		if ( ! self::can_change( $user_id ) ) {
 			return new WP_Error(
 				'penalis_email_change_forbidden',
-				'Alamat email akun ini belum dapat diubah. Silakan hubungi admin Penalis.',
+				'Alamat email akun ini belum dapat diubah. Silakan hubungi Senator Penalis.',
 				array( 'status' => 403 )
 			);
 		}

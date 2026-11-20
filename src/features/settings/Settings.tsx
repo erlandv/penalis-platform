@@ -9,10 +9,12 @@ import { accountApi, ApiError, notificationsApi } from '../../lib/api';
 import { getBootstrap } from '../../lib/bootstrap';
 import type {
   Account,
+  DashboardRole,
   EditorialAction,
   FieldErrors,
   NotificationPreferences,
 } from '../../lib/types';
+import { isStaffRole, roleLabel } from '../../lib/permissions';
 import {
   normalizeNotificationPreferences,
   NOTIFICATION_ACTIONS,
@@ -30,10 +32,27 @@ import { PasswordInput } from '../../components/PasswordInput';
 import { PasswordMatchHint } from '../../components/PasswordMatchHint';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 import { useToast } from '../../components/toastContext';
-import { ErrorBanner, FieldError, FieldHint, Notice, PageHeading, Panel, StatusBadge } from '../../components/ui';
+import { ErrorBanner, FieldError, FieldHint, Notice, PageHeading, Panel } from '../../components/ui';
 
-export function Settings({ account, onUpdated }: { account: Account; onUpdated: (account: Account) => void }) {
+export function Settings({
+  account,
+  role,
+  onUpdated,
+}: {
+  account: Account;
+  role: DashboardRole;
+  onUpdated: (account: Account) => void;
+}) {
   const bootstrap = getBootstrap();
+  const staff = isStaffRole(role);
+  /*
+   * A staff account only ever receives the writer actions (a submission or a
+   * resubmission); the reviewer actions are addressed to article owners. Rows
+   * for kabar that can never arrive would be dead switches.
+   */
+  const preferenceActions: EditorialAction[] = staff
+    ? NOTIFICATION_ACTIONS.filter((action) => action === 'submit' || action === 'resubmit')
+    : [...NOTIFICATION_ACTIONS];
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -322,7 +341,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
         description="Periksa informasi akun Penalis kamu, ubah username, email, dan password kamu di sini."
       />
 
-      <Panel title="Informasi Akun" aside={<StatusBadge status={account.status} label={account.statusLabel} />}>
+      <Panel title="Informasi Akun">
         <p className="penalis-muted">
           Berikut ini informasi akun Penalis kamu.
         </p>
@@ -343,21 +362,36 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
             </div>
           ) : null}
           <div>
+            <dt>Peran</dt>
+            <dd>
+              {staff
+                ? `Senator · ${roleLabel(role)}`
+                : role === 'writer'
+                  ? 'Penulis'
+                  : 'Penulis (belum aktif)'}
+            </dd>
+          </div>
+          <div>
             <dt>Status</dt>
-            <dd>{account.statusLabel}</dd>
+            <dd>{staff ? 'Aktif sebagai Senator' : account.statusLabel}</dd>
           </div>
-          <div>
-            <dt>Email terverifikasi</dt>
-            <dd>{account.emailVerified ? 'Ya' : 'Tidak'}</dd>
-          </div>
-          <div>
-            <dt>Terdaftar</dt>
-            <dd>{account.registeredAt ? formatDate(account.registeredAt) : '—'}</dd>
-          </div>
-          <div>
-            <dt>Diaktifkan</dt>
-            <dd>{account.approvedAt ? formatDate(account.approvedAt) : '—'}</dd>
-          </div>
+          {/* Verification and activation timestamps belong to the writer lifecycle only. */}
+          {!staff ? (
+            <>
+              <div>
+                <dt>Email terverifikasi</dt>
+                <dd>{account.emailVerified ? 'Ya' : 'Tidak'}</dd>
+              </div>
+              <div>
+                <dt>Terdaftar</dt>
+                <dd>{account.registeredAt ? formatDate(account.registeredAt) : '—'}</dd>
+              </div>
+              <div>
+                <dt>Diaktifkan</dt>
+                <dd>{account.approvedAt ? formatDate(account.approvedAt) : '—'}</dd>
+              </div>
+            </>
+          ) : null}
         </dl>
       </Panel>
 
@@ -461,7 +495,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
             </div>
           </form>
         ) : (
-          <p className="penalis-muted">Username akun ini belum dapat diubah. Hubungi admin Penalis.</p>
+          <p className="penalis-muted">Username akun ini belum dapat diubah. Hubungi Senator Penalis.</p>
         )}
       </Panel>
 
@@ -562,7 +596,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
           </>
         ) : (
           <p className="penalis-muted">
-            Alamat email akun ini belum dapat diubah dari dashboard. Silakan hubungi admin Penalis jika perlu
+            Alamat email akun ini belum dapat diubah dari dashboard. Silakan hubungi Senator Penalis jika perlu
             diperbarui.
           </p>
         )}
@@ -624,8 +658,9 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
 
       <Panel title="Preferensi Notifikasi">
         <p className="penalis-muted">
-          Pilih kabar mana yang tetap kamu terima. Mematikan salah satu kanal hanya menghentikan
-          pengiriman kabar itu; status karya tulis tetap dapat dilihat di halaman Notifikasi.
+          {staff
+            ? 'Pilih kabar mana yang tetap kamu terima sebagai Senator. Mematikan salah satu kanal hanya menghentikan pengiriman kabar itu; antrean review tetap dapat dibuka dari navigasi.'
+            : 'Pilih kabar mana yang tetap kamu terima. Mematikan salah satu kanal hanya menghentikan pengiriman kabar itu; status karya tulis tetap dapat dilihat di halaman Notifikasi.'}
         </p>
 
         <form onSubmit={(event) => void savePreferences(event)} className="penalis-preferences">
@@ -639,7 +674,7 @@ export function Settings({ account, onUpdated }: { account: Account; onUpdated: 
                 </tr>
               </thead>
               <tbody>
-                {NOTIFICATION_ACTIONS.map((action) => (
+                {preferenceActions.map((action) => (
                   <tr key={action}>
                     <th scope="row">{NOTIFICATION_ACTION_LABELS[action]}</th>
                     <td data-label="Dashboard">

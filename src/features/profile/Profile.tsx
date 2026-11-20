@@ -239,7 +239,7 @@ export function Profile({
             aria-invalid={Boolean(errors.instagram)}
           />
           <FieldHint id="instagram-hint">
-            Opsional, digunakan untuk keperluan internal admin Penalis.
+            Opsional, digunakan untuk keperluan internal Senator Penalis.
           </FieldHint>
           <FieldError errors={errors} name="instagram" />
         </label>

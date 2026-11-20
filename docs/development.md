@@ -98,8 +98,13 @@ composer check           # Run composer lint + php tests/run-tests.php
   normalization (`html.test.ts`), formatting (`format.test.ts`), public display
   name derivation (`profile.test.ts`), image crop math (`crop.test.ts`),
   lazy-chunk retry/preload helpers (`lazyWithRetry.test.ts`), public authors
-  URL query state (`src/authors/query.test.ts`), and notification feed
-  filtering/grouping (`src/features/notifications/query.test.ts`).
+  URL query state (`src/authors/query.test.ts`), notification feed
+  filtering/grouping (`src/features/notifications/query.test.ts`), and the
+  dashboard role model (`permissions.test.ts`, `navigation.test.ts`).
+- `permissions.test.ts` pins the rule that matters most: a staff account that
+  also carries writer access still resolves to `administrator`/`editor`, so the
+  writer UI never opens for it. `navigation.test.ts` pins the per-role nav sets,
+  including the absence of a "Buat Karya" destination.
 - Date/time tests pass an explicit `timeZone` option (`Asia/Jakarta`, `UTC`) so
   assertions are deterministic regardless of the machine running the suite.
 
@@ -234,14 +239,18 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
      reviewers (administrators and editors) receive a submission email, and the
      **Penalis** admin menu shows a pending badge.
 5. **Editorial Review: Request Changes & Resubmission**
-   - As a reviewer (administrator or editor), open **Penalis → Review Karya
+   - As a Senator (administrator or editor), open **Penalis → Review Karya
      Tulis**, select the submission, enter feedback, click **Minta revisi**, and
      confirm in the dialog.
    - Verify the writer receives an email and a compact unread notification on
      the dashboard **Ringkasan** screen, can edit the article again, and can
      click **Submit Ulang**.
+   - In `/dashboard/`, verify the Senator experience: the title reads
+     **Dashboard Senator** with a role chip, the navigation is Ringkasan /
+     Review Karya / Notifikasi / Pengaturan only, and a deep link to
+     `?view=editor` lands on Ringkasan with an explanatory notice.
 6. **Editorial Review: Approval & Read-Only Published State**
-   - As a reviewer (administrator or editor), click **Setujui dan terbitkan**
+   - As a Senator (administrator or editor), click **Setujui dan terbitkan**
      and confirm.
    - Verify the article is published on the public site, the writer receives a
      publication notification, and the article remains read-only to the writer

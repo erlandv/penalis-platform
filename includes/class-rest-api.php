@@ -894,6 +894,7 @@ final class Penalis_Rest_Api {
 				'authorUrl'               => get_author_posts_url( $user_id ),
 				'status'                  => $status,
 				'statusLabel'             => $status_label,
+				'role'                    => Penalis_Policy::dashboard_role( $is_admin, $is_reviewer, $status, $can_write ),
 				'isAdministrator'         => $is_admin,
 				'isReviewer'              => $is_reviewer,
 				'canWrite'                => $can_write,
@@ -1453,7 +1454,7 @@ final class Penalis_Rest_Api {
 		return self::apply_writer_editorial_action(
 			(int) $request->get_param( 'id' ),
 			Penalis_Editorial_Policy::ACTION_SUBMIT,
-			'Karya tulis kamu telah di-submit dan sedang menunggu review admin.'
+			'Karya tulis kamu telah di-submit dan sedang menunggu review Senator.'
 		);
 	}
 
@@ -1467,7 +1468,7 @@ final class Penalis_Rest_Api {
 		return self::apply_writer_editorial_action(
 			(int) $request->get_param( 'id' ),
 			Penalis_Editorial_Policy::ACTION_RESUBMIT,
-			'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.'
+			'Revisi karya tulis kamu telah di-submit ulang untuk di-review Senator.'
 		);
 	}
 
@@ -1605,7 +1606,7 @@ final class Penalis_Rest_Api {
 	public static function reject_legacy_publish( $request ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- Route callback signature.
 		return new WP_Error(
 			'penalis_publish_forbidden',
-			'Penerbitan karya tulis dilakukan oleh admin melalui alur review karya tulis.',
+			'Penerbitan karya tulis dilakukan oleh Senator melalui alur review karya tulis.',
 			array( 'status' => 403 )
 		);
 	}
@@ -1936,7 +1937,7 @@ final class Penalis_Rest_Api {
 			} elseif ( Penalis_Editorial_Policy::is_writer_action( $action ) ) {
 				$actor_name = 'Penulis';
 			} else {
-				$actor_name = 'Admin Penalis';
+				$actor_name = 'Senator Penalis';
 			}
 
 			$items[] = array(

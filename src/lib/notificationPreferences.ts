@@ -25,8 +25,8 @@ export const NOTIFICATION_ACTIONS: EditorialAction[] = [
 export const NOTIFICATION_ACTION_LABELS: Record<EditorialAction, string> = {
   submit: 'Karya di-submit untuk review',
   resubmit: 'Karya di-submit ulang',
-  request_changes: 'Reviewer meminta revisi',
-  reject: 'Karya ditolak reviewer',
+  request_changes: 'Senator meminta revisi',
+  reject: 'Karya ditolak Senator',
   reopen: 'Karya dibuka kembali',
   approve: 'Karya disetujui dan terbit',
 };

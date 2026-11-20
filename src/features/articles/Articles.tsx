@@ -88,8 +88,8 @@ export function Articles({
       showToast(
         result.message ||
           (isResubmit
-            ? 'Revisi karya tulis kamu telah di-submit ulang untuk di-review admin.'
-            : 'Karya tulis kamu telah di-submit dan sedang menunggu review admin.'),
+            ? 'Revisi karya tulis kamu telah di-submit ulang untuk di-review Senator.'
+            : 'Karya tulis kamu telah di-submit dan sedang menunggu review Senator.'),
       );
       setPending(null);
       await load();
@@ -132,7 +132,7 @@ export function Articles({
     <div className="penalis-stack">
       <PageHeading
         title="Daftar Karya Tulis"
-        description="Lihat dan kelola daftar karya tulismu di sini. Karya yang sudah terbit bersifat read-only; hubungi admin Penalis jika memerlukan perubahan."
+        description="Lihat dan kelola daftar karya tulismu di sini. Karya yang sudah terbit bersifat read-only; hubungi Senator Penalis jika memerlukan perubahan."
         action={
           <button type="button" className="penalis-button penalis-button--primary" onClick={onCreate}>
             Buat Karya Baru
@@ -314,12 +314,12 @@ export function Articles({
           description={
             <>
               <p>
-                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim ke antrean review admin
-                Penalis.
+                <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim ke antrean review
+                Senator Penalis.
               </p>
               <p className="penalis-muted">
-                Selama proses review berlangsung, karya tulis dikunci dari perubahan sampai admin menyetujui,
-                meminta revisi, atau menolak.
+                Selama proses review berlangsung, karya tulis dikunci dari perubahan sampai Senator
+                menyetujui, meminta revisi, atau menolak.
               </p>
             </>
           }
@@ -337,11 +337,11 @@ export function Articles({
           description={
             <>
               <p>
-                Revisi untuk <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim kembali ke antrean
-                review admin Penalis.
+                Revisi untuk <strong>{pending.article.title || 'Tanpa judul'}</strong> akan dikirim kembali ke
+                antrean review Senator Penalis.
               </p>
               <p className="penalis-muted">
-                Pastikan kamu sudah memperbarui karya tulis sesuai catatan review admin sebelum submit ulang.
+                Pastikan kamu sudah memperbarui karya tulis sesuai catatan review Senator sebelum submit ulang.
               </p>
             </>
           }

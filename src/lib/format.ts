@@ -275,3 +275,28 @@ export function decodeEntities(value: string): string {
     },
   );
 }
+
+/**
+ * Return a time-of-day Indonesian greeting using the caller's local clock.
+ *
+ * Boundaries follow Indonesian day parts: pagi (04–10), siang (11–14),
+ * sore (15–17), and malam (18–03).
+ */
+export function getTimeGreeting(date: Date = new Date()): string {
+  const target = Number.isNaN(date.getTime()) ? new Date() : date;
+  const hour = target.getHours();
+
+  if (hour >= 4 && hour < 11) {
+    return 'Selamat pagi';
+  }
+
+  if (hour >= 11 && hour < 15) {
+    return 'Selamat siang';
+  }
+
+  if (hour >= 15 && hour < 18) {
+    return 'Selamat sore';
+  }
+
+  return 'Selamat malam';
+}

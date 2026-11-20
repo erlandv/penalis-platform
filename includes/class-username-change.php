@@ -49,7 +49,7 @@ final class Penalis_Username_Change {
 		if ( ! self::can_change( $user_id ) ) {
 			return new WP_Error(
 				'penalis_username_forbidden',
-				'Username akun ini belum dapat diubah. Silakan hubungi admin Penalis.',
+				'Username akun ini belum dapat diubah. Silakan hubungi Senator Penalis.',
 				array( 'status' => 403 )
 			);
 		}

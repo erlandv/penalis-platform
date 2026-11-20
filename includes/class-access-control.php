@@ -200,7 +200,7 @@ final class Penalis_Access_Control {
 			if ( ! Penalis_Policy::can_login( $status, Penalis_Account_Status::is_access_enabled( $user->ID ) ) ) {
 				return new WP_Error(
 					'penalis_login_blocked',
-					'Akun ini tidak dapat login. Silakan hubungi admin Penalis.'
+					'Akun ini tidak dapat login. Silakan hubungi Senator Penalis.'
 				);
 			}
 
@@ -217,7 +217,7 @@ final class Penalis_Access_Control {
 
 			return new WP_Error(
 				'penalis_login_blocked',
-				'Akun ini tidak dapat login. Silakan hubungi admin Penalis.'
+				'Akun ini tidak dapat login. Silakan hubungi Senator Penalis.'
 			);
 		}
 
@@ -225,7 +225,7 @@ final class Penalis_Access_Control {
 		if ( in_array( Penalis_Roles::ROLE, (array) $user->roles, true ) ) {
 			return new WP_Error(
 				'penalis_login_blocked',
-				'Akun ini tidak dapat login. Silakan hubungi admin Penalis.'
+				'Akun ini tidak dapat login. Silakan hubungi Senator Penalis.'
 			);
 		}
 
@@ -474,7 +474,7 @@ final class Penalis_Access_Control {
 			if ( $target && Penalis_Article_Takedown::is_protected_post( $target ) ) {
 				return new WP_Error(
 					'penalis_published_delete_denied',
-					'Karya tulis yang sudah terbit tidak dapat dihapus penulis. Hubungi admin jika ada yang perlu diperbaiki.',
+					'Karya tulis yang sudah terbit tidak dapat dihapus penulis. Hubungi Senator Penalis jika ada yang perlu diperbaiki.',
 					array( 'status' => 403 )
 				);
 			}
@@ -725,7 +725,7 @@ final class Penalis_Access_Control {
 			if ( 'publish' === $requested_status ) {
 				return new WP_Error(
 					'penalis_publish_forbidden',
-					'Karya tulis harus disetujui admin sebelum diterbitkan.',
+					'Karya tulis harus disetujui Senator sebelum diterbitkan.',
 					array( 'status' => 403 )
 				);
 			}

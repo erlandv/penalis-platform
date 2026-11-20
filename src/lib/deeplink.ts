@@ -79,6 +79,33 @@ export function readParam(name: string): string | null {
 }
 
 /**
+ * Read the `id` parameter as a positive article ID.
+ *
+ * Both article-carrying views use it: `?view=editor&id=<post_id>` for the
+ * writer's draft and `?view=review&id=<post_id>` for the reviewer reader. A
+ * missing, non-numeric, or non-positive value means "no article", which is the
+ * list/blank-editor state rather than an error.
+ *
+ * @return The article ID, or undefined when the parameter is absent or invalid.
+ */
+export function readArticleId(): number | undefined {
+  return parseArticleId(window.location.search);
+}
+
+/**
+ * Parse a query string for the article `id`.
+ *
+ * Kept pure so it can be unit tested without a DOM.
+ *
+ * @param search Query string, with or without the leading `?`.
+ * @return The article ID, or undefined when the parameter is absent or invalid.
+ */
+export function parseArticleId(search: string): number | undefined {
+  const value = Number(new URLSearchParams(search).get('id'));
+  return Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+/**
  * Whether a flag parameter is present.
  *
  * @param name Parameter name.

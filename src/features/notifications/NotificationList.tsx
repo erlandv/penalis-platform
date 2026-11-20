@@ -8,7 +8,7 @@
 
 import type { Account, DashboardNotification } from '../../lib/types';
 import { formatDateTime } from '../../lib/format';
-import { canReview } from '../../lib/permissions';
+import { isStaffRole, resolveDashboardRole } from '../../lib/permissions';
 import { StatusBadge } from '../../components/ui';
 
 export function NotificationList({
@@ -18,7 +18,6 @@ export function NotificationList({
   onMarkRead,
   onOpenArticle,
   compact = false,
-  showAdminLink = true,
 }: {
   items: DashboardNotification[];
   account: Account;
@@ -27,18 +26,19 @@ export function NotificationList({
   onOpenArticle: (item: DashboardNotification) => void;
   /** Preview mode: clamped message, no per-row actions, whole row opens the article. */
   compact?: boolean;
-  /**
-   * Whether to keep the wp-admin review link alongside the SPA action.
-   * Disabled in the header bell dropdown so reviewers stay inside the dashboard.
-   */
-  showAdminLink?: boolean;
 }) {
+  /*
+   * Who is looking decides what a row offers. Both audiences land on the
+   * article the notification is about: a writer opens their own draft in the
+   * editor, a Senator opens that submission in the reviewer reader — the same
+   * workspace "Baca karya" opens from the queue. The label says so, because
+   * "Buka antrean review" promised a list and delivered a search.
+   */
+  const staff = isStaffRole(resolveDashboardRole(account));
+
   return (
     <ul className={`penalis-notification-list ${compact ? 'is-compact' : ''}`}>
       {items.map((item) => {
-        const isReviewNotification =
-          canReview(account) &&
-          (!account.canWrite || item.type === 'submit' || item.type === 'resubmit');
 
         return (
           <li
@@ -74,33 +74,21 @@ export function NotificationList({
 
             {compact ? null : (
               <div className="penalis-notification-item__actions">
-                {isReviewNotification ? (
+                {/*
+                 * Every editorial notification is about one article, and the
+                 * server rejects an entry with `article_id = 0`. The guard is
+                 * future-proofing: if a non-article notification is ever added,
+                 * its row must not offer a "Baca karya" button that opens an
+                 * empty reader.
+                 */}
+                {item.articleId > 0 ? (
                   <button
                     type="button"
                     className="penalis-notification-action penalis-notification-action--primary"
                     onClick={() => onOpenArticle(item)}
                   >
-                    Buka antrean review
+                    {staff ? 'Baca karya' : 'Buka karya'}
                   </button>
-                ) : account.canWrite ? (
-                  <button
-                    type="button"
-                    className="penalis-notification-action penalis-notification-action--primary"
-                    onClick={() => onOpenArticle(item)}
-                  >
-                    Buka karya
-                  </button>
-                ) : null}
-
-                {showAdminLink && item.reviewUrl ? (
-                  <a
-                    className={`penalis-notification-action ${
-                      isReviewNotification || account.canWrite ? '' : 'penalis-notification-action--primary'
-                    }`.trim()}
-                    href={item.reviewUrl}
-                  >
-                    Review di WP Admin
-                  </a>
                 ) : null}
 
                 {!item.isRead ? (

@@ -87,29 +87,35 @@
  * viewport. Anchoring it to the header instead lets it span the content width
  * at any viewport size, with no magic offset for the account menu.
  *
- * The header also wraps here. The title keeps its own line and the meta drops
- * to a second line only when the two genuinely cannot share one, which is
- * better than letting "Dashboard Penulis" break across two lines.
+ * The title stacks vertically above the role chip on the left so the two stay
+ * aligned on the same row as the bell and account menu on the right. At ~49px
+ * stacked height vs. the 44px touch targets on the right, both sides balance
+ * without pushing the navigation strip down onto an extra line.
  */
 @media (max-width: 600px) {
   .penalis-header {
     position: relative;
-    flex-wrap: wrap;
     gap: 0.5rem;
   }
 
-  /*
-   * The title is sized to stay on one line next to the bell and the account
-   * avatar at 320px. At the desktop clamp() it measured 207px against a 291px
-   * content width, so it wrapped to two lines as soon as the bell was added.
-   */
-  .penalis-header__title h1 {
-    font-size: 1.25rem;
+  .penalis-header__title {
+    flex-direction: column;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    flex: 1 1 auto;
+    gap: 0.25rem;
   }
 
-  /* Keep the meta right-aligned when it wraps onto its own line. */
-  .penalis-header__meta {
-    margin-left: auto;
+  /*
+   * Keep the heading slightly larger than section `<h2>`s while staying on one
+   * line next to the bell and account trigger.
+   */
+  .penalis-header__title h1 {
+    font-size: 1.5rem;
+  }
+
+  .penalis-role-chip {
+    font-size: 0.68rem;
   }
 
   .penalis-bell {
@@ -125,6 +131,23 @@
   .penalis-bell__menu {
     width: 100%;
     max-height: min(26rem, calc(100vh - 9rem));
+  }
+}
+
+/*
+ * Very narrow phones (320px). Shrink the longest chip label
+ * ("Senator · Administrator") and step the heading down slightly so both stay
+ * on single lines beside the 44px bell and account triggers.
+ */
+@media (max-width: 380px) {
+  .penalis-role-chip {
+    font-size: 0.64rem;
+    padding: 0.14rem 0.45rem;
+    letter-spacing: 0;
+  }
+
+  .penalis-header__title h1 {
+    font-size: 1.4rem;
   }
 }
 

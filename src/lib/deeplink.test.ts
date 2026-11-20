@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, isTokenShaped } from './deeplink';
+import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, isTokenShaped, parseArticleId } from './deeplink';
 
 /**
  * A real token is 32 random bytes encoded as URL-safe base64 without padding,
@@ -83,5 +83,26 @@ describe('DEEPLINK', () => {
     expect(DEEPLINK.editorFocus).toBe('penalis_focus');
     expect(EDITOR_FOCUS_FEEDBACK).toBe('feedback');
     expect(isTokenShaped(EDITOR_FOCUS_FEEDBACK)).toBe(false);
+  });
+});
+
+describe('parseArticleId', () => {
+  it('reads a positive id from the query string', () => {
+    expect(parseArticleId('?view=review&id=600')).toBe(600);
+  });
+
+  it('returns undefined when the parameter is absent', () => {
+    expect(parseArticleId('?view=review')).toBeUndefined();
+    expect(parseArticleId('')).toBeUndefined();
+  });
+
+  it('rejects zero, negative, and non-numeric values', () => {
+    for (const value of ['0', '-3', 'abc', '']) {
+      expect(parseArticleId(`?view=review&id=${value}`)).toBeUndefined();
+    }
+  });
+
+  it('accepts a search string without the leading question mark', () => {
+    expect(parseArticleId('view=review&id=12')).toBe(12);
   });
 });

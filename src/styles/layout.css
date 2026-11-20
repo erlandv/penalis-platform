@@ -31,6 +31,34 @@
   gap: 0.5rem;
 }
 
+/*
+ * Role groups.
+ *
+ * A role only gets the groups it can use, so nothing is rendered disabled. The
+ * group heading is what makes the difference between "places to work on my
+ * writing" and "places to curate" legible at a glance.
+ */
+.penalis-nav__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.penalis-nav__group + .penalis-nav__group {
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--penalis-border);
+}
+
+.penalis-nav__group-label {
+  margin: 0 0 0 0.85rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--penalis-muted);
+}
+
 .penalis-nav__hint {
   display: none;
 }

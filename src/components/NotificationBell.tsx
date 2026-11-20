@@ -17,6 +17,7 @@
  */
 
 import type { Account, DashboardNotification } from '../lib/types';
+import { isStaffRole, resolveDashboardRole } from '../lib/permissions';
 import { Icon } from './icons';
 import { ErrorBanner, MarkAllReadButton, Spinner } from './ui';
 import { useDisclosure } from './useDisclosure';
@@ -52,6 +53,7 @@ export function NotificationBell({
 
   const { data, loading, error, markingId, unreadCount, load, markRead } = controller;
 
+  const staff = isStaffRole(resolveDashboardRole(account));
   const preview = (data?.items ?? []).slice(0, PREVIEW_LIMIT);
   const hasMore = (data?.items.length ?? 0) > PREVIEW_LIMIT;
 
@@ -107,15 +109,15 @@ export function NotificationBell({
                 <ErrorBanner message={error} onRetry={() => void load()} />
               ) : preview.length === 0 ? (
                 <p className="penalis-muted penalis-bell__empty">
-                  Belum ada notifikasi. Status submit karya tulis, catatan revisi, dan penerbitan
-                  akan muncul di sini.
+                  {staff
+                    ? 'Belum ada notifikasi. Karya tulis baru dan revisi yang menunggu keputusanmu akan muncul di sini.'
+                    : 'Belum ada notifikasi. Status submit karya tulis, catatan revisi, dan penerbitan akan muncul di sini.'}
                 </p>
               ) : (
                 <NotificationList
                   items={preview}
                   account={account}
                   markingId={markingId}
-                  showAdminLink={false}
                   onMarkRead={(id) => void markRead(id)}
                   onOpenArticle={(item) => {
                     close();

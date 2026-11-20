@@ -10,6 +10,19 @@ export type AccountStatus =
 
 export type DisplayNameMode = 'auto' | 'first' | 'last' | 'username' | 'custom';
 
+/**
+ * The audience the dashboard renders for.
+ *
+ * `administrator` and `editor` are the staff side — called **Senator** in
+ * user-facing copy. Penalis policy is that a staff account never writes, so
+ * these roles have no writer views at all. `pending` and `suspended` are writer
+ * accounts that cannot write yet (or any more).
+ *
+ * The server resolves this in `Penalis_Policy::dashboard_role()`; the client
+ * mirrors it in `resolveDashboardRole()` for payloads from older deployments.
+ */
+export type DashboardRole = 'administrator' | 'editor' | 'writer' | 'pending' | 'suspended';
+
 export interface BootstrapUser {
   id: number;
   displayName: string;
@@ -50,7 +63,8 @@ export interface DashboardBootstrap {
   wpRestUrl: string;
   nonce: string;
   isLoggedIn: boolean;
-  canWrite: boolean;
+  /** Server-resolved role, so the shell can paint the right frame before `/account` lands. */
+  role?: DashboardRole;
   status: AccountStatus;
   statusLabel: string;
   registration: boolean;
@@ -180,10 +194,13 @@ export interface Account {
   instagram: string;
   status: AccountStatus;
   statusLabel: string;
+  /** Authoritative dashboard role, resolved by the server. */
+  role: DashboardRole;
   isAdministrator: boolean;
   /** Whether this account may review submissions (administrator or editor). */
   isReviewer: boolean;
   canWrite: boolean;
+  /** Whether the dashboard API admits this account at all (client mirror of `require_logged_in()`). */
   canView: boolean;
   emailVerified: boolean;
   needsPassword: boolean;

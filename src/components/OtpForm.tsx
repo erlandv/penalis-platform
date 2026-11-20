@@ -261,7 +261,7 @@ export function OtpForm({
           ))}
         </div>
         <FieldHint id={`${fieldId}-hint`}>
-          Tempel atau ketik kode dari email.
+          Paste atau ketik kode dari email.
         </FieldHint>
         {error ? (
           <p className="penalis-field-error" id={`${fieldId}-error`}>

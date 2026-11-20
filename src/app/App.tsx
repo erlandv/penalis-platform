@@ -2,13 +2,26 @@
  * Dashboard application root.
  */
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 
 import { accountApi, ApiError, passwordApi } from '../lib/api';
 import { getBootstrap } from '../lib/bootstrap';
-import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, readParam } from '../lib/deeplink';
-import { canReceiveNotifications, canReview } from '../lib/permissions';
-import type { Account, DashboardNotification, EditorFocus, FieldErrors, ViewName } from '../lib/types';
+import { DEEPLINK, EDITOR_FOCUS_FEEDBACK, readArticleId, readParam } from '../lib/deeplink';
+import { isViewName } from '../lib/navigation';
+import {
+  canAccessView,
+  canReceiveNotifications,
+  isStaffRole,
+  resolveDashboardRole,
+  resolveEffectiveView,
+} from '../lib/permissions';
+import type {
+  Account,
+  DashboardNotification,
+  EditorFocus,
+  FieldErrors,
+  ViewName,
+} from '../lib/types';
 import { hasErrors, validatePasswordPair } from '../lib/validation';
 import { ErrorBanner, Notice, Spinner } from '../components/ui';
 import { PasswordPairFields } from '../components/PasswordPairFields';
@@ -159,9 +172,42 @@ export function App() {
   const [account, setAccount] = useState<Account | null>(null);
   const [loading, setLoading] = useState(bootstrap.isLoggedIn);
   const [error, setError] = useState('');
-  const [view, setView] = useState<ViewName>('overview');
-  const [editingId, setEditingId] = useState<number | undefined>(undefined);
-  const [editorFocus, setEditorFocus] = useState<EditorFocus>(null);
+  const [view, setView] = useState<ViewName>(() => {
+    const requested = readParam('view');
+    return isViewName(requested) ? requested : 'overview';
+  });
+  const [editingId, setEditingId] = useState<number | undefined>(() => {
+    // Only a `?view=editor` link describes the editor; an `id` on any other
+    // view belongs to that view (the reviewer reader), not to this state.
+    if (readParam('view') !== 'editor') {
+      return undefined;
+    }
+
+    return readArticleId();
+  });
+  const [editorFocus, setEditorFocus] = useState<EditorFocus>(() =>
+    readParam(DEEPLINK.editorFocus) === EDITOR_FOCUS_FEEDBACK ? 'feedback' : null,
+  );
+  /*
+   * Article open in the reviewer reader (`?view=review&id=<post_id>`).
+   *
+   * The writer editor already carries its article in the URL, so a
+   * notification deep-links straight to the draft. The reviewer reader used to
+   * be component state only, which meant a staff notification could not point
+   * at one submission — the button opened the queue and the Senator had to
+   * find the article again by hand. Mirroring the writer's `id` parameter gives
+   * the reader the same linkability (shareable URL, working Back) and lets the
+   * notification row land on the exact manuscript.
+   */
+  const [reviewingId, setReviewingId] = useState<number | undefined>(() => {
+    // Only a `?view=review` link describes the reader; an `id` on any other
+    // view belongs to that view (the editor), not to this state.
+    if (readParam('view') !== 'review') {
+      return undefined;
+    }
+
+    return readArticleId();
+  });
   const [signedOut, setSignedOut] = useState(!bootstrap.isLoggedIn);
   const [blocked, setBlocked] = useState(false);
 
@@ -228,35 +274,74 @@ export function App() {
     void loadAccount();
   }, [bootstrap.isLoggedIn, loadAccount]);
 
-  // Support deep links such as ?view=editor&id=123 from the articles API.
+  /*
+   * Back/Forward support.
+   *
+   * User-initiated navigation pushes a history entry, so the browser buttons
+   * have to put the view back — a curation round is Ringkasan -> Review -> read
+   * -> back, and without this the first Back leaves the dashboard entirely.
+   */
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const requested = params.get('view');
-    const requestedId = Number(params.get('id'));
+    const onPopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const requested = params.get('view');
 
-    if (
-      requested === 'editor' ||
-      requested === 'articles' ||
-      requested === 'media' ||
-      requested === 'profile' ||
-      requested === 'settings' ||
-      requested === 'notifications' ||
-      requested === 'review'
-    ) {
-      setView(requested);
-      if (requested === 'editor' && Number.isFinite(requestedId) && requestedId > 0) {
-        setEditingId(requestedId);
-        if (readParam(DEEPLINK.editorFocus) === EDITOR_FOCUS_FEEDBACK) {
-          setEditorFocus('feedback');
-        }
+      if (!isViewName(requested)) {
+        setView('overview');
+        setEditingId(undefined);
+        setEditorFocus(null);
+        setReviewingId(undefined);
+        return;
       }
-    }
+
+      const articleId = readArticleId();
+
+      setView(requested);
+      setEditingId(requested === 'editor' ? articleId : undefined);
+      setEditorFocus(
+        requested === 'editor' && readParam(DEEPLINK.editorFocus) === EDITOR_FOCUS_FEEDBACK ? 'feedback' : null,
+      );
+      setReviewingId(requested === 'review' ? articleId : undefined);
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  /*
+   * Keep the address bar honest.
+   *
+   * A deep link or a stale bookmark can ask for a view the role cannot render
+   * (a staff account opening ?view=editor). The screen is clamped to Ringkasan
+   * below; this rewrites the URL so a reload does not re-request it. The `view`
+   * state is deliberately left alone, so the notice explaining the redirect
+   * stays on screen until the visitor navigates somewhere.
+   */
+  useEffect(() => {
+    if (!account) {
+      return;
+    }
+
+    const resolvedRole = resolveDashboardRole(account);
+    const effective = resolveEffectiveView(resolvedRole, view);
+    if (effective === view) {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    url.searchParams.delete('id');
+    url.searchParams.delete(DEEPLINK.editorFocus);
+    if (effective !== 'overview') {
+      url.searchParams.set('view', effective);
+    }
+    window.history.replaceState({ view: effective }, '', url.toString());
+  }, [account, view]);
 
   // Preload the editor chunk during browser idle time for active writers so
   // navigating to the editor is instant and immune to mobile network drops.
   useEffect(() => {
-    if (!account?.canWrite) {
+    if (!account || resolveDashboardRole(account) !== 'writer') {
       return;
     }
 
@@ -280,7 +365,7 @@ export function App() {
       preloadEditor();
     }, 2000);
     return () => clearTimeout(timer);
-  }, [account?.canWrite]);
+  }, [account]);
 
   const handleNotificationsChanged = useCallback((unreadCount: number) => {
     setAccount((prev) => {
@@ -319,7 +404,7 @@ export function App() {
           <h1>Akun tidak tersedia</h1>
           <p className="penalis-muted">
             Akun ini tidak dapat mengakses dashboard penulis. Jika kamu merasa ini keliru, silakan hubungi
-            admin Penalis.
+            Senator Penalis.
           </p>
           <a className="penalis-button penalis-button--ghost" href={bootstrap.homeUrl}>
             Kembali ke beranda
@@ -352,12 +437,69 @@ export function App() {
     );
   }
 
+  const role = resolveDashboardRole(account);
+
+  /*
+   * `canView` is the client mirror of `Penalis_Rest_Api::require_logged_in()`.
+   * A suspended account is refused by the API but still gets the explanatory
+   * banner, so it is exempt here; anything else the API would not admit gets
+   * the same terminal screen the 403 response produces.
+   */
+  if (!account.canView && role !== 'suspended') {
+    return (
+      <div className="penalis-auth">
+        <div className="penalis-auth__panel">
+          <h1>Akun tidak tersedia</h1>
+          <p className="penalis-muted">
+            Akun ini tidak dapat mengakses dashboard Penalis. Jika kamu merasa ini keliru, silakan hubungi
+            Senator Penalis.
+          </p>
+          <a className="penalis-button penalis-button--ghost" href={bootstrap.homeUrl}>
+            Kembali ke beranda
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const effectiveView = resolveEffectiveView(role, view);
+  const deniedView = effectiveView !== view;
+
+  /**
+   * Push the current view into the address bar.
+   *
+   * `pushState` for navigation the visitor chose, so Back/Forward walk the
+   * dashboard; `replaceState` only for a mid-screen update such as the editor
+   * gaining the draft id it just created.
+   */
+  const writeViewUrl = (
+    next: ViewName,
+    options: { id?: number; focus?: EditorFocus; replace?: boolean } = {},
+  ) => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    url.searchParams.delete('id');
+    url.searchParams.delete(DEEPLINK.editorFocus);
+
+    if (next !== 'overview') {
+      url.searchParams.set('view', next);
+    }
+    if (next === 'editor' && options.id) {
+      url.searchParams.set('id', String(options.id));
+    }
+    if (next === 'review' && options.id) {
+      url.searchParams.set('id', String(options.id));
+    }
+    if (next === 'editor' && options.focus === 'feedback') {
+      url.searchParams.set(DEEPLINK.editorFocus, EDITOR_FOCUS_FEEDBACK);
+    }
+
+    const method = options.replace ? 'replaceState' : 'pushState';
+    window.history[method]({ view: next }, '', url.toString());
+  };
+
   const navigate = (next: ViewName) => {
-    if (
-      !account.canWrite &&
-      !['overview', 'notifications', 'profile', 'settings'].includes(next) &&
-      !(next === 'review' && canReview(account))
-    ) {
+    if (!canAccessView(role, next)) {
       return;
     }
 
@@ -366,100 +508,137 @@ export function App() {
       setEditorFocus(null);
     }
 
-    setView(next);
+    /*
+     * The nav item is the queue, not a submission: leaving Review through the
+     * menu closes any reader that a notification deep-link had opened, so the
+     * list is what the next visitor to `?view=review` sees. Re-clicking the
+     * current section must not stack duplicate history entries, so the URL is
+     * rewritten in place instead of pushed.
+     */
+    if (next === 'review') {
+      const hadReader = reviewingId !== undefined;
+      setReviewingId(undefined);
 
-    const url = new URL(window.location.href);
-    url.searchParams.delete('view');
-    url.searchParams.delete('id');
-    url.searchParams.delete(DEEPLINK.editorFocus);
-    if (next !== 'overview') {
-      url.searchParams.set('view', next);
+      if (next === view) {
+        if (hadReader) {
+          writeViewUrl('review', { replace: true });
+        }
+        return;
+      }
     }
-    window.history.replaceState({}, '', url.toString());
+
+    // Re-clicking the current section must not stack duplicate history entries.
+    if (next === view) {
+      return;
+    }
+
+    setView(next);
+    writeViewUrl(next);
   };
 
   const openEditor = (id?: number, focus: EditorFocus = null) => {
-    if (!account.canWrite) {
+    if (!canAccessView(role, 'editor')) {
       return;
     }
+
+    const sameTarget = view === 'editor' && editingId === id && editorFocus === focus;
 
     setEditingId(id);
     setEditorFocus(focus);
     setView('editor');
 
-    const url = new URL(window.location.href);
-    url.searchParams.set('view', 'editor');
-    if (id) {
-      url.searchParams.set('id', String(id));
-    } else {
-      url.searchParams.delete('id');
+    if (!sameTarget) {
+      writeViewUrl('editor', { id, focus });
     }
-    if (focus === 'feedback') {
-      url.searchParams.set(DEEPLINK.editorFocus, EDITOR_FOCUS_FEEDBACK);
-    } else {
-      url.searchParams.delete(DEEPLINK.editorFocus);
-    }
-    window.history.replaceState({}, '', url.toString());
   };
-
-  // If a deep link requested a writer-only view but the account cannot write,
-  // fall back to the overview instead of rendering an empty page.
-  const writeOnlyViews: ViewName[] = ['articles', 'editor', 'media'];
-  const effectiveView =
-    (!account.canWrite && writeOnlyViews.includes(view)) ||
-    (view === 'notifications' && !canReceiveNotifications(account)) ||
-    (view === 'review' && !canReview(account))
-      ? 'overview'
-      : view;
 
   /*
-   * A notification opens the writer's editor for the article, or the review
-   * queue for a reviewer. Reviewers without writer capabilities used to be sent
-   * to wp-admin; the queue now lives in the dashboard, so they stay in it.
+   * Open one submission in the reviewer reader.
+   *
+   * `id` is optional so the same helper serves the notification deep-link
+   * (`openReviewArticle( item.articleId )`) and the plain queue entry from the
+   * nav (`openReviewArticle()`), which must land on the list.
+   *
+   * Closing the reader replaces the history entry instead of pushing one: the
+   * reader is a sub-state of Review, so Back from the list should return to
+   * wherever the Senator came from (a notification, Ringkasan) rather than
+   * bouncing them into the article they just left.
    */
-  const openNotificationArticle = (item: DashboardNotification) => {
-    if (canReview(account) && (!account.canWrite || item.type === 'submit' || item.type === 'resubmit')) {
-      navigate('review');
-    } else if (account.canWrite) {
-      // A decision that carries revision notes opens the feedback panel.
-      openEditor(item.articleId, item.feedback ? 'feedback' : null);
-    } else if (item.reviewUrl) {
-      window.location.assign(item.reviewUrl);
+  const openReviewArticle = (id?: number, options: { replace?: boolean } = {}) => {
+    if (!canAccessView(role, 'review')) {
+      return;
+    }
+
+    const sameTarget = view === 'review' && reviewingId === id;
+
+    setReviewingId(id);
+    setView('review');
+
+    if (!sameTarget) {
+      writeViewUrl('review', { id, replace: options.replace });
     }
   };
 
-  return (
-    <ToastProvider>
-      <Shell
-        account={account}
-        view={effectiveView}
-        onNavigate={navigate}
-        notifications={notifications}
-        onOpenNotificationArticle={openNotificationArticle}
-      >
-        {effectiveView === 'notifications' ? (
-          <Notifications account={account} controller={notifications} onOpenArticle={openNotificationArticle} />
-        ) : null}
+  /*
+   * A notification opens the writer's editor for the article, or the reviewer
+   * reader for that exact submission. The two audiences are exclusive, so this
+   * is a role switch, not a capability combination.
+   *
+   * Staff used to be sent to the bare queue, which meant every notification
+   * ended in a manual search for the article it was about. The reader is the
+   * same workspace "Baca karya" opens, so the notification now lands where the
+   * decision is actually made.
+   */
+  const openNotificationArticle = (item: DashboardNotification) => {
+    if (isStaffRole(role)) {
+      openReviewArticle(item.articleId);
+      return;
+    }
 
-        {effectiveView === 'overview' ? (
+    if (role === 'writer') {
+      // A decision that carries revision notes opens the feedback panel.
+      openEditor(item.articleId, item.feedback ? 'feedback' : null);
+    }
+  };
+
+  /** Render the screen for a view. `effectiveView` is already clamped to the role. */
+  const renderView = (next: ViewName): ReactNode => {
+    switch (next) {
+      case 'overview':
+        return (
           <Overview
             account={account}
+            role={role}
             notifications={notifications}
             onOpenEditor={() => openEditor()}
             onOpenArticle={(id) => openEditor(id)}
+            onOpenReviewArticle={(id) => openReviewArticle(id)}
             onOpenArticles={() => navigate('articles')}
             onOpenNotifications={() => navigate('notifications')}
             onOpenReview={() => navigate('review')}
           />
-        ) : null}
-
-        {effectiveView === 'review' && canReview(account) ? <ReviewQueue account={account} /> : null}
-
-        {effectiveView === 'articles' && account.canWrite ? (
-          <Articles onEdit={(id) => openEditor(id)} onCreate={() => openEditor()} />
-        ) : null}
-
-        {effectiveView === 'editor' && account.canWrite ? (
+        );
+      case 'notifications':
+        return (
+          <Notifications
+            account={account}
+            role={role}
+            controller={notifications}
+            onOpenArticle={openNotificationArticle}
+          />
+        );
+      case 'review':
+        return (
+          <ReviewQueue
+            readingId={reviewingId}
+            onOpenReader={(id) => openReviewArticle(id)}
+            onCloseReader={() => openReviewArticle(undefined, { replace: true })}
+          />
+        );
+      case 'articles':
+        return <Articles onEdit={(id) => openEditor(id)} onCreate={() => openEditor()} />;
+      case 'editor':
+        return (
           <Editor
             key={`${editingId ?? 'new'}:${editorFocus ?? ''}`}
             articleId={editingId}
@@ -472,13 +651,35 @@ export function App() {
             }}
             onCancel={() => navigate('articles')}
           />
+        );
+      case 'media':
+        return <Media />;
+      case 'profile':
+        return <Profile account={account} onUpdated={setAccount} />;
+      case 'settings':
+        return <Settings account={account} role={role} onUpdated={setAccount} />;
+    }
+  };
+
+  return (
+    <ToastProvider>
+      <Shell
+        account={account}
+        role={role}
+        view={effectiveView}
+        onNavigate={navigate}
+        notifications={notifications}
+        onOpenNotificationArticle={openNotificationArticle}
+      >
+        {deniedView ? (
+          <Notice tone="info">
+            {isStaffRole(role)
+              ? 'Akun Senator tidak memiliki halaman itu. Kamu dialihkan ke Ringkasan; untuk menulis, logout lalu masuk dengan akun Penulis kamu.'
+              : 'Halaman itu tidak tersedia untuk akun kamu, jadi kamu dialihkan ke Ringkasan.'}
+          </Notice>
         ) : null}
 
-        {effectiveView === 'media' && account.canWrite ? <Media /> : null}
-
-        {effectiveView === 'profile' ? <Profile account={account} onUpdated={setAccount} /> : null}
-
-        {effectiveView === 'settings' ? <Settings account={account} onUpdated={setAccount} /> : null}
+        {renderView(effectiveView)}
       </Shell>
     </ToastProvider>
   );
