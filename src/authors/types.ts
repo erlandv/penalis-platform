@@ -33,7 +33,8 @@ export interface PublicAuthorsResponse {
 export interface PenalisAuthorsBootConfig {
   restUrl: string;
   siteName: string;
-  perPage: number;
+  perPage: number | string;
+  currentUserId?: number | string;
 }
 
 declare global {

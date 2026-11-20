@@ -6,6 +6,7 @@ import {
   buildAuthorsSearchString,
   normalizeAuthorsSort,
   parseAuthorsQuery,
+  parsePositiveInt,
   type AuthorsFilterState,
 } from './query';
 import type { AuthorsSortMode, PublicAuthorItem, PublicAuthorsResponse } from './types';
@@ -31,7 +32,8 @@ function CloseIcon(): React.ReactElement {
 export function AuthorsDirectory(): React.ReactElement {
   const boot = window.penalisAuthors;
   const restUrl = boot?.restUrl ?? '/wp-json/penalis/v1';
-  const perPage = boot?.perPage ?? 100;
+  const perPage = parsePositiveInt(boot?.perPage, 100);
+  const currentUserId = parsePositiveInt(boot?.currentUserId, 0);
 
   const initialQuery = parseAuthorsQuery(window.location.search);
 
@@ -296,48 +298,54 @@ export function AuthorsDirectory(): React.ReactElement {
       ) : (
         <>
           <div className="penalis-authors-grid">
-            {items.map((author) => (
-              <a
-                key={author.id}
-                href={author.authorUrl}
-                className="penalis-authors-card"
-              >
-                <img
-                  src={author.avatarUrl}
-                  alt={author.displayName}
-                  className="penalis-authors-avatar"
-                  width={56}
-                  height={56}
-                  loading="lazy"
-                />
-                <div className="penalis-authors-info">
-                  <div className="penalis-authors-name-row">
-                    <span className="penalis-authors-name">{author.displayName}</span>
-                    {author.isVerified && (
-                      <span
-                        className="penalis-authors-badge"
-                        title="Penulis Aktif terverifikasi"
-                        aria-label="Penulis Aktif terverifikasi"
-                      >
-                        <VerifiedBadgeIcon />
-                      </span>
-                    )}
-                    {author.isSenator && (
-                      <span
-                        className="penalis-authors-badge penalis-authors-badge--senator"
-                        title="Senator Penalis"
-                        aria-label="Senator Penalis"
-                      >
-                        <SenatorBadgeIcon />
-                      </span>
-                    )}
+            {items.map((author) => {
+              const isCurrentUser = currentUserId > 0 && author.id === currentUserId;
+              return (
+                <a
+                  key={author.id}
+                  href={author.authorUrl}
+                  className={isCurrentUser ? 'penalis-authors-card penalis-authors-card--self' : 'penalis-authors-card'}
+                >
+                  <img
+                    src={author.avatarUrl}
+                    alt={author.displayName}
+                    className="penalis-authors-avatar"
+                    width={56}
+                    height={56}
+                    loading="lazy"
+                  />
+                  <div className="penalis-authors-info">
+                    <div className="penalis-authors-name-row">
+                      <span className="penalis-authors-name">{author.displayName}</span>
+                      {author.isVerified && (
+                        <span
+                          className="penalis-authors-badge"
+                          title="Penulis Aktif terverifikasi"
+                          aria-label="Penulis Aktif terverifikasi"
+                        >
+                          <VerifiedBadgeIcon />
+                        </span>
+                      )}
+                      {author.isSenator && (
+                        <span
+                          className="penalis-authors-badge penalis-authors-badge--senator"
+                          title="Senator Penalis"
+                          aria-label="Senator Penalis"
+                        >
+                          <SenatorBadgeIcon />
+                        </span>
+                      )}
+                    </div>
+                    <div className="penalis-authors-count">
+                      {formatNumber(author.postCount)} karya · {formatNumber(author.views)} views
+                    </div>
                   </div>
-                  <div className="penalis-authors-count">
-                    {formatNumber(author.postCount)} karya · {formatNumber(author.views)} views
-                  </div>
-                </div>
-              </a>
-            ))}
+                  {isCurrentUser && (
+                    <span className="penalis-authors-self-tag">You are here!</span>
+                  )}
+                </a>
+              );
+            })}
           </div>
 
           {hasMore && (

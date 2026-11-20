@@ -25,6 +25,27 @@ export function normalizeAuthorsSort(value: string | null | undefined): AuthorsS
   return 'most_posts';
 }
 
+/**
+ * Parse a positive integer from wp_localize_script() config, which serializes
+ * top-level scalars as strings in WordPress core.
+ */
+export function parsePositiveInt(
+  value: number | string | null | undefined,
+  fallback = 0,
+): number {
+  if (typeof value === 'number') {
+    return Number.isInteger(value) && value > 0 ? value : fallback;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const parsed = Number(trimmed);
+      return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+    }
+  }
+  return fallback;
+}
+
 export function parseAuthorsQuery(searchString: string): AuthorsFilterState {
   const params = new URLSearchParams(searchString);
   const rawSearch = params.get('q') ?? '';

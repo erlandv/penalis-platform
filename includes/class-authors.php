@@ -116,9 +116,10 @@ final class Penalis_Authors {
 			'penalis-authors',
 			'penalisAuthors',
 			array(
-				'restUrl'  => esc_url_raw( rest_url( Penalis_Rest_Api::NAMESPACE_V1 ) ),
-				'siteName' => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
-				'perPage'  => Penalis_Policy::AUTHORS_PER_PAGE,
+				'restUrl'       => esc_url_raw( rest_url( Penalis_Rest_Api::NAMESPACE_V1 ) ),
+				'siteName'      => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
+				'perPage'       => Penalis_Policy::AUTHORS_PER_PAGE,
+				'currentUserId' => get_current_user_id(),
 			)
 		);
 	}

@@ -4,6 +4,7 @@ import {
   buildAuthorsSearchString,
   normalizeAuthorsSort,
   parseAuthorsQuery,
+  parsePositiveInt,
 } from './query';
 
 describe('authors query helpers', () => {
@@ -87,6 +88,18 @@ describe('authors query helpers', () => {
     ).toBe(
       'https://penalis.com/wp-json/penalis/v1/authors?sort=most_posts&senator=1&page=1&per_page=100',
     );
+  });
+
+  it('parses positive integers from both numeric and wp_localize_script string values', () => {
+    expect(parsePositiveInt(42)).toBe(42);
+    expect(parsePositiveInt('42')).toBe(42);
+    expect(parsePositiveInt(' 7 ')).toBe(7);
+    expect(parsePositiveInt('0')).toBe(0);
+    expect(parsePositiveInt(0)).toBe(0);
+    expect(parsePositiveInt(-5)).toBe(0);
+    expect(parsePositiveInt(undefined)).toBe(0);
+    expect(parsePositiveInt('100', 100)).toBe(100);
+    expect(parsePositiveInt('invalid', 100)).toBe(100);
   });
 });
 
