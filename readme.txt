@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 1.8.0
+Stable tag: 2.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,14 +124,26 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 2.0.0 =
+* Feature: Split `/dashboard/` into explicit writer (**Dashboard Penulis**) and staff (**Dashboard Senator**) modes. `Penalis_Policy::dashboard_role()` resolves one role (`administrator`, `editor`, `writer`, `pending`, `suspended`) and publishes it on `GET /account` and the SPA bootstrap, rendering a role chip, Senator teal accent palette, role-specific navigation groups, and no disabled writer entries for staff.
+* Feature: Enforce the no-hybrid-account rule in the dashboard UI. Staff accounts that also carry writer access still resolve to staff, and deep links to writer views clamp to Ringkasan with an explanatory notice and rewritten URL.
+* Feature: Add an in-dashboard **Review Karya** queue and full manuscript reader for Senators (`GET /penalis/v1/review/queue` and `POST /penalis/v1/articles/{id}/decision`), supporting approve, request-changes, and reject actions with cycle locking, deep-linked submissions (`?view=review&id=<post_id>`), and Back/Forward browser history (`pushState` + `popstate`).
+* Feature: Add submission trends and editorial review metrics analytics (`Penalis_Analytics`) to **Penalis → Ringkasan**.
+* Feature: Add published-article takedown auditing and recovery (`Penalis_Article_Takedown`) with a **Penalis → Karya Terhapus** screen, protecting published posts from writer deletion and notifying Senators when a published post is trashed.
+* Feature: Add transactional email delivery logging (`Penalis_Email_Log`) with a **Penalis → Log Email** admin screen for inspecting, filtering, and clearing log entries.
+* Feature: Add configurable rate limiting and trusted proxy IP detection (`Penalis_Rate_Limiter`) with an audit trail under **Penalis → Pengaturan**.
+* Feature: Add per-channel (dashboard and email) editorial notification preferences (`GET/POST /penalis/v1/notifications/preferences`) in Settings and read/unread filtering on the Notifications screen.
+* Feature: Add editor keyboard shortcuts (`EditorShortcutsDialog`), action confirmation dialogs, refined autosave thresholds, draft revision limits (`Penalis_Revisions`), and automatic `wp_rest` nonce refresh on session expiration.
+* Feature: Add global toast notifications (`ToastProvider`), a password strength meter with live match feedback, and a time-based Indonesian greeting on Overview.
+* Feature: Add a registration switch (`penalis_registration_enabled`), opt-in uninstall data removal settings, and expanded Simple Cloudflare Turnstile plugin status reporting under **Penalis → Pengaturan → Keamanan**.
+* Security: Scope OTP advisory locks per account (`Penalis_Otp::lock_key()`) and standardize editorial notification dispatch through the `penalis_editorial_action` hook.
+* Refactor: Enhance **Penalis → Review Karya Tulis** filter/query handling (`Penalis_Editorial_Admin`) and unify user-facing staff terminology around **Senator** across admin screens, emails, and the dashboard.
+
 = 1.8.0 =
 * Feature: Add a centralized **Penalis → Pengaturan** screen for administrators with `Keamanan`, `Foto Profil`, and `Email` tabs, replacing the standalone **Pengaturan Email** submenu; the retired URL redirects to the Email tab so bookmarks and old notices keep working.
 * Feature: Add a dashboard-only CAPTCHA switch (`penalis_dashboard_captcha_enabled`) that silences the Turnstile widget, script, and server-side verification for `/dashboard/` forms without touching site-wide `wp-login.php` protection, with an audit trail of every change and a persistent warning while disabled.
 * Feature: Restrict editorial notifications to writers and reviewers through a shared capability predicate, so pending and suspended accounts no longer see an always-empty bell or notification view.
 * Feature: Add shared dashboard building blocks: password/confirmation fields, a hover-and-click disclosure controller, a Turnstile gate hook, and a reusable email request form.
-* Feature: Split `/dashboard/` into explicit writer and Senator modes. `Penalis_Policy::dashboard_role()` resolves one role (`administrator`, `editor`, `writer`, `pending`, `suspended`) and publishes it on `GET /account` and the SPA bootstrap; the shell renders **Dashboard Penulis** or **Dashboard Senator** with a role chip, role-specific navigation groups, and no disabled writer entries for staff.
-* Feature: Enforce the no-hybrid-account rule in the dashboard UI. A staff account that also carries writer access still resolves to staff, so the writer editor never opens for it; a deep link to a writer view lands on Ringkasan with an explanatory notice and a rewritten URL.
-* Feature: Add Back/Forward navigation to the dashboard (`pushState` + `popstate`), so a curation round stays inside the SPA instead of leaving it on the first Back.
 * Refactor: Adopt the shared components across authentication, notification bell, account menu, and settings screens for consistent popover behavior and improved keyboard and screen-reader support.
 * Fix: Bypass the Simple Cloudflare Turnstile `authenticate` check unconditionally around `wp_signon()` so dashboard login keeps working when the dashboard CAPTCHA switch is off.
 
@@ -202,6 +214,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.0.0 =
+Introduces the dual-mode dashboard (Dashboard Penulis and Dashboard Senator) with an in-dashboard review queue and manuscript reader, plus overview analytics, published-article takedown recovery, email delivery logging, configurable rate limits, notification preferences, editor shortcuts, and automatic REST nonce recovery. Staff accounts now always open in Senator mode and cannot open writer views from the dashboard.
 
 = 1.8.0 =
 Consolidates site-wide settings into **Penalis → Pengaturan** (Keamanan, Foto Profil, Email) and adds a dashboard-only CAPTCHA switch that leaves site-wide Turnstile protection intact. The old Pengaturan Email URL redirects automatically.
