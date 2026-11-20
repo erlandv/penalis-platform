@@ -155,10 +155,22 @@ export function AuthorsDirectory(): React.ReactElement {
         <h1 className="penalis-authors-title">Kontributor Penalis</h1>
         <p className="penalis-authors-subtitle">
           Mereka yang karyanya telah di-publish di Penalis akan ditampilkan di halaman ini.
-          Kontributor dengan <em>verified badge</em> adalah Penulis Aktif yang telah memverifikasi
-          dan mengaktifkan akunnya di Penalis, sedangkan ikon bintang menandai Senator Penalis.
           Klik nama kontributor untuk melihat profil dan kontribusi karya tulis mereka di Penalis.
         </p>
+        <ul className="penalis-authors-legend" aria-label="Keterangan lencana kontributor">
+          <li className="penalis-authors-legend-item">
+            <span className="penalis-authors-badge" aria-hidden="true">
+              <VerifiedBadgeIcon size={15} />
+            </span>
+            <span>Penulis Aktif terverifikasi</span>
+          </li>
+          <li className="penalis-authors-legend-item">
+            <span className="penalis-authors-badge penalis-authors-badge--senator" aria-hidden="true">
+              <SenatorBadgeIcon size={15} />
+            </span>
+            <span>Senator Penalis</span>
+          </li>
+        </ul>
       </header>
 
       <div className="penalis-authors-toolbar">
