@@ -26,6 +26,7 @@ final class Penalis_Account_Status {
 	public const META_DISPLAY_NAME_MODE = '_penalis_display_name_mode';
 	public const META_NEEDS_PASSWORD    = '_penalis_needs_password';
 	public const META_INSTAGRAM         = '_penalis_instagram';
+	public const META_SENATOR           = '_penalis_is_senator';
 
 	public const META_EMAIL_CHANGE_NEW = '_penalis_email_change_new_email';
 
@@ -100,6 +101,37 @@ final class Penalis_Account_Status {
 		}
 
 		update_user_meta( $user_id, self::META_INSTAGRAM, sanitize_text_field( $handle ) );
+	}
+
+	/**
+	 * Whether a user account is marked as a Senator Penalis.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function is_senator( $user_id ) {
+		return '1' === (string) get_user_meta( (int) $user_id, self::META_SENATOR, true );
+	}
+
+	/**
+	 * Mark or unmark a user account as a Senator Penalis.
+	 *
+	 * @param int  $user_id User ID.
+	 * @param bool $enabled Whether to mark as Senator.
+	 * @return void
+	 */
+	public static function set_senator( $user_id, $enabled ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return;
+		}
+
+		if ( $enabled ) {
+			update_user_meta( $user_id, self::META_SENATOR, '1' );
+			return;
+		}
+
+		delete_user_meta( $user_id, self::META_SENATOR );
 	}
 
 	/**

@@ -305,3 +305,21 @@ export function VerifiedBadgeIcon({ size = 16 }: { size?: number }) {
     </svg>
   );
 }
+
+/**
+ * Senator Penalis star badge icon.
+ */
+export function SenatorBadgeIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 2.25l2.92 5.92 6.53.95-4.72 4.6 1.11 6.51L12 17.16l-5.84 3.07 1.11-6.51-4.72-4.6 6.53-.95L12 2.25z" />
+    </svg>
+  );
+}

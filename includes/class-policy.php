@@ -885,6 +885,52 @@ final class Penalis_Policy {
 	}
 
 	/**
+	 * Whether an author qualifies for the public Senator badge.
+	 *
+	 * Applies to writer/contributor accounts explicitly marked as Senator by an
+	 * administrator (including legacy contributors), excluding suspended accounts.
+	 *
+	 * @param string[] $roles      User role slugs.
+	 * @param string   $status     Account status meta value.
+	 * @param bool     $is_senator Whether the Senator flag is set.
+	 * @return bool
+	 */
+	public static function is_senator_author( $roles, $status, $is_senator ) {
+		if ( ! is_array( $roles ) || ! $is_senator ) {
+			return false;
+		}
+
+		if ( self::STATUS_SUSPENDED === (string) $status ) {
+			return false;
+		}
+
+		return ! empty( array_intersect( $roles, self::public_author_roles() ) );
+	}
+
+	/**
+	 * Whether an account may be marked as Senator from wp-admin.
+	 *
+	 * Allows active writers (`penalis_writer`) and legacy contributors without
+	 * Penalis status metadata, while denying suspended, pending-verification,
+	 * and staff-role accounts.
+	 *
+	 * @param string[] $roles  User role slugs.
+	 * @param string   $status Account status meta value.
+	 * @return bool
+	 */
+	public static function can_mark_senator( $roles, $status ) {
+		if ( ! is_array( $roles ) ) {
+			return false;
+		}
+
+		if ( self::STATUS_ACTIVE !== (string) $status && '' !== (string) $status ) {
+			return false;
+		}
+
+		return ! empty( array_intersect( $roles, self::public_author_roles() ) );
+	}
+
+	/**
 	 * Normalize the sort key for the public authors directory.
 	 *
 	 * @param mixed $sort Requested sort mode.

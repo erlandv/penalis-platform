@@ -1,9 +1,11 @@
 import type { AuthorsSortMode } from './types';
 
+export type AuthorsBadgeFilter = 'all' | 'verified' | 'senator';
+
 export interface AuthorsFilterState {
   search: string;
   sort: AuthorsSortMode;
-  verifiedOnly: boolean;
+  filter: AuthorsBadgeFilter;
 }
 
 const VALID_SORTS: ReadonlyArray<AuthorsSortMode> = [
@@ -28,11 +30,19 @@ export function parseAuthorsQuery(searchString: string): AuthorsFilterState {
   const rawSearch = params.get('q') ?? '';
   const rawSort = params.get('sort');
   const rawVerified = params.get('verified');
+  const rawSenator = params.get('senator');
+
+  let filter: AuthorsBadgeFilter = 'all';
+  if (rawVerified === '1' || rawVerified === 'true') {
+    filter = 'verified';
+  } else if (rawSenator === '1' || rawSenator === 'true') {
+    filter = 'senator';
+  }
 
   return {
     search: rawSearch.trim(),
     sort: normalizeAuthorsSort(rawSort),
-    verifiedOnly: rawVerified === '1' || rawVerified === 'true',
+    filter,
   };
 }
 
@@ -46,8 +56,10 @@ export function buildAuthorsSearchString(state: AuthorsFilterState): string {
   if (state.sort !== 'most_posts') {
     params.set('sort', state.sort);
   }
-  if (state.verifiedOnly) {
+  if (state.filter === 'verified') {
     params.set('verified', '1');
+  } else if (state.filter === 'senator') {
+    params.set('senator', '1');
   }
 
   const serialized = params.toString();
@@ -67,8 +79,10 @@ export function buildAuthorsApiUrl(
     params.set('search', state.search.trim());
   }
   params.set('sort', state.sort);
-  if (state.verifiedOnly) {
+  if (state.filter === 'verified') {
     params.set('verified', '1');
+  } else if (state.filter === 'senator') {
+    params.set('senator', '1');
   }
   params.set('page', String(Math.max(1, page)));
   params.set('per_page', String(Math.max(1, perPage)));

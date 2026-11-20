@@ -16,6 +16,7 @@ export interface PublicAuthorItem {
   postCount: number;
   views: number;
   isVerified: boolean;
+  isSenator: boolean;
 }
 
 export interface PublicAuthorsResponse {
@@ -23,6 +24,7 @@ export interface PublicAuthorsResponse {
   total: number;
   totalAll: number;
   totalVerified: number;
+  totalSenator: number;
   page: number;
   perPage: number;
   hasMore: boolean;

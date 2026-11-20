@@ -517,6 +517,10 @@ final class Penalis_Rest_Api {
 						'type'     => 'boolean',
 						'required' => false,
 					),
+					'senator'  => array(
+						'type'     => 'boolean',
+						'required' => false,
+					),
 					'page'     => array(
 						'type'     => 'integer',
 						'required' => false,
@@ -2117,6 +2121,7 @@ final class Penalis_Rest_Api {
 				'search'   => $request->get_param( 'search' ),
 				'sort'     => $request->get_param( 'sort' ),
 				'verified' => $request->get_param( 'verified' ),
+				'senator'  => $request->get_param( 'senator' ),
 				'page'     => $request->get_param( 'page' ),
 				'per_page' => $request->get_param( 'per_page' ),
 			)

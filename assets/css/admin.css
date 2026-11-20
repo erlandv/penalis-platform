@@ -613,6 +613,11 @@
 	color: #007017;
 }
 
+.penalis-writers .penalis-flag--senator {
+	background: #fef3c7;
+	color: #92400e;
+}
+
 .penalis-writers .penalis-date {
 	display: block;
 	color: #1d2327;

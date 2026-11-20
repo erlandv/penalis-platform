@@ -348,6 +348,10 @@
   color: var(--penalis-info);
 }
 
+.penalis-authors-root .penalis-authors-badge--senator {
+  color: #d97706;
+}
+
 .penalis-authors-root .penalis-authors-count {
   font-size: 0.875rem;
   color: var(--penalis-muted);

@@ -16,10 +16,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Penalis_Authors {
 
-	public const SHORTCODE       = 'penalis_authors';
-	public const BADGE_SHORTCODE = 'penalis_verified_badge';
-	public const CACHE_KEY       = 'penalis_public_authors_v3';
-	public const CACHE_TTL       = 600;
+	public const SHORTCODE               = 'penalis_authors';
+	public const BADGE_SHORTCODE         = 'penalis_verified_badge';
+	public const SENATOR_BADGE_SHORTCODE = 'penalis_senator_badge';
+	public const CACHE_KEY               = 'penalis_public_authors_v4';
+	public const CACHE_TTL               = 600;
 
 	/**
 	 * Register hooks.
@@ -29,6 +30,7 @@ final class Penalis_Authors {
 	public static function init() {
 		add_shortcode( self::SHORTCODE, array( __CLASS__, 'render_shortcode' ) );
 		add_shortcode( self::BADGE_SHORTCODE, array( __CLASS__, 'render_badge_shortcode' ) );
+		add_shortcode( self::SENATOR_BADGE_SHORTCODE, array( __CLASS__, 'render_senator_badge_shortcode' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_assets' ) );
 		add_action( 'wp_footer', array( __CLASS__, 'render_profile_verified_badge' ) );
 		add_filter( 'template_include', array( __CLASS__, 'maybe_use_authors_template' ) );
@@ -41,7 +43,9 @@ final class Penalis_Authors {
 		add_action( 'set_user_role', array( __CLASS__, 'invalidate_cache' ) );
 		add_action( 'profile_update', array( __CLASS__, 'invalidate_cache' ) );
 		add_action( 'penalis_account_status_changed', array( __CLASS__, 'invalidate_cache' ) );
+		add_action( 'added_user_meta', array( __CLASS__, 'maybe_invalidate_cache_on_meta' ), 10, 3 );
 		add_action( 'updated_user_meta', array( __CLASS__, 'maybe_invalidate_cache_on_meta' ), 10, 3 );
+		add_action( 'deleted_user_meta', array( __CLASS__, 'maybe_invalidate_cache_on_meta' ), 10, 3 );
 	}
 
 	/**
@@ -147,13 +151,14 @@ final class Penalis_Authors {
 	/**
 	 * Query, filter, sort, and paginate public authors.
 	 *
-	 * @param array<string,mixed> $args Query arguments (search, sort, verified, page, per_page).
+	 * @param array<string,mixed> $args Query arguments (search, sort, verified, senator, page, per_page).
 	 * @return array<string,mixed>
 	 */
 	public static function query_authors( $args = array() ) {
 		$search   = isset( $args['search'] ) ? trim( sanitize_text_field( (string) $args['search'] ) ) : '';
 		$sort     = Penalis_Policy::normalize_authors_sort( isset( $args['sort'] ) ? $args['sort'] : 'most_posts' );
 		$verified = ! empty( $args['verified'] );
+		$senator  = ! empty( $args['senator'] );
 		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
 		$per_page = isset( $args['per_page'] ) ? (int) $args['per_page'] : Penalis_Policy::AUTHORS_PER_PAGE;
 		$per_page = max( 1, min( Penalis_Policy::AUTHORS_MAX_PER_PAGE, $per_page ) );
@@ -162,10 +167,14 @@ final class Penalis_Authors {
 
 		$total_all      = count( $all_authors );
 		$total_verified = 0;
+		$total_senator  = 0;
 
 		foreach ( $all_authors as $author ) {
 			if ( ! empty( $author['isVerified'] ) ) {
 				++$total_verified;
+			}
+			if ( ! empty( $author['isSenator'] ) ) {
+				++$total_senator;
 			}
 		}
 
@@ -173,6 +182,10 @@ final class Penalis_Authors {
 
 		foreach ( $all_authors as $author ) {
 			if ( $verified && empty( $author['isVerified'] ) ) {
+				continue;
+			}
+
+			if ( $senator && empty( $author['isSenator'] ) ) {
 				continue;
 			}
 
@@ -196,6 +209,7 @@ final class Penalis_Authors {
 			'total'         => $total,
 			'totalAll'      => $total_all,
 			'totalVerified' => $total_verified,
+			'totalSenator'  => $total_senator,
 			'page'          => $page,
 			'perPage'       => $per_page,
 			'hasMore'       => ( $offset + count( $items ) ) < $total,
@@ -278,6 +292,7 @@ final class Penalis_Authors {
 				'postCount'   => $post_count,
 				'views'       => 0,
 				'isVerified'  => Penalis_Policy::is_verified_author( $roles, $status, Penalis_Account_Status::is_access_enabled( $user_id ) ),
+				'isSenator'   => Penalis_Policy::is_senator_author( $roles, $status, Penalis_Account_Status::is_senator( $user_id ) ),
 			);
 		}
 
@@ -373,6 +388,7 @@ final class Penalis_Authors {
 		$watched = array(
 			Penalis_Account_Status::META_STATUS,
 			Penalis_Account_Status::META_ACCESS,
+			Penalis_Account_Status::META_SENATOR,
 			'_penalis_avatar_id',
 		);
 
@@ -406,16 +422,78 @@ final class Penalis_Authors {
 	}
 
 	/**
+	 * Whether a WordPress user qualifies for the public Senator badge.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function is_user_senator( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		$user = get_userdata( $user_id );
+		if ( ! $user instanceof WP_User ) {
+			return false;
+		}
+
+		return Penalis_Policy::is_senator_author(
+			(array) $user->roles,
+			Penalis_Account_Status::get_status( $user_id ),
+			Penalis_Account_Status::is_senator( $user_id )
+		);
+	}
+
+	/**
+	 * Build inline SVG badge markup for public author headers.
+	 *
+	 * @param string $class_name CSS class name.
+	 * @param string $label      Tooltip and aria-label text.
+	 * @param string $color      CSS color value.
+	 * @param string $path_d     SVG path data on a 24x24 viewBox.
+	 * @return string
+	 */
+	private static function inline_badge_html( $class_name, $label, $color, $path_d ) {
+		return sprintf(
+			'<span class="%1$s" title="%2$s" aria-label="%2$s" style="display:inline-flex;align-items:center;vertical-align:middle;position:relative;top:-0.08em;margin-left:0.32em;color:%3$s;line-height:1;">'
+			. '<svg width="0.9em" height="0.9em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">'
+			. '<path d="%4$s" />'
+			. '</svg>'
+			. '</span>',
+			esc_attr( $class_name ),
+			esc_attr( $label ),
+			esc_attr( $color ),
+			esc_attr( $path_d )
+		);
+	}
+
+	/**
 	 * Return the inline HTML for the verified active writer badge.
 	 *
 	 * @return string
 	 */
 	public static function verified_badge_html() {
-		return '<span class="penalis-verified-badge-inline" title="Penulis Aktif terverifikasi" aria-label="Penulis Aktif terverifikasi" style="display:inline-flex;align-items:center;vertical-align:middle;position:relative;top:-0.08em;margin-left:0.32em;color:#1d9bf0;line-height:1;">'
-			. '<svg width="0.9em" height="0.9em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">'
-			. '<path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z" />'
-			. '</svg>'
-			. '</span>';
+		return self::inline_badge_html(
+			'penalis-verified-badge-inline',
+			'Penulis Aktif terverifikasi',
+			'#1d9bf0',
+			'M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z'
+		);
+	}
+
+	/**
+	 * Return the inline HTML for the Senator Penalis star badge.
+	 *
+	 * @return string
+	 */
+	public static function senator_badge_html() {
+		return self::inline_badge_html(
+			'penalis-senator-badge-inline',
+			'Senator Penalis',
+			'#d97706',
+			'M12 2.25l2.92 5.92 6.53.95-4.72 4.6 1.11 6.51L12 17.16l-5.84 3.07 1.11-6.51-4.72-4.6 6.53-.95L12 2.25z'
+		);
 	}
 
 	/**
@@ -458,26 +536,52 @@ final class Penalis_Authors {
 	}
 
 	/**
-	 * Attach the verified badge on single post author boxes and public author
-	 * profile headings when the author is a verified active writer.
+	 * Render the [penalis_senator_badge] shortcode.
+	 *
+	 * @param array<string,mixed> $atts Shortcode attributes.
+	 * @return string
+	 */
+	public static function render_senator_badge_shortcode( $atts = array() ) {
+		$atts    = shortcode_atts( array( 'user_id' => 0 ), (array) $atts, self::SENATOR_BADGE_SHORTCODE );
+		$user_id = (int) $atts['user_id'];
+
+		if ( $user_id <= 0 ) {
+			$user_id = self::resolve_context_author_id();
+		}
+
+		if ( ! self::is_user_senator( $user_id ) ) {
+			return '';
+		}
+
+		return self::senator_badge_html();
+	}
+
+	/**
+	 * Attach verified and Senator badges on single post author boxes and public
+	 * author profile headings when eligible.
 	 *
 	 * @return void
 	 */
 	public static function render_profile_verified_badge() {
 		$author_id = self::resolve_context_author_id( 'post' );
 
-		if ( ! self::is_user_verified( $author_id ) ) {
+		$is_verified = self::is_user_verified( $author_id );
+		$is_senator  = self::is_user_senator( $author_id );
+
+		if ( ! $is_verified && ! $is_senator ) {
 			return;
 		}
 
-		$badge_json = wp_json_encode( self::verified_badge_html() );
-		if ( ! is_string( $badge_json ) ) {
+		$verified_json = $is_verified ? wp_json_encode( self::verified_badge_html() ) : '""';
+		$senator_json  = $is_senator ? wp_json_encode( self::senator_badge_html() ) : '""';
+		if ( ! is_string( $verified_json ) || ! is_string( $senator_json ) ) {
 			return;
 		}
 		?>
 		<script>
 		(function(){
-			var badgeHtml = <?php echo $badge_json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded static badge markup. ?>;
+			var verifiedHtml = <?php echo $verified_json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded static badge markup. ?>;
+			var senatorHtml = <?php echo $senator_json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded static badge markup. ?>;
 			var selectors = [
 				'.article-author .author-name a.url',
 				'h1.elementor-heading-title'
@@ -486,8 +590,14 @@ final class Penalis_Authors {
 				var nodes = document.querySelectorAll(selectors[i]);
 				for (var j = 0; j < nodes.length; j++) {
 					var el = nodes[j];
-					if (el && !el.querySelector('.penalis-verified-badge-inline')) {
-						el.insertAdjacentHTML('beforeend', badgeHtml);
+					if (!el) {
+						continue;
+					}
+					if (verifiedHtml && !el.querySelector('.penalis-verified-badge-inline')) {
+						el.insertAdjacentHTML('beforeend', verifiedHtml);
+					}
+					if (senatorHtml && !el.querySelector('.penalis-senator-badge-inline')) {
+						el.insertAdjacentHTML('beforeend', senatorHtml);
 					}
 				}
 			}

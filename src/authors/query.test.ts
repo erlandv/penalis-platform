@@ -23,42 +23,69 @@ describe('authors query helpers', () => {
     expect(parseAuthorsQuery('')).toEqual({
       search: '',
       sort: 'most_posts',
-      verifiedOnly: false,
+      filter: 'all',
     });
 
     expect(parseAuthorsQuery('?q=%20Erland%20&sort=name_asc&verified=1')).toEqual({
       search: 'Erland',
       sort: 'name_asc',
-      verifiedOnly: true,
+      filter: 'verified',
     });
 
     expect(parseAuthorsQuery('?verified=true&sort=bogus')).toEqual({
       search: '',
       sort: 'most_posts',
-      verifiedOnly: true,
+      filter: 'verified',
+    });
+
+    expect(parseAuthorsQuery('?senator=1&sort=most_views')).toEqual({
+      search: '',
+      sort: 'most_views',
+      filter: 'senator',
+    });
+
+    expect(parseAuthorsQuery('?senator=true')).toEqual({
+      search: '',
+      sort: 'most_posts',
+      filter: 'senator',
     });
   });
 
   it('serializes only non-default filter values to search string', () => {
     expect(
-      buildAuthorsSearchString({ search: '', sort: 'most_posts', verifiedOnly: false }),
+      buildAuthorsSearchString({ search: '', sort: 'most_posts', filter: 'all' }),
     ).toBe('');
 
     expect(
-      buildAuthorsSearchString({ search: '  Vitri ', sort: 'name_desc', verifiedOnly: true }),
+      buildAuthorsSearchString({ search: '  Vitri ', sort: 'name_desc', filter: 'verified' }),
     ).toBe('?q=Vitri&sort=name_desc&verified=1');
+
+    expect(
+      buildAuthorsSearchString({ search: 'Sakha', sort: 'most_posts', filter: 'senator' }),
+    ).toBe('?q=Sakha&senator=1');
   });
 
   it('builds REST API URL with pagination and filters', () => {
     expect(
       buildAuthorsApiUrl(
         'https://penalis.com/wp-json/penalis/v1/',
-        { search: 'Jaxson', sort: 'most_posts', verifiedOnly: true },
+        { search: 'Jaxson', sort: 'most_posts', filter: 'verified' },
         2,
         100,
       ),
     ).toBe(
       'https://penalis.com/wp-json/penalis/v1/authors?search=Jaxson&sort=most_posts&verified=1&page=2&per_page=100',
+    );
+
+    expect(
+      buildAuthorsApiUrl(
+        'https://penalis.com/wp-json/penalis/v1/',
+        { search: '', sort: 'most_posts', filter: 'senator' },
+        1,
+        100,
+      ),
+    ).toBe(
+      'https://penalis.com/wp-json/penalis/v1/authors?sort=most_posts&senator=1&page=1&per_page=100',
     );
   });
 });

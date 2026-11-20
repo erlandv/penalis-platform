@@ -93,6 +93,22 @@
 			description: 'Verifikasi email akan dilewati, akun langsung diaktifkan sebagai Penulis Aktif, dan link reset password dikirim ke email pemilik akun.',
 			confirmLabel: 'Ya, Aktifkan Langsung',
 			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
+		},
+		mark_senator: {
+			badge: 'Tandai Senator',
+			badgeClass: 'penalis-badge penalis-badge--pending_verification',
+			title: 'Tandai akun ini sebagai Senator Penalis?',
+			description: 'Ikon bintang Senator Penalis akan ditampilkan di samping nama penulis ini pada direktori kontributor, arsip penulis, dan halaman artikel. Tindakan ini tidak mengubah peran atau hak akses akun.',
+			confirmLabel: 'Ya, Tandai Senator',
+			confirmClass: 'button button-primary penalis-confirm-modal__btn-approve'
+		},
+		unmark_senator: {
+			badge: 'Hapus Tanda Senator',
+			badgeClass: 'penalis-badge penalis-badge--suspended',
+			title: 'Hapus tanda Senator dari akun ini?',
+			description: 'Ikon bintang Senator Penalis tidak akan lagi ditampilkan pada profil dan artikel penulis ini.',
+			confirmLabel: 'Ya, Hapus Tanda',
+			confirmClass: 'button penalis-confirm-modal__btn-reject'
 		}
 	};
 

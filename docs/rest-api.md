@@ -33,7 +33,7 @@ that prevent account enumeration.
 | `/password/reset` | `POST` | `handle_password_reset` | Validate core reset key (`key` + `login`), set new password (12+ chars), destroy sessions |
 | `/account/email/confirm` | `POST` | `confirm_email_change` | Consume `challenge_id` + `code`, re-verify availability, and update `user_email` |
 | `/account/email/resend` | `POST` | `resend_email_change` | Re-issue the code for the pending address without repeating the password |
-| `/authors` | `GET` | `handle_public_authors` | Public paginated directory of `penalis_writer` and `contributor` accounts with `>= 1` published post (excluding `suspended`), including each author's `postCount` and total published `views`. Supports `search`, `sort` (`most_posts`, `least_posts`, `most_views`, `least_views`, `name_asc`, `name_desc`, `random`), `verified`, `page`, and `per_page` (default `100`, max `100`) |
+| `/authors` | `GET` | `handle_public_authors` | Public paginated directory of `penalis_writer` and `contributor` accounts with `>= 1` published post (excluding `suspended`), including each author's `postCount`, total published `views`, `isVerified`, and `isSenator` (plus `totalSenator`). Supports `search`, `sort` (`most_posts`, `least_posts`, `most_views`, `least_views`, `name_asc`, `name_desc`, `random`), `verified`, `senator`, `page`, and `per_page` (default `100`, max `100`) |
 
 ### 1.2 Signed-In Account Routes (`require_logged_in`)
 

@@ -56,6 +56,7 @@ require_once __DIR__ . '/../includes/class-otp.php';
 require_once __DIR__ . '/../includes/class-email-change.php';
 require_once __DIR__ . '/../includes/class-turnstile.php';
 require_once __DIR__ . '/../includes/class-revisions.php';
+require_once __DIR__ . '/../includes/class-authors.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -4444,6 +4445,127 @@ penalis_assert(
 	! Penalis_Policy::is_verified_author( array( 'contributor' ), '', false ),
 	'Unactivated legacy contributor is not verified.'
 );
+
+penalis_assert(
+	Penalis_Policy::is_senator_author( array( 'penalis_writer' ), Penalis_Policy::STATUS_ACTIVE, true ),
+	'Active penalis_writer marked as Senator qualifies for the Senator badge.'
+);
+penalis_assert(
+	Penalis_Policy::is_senator_author( array( 'contributor' ), '', true ),
+	'Legacy contributor marked as Senator qualifies for the Senator badge.'
+);
+penalis_assert(
+	! Penalis_Policy::is_senator_author( array( 'penalis_writer' ), Penalis_Policy::STATUS_ACTIVE, false ),
+	'Writer without Senator flag does not qualify for the Senator badge.'
+);
+penalis_assert(
+	! Penalis_Policy::is_senator_author( array( 'penalis_writer' ), Penalis_Policy::STATUS_SUSPENDED, true ),
+	'Suspended writer does not expose a public Senator badge.'
+);
+penalis_assert(
+	! Penalis_Policy::is_senator_author( array( 'administrator' ), '', true ),
+	'Administrator role is excluded from the public Senator author badge.'
+);
+penalis_assert(
+	! Penalis_Policy::is_senator_author( array( 'editor' ), '', true ),
+	'Editor role is excluded from the public Senator author badge.'
+);
+
+penalis_assert(
+	Penalis_Policy::can_mark_senator( array( 'penalis_writer' ), Penalis_Policy::STATUS_ACTIVE ),
+	'Active penalis_writer can be marked as Senator.'
+);
+penalis_assert(
+	Penalis_Policy::can_mark_senator( array( 'contributor' ), '' ),
+	'Legacy contributor can be marked as Senator.'
+);
+penalis_assert(
+	! Penalis_Policy::can_mark_senator( array( 'penalis_writer' ), Penalis_Policy::STATUS_PENDING_VERIFICATION ),
+	'Pending verification account cannot be marked as Senator.'
+);
+penalis_assert(
+	! Penalis_Policy::can_mark_senator( array( 'penalis_writer' ), Penalis_Policy::STATUS_SUSPENDED ),
+	'Suspended account cannot be marked as Senator.'
+);
+penalis_assert(
+	! Penalis_Policy::can_mark_senator( array( 'administrator' ), '' ),
+	'Administrator account cannot be marked as Senator.'
+);
+
+penalis_reset();
+penalis_editorial_writer( 10 );
+$GLOBALS['penalis_test_users'][11] = new WP_User( 11, array( 'contributor' ) );
+$GLOBALS['penalis_test_users'][12] = new WP_User( 12, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_users'][12]->meta[ Penalis_Account_Status::META_STATUS ] = array( Penalis_Policy::STATUS_SUSPENDED );
+
+penalis_assert( ! Penalis_Account_Status::is_senator( 10 ), 'Writer starts unmarked as Senator.' );
+Penalis_Account_Status::set_senator( 10, true );
+Penalis_Account_Status::set_senator( 11, true );
+Penalis_Account_Status::set_senator( 12, true );
+penalis_assert( Penalis_Account_Status::is_senator( 10 ), 'set_senator(true) persists the Senator meta flag.' );
+penalis_assert( Penalis_Authors::is_user_senator( 10 ), 'Active writer with Senator flag resolves as public Senator.' );
+penalis_assert( Penalis_Authors::is_user_senator( 11 ), 'Legacy contributor with Senator flag resolves as public Senator.' );
+penalis_assert( ! Penalis_Authors::is_user_senator( 12 ), 'Suspended writer does not resolve as public Senator.' );
+
+$senator_badge = Penalis_Authors::senator_badge_html();
+penalis_assert( false !== strpos( $senator_badge, 'penalis-senator-badge-inline' ), 'Senator badge HTML includes the inline class.' );
+penalis_assert( false !== strpos( $senator_badge, 'Senator Penalis' ), 'Senator badge HTML includes accessible title.' );
+
+Penalis_Account_Status::set_senator( 10, false );
+penalis_assert( ! Penalis_Account_Status::is_senator( 10 ), 'set_senator(false) clears the Senator meta flag.' );
+penalis_assert( ! Penalis_Authors::is_user_senator( 10 ), 'Unmarked writer no longer resolves as public Senator.' );
+
+set_transient(
+	Penalis_Authors::CACHE_KEY,
+	array(
+		array(
+			'id'          => 10,
+			'displayName' => 'Penulis Biasa',
+			'username'    => 'penulis-biasa',
+			'avatarUrl'   => '',
+			'authorUrl'   => 'https://example.com/author/penulis-biasa/',
+			'postCount'   => 3,
+			'views'       => 100,
+			'isVerified'  => true,
+			'isSenator'   => false,
+		),
+		array(
+			'id'          => 11,
+			'displayName' => 'Senator Lama',
+			'username'    => 'senator-lama',
+			'avatarUrl'   => '',
+			'authorUrl'   => 'https://example.com/author/senator-lama/',
+			'postCount'   => 5,
+			'views'       => 250,
+			'isVerified'  => false,
+			'isSenator'   => true,
+		),
+		array(
+			'id'          => 13,
+			'displayName' => 'Senator Aktif',
+			'username'    => 'senator-aktif',
+			'avatarUrl'   => '',
+			'authorUrl'   => 'https://example.com/author/senator-aktif/',
+			'postCount'   => 8,
+			'views'       => 400,
+			'isVerified'  => true,
+			'isSenator'   => true,
+		),
+	),
+	600
+);
+
+$authors_all = Penalis_Authors::query_authors();
+penalis_same( 3, $authors_all['totalAll'], 'Directory reports totalAll across cached authors.' );
+penalis_same( 2, $authors_all['totalVerified'], 'Directory reports totalVerified count.' );
+penalis_same( 2, $authors_all['totalSenator'], 'Directory reports totalSenator count including legacy contributors.' );
+
+$authors_senator = Penalis_Authors::query_authors( array( 'senator' => true ) );
+penalis_same( 2, $authors_senator['total'], 'Senator filter returns only authors marked as Senator.' );
+penalis_same( array( 13, 11 ), array_column( $authors_senator['items'], 'id' ), 'Senator filter keeps default sort order.' );
+
+Penalis_Authors::maybe_invalidate_cache_on_meta( 1, 10, Penalis_Account_Status::META_SENATOR );
+penalis_same( false, get_transient( Penalis_Authors::CACHE_KEY ), 'Changing Senator meta invalidates the cached authors directory.' );
 
 penalis_same( 'most_posts', Penalis_Policy::normalize_authors_sort( 'invalid' ), 'Invalid sort falls back to most_posts.' );
 penalis_same( 'name_asc', Penalis_Policy::normalize_authors_sort( 'name_asc' ), 'Valid sort mode is preserved.' );

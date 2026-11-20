@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { VerifiedBadgeIcon } from '../components/icons';
+import { SenatorBadgeIcon, VerifiedBadgeIcon } from '../components/icons';
 import { formatNumber } from '../lib/format';
 import {
   buildAuthorsApiUrl,
@@ -41,6 +41,7 @@ export function AuthorsDirectory(): React.ReactElement {
   const [total, setTotal] = useState<number>(0);
   const [totalAll, setTotalAll] = useState<number>(0);
   const [totalVerified, setTotalVerified] = useState<number>(0);
+  const [totalSenator, setTotalSenator] = useState<number>(0);
   const [page, setPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -106,6 +107,7 @@ export function AuthorsDirectory(): React.ReactElement {
         setTotal(data.total);
         setTotalAll(data.totalAll);
         setTotalVerified(data.totalVerified);
+        setTotalSenator(data.totalSenator ?? 0);
         setPage(data.page);
         setHasMore(data.hasMore);
       } catch (err) {
@@ -135,7 +137,7 @@ export function AuthorsDirectory(): React.ReactElement {
     setFilter({
       search: '',
       sort: 'most_posts',
-      verifiedOnly: false,
+      filter: 'all',
     });
   };
 
@@ -145,7 +147,7 @@ export function AuthorsDirectory(): React.ReactElement {
   };
 
   const remaining = Math.max(0, total - items.length);
-  const hasActiveFilters = filter.search !== '' || filter.verifiedOnly || filter.sort !== 'most_posts';
+  const hasActiveFilters = filter.search !== '' || filter.filter !== 'all' || filter.sort !== 'most_posts';
 
   return (
     <div className="penalis-authors-container">
@@ -154,8 +156,8 @@ export function AuthorsDirectory(): React.ReactElement {
         <p className="penalis-authors-subtitle">
           Mereka yang karyanya telah di-publish di Penalis akan ditampilkan di halaman ini.
           Kontributor dengan <em>verified badge</em> adalah Penulis Aktif yang telah memverifikasi
-          dan mengaktifkan akunnya di Penalis. Klik nama kontributor untuk melihat profil dan
-          kontribusi karya tulis mereka di Penalis.
+          dan mengaktifkan akunnya di Penalis, sedangkan ikon bintang menandai Senator Penalis.
+          Klik nama kontributor untuk melihat profil dan kontribusi karya tulis mereka di Penalis.
         </p>
       </header>
 
@@ -189,19 +191,27 @@ export function AuthorsDirectory(): React.ReactElement {
           <div className="penalis-authors-chips" role="group" aria-label="Filter status kontributor">
             <button
               type="button"
-              className={`penalis-authors-chip${!filter.verifiedOnly ? ' is-active' : ''}`}
-              aria-pressed={!filter.verifiedOnly}
-              onClick={() => setFilter((prev) => ({ ...prev, verifiedOnly: false }))}
+              className={`penalis-authors-chip${filter.filter === 'all' ? ' is-active' : ''}`}
+              aria-pressed={filter.filter === 'all'}
+              onClick={() => setFilter((prev) => ({ ...prev, filter: 'all' }))}
             >
               Semua ({totalAll})
             </button>
             <button
               type="button"
-              className={`penalis-authors-chip${filter.verifiedOnly ? ' is-active' : ''}`}
-              aria-pressed={filter.verifiedOnly}
-              onClick={() => setFilter((prev) => ({ ...prev, verifiedOnly: true }))}
+              className={`penalis-authors-chip${filter.filter === 'verified' ? ' is-active' : ''}`}
+              aria-pressed={filter.filter === 'verified'}
+              onClick={() => setFilter((prev) => ({ ...prev, filter: 'verified' }))}
             >
               Verified ({totalVerified})
+            </button>
+            <button
+              type="button"
+              className={`penalis-authors-chip${filter.filter === 'senator' ? ' is-active' : ''}`}
+              aria-pressed={filter.filter === 'senator'}
+              onClick={() => setFilter((prev) => ({ ...prev, filter: 'senator' }))}
+            >
+              Senator ({totalSenator})
             </button>
           </div>
 
@@ -298,6 +308,15 @@ export function AuthorsDirectory(): React.ReactElement {
                         aria-label="Penulis Aktif terverifikasi"
                       >
                         <VerifiedBadgeIcon />
+                      </span>
+                    )}
+                    {author.isSenator && (
+                      <span
+                        className="penalis-authors-badge penalis-authors-badge--senator"
+                        title="Senator Penalis"
+                        aria-label="Senator Penalis"
+                      >
+                        <SenatorBadgeIcon />
                       </span>
                     )}
                   </div>

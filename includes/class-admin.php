@@ -868,15 +868,22 @@ final class Penalis_Admin {
 					<?php else : ?>
 						<?php foreach ( $users as $user ) : ?>
 							<?php
-							$user_id        = (int) $user->ID;
-							$user_status    = Penalis_Account_Status::get_status( $user_id );
-							$access         = Penalis_Account_Status::is_access_enabled( $user_id );
-							$instagram      = Penalis_Account_Status::get_instagram( $user_id );
-							$can_suspend    = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_SUSPENDED );
-							$can_reactivate = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_ACTIVE );
-							$needs_password = Penalis_Account_Status::needs_password( $user_id );
-							$mail_failed    = Penalis_Account_Status::has_recent_email_failure( $user_id );
-							$is_protected   = user_can( $user, 'manage_options' );
+							$user_id          = (int) $user->ID;
+							$user_status      = Penalis_Account_Status::get_status( $user_id );
+							$access           = Penalis_Account_Status::is_access_enabled( $user_id );
+							$instagram        = Penalis_Account_Status::get_instagram( $user_id );
+							$is_senator       = Penalis_Account_Status::is_senator( $user_id );
+							$can_mark_senator = ! $is_senator && Penalis_Policy::can_mark_senator( (array) $user->roles, $user_status );
+							$can_suspend      = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_SUSPENDED );
+							$can_reactivate   = Penalis_Policy::can_transition( $user_status, Penalis_Policy::STATUS_ACTIVE );
+							$needs_password   = Penalis_Account_Status::needs_password( $user_id );
+							$mail_failed      = Penalis_Account_Status::has_recent_email_failure( $user_id );
+							$is_protected     = user_can( $user, 'manage_options' );
+							$senator_context  = array(
+								'status' => $status,
+								's'      => $search,
+								'paged'  => $paged,
+							);
 							?>
 							<tr>
 								<td>
@@ -919,8 +926,11 @@ final class Penalis_Admin {
 										<span class="penalis-status__dot" aria-hidden="true"></span>
 										<?php echo esc_html( '' === $user_status ? 'Akun lama' : Penalis_Policy::status_label( $user_status ) ); ?>
 									</span>
-									<?php if ( $access || $needs_password || $mail_failed ) : ?>
+									<?php if ( $access || $needs_password || $mail_failed || $is_senator ) : ?>
 										<div class="penalis-flags">
+											<?php if ( $is_senator ) : ?>
+												<span class="penalis-flag penalis-flag--senator">Senator Penalis</span>
+											<?php endif; ?>
 											<?php if ( $access ) : ?>
 												<span class="penalis-flag penalis-flag--ok">Akses dashboard aktif</span>
 											<?php endif; ?>
@@ -955,6 +965,12 @@ final class Penalis_Admin {
 
 											<?php if ( $can_reactivate && Penalis_Policy::STATUS_SUSPENDED === $user_status ) : ?>
 												<?php self::action_button( $user_id, 'reactivate', 'Aktifkan kembali', false, true ); ?>
+											<?php endif; ?>
+
+											<?php if ( $is_senator ) : ?>
+												<?php self::action_button( $user_id, 'unmark_senator', 'Hapus tanda Senator', false, false, $senator_context ); ?>
+											<?php elseif ( $can_mark_senator ) : ?>
+												<?php self::action_button( $user_id, 'mark_senator', 'Tandai sebagai Senator', false, false, $senator_context ); ?>
 											<?php endif; ?>
 
 											<?php if ( $can_suspend ) : ?>
@@ -1178,14 +1194,15 @@ final class Penalis_Admin {
 	/**
 	 * Render a nonce-protected action button.
 	 *
-	 * @param int    $user_id User ID.
-	 * @param string $action  Action.
-	 * @param string $label   Label.
-	 * @param bool   $danger  Whether the action is destructive.
-	 * @param bool   $primary Whether the action is the recommended next step.
+	 * @param int                 $user_id User ID.
+	 * @param string              $action  Action.
+	 * @param string              $label   Label.
+	 * @param bool                $danger  Whether the action is destructive.
+	 * @param bool                $primary Whether the action is the recommended next step.
+	 * @param array<string,mixed> $context Optional filter/pagination state to preserve on redirect.
 	 * @return void
 	 */
-	private static function action_button( $user_id, $action, $label, $danger = false, $primary = false ) {
+	private static function action_button( $user_id, $action, $label, $danger = false, $primary = false, $context = array() ) {
 		$classes = 'button';
 
 		if ( $danger ) {
@@ -1205,6 +1222,15 @@ final class Penalis_Admin {
 			<input type="hidden" name="action" value="penalis_account_action">
 			<input type="hidden" name="user_id" value="<?php echo esc_attr( (string) $user_id ); ?>">
 			<input type="hidden" name="penalis_action" value="<?php echo esc_attr( $action ); ?>">
+			<?php if ( ! empty( $context['status'] ) ) : ?>
+				<input type="hidden" name="redirect_status" value="<?php echo esc_attr( (string) $context['status'] ); ?>">
+			<?php endif; ?>
+			<?php if ( ! empty( $context['s'] ) ) : ?>
+				<input type="hidden" name="redirect_s" value="<?php echo esc_attr( (string) $context['s'] ); ?>">
+			<?php endif; ?>
+			<?php if ( ! empty( $context['paged'] ) && (int) $context['paged'] > 1 ) : ?>
+				<input type="hidden" name="redirect_paged" value="<?php echo esc_attr( (string) (int) $context['paged'] ); ?>">
+			<?php endif; ?>
 			<?php wp_nonce_field( 'penalis_account_' . $action . '_' . $user_id ); ?>
 			<button
 				type="submit"
@@ -1344,6 +1370,8 @@ final class Penalis_Admin {
 			'resend_verification',
 			'legacy_send_activation',
 			'legacy_vouch',
+			'mark_senator',
+			'unmark_senator',
 		);
 		if ( ! in_array( $action, $allowed_actions, true ) ) {
 			self::redirect( 'invalid_action' );
@@ -1397,12 +1425,50 @@ final class Penalis_Admin {
 				}
 				break;
 
+			case 'mark_senator':
+				$current_status = Penalis_Account_Status::get_status( $user_id );
+				if ( ! Penalis_Policy::can_mark_senator( (array) $user->roles, $current_status ) ) {
+					$result = new WP_Error(
+						'penalis_invalid_senator_target',
+						'Hanya akun penulis aktif atau akun lama yang dapat ditandai sebagai Senator.',
+						array( 'status' => 409 )
+					);
+				} else {
+					Penalis_Account_Status::set_senator( $user_id, true );
+					$result = true;
+				}
+				break;
+
+			case 'unmark_senator':
+				Penalis_Account_Status::set_senator( $user_id, false );
+				$result = true;
+				break;
+
 			default:
 				$result = new WP_Error( 'penalis_invalid_action', 'Tindakan tidak valid.', array( 'status' => 400 ) );
 		}
 
+		$redirect_args = array();
+		if ( in_array( $action, array( 'mark_senator', 'unmark_senator' ), true ) ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce already verified above via check_admin_referer().
+			$redirect_status = isset( $_POST['redirect_status'] ) ? sanitize_key( wp_unslash( $_POST['redirect_status'] ) ) : '';
+			if ( 'legacy' === $redirect_status || Penalis_Policy::is_valid_status( $redirect_status ) ) {
+				$redirect_args['status'] = $redirect_status;
+			}
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce already verified above via check_admin_referer().
+			$redirect_search = isset( $_POST['redirect_s'] ) ? sanitize_text_field( wp_unslash( $_POST['redirect_s'] ) ) : '';
+			if ( '' !== $redirect_search ) {
+				$redirect_args['s'] = $redirect_search;
+			}
+			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce already verified above via check_admin_referer().
+			$redirect_paged = isset( $_POST['redirect_paged'] ) ? (int) $_POST['redirect_paged'] : 0;
+			if ( $redirect_paged > 1 ) {
+				$redirect_args['paged'] = $redirect_paged;
+			}
+		}
+
 		if ( is_wp_error( $result ) ) {
-			self::redirect( 'error', $result->get_error_code() );
+			self::redirect( 'error', $result->get_error_code(), $redirect_args );
 		}
 
 		$new_status = Penalis_Account_Status::get_status( $user_id );
@@ -1411,7 +1477,14 @@ final class Penalis_Admin {
 			Penalis_Emails::send_status_notification( $user_id, $new_status );
 		}
 
-		self::redirect( 'success', 'done' );
+		$success_key = 'done';
+		if ( 'mark_senator' === $action ) {
+			$success_key = 'senator_marked';
+		} elseif ( 'unmark_senator' === $action ) {
+			$success_key = 'senator_unmarked';
+		}
+
+		self::redirect( 'success', $success_key, $redirect_args );
 	}
 
 	/**
@@ -1473,12 +1546,13 @@ final class Penalis_Admin {
 	/**
 	 * Redirect back to the management page.
 	 *
-	 * @param string $type  Message type.
-	 * @param string $value Message key.
+	 * @param string              $type       Message type.
+	 * @param string              $value      Message key.
+	 * @param array<string,mixed> $extra_args Optional query arguments to preserve.
 	 * @return void
 	 */
-	private static function redirect( $type, $value = '1' ) {
-		$args = array();
+	private static function redirect( $type, $value = '1', $extra_args = array() ) {
+		$args = is_array( $extra_args ) ? $extra_args : array();
 
 		if ( 'success' === $type ) {
 			$args['penalis_message'] = $value;
@@ -1498,18 +1572,21 @@ final class Penalis_Admin {
 	 */
 	private static function message_for( $key ) {
 		$messages = array(
-			'done'                       => 'Status akun telah diperbarui.',
-			'error'                      => 'Status akun tidak dapat diperbarui.',
-			'invalid_user'               => 'Akun yang dipilih tidak ditemukan.',
-			'invalid_action'             => 'Tindakan tersebut tidak diizinkan.',
-			'protected_account'          => 'Akun administrator tidak dapat diubah di sini.',
-			'penalis_invalid_transition' => 'Perubahan status tersebut tidak diizinkan untuk akun ini.',
-			'penalis_email_failed'       => 'Email verifikasi tidak dapat dikirim. Status akun tidak diubah.',
-			'penalis_rate_limited'       => 'Terlalu banyak permintaan kode. Silakan coba lagi nanti.',
-			'penalis_not_legacy'         => 'Akun ini bukan akun kontributor lama yang dapat diaktifkan.',
-			'penalis_role_conflict'      => 'Akun ini memiliki peran yang tidak dapat disetujui melalui alur kerja penulis.',
-			'avatar_saved'               => 'Foto profil bawaan telah diperbarui.',
-			'avatar_invalid'             => 'Pilih gambar yang valid untuk foto profil bawaan.',
+			'done'                           => 'Status akun telah diperbarui.',
+			'senator_marked'                 => 'Akun telah ditandai sebagai Senator Penalis.',
+			'senator_unmarked'               => 'Tanda Senator telah dihapus dari akun ini.',
+			'error'                          => 'Status akun tidak dapat diperbarui.',
+			'invalid_user'                   => 'Akun yang dipilih tidak ditemukan.',
+			'invalid_action'                 => 'Tindakan tersebut tidak diizinkan.',
+			'protected_account'              => 'Akun administrator tidak dapat diubah di sini.',
+			'penalis_invalid_transition'     => 'Perubahan status tersebut tidak diizinkan untuk akun ini.',
+			'penalis_invalid_senator_target' => 'Hanya akun penulis aktif atau akun lama yang dapat ditandai sebagai Senator.',
+			'penalis_email_failed'           => 'Email verifikasi tidak dapat dikirim. Status akun tidak diubah.',
+			'penalis_rate_limited'           => 'Terlalu banyak permintaan kode. Silakan coba lagi nanti.',
+			'penalis_not_legacy'             => 'Akun ini bukan akun kontributor lama yang dapat diaktifkan.',
+			'penalis_role_conflict'          => 'Akun ini memiliki peran yang tidak dapat disetujui melalui alur kerja penulis.',
+			'avatar_saved'                   => 'Foto profil bawaan telah diperbarui.',
+			'avatar_invalid'                 => 'Pilih gambar yang valid untuk foto profil bawaan.',
 		);
 
 		return isset( $messages[ $key ] ) ? $messages[ $key ] : 'Permintaan telah diselesaikan.';

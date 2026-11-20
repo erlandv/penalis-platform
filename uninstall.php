@@ -22,10 +22,12 @@ if ( ! $penalis_opt_in ) {
 	return;
 }
 
-// History and notifications also belong to administrators without plugin account status.
+// History, notifications, and Senator markers may belong to accounts without
+// standard Penalis status metadata (administrators or legacy contributors).
 delete_metadata( 'user', 0, '_penalis_author_history', '', true );
 delete_metadata( 'user', 0, '_penalis_author_history_reserved', '', true );
 delete_metadata( 'user', 0, '_penalis_notifications', '', true );
+delete_metadata( 'user', 0, '_penalis_is_senator', '', true );
 
 // Remove V2 editorial metadata from posts (posts themselves are never deleted).
 $penalis_post_meta_keys = array(
