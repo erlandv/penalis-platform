@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.0.0
+Stable tag: 2.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,13 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 2.1.0 =
+* Feature: Allow administrators to mark active `penalis_writer` accounts and unactivated legacy `contributor` accounts as **Senator Penalis** (`_penalis_is_senator`) from **Penalis → Penulis Penalis** with confirmation dialogs, status flags, and preserved filter/search pagination state, without granting staff capabilities to personal writer accounts.
+* Feature: Display an amber star Senator badge across the public authors directory (`[penalis_authors]`), single-post author boxes, author archive headings, and the `[penalis_senator_badge]` shortcode, backed by `Penalis_Policy::is_senator_author()`, `Penalis_Authors::is_user_senator()`, and automatic cache invalidation (`penalis_public_authors_v4`).
+* Feature: Add a **Senator** filter chip (`?senator=1`) and `totalSenator` counter to `GET /penalis/v1/authors` and `AuthorsDirectory`, plus a compact inline SVG badge legend below the shortened directory subtitle.
+* Feature: Highlight the currently signed-in author's own card in `AuthorsDirectory` (`penalisAuthors.currentUserId`) with a subtle accent tint, avatar ring, periodic shine animation (respecting `prefers-reduced-motion`), and `You` badge while keeping `GET /penalis/v1/authors` publicly cacheable.
+* Fix: Parse `wp_localize_script()` boot integers (`currentUserId`, `perPage`) with `parsePositiveInt()` so strict ID matching works reliably when WordPress serializes scalars as strings.
+
 = 2.0.0 =
 * Feature: Split `/dashboard/` into explicit writer (**Dashboard Penulis**) and staff (**Dashboard Senator**) modes. `Penalis_Policy::dashboard_role()` resolves one role (`administrator`, `editor`, `writer`, `pending`, `suspended`) and publishes it on `GET /account` and the SPA bootstrap, rendering a role chip, Senator teal accent palette, role-specific navigation groups, and no disabled writer entries for staff.
 * Feature: Enforce the no-hybrid-account rule in the dashboard UI. Staff accounts that also carry writer access still resolve to staff, and deep links to writer views clamp to Ringkasan with an explanatory notice and rewritten URL.
@@ -214,6 +221,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.1.0 =
+Adds public Senator Penalis star badges (managed per writer or legacy contributor in **Penalis → Penulis Penalis**), a Senator filter chip and badge legend in the public authors directory, inline Senator badges on posts and author archives, and a visual highlight on the signed-in author's own directory card.
 
 = 2.0.0 =
 Introduces the dual-mode dashboard (Dashboard Penulis and Dashboard Senator) with an in-dashboard review queue and manuscript reader, plus overview analytics, published-article takedown recovery, email delivery logging, configurable rate limits, notification preferences, editor shortcuts, and automatic REST nonce recovery. Staff accounts now always open in Senator mode and cannot open writer views from the dashboard.
