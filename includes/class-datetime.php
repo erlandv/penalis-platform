@@ -102,6 +102,44 @@ final class Penalis_Datetime {
 	}
 
 	/**
+	 * Format a MySQL GMT datetime string as an Indonesian month and year
+	 * (for example `Desember 2025`), independent of the WordPress site locale.
+	 *
+	 * @param string $mysql_gmt MySQL datetime in UTC.
+	 * @return string
+	 */
+	public static function format_indonesian_month_year_gmt( $mysql_gmt ) {
+		$timestamp = self::parse_gmt( $mysql_gmt );
+
+		if ( $timestamp <= 0 ) {
+			return '';
+		}
+
+		$month_num = (int) self::format( $timestamp, 'n' );
+		$year      = self::format( $timestamp, 'Y' );
+		$months    = array(
+			1  => 'Januari',
+			2  => 'Februari',
+			3  => 'Maret',
+			4  => 'April',
+			5  => 'Mei',
+			6  => 'Juni',
+			7  => 'Juli',
+			8  => 'Agustus',
+			9  => 'September',
+			10 => 'Oktober',
+			11 => 'November',
+			12 => 'Desember',
+		);
+
+		if ( ! isset( $months[ $month_num ] ) || '' === $year ) {
+			return '';
+		}
+
+		return $months[ $month_num ] . ' ' . $year;
+	}
+
+	/**
 	 * Format a MySQL datetime that is already in the site timezone.
 	 *
 	 * WordPress stores `post_modified` (without the `_gmt` suffix) in the

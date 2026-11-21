@@ -85,9 +85,10 @@ composer check           # Run composer lint + php tests/run-tests.php
 - Covers account policy, status transitions, legacy conversions, editorial
   policy and state machine, serialized workflow transitions, REST route
   permissions, IDOR guards, post-insert filters, username/email changes,
-  author slug redirects, avatar fallback, bounded notifications, and
-  timezone-aware date formatting (`Penalis_Datetime` with IANA and fixed-offset
-  site timezones, including Jakarta and year rollover).
+  author slug redirects, avatar fallback, bounded notifications, public author
+  directory/archive policies (`Penalis_Authors`, `Penalis_Author_Archive`), and
+  timezone-aware / Indonesian date formatting (`Penalis_Datetime` with IANA and
+  fixed-offset site timezones, including Jakarta and year rollover).
 
 ### 3.2 Frontend Unit Tests (`src/lib/*.test.ts`, `src/authors/*.test.ts`)
 - Runs via Vitest in the `node` environment.
@@ -129,6 +130,10 @@ enforced by helpers rather than by ad-hoc `date()` calls.
   - `Penalis_Datetime::format_gmt( $mysql_gmt, $format )` — GMT columns such as
     `user_registered`, `post_date_gmt`, and `post_modified_gmt`. Parses the
     value explicitly as UTC, then formats it in the site timezone.
+  - `Penalis_Datetime::format_indonesian_month_year_gmt( $mysql_gmt )` —
+    formats a GMT timestamp as an Indonesian month and year (`Desember 2025`),
+    independent of WordPress's Site Language setting (used on the public author
+    archive joined line).
   - `Penalis_Datetime::format_local( $mysql_local, $format )` — local columns
     such as `post_modified`. Parses and formats in the site timezone without
     converting, preserving the stored calendar day.
@@ -270,4 +275,15 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
    - Suspend an active writer from **Penalis → Penulis Penalis**. Confirm their
      active browser session is logged out immediately while their previously
      published articles remain live on the public site.
+10. **Public Contributors Directory & Author Archive**
+    - Open `/author/` (logged out and logged in) and confirm the **Verified**
+      and **Senator** badges, inline badge legend, `Senator (N)` filter chip,
+      and subtle accent highlight + `You` pill on the signed-in author's own
+      card.
+    - Open `/author/<username>/` (with any Elementor author archive display
+      condition removed) and confirm the profile card, `Bagikan` native
+      share / copy fallback, copyable profile URL, `Bergabung <Bulan> <Tahun>`
+      in Indonesian, owner-only `Edit Profil` / `Tulis Karya` buttons below the
+      bio, 3-column works grid with `dd/mm/yyyy` dates, and WordPress pagination
+      on desktop and mobile viewports.
 

@@ -449,21 +449,27 @@ final class Penalis_Authors {
 	/**
 	 * Build inline SVG badge markup for public author headers.
 	 *
-	 * @param string $class_name CSS class name.
-	 * @param string $label      Tooltip and aria-label text.
-	 * @param string $color      CSS color value.
-	 * @param string $path_d     SVG path data on a 24x24 viewBox.
+	 * @param string $class_name  CSS class name.
+	 * @param string $label       Tooltip and aria-label text.
+	 * @param string $color       CSS color value.
+	 * @param string $path_d      SVG path data on a 24x24 viewBox.
+	 * @param string $margin_left Optional left margin (empty omits inline offset for flex containers).
 	 * @return string
 	 */
-	private static function inline_badge_html( $class_name, $label, $color, $path_d ) {
+	private static function inline_badge_html( $class_name, $label, $color, $path_d, $margin_left = '0.34em' ) {
+		$offset_style = '' !== (string) $margin_left
+			? sprintf( 'position:relative;top:-0.08em;margin-left:%s;', esc_attr( $margin_left ) )
+			: '';
+
 		return sprintf(
-			'<span class="%1$s" title="%2$s" aria-label="%2$s" style="display:inline-flex;align-items:center;vertical-align:middle;position:relative;top:-0.08em;margin-left:0.32em;color:%3$s;line-height:1;">'
+			'<span class="%1$s" title="%2$s" aria-label="%2$s" style="display:inline-flex;align-items:center;vertical-align:middle;%3$scolor:%4$s;line-height:1;">'
 			. '<svg width="0.9em" height="0.9em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">'
-			. '<path d="%4$s" />'
+			. '<path d="%5$s" />'
 			. '</svg>'
 			. '</span>',
 			esc_attr( $class_name ),
 			esc_attr( $label ),
+			$offset_style,
 			esc_attr( $color ),
 			esc_attr( $path_d )
 		);
@@ -472,28 +478,32 @@ final class Penalis_Authors {
 	/**
 	 * Return the inline HTML for the verified active writer badge.
 	 *
+	 * @param string $margin_left Optional left margin.
 	 * @return string
 	 */
-	public static function verified_badge_html() {
+	public static function verified_badge_html( $margin_left = '0.34em' ) {
 		return self::inline_badge_html(
 			'penalis-verified-badge-inline',
 			'Penulis Aktif terverifikasi',
 			'#1d9bf0',
-			'M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z'
+			'M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z',
+			$margin_left
 		);
 	}
 
 	/**
 	 * Return the inline HTML for the Senator Penalis star badge.
 	 *
+	 * @param string $margin_left Optional left margin.
 	 * @return string
 	 */
-	public static function senator_badge_html() {
+	public static function senator_badge_html( $margin_left = '0.34em' ) {
 		return self::inline_badge_html(
 			'penalis-senator-badge-inline',
 			'Senator Penalis',
 			'#d97706',
-			'M12 2.25l2.92 5.92 6.53.95-4.72 4.6 1.11 6.51L12 17.16l-5.84 3.07 1.11-6.51-4.72-4.6 6.53-.95L12 2.25z'
+			'M12 2.25l2.92 5.92 6.53.95-4.72 4.6 1.11 6.51L12 17.16l-5.84 3.07 1.11-6.51-4.72-4.6 6.53-.95L12 2.25z',
+			$margin_left
 		);
 	}
 
@@ -564,6 +574,11 @@ final class Penalis_Authors {
 	 * @return void
 	 */
 	public static function render_profile_verified_badge() {
+		// The bundled author archive template renders badges directly in PHP.
+		if ( class_exists( 'Penalis_Author_Archive' ) && Penalis_Author_Archive::is_archive_request() ) {
+			return;
+		}
+
 		$author_id = self::resolve_context_author_id( 'post' );
 
 		$is_verified = self::is_user_verified( $author_id );
@@ -573,8 +588,8 @@ final class Penalis_Authors {
 			return;
 		}
 
-		$verified_json = $is_verified ? wp_json_encode( self::verified_badge_html() ) : '""';
-		$senator_json  = $is_senator ? wp_json_encode( self::senator_badge_html() ) : '""';
+		$verified_json = $is_verified ? wp_json_encode( self::verified_badge_html( '0.34em' ) ) : '""';
+		$senator_json  = $is_senator ? wp_json_encode( self::senator_badge_html( $is_verified ? '0.16em' : '0.34em' ) ) : '""';
 		if ( ! is_string( $verified_json ) || ! is_string( $senator_json ) ) {
 			return;
 		}

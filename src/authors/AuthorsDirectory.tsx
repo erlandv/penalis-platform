@@ -317,22 +317,26 @@ export function AuthorsDirectory(): React.ReactElement {
                   <div className="penalis-authors-info">
                     <div className="penalis-authors-name-row">
                       <span className="penalis-authors-name">{author.displayName}</span>
-                      {author.isVerified && (
-                        <span
-                          className="penalis-authors-badge"
-                          title="Penulis Aktif terverifikasi"
-                          aria-label="Penulis Aktif terverifikasi"
-                        >
-                          <VerifiedBadgeIcon />
-                        </span>
-                      )}
-                      {author.isSenator && (
-                        <span
-                          className="penalis-authors-badge penalis-authors-badge--senator"
-                          title="Senator Penalis"
-                          aria-label="Senator Penalis"
-                        >
-                          <SenatorBadgeIcon />
+                      {(author.isVerified || author.isSenator) && (
+                        <span className="penalis-authors-badges">
+                          {author.isVerified && (
+                            <span
+                              className="penalis-authors-badge"
+                              title="Penulis Aktif terverifikasi"
+                              aria-label="Penulis Aktif terverifikasi"
+                            >
+                              <VerifiedBadgeIcon />
+                            </span>
+                          )}
+                          {author.isSenator && (
+                            <span
+                              className="penalis-authors-badge penalis-authors-badge--senator"
+                              title="Senator Penalis"
+                              aria-label="Senator Penalis"
+                            >
+                              <SenatorBadgeIcon />
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>

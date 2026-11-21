@@ -180,10 +180,13 @@ Invariants that must never be broken:
 penalis-platform.php        Plugin header, constants, Penalis_ autoloader, activation hooks
 uninstall.php               Opt-in cleanup only
 includes/                   PHP classes (Penalis_ prefix, one concern per file)
-assets/css/admin.css        Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email, Pengaturan)
-assets/js/admin-review.js   Confirmation modals (createModalController) and inline validation for wp-admin actions
-templates/dashboard.php     Minimal theme wrapper for [penalis_dashboard]
-templates/authors.php       Minimal theme wrapper for [penalis_authors]
+assets/css/admin.css          Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email, Pengaturan)
+assets/css/author-archive.css Public author archive stylesheet (.penalis-author-archive-root)
+assets/js/admin-review.js     Confirmation modals (createModalController) and inline validation for wp-admin actions
+assets/js/author-archive.js   Native Web Share API and copy-to-clipboard handlers for author archives
+templates/dashboard.php       Minimal theme wrapper for [penalis_dashboard]
+templates/authors.php         Minimal theme wrapper for [penalis_authors]
+templates/author-archive.php  Server-rendered profile & works archive template (penalis-author-archive.php override)
 src/                        React SPAs (app/, authors/, components/, features/, lib/, styles/)
                             styles/: tokens.css, main.css (@import index), section files
 build/                      Generated Vite output and manifest.json (gitignored)
@@ -216,12 +219,14 @@ readme.txt                  WordPress plugin readme and changelog
   then emits a separate CSS chunk that `enqueue_vite_entry()` cannot enqueue
   because it only reads each entry's `css` array from `build/manifest.json`.
   `assets/css/admin.css` stays a standalone wp-admin stylesheet with its own
-  shared pill/avatar primitives.
+  shared pill/avatar primitives, and `assets/css/author-archive.css` +
+  `assets/js/author-archive.js` are enqueued directly by
+  `Penalis_Author_Archive` on public author archive requests.
 - **Shared PHP helpers (reuse instead of duplicating):**
   - **Vite & SPA mounting (`Penalis_Dashboard`):** `enqueue_vite_entry()`,
     `ensure_same_origin_url()`, `format_module_script_tag()`,
     `resolve_bundled_template()`, and `render_spa_mount()` are shared by
-    `Penalis_Dashboard` and `Penalis_Authors`.
+    `Penalis_Dashboard`, `Penalis_Authors`, and `Penalis_Author_Archive`.
   - **MySQL advisory locks (`Penalis_Account_Status`):** Use
     `Penalis_Account_Status::with_advisory_lock()` (used by `Penalis_Otp`,
     `Penalis_Username_Change`, `Penalis_Editorial_Workflow`, and

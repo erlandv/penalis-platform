@@ -1,0 +1,554 @@
+/* ==========================================================================
+   Penalis public author archive
+   Scoped to .penalis-author-archive-root so it does not disturb the theme.
+   Mirrors the light neutral scale and accent tokens of the authors directory.
+   ========================================================================== */
+
+.penalis-author-archive-root {
+  --penalis-bg: #f7f9f8;
+  --penalis-surface: #ffffff;
+  --penalis-surface-alt: #fbfaf8;
+  --penalis-accent: #7c3aed;
+  --penalis-accent-strong: #5b21b6;
+  --penalis-accent-soft: #f1e9ff;
+  --penalis-accent-border: #ddc9ff;
+  --penalis-border: #e9ecef;
+  --penalis-border-hover: #d0d7de;
+  --penalis-text: #1b1f24;
+  --penalis-muted: #5e6670;
+  --penalis-fill: #f8f9fa;
+  --penalis-fill-hover: #f3f4f6;
+  --penalis-fill-strong: #f1f3f5;
+  --penalis-radius: 14px;
+  --penalis-radius-control: 10px;
+  --penalis-radius-xs: 8px;
+  --penalis-shadow: 0 2px 8px rgba(17, 24, 39, 0.04);
+  --penalis-shadow-hover: 0 8px 22px rgba(17, 24, 39, 0.08);
+
+  color: var(--penalis-text);
+  background: var(--penalis-bg);
+  padding: 1rem 1.25rem 4rem;
+  font-family: inherit;
+  line-height: 1.5;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.penalis-author-archive-root *,
+.penalis-author-archive-root *::before,
+.penalis-author-archive-root *::after {
+  box-sizing: border-box;
+}
+
+.penalis-author-archive-root .penalis-archive-container {
+  width: 100%;
+  max-width: 1280px;
+  min-width: 0;
+  margin: 0 auto;
+  background: var(--penalis-surface);
+  border-radius: var(--penalis-radius);
+  padding: 2.25rem 2.5rem 2.5rem;
+}
+
+@media (max-width: 640px) {
+  .penalis-author-archive-root {
+    padding: 0.75rem 0.75rem 2.5rem;
+  }
+
+  .penalis-author-archive-root .penalis-archive-container {
+    padding: 1.25rem 1rem 1.75rem;
+  }
+}
+
+.penalis-author-archive-root .penalis-archive-sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Social-style profile header card */
+.penalis-author-archive-root .penalis-profile-card {
+  background: var(--penalis-surface);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  overflow: hidden;
+  box-shadow: var(--penalis-shadow);
+  margin-bottom: 2.25rem;
+}
+
+.penalis-author-archive-root .penalis-profile-cover {
+  height: 112px;
+  background: linear-gradient(125deg, #f3ecff 0%, #ede9fe 52%, #fef3c7 100%);
+  border-bottom: 1px solid var(--penalis-border);
+}
+
+.penalis-author-archive-root .penalis-profile-body {
+  padding: 0 1.75rem 1.75rem;
+}
+
+.penalis-author-archive-root .penalis-profile-top {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.penalis-author-archive-root .penalis-profile-avatar-wrap {
+  margin-top: -52px;
+  flex-shrink: 0;
+}
+
+.penalis-author-archive-root img.penalis-profile-avatar {
+  display: block;
+  width: 104px;
+  height: 104px;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 4px solid var(--penalis-surface);
+  background: var(--penalis-fill-strong);
+  box-shadow: 0 4px 14px rgba(17, 24, 39, 0.12);
+}
+
+.penalis-author-archive-root .penalis-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  padding-top: 0.85rem;
+  flex-shrink: 0;
+}
+
+.penalis-author-archive-root .penalis-profile-owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 1.15rem;
+}
+
+@media (max-width: 640px) {
+  .penalis-author-archive-root .penalis-profile-cover {
+    height: 84px;
+  }
+
+  .penalis-author-archive-root .penalis-profile-body {
+    padding: 0 1.15rem 1.35rem;
+  }
+
+  .penalis-author-archive-root .penalis-profile-avatar-wrap {
+    margin-top: -42px;
+  }
+
+  .penalis-author-archive-root img.penalis-profile-avatar {
+    width: 84px;
+    height: 84px;
+  }
+
+  .penalis-author-archive-root .penalis-profile-actions {
+    padding-top: 0.5rem;
+  }
+}
+
+.penalis-author-archive-root .penalis-archive-btn {
+  margin: 0;
+  min-height: 0;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: var(--penalis-radius-control);
+  border: 1px solid var(--penalis-border);
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
+  line-height: 1.25;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.penalis-author-archive-root .penalis-archive-btn:hover {
+  background: var(--penalis-fill-hover);
+  border-color: var(--penalis-border-hover);
+  color: var(--penalis-text);
+}
+
+.penalis-author-archive-root .penalis-archive-btn--primary {
+  background: var(--penalis-accent);
+  border-color: var(--penalis-accent);
+  color: #ffffff;
+}
+
+.penalis-author-archive-root .penalis-archive-btn--primary:hover {
+  background: var(--penalis-accent-strong);
+  border-color: var(--penalis-accent-strong);
+  color: #ffffff;
+}
+
+.penalis-author-archive-root .penalis-archive-btn.is-copied {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.penalis-author-archive-root .penalis-archive-btn:focus-visible,
+.penalis-author-archive-root button.penalis-profile-url-btn:focus-visible,
+.penalis-author-archive-root .penalis-archive-card-title a:focus-visible,
+.penalis-author-archive-root .penalis-archive-pagination a:focus-visible {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
+}
+
+.penalis-author-archive-root h1.penalis-profile-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.4rem;
+  margin: 0 0 0.3rem;
+  font-size: clamp(1.5rem, 2.6vw, 1.95rem);
+  font-weight: 700;
+  color: var(--penalis-text);
+  line-height: 1.22;
+}
+
+.penalis-author-archive-root .penalis-profile-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.penalis-author-archive-root .penalis-profile-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  color: var(--penalis-muted);
+  margin-bottom: 0.9rem;
+}
+
+.penalis-author-archive-root .penalis-profile-handle {
+  font-size: 0.975rem;
+  font-weight: 500;
+  color: var(--penalis-muted);
+  line-height: 1.4;
+}
+
+.penalis-author-archive-root .penalis-profile-meta-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  font-size: 0.875rem;
+  color: var(--penalis-muted);
+  line-height: 1.4;
+}
+
+.penalis-author-archive-root .penalis-profile-joined {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: inherit;
+}
+
+.penalis-author-archive-root button.penalis-profile-url-btn {
+  margin: 0 0 0 -0.4rem;
+  padding: 0.15rem 0.4rem;
+  min-height: 0;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--penalis-accent);
+  font-size: inherit;
+  font-family: inherit;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.penalis-author-archive-root button.penalis-profile-url-btn:hover {
+  background: var(--penalis-accent-soft);
+  border-color: var(--penalis-accent-border);
+}
+
+.penalis-author-archive-root button.penalis-profile-url-btn.is-copied {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.penalis-author-archive-root .penalis-profile-bio {
+  margin: 0 0 1.15rem;
+  font-size: 0.975rem;
+  color: var(--penalis-text);
+  max-width: 68ch;
+  line-height: 1.6;
+}
+
+.penalis-author-archive-root .penalis-profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--penalis-border);
+}
+
+.penalis-author-archive-root .penalis-profile-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.penalis-author-archive-root .penalis-profile-stat-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--penalis-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.penalis-author-archive-root .penalis-profile-stat-label {
+  font-size: 0.875rem;
+  color: var(--penalis-muted);
+}
+
+/* Works section */
+.penalis-author-archive-root .penalis-archive-works-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.85rem;
+  margin-bottom: 1.35rem;
+  border-bottom: 1px solid var(--penalis-border);
+}
+
+.penalis-author-archive-root h2.penalis-archive-works-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--penalis-text);
+  line-height: 1.3;
+}
+
+.penalis-author-archive-root .penalis-archive-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.35rem;
+}
+
+@media (max-width: 960px) {
+  .penalis-author-archive-root .penalis-archive-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .penalis-author-archive-root .penalis-archive-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.penalis-author-archive-root .penalis-archive-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--penalis-surface-alt);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  overflow: hidden;
+  box-shadow: var(--penalis-shadow);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.penalis-author-archive-root .penalis-archive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--penalis-shadow-hover);
+  border-color: var(--penalis-border-hover);
+}
+
+.penalis-author-archive-root a.penalis-archive-card-media {
+  display: block;
+  aspect-ratio: 16 / 10;
+  background: var(--penalis-fill-strong);
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.penalis-author-archive-root img.penalis-archive-card-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.25s ease;
+}
+
+.penalis-author-archive-root .penalis-archive-card:hover img.penalis-archive-card-img {
+  transform: scale(1.02);
+}
+
+.penalis-author-archive-root .penalis-archive-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f3f4f6 0%, #ede9fe 100%);
+  color: var(--penalis-muted);
+}
+
+.penalis-author-archive-root .penalis-archive-card-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 1.05rem 1.15rem 1.15rem;
+}
+
+.penalis-author-archive-root a.penalis-archive-card-cat {
+  align-self: flex-start;
+  margin-bottom: 0.5rem;
+  padding: 0.16rem 0.55rem;
+  border-radius: 9999px;
+  background: var(--penalis-accent-soft);
+  color: var(--penalis-accent-strong);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-decoration: none;
+  line-height: 1.35;
+}
+
+.penalis-author-archive-root a.penalis-archive-card-cat:hover {
+  background: var(--penalis-accent-border);
+}
+
+.penalis-author-archive-root h3.penalis-archive-card-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.38;
+}
+
+.penalis-author-archive-root h3.penalis-archive-card-title a {
+  color: var(--penalis-text);
+  text-decoration: none;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.penalis-author-archive-root h3.penalis-archive-card-title a:hover {
+  color: var(--penalis-accent);
+}
+
+.penalis-author-archive-root .penalis-archive-card-excerpt {
+  margin: 0 0 0.9rem;
+  font-size: 0.875rem;
+  color: var(--penalis-muted);
+  line-height: 1.55;
+  display: -webkit-box;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.penalis-author-archive-root .penalis-archive-card-meta {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--penalis-muted);
+}
+
+/* Pagination */
+.penalis-author-archive-root .penalis-archive-pagination {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.penalis-author-archive-root .penalis-archive-pagination ul.page-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.penalis-author-archive-root .penalis-archive-pagination li {
+  margin: 0;
+  padding: 0;
+}
+
+.penalis-author-archive-root .penalis-archive-pagination a.page-numbers,
+.penalis-author-archive-root .penalis-archive-pagination span.page-numbers {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--penalis-radius-xs);
+  border: 1px solid var(--penalis-border);
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.penalis-author-archive-root .penalis-archive-pagination a.page-numbers:hover {
+  background: var(--penalis-fill-hover);
+  border-color: var(--penalis-border-hover);
+}
+
+.penalis-author-archive-root .penalis-archive-pagination span.page-numbers.current {
+  background: var(--penalis-accent);
+  border-color: var(--penalis-accent);
+  color: #ffffff;
+}
+
+.penalis-author-archive-root .penalis-archive-pagination span.page-numbers.dots {
+  border-color: transparent;
+  background: transparent;
+  color: var(--penalis-muted);
+}
+
+/* Empty state */
+.penalis-author-archive-root .penalis-archive-empty {
+  background: var(--penalis-fill);
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.penalis-author-archive-root .penalis-archive-empty p {
+  margin: 0 0 1rem;
+  color: var(--penalis-muted);
+}

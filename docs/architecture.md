@@ -25,11 +25,14 @@ WordPress (PHP)                               Browser (React SPA)
 - **Articles are native WordPress `post` records.** `post_content` stores plain
   HTML produced by TipTap, featured images use standard post thumbnails, and
   categories/tags use native taxonomies. The active WordPress theme renders
-  published articles and author archives without modification.
+  published articles, while public author archives (`/author/<username>/`) are
+  rendered through the bundled `templates/author-archive.php` template
+  (`Penalis_Author_Archive`) inside the active theme's header and footer.
 - **Scoped asset loading.** The React dashboard is mounted via the
-  `[penalis_dashboard]` shortcode on the `/dashboard/` page and rendered through
-  `templates/dashboard.php`. Dashboard scripts and styles are enqueued only on
-  that page, never site-wide.
+  `[penalis_dashboard]` shortcode on the `/dashboard/` page (`templates/dashboard.php`),
+  the public authors directory via `[penalis_authors]` (`templates/authors.php`),
+  and author archives via `templates/author-archive.php`. Each surface enqueues
+  its scripts and styles only on its matching requests, never site-wide.
 
 ---
 
@@ -67,19 +70,23 @@ penalis-platform/
 │   ├── class-username-change.php         Re-authenticated login rename with advisory lock
 │   ├── class-author-history.php          Historical author slug reservation and 301 redirects
 │   ├── class-avatar.php                  Avatar storage and fallback provider (One User Avatar compatible)
-│   ├── class-datetime.php                Site timezone-aware date and time formatting helpers
+│   ├── class-datetime.php                Site timezone-aware date/time formatting and Indonesian month-year helpers
 │   ├── class-dashboard.php               Dashboard page, shortcode, template, shared Vite manifest/module loader & SPA mount helper
-│   ├── class-authors.php                 Public authors directory ([penalis_authors]) and verified badge integration
+│   ├── class-authors.php                 Public authors directory ([penalis_authors]), verified & Senator badges, and post badge integration
+│   ├── class-author-archive.php          Public author archive template routing, profile data, and scoped assets
 │   ├── class-emails.php                  Centralized template-driven transactional email dispatcher and failure tracking
 │   ├── class-email-template.php          Branded responsive HTML email layout and Markdown renderer
 │   ├── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting, configurable limits, proxy-aware client IP
 │   └── class-turnstile.php               Optional Cloudflare Turnstile adapter via Simple Cloudflare Turnstile
 ├── assets/
 │   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email)
-│   └── js/admin-review.js                Shared modal controller (createModalController) and inline validation for wp-admin actions
+│   ├── css/author-archive.css            Public author archive stylesheet (.penalis-author-archive-root)
+│   ├── js/admin-review.js                Shared modal controller (createModalController) and inline validation for wp-admin actions
+│   └── js/author-archive.js              Native Web Share API and copy-to-clipboard handlers for author archives
 ├── templates/
 │   ├── dashboard.php                     Minimal theme-compatible wrapper for [penalis_dashboard]
-│   └── authors.php                       Minimal theme-compatible wrapper for [penalis_authors]
+│   ├── authors.php                       Minimal theme-compatible wrapper for [penalis_authors]
+│   └── author-archive.php                Server-rendered public author profile and works archive template
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
 │   ├── authors/                          Separate public React entry point for [penalis_authors] directory (authors.css)
@@ -108,9 +115,10 @@ On `plugins_loaded`, `Penalis_Plugin::run()` initializes components in order:
 4. `Penalis_Rest_Api::init()`
 5. `Penalis_Dashboard::init()`
 6. `Penalis_Authors::init()`
-7. `Penalis_Author_History::init()`
-8. `Penalis_Avatar::register_provider()`
-9. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, and `Penalis_Email_Settings::init()` (when `is_admin()`)
+7. `Penalis_Author_Archive::init()`
+8. `Penalis_Author_History::init()`
+9. `Penalis_Avatar::register_provider()`
+10. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, and `Penalis_Email_Settings::init()` (when `is_admin()`)
 
 ### Optional Third-Party Integrations
 
@@ -551,23 +559,27 @@ Transactional emails can be adjusted by non-technical administrators via
 ### 7.6 Post Views Counter Integration
 Penalis Platform integrates with the [Post Views Counter](https://wordpress.org/plugins/post-views-counter/)
 plugin to surface article view statistics inside the `/dashboard/` React SPA
-(`Overview.tsx`, `Articles.tsx`, and `Editor.tsx`) as well as the public
-contributors directory (`[penalis_authors]` / `AuthorsDirectory.tsx`).
-- **Per-Article Views:** `Penalis_Rest_Api::get_post_views()` reads lifetime
-  totals via `pvc_get_post_views( $post_id )` for published posts
+(`Overview.tsx`, `Articles.tsx`, and `Editor.tsx`), the public contributors
+directory (`[penalis_authors]` / `AuthorsDirectory.tsx`), and public author
+archives (`Penalis_Author_Archive`).
+- **Per-Article Views:** `Penalis_Rest_Api::get_post_views()` and
+  `Penalis_Author_Archive::get_post_views()` read lifetime totals via
+  `pvc_get_post_views( $post_id )` for published posts
   (`post_status === 'publish'`). Unpublished articles (`draft`,
   `pending_review`, `changes_requested`, `rejected`) always return `0` so
   internal admin previews or stray database rows never leak into writer stats.
-- **Author Total Views:** `Penalis_Rest_Api::author_total_views()` and
-  `Penalis_Authors::get_author_views_map()` fetch the IDs of all published posts
-  owned by the writer(s) and pass the `int[]` array to
+- **Author Total Views:** `Penalis_Rest_Api::author_total_views()`,
+  `Penalis_Authors::get_author_views_map()`, and
+  `Penalis_Author_Archive::get_author_total_views()` fetch the IDs of all
+  published posts owned by the writer(s) and pass the `int[]` array to
   `pvc_get_post_views( $post_ids )`, computing total views in an aggregate SQL
   query (`WHERE id IN (...) AND type = 4 AND period = 'total'`) cached in the
   `pvc-get_post_views` object-cache group (and in the public authors directory
   transient).
 - **Graceful Degradation:** Every call is guarded by
   `function_exists( 'pvc_get_post_views' )`. When Post Views Counter is
-  deactivated or absent, all view counts safely fall back to `0`.
+  deactivated or absent, dashboard/directory counts fall back to `0` and
+  `Penalis_Author_Archive` returns `null` so view labels are omitted cleanly.
 
 ### 7.7 Frontend CSS Architecture
 The dashboard and authors directory use plain CSS with shared custom
@@ -590,10 +602,12 @@ properties; there is no preprocessor, utility framework, or CSS-in-JS layer.
   is not listed in the entry's `css` array. `Penalis_Dashboard::enqueue_vite_entry()`
   enqueues only that array, so such a stylesheet would never load in WordPress.
   Use CSS `@import` inside the entry stylesheet for shared CSS.
-- **Admin CSS is separate:** `assets/css/admin.css` is loaded directly by
-  `Penalis_Admin` and is not part of the Vite build. It keeps its own shared
-  status-pill, avatar, and pagination primitives; do not inline those rules in
-  PHP.
+- **Standalone plugin CSS (`assets/css/`):** `assets/css/admin.css` is loaded
+  directly by `Penalis_Admin` on `wp-admin` screens, and
+  `assets/css/author-archive.css` is loaded directly by `Penalis_Author_Archive`
+  on author archive requests (matching the light neutral scale of
+  `.penalis-authors-root`). Neither is part of the Vite build; do not inline
+  those rules in PHP.
 - **Fixed brand glyph:** the verified badge SVG uses a literal Twitter blue
   (`#1d9bf0`) in `base.css` rather than a token, because it is a fixed brand
   mark that must not be recoloured by a theme override.
@@ -952,6 +966,36 @@ the mechanism; `src/lib/permissions.ts` and `src/lib/navigation.ts` hold it.
   Ringkasan ("Ingin menulis? Logout lalu masuk dengan akun Penulis kamu") and
   the same sentence at the foot of the account menu, rather than a standing
   banner on every screen.
+
+### 7.18 Public Author Archive (`Penalis_Author_Archive`)
+Public author archives (`/author/<username>/`) are rendered by a server-side
+PHP template (`templates/author-archive.php`) inside the active theme's header
+and footer rather than a React SPA or an Elementor Theme Builder template.
+- **Server-rendered for SEO and native pagination:** Crawlers, social link
+  previews, SEO plugins, and WordPress's native `/author/<username>/page/N/`
+  main loop all receive complete HTML on initial load with zero loading flash.
+- **Opt-out and theme override:** `Penalis_Author_Archive::maybe_use_template()`
+  hooks `template_include` at priority `99`, respects the
+  `penalis_use_author_archive_template` boolean filter, and resolves through
+  `Penalis_Dashboard::resolve_bundled_template()` so a theme can still override
+  it by providing `penalis-author-archive.php`.
+- **Native badge rendering without JS DOM injection:** Because the template
+  renders `Penalis_Authors::verified_badge_html( '' )` and
+  `senator_badge_html( '' )` directly inside `.penalis-profile-badges`,
+  `Penalis_Authors::render_profile_verified_badge()` skips `wp_footer` DOM
+  injection when `Penalis_Author_Archive::is_archive_request()` is true. Both
+  `/author/` and `/author/<username>/` keep a tighter gap between consecutive
+  badges (`Verified` ↔ `Senator`) than between the display name and the first
+  badge.
+- **Minimalist action layout:** The top-right bar next to the avatar keeps only
+  **Bagikan** (`assets/js/author-archive.js`, using `navigator.share()` with a
+  clipboard fallback) so the row stays single-line on mobile; owner-only actions
+  (**Edit Profil** and **Tulis Karya**, gated by `can_write()`) sit below the
+  bio.
+- **Locale-independent Indonesian dates:** The joined date uses
+  `Penalis_Datetime::format_indonesian_month_year_gmt()` (`Desember 2025`) so it
+  stays Indonesian even when WordPress's Site Language is English, while article
+  cards use `d/m/Y` (`31/12/2026`).
 
 
 

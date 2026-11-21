@@ -1,9 +1,10 @@
 # Penalis Platform
 
 A self-contained WordPress plugin that provides a curated writer-account
-lifecycle, an editorial submission and review pipeline, and a React writing
-dashboard (`/dashboard/`) for the [Penalis](https://penalis.com) literary
-community.
+lifecycle, an editorial submission and review pipeline, a dual-mode React
+dashboard (`/dashboard/`) for writers and Senators (administrators and editors),
+and public contributor directory & author profile experiences for the
+[Penalis](https://penalis.com) literary community.
 
 Penalis Platform runs entirely inside WordPress using native users, roles,
 capabilities, posts, media, metadata, and the WordPress REST API — with no
@@ -14,34 +15,48 @@ authentication store.
 
 ## Key Features
 
-- **Self-Service Writer Account Workflow** — Self-service registration,
-  scanner-safe single-use email verification that immediately activates the
-  `penalis_writer` role, optional Instagram username collection for internal
-  admin curation, administrator suspension/reactivation controls, and a bounded
+- **Self-Service Writer Account Workflow** — Self-service registration (with an
+  administrator toggle), scanner-safe single-use email verification that
+  immediately activates the `penalis_writer` role, optional Instagram username
+  collection for internal admin curation, optional Cloudflare Turnstile
+  protection, administrator suspension/reactivation controls, and a bounded
   audit trail.
 - **Legacy Contributor Activation** — Pre-plugin `contributor` accounts (created
   without passwords) can be activated immediately via self-service email
   verification or administrator vouching while preserving existing user IDs,
   authored posts, and author archive URLs.
 - **Editorial Submission & Review Pipeline** — Writers compose drafts and submit
-  them for review (`Submit Review` / `Submit Ulang`). Only an administrator
-  approval action can publish a submission, and published articles remain
-  read-only to writers.
-- **React Writing Dashboard (`/dashboard/`)** — Single-page application built
-  with React 18, TypeScript, Vite, and a lazy-loaded TipTap WYSIWYG editor
-  (with raw HTML escape hatch), media library, writer profile & avatar picker,
-  compact editorial notifications, and re-authenticated credential settings
-  (password, verified email change, and 301-redirected username rename).
-- **Public Authors Directory & Verified Badges** — `[penalis_authors]` React
-  directory with search, verified filter, sorting, and pagination, plus verified
-  active writer badges (`[penalis_verified_badge]`) across author profiles,
-  article author boxes, and the writer dashboard.
+  them for review (`Submit Review` / `Submit Ulang`). Only a reviewer approval
+  action (administrator or editor, with serialized per-post advisory locking)
+  can publish a submission, published articles remain read-only to writers, and
+  published-post takedowns are audited and recoverable via **Karya Terhapus**.
+- **Dual-Mode React Dashboard (`/dashboard/`)** — Single-page application built
+  with React 18, TypeScript, and Vite that enforces the no-hybrid-account rule:
+  **Dashboard Penulis** provides a lazy-loaded TipTap WYSIWYG editor (with raw
+  HTML mode, keyboard shortcuts, and revision caps), media library, writer
+  profile & avatar picker, per-channel notification preferences, and
+  re-authenticated credential settings (password, verified email change, and
+  301-redirected username rename); **Dashboard Senator** opens an isolated
+  curation workspace with an in-dashboard **Review Karya** queue and manuscript
+  reader.
+- **Public Authors Directory (`[penalis_authors]`)** — Dedicated React directory
+  with live search, **Semua / Verified / Senator** filter chips, views/posts/A–Z
+  sorting (with Post Views Counter integration), an inline SVG badge legend, and
+  a subtle visual highlight on the signed-in author's own card.
+- **Public Author Archive (`/author/<username>/`) & Badges** — Server-rendered,
+  SEO-friendly author profile template (`templates/author-archive.php`, with
+  theme override and opt-out filter) featuring avatar, verified and Senator star
+  badges (`[penalis_verified_badge]`, `[penalis_senator_badge]`), copyable
+  profile URL, Indonesian joined date, contribution and view totals, native Web
+  Share API with clipboard fallback, owner-only quick actions (**Edit Profil**
+  and **Tulis Karya**), and a paginated works grid.
 - **Unified WordPress Admin Console (`Penalis`)** — Centralized `wp-admin` menu
-  with **Ringkasan** (overview metrics and pending queues), **Review Karya Tulis**
-  (2-column article review workspace with serialized per-post locking and
-  confirmation dialogs), **Penulis Penalis** (writer account curation and
-  default profile photo), and **Pengaturan Email** (customizable transactional
-  email templates with Markdown support and placeholder safety nets).
+  with **Ringkasan** (overview counters and 8-week editorial analytics),
+  **Review Karya Tulis** & **Karya Terhapus**, **Penulis Penalis** (writer
+  account curation and **Senator Penalis** marking for active writers and legacy
+  contributors), **Log Email** (transactional delivery log, preview, and
+  resend), and tabbed **Pengaturan** (**Keamanan**, **Pendaftaran**, **Batas
+  Percobaan**, **Foto Profil**, **Email**, and **Data**).
 
 ---
 
@@ -52,7 +67,7 @@ authentication store.
 | WordPress | 6.0+ | Requires pretty permalinks enabled |
 | PHP | 8.2+ | Production runtime |
 | Node.js & npm | Node 20+, npm 9+ | Build-time only (not needed on the WordPress server) |
-| Composer | 2.x | Development tooling (PHPCS) only |
+| Composer | 2.x | Development tooling (PHPCS and test scripts) only |
 
 ---
 

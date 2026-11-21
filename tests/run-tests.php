@@ -57,6 +57,7 @@ require_once __DIR__ . '/../includes/class-email-change.php';
 require_once __DIR__ . '/../includes/class-turnstile.php';
 require_once __DIR__ . '/../includes/class-revisions.php';
 require_once __DIR__ . '/../includes/class-authors.php';
+require_once __DIR__ . '/../includes/class-author-archive.php';
 
 $GLOBALS['penalis_failures'] = 0;
 $GLOBALS['penalis_assertions'] = 0;
@@ -4566,6 +4567,19 @@ penalis_same( array( 13, 11 ), array_column( $authors_senator['items'], 'id' ), 
 
 Penalis_Authors::maybe_invalidate_cache_on_meta( 1, 10, Penalis_Account_Status::META_SENATOR );
 penalis_same( false, get_transient( Penalis_Authors::CACHE_KEY ), 'Changing Senator meta invalidates the cached authors directory.' );
+
+penalis_same( 'Desember 2025', Penalis_Datetime::format_indonesian_month_year_gmt( '2025-12-15 10:00:00' ), 'Indonesian month-year helper formats December independently of site locale.' );
+penalis_same( 'Agustus 2026', Penalis_Datetime::format_indonesian_month_year_gmt( '2026-08-01 00:00:00' ), 'Indonesian month-year helper formats August in Indonesian.' );
+penalis_same( '', Penalis_Datetime::format_indonesian_month_year_gmt( '' ), 'Indonesian month-year helper returns empty string for empty input.' );
+
+penalis_assert( Penalis_Author_Archive::is_enabled(), 'Bundled author archive template is enabled by default.' );
+penalis_same( 'penalis.com/author/erland', Penalis_Author_Archive::format_profile_url_label( 'https://penalis.com/author/erland/' ), 'Profile URL label strips protocol and trailing slash.' );
+penalis_same( 'localhost:2121/author/erland', Penalis_Author_Archive::format_profile_url_label( 'http://localhost:2121/author/erland/' ), 'Profile URL label preserves non-standard port.' );
+penalis_same( '45.335', Penalis_Author_Archive::format_number( 45335 ), 'Author archive counters format with Indonesian thousand separators.' );
+penalis_same( '0', Penalis_Author_Archive::format_number( -3 ), 'Negative counters clamp to zero.' );
+penalis_assert( is_readable( PENALIS_PLATFORM_DIR . 'templates/author-archive.php' ), 'Author archive template file exists.' );
+penalis_assert( is_readable( PENALIS_PLATFORM_DIR . 'assets/css/author-archive.css' ), 'Author archive stylesheet exists.' );
+penalis_assert( is_readable( PENALIS_PLATFORM_DIR . 'assets/js/author-archive.js' ), 'Author archive script exists.' );
 
 penalis_same( 'most_posts', Penalis_Policy::normalize_authors_sort( 'invalid' ), 'Invalid sort falls back to most_posts.' );
 penalis_same( 'name_asc', Penalis_Policy::normalize_authors_sort( 'name_asc' ), 'Valid sort mode is preserved.' );
