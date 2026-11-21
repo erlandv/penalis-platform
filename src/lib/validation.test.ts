@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BIO_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   PASSWORD_MISMATCH_MESSAGE,
+  collapseBioNewlines,
   hasErrors,
+  normalizeBio,
   normalizeInstagram,
   normalizeLinkHref,
   passwordMatchStatus,
   validateArticle,
   validateArticleSubmission,
+  validateBio,
   validateEmail,
   validateInstagram,
   validatePasswordPair,
@@ -348,5 +352,15 @@ describe('validatePasswordPair', () => {
 
   it('returns no errors for a matching pair that meets the minimum', () => {
     expect(validatePasswordPair('abcdefgh1234', 'abcdefgh1234')).toEqual({});
+  });
+
+  it('normalizes consecutive bio newlines and validates max length', () => {
+    expect(BIO_MAX_LENGTH).toBe(250);
+    expect(collapseBioNewlines('Baris 1\r\n\r\n\r\nBaris 2')).toBe('Baris 1\nBaris 2');
+    expect(collapseBioNewlines('Baris 1\n   \nBaris 2')).toBe('Baris 1\nBaris 2');
+    expect(normalizeBio('  Baris 1  \r\n\r\nBaris 2\n\n  ')).toBe('Baris 1\nBaris 2');
+    expect(validateBio('a'.repeat(250))).toBe('');
+    expect(validateBio('a'.repeat(251))).toContain('250');
+    expect(validateBio(`  ${'a'.repeat(245)}\n\n\n\n${'b'.repeat(4)}  `)).toBe('');
   });
 });

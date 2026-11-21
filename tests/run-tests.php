@@ -292,8 +292,11 @@ penalis_assert( '' !== Penalis_Policy::validate_password( 'short' ), 'Short pass
 penalis_assert( '' !== Penalis_Policy::validate_password( str_repeat( 'a', 201 ) ), 'Overlong password fails.' );
 
 penalis_same( array(), Penalis_Policy::validate_profile( array( 'display_name' => 'Ada', 'description' => 'Writer.' ) ), 'Valid profile passes.' );
-$errors = Penalis_Policy::validate_profile( array( 'description' => str_repeat( 'a', 501 ) ) );
-penalis_assert( isset( $errors['description'] ), 'Overlong bio is rejected.' );
+penalis_same( array(), Penalis_Policy::validate_profile( array( 'description' => str_repeat( 'a', Penalis_Policy::MAX_BIO ) ) ), 'Bio at the 250-character maximum passes.' );
+$errors = Penalis_Policy::validate_profile( array( 'description' => str_repeat( 'a', Penalis_Policy::MAX_BIO + 1 ) ) );
+penalis_assert( isset( $errors['description'] ), 'Overlong bio (> 250 chars) is rejected.' );
+penalis_same( "Baris 1\nBaris 2", Penalis_Policy::normalize_bio( "  Baris 1  \r\n\r\n \n\nBaris 2\n\n  " ), 'Bio normalization collapses blank lines to a single newline.' );
+penalis_same( 250, Penalis_Policy::bio_length( "  " . str_repeat( 'a', 240 ) . "\n\n\n" . str_repeat( 'b', 9 ) . "  " ), 'Bio length counts normalized characters and single newlines.' );
 
 penalis_same( 'penalis_id', Penalis_Policy::normalize_instagram( '  @penalis_id  ' ), 'Instagram normalization strips leading @ and trims whitespace.' );
 penalis_same( 'penalis', Penalis_Policy::normalize_instagram( 'https://www.instagram.com/penalis/' ), 'Instagram profile URL normalizes to the bare handle.' );

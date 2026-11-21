@@ -996,6 +996,14 @@ and footer rather than a React SPA or an Elementor Theme Builder template.
   `Penalis_Datetime::format_indonesian_month_year_gmt()` (`Desember 2025`) so it
   stays Indonesian even when WordPress's Site Language is English, while article
   cards use `d/m/Y` (`31/12/2026`).
+- **Bio limit & legacy collapsible display:** `Penalis_Policy::normalize_bio()`
+  collapses consecutive blank lines to a single newline and `Penalis_Policy::MAX_BIO`
+  enforces a `250`-character cap on profile updates without deleting existing
+  longer bios in user meta. On the public archive, bios exceeding `250`
+  characters (or `>= 3` explicit newlines) render with CSS `line-clamp` (`3`
+  lines on desktop, `5` on mobile) and a **Selengkapnya** / **Lebih sedikit**
+  toggle (`assets/js/author-archive.js`), hidden automatically if the viewport
+  does not overflow; shorter bios show no toggle.
 
 
 

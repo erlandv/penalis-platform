@@ -6,6 +6,7 @@
 import type { FieldErrors, Term } from './types';
 
 export const PASSWORD_MIN_LENGTH = 12;
+export const BIO_MAX_LENGTH = 250;
 
 /**
  * The one wording for a password/confirmation mismatch.
@@ -147,6 +148,37 @@ export function validateInstagram(value: string): string {
 
   if (handle.length > 30 || !/^[A-Za-z0-9._]{1,30}$/.test(handle) || !/[A-Za-z0-9]/.test(handle)) {
     return 'Masukkan username Instagram yang valid (huruf, angka, titik, atau garis bawah, maksimal 30 karakter).';
+  }
+
+  return '';
+}
+
+/**
+ * Collapse consecutive blank lines inside a bio textarea while typing so
+ * repeated Enter presses cannot create empty vertical gaps.
+ */
+export function collapseBioNewlines(value: string): string {
+  return value.replace(/\r\n?/g, '\n').replace(/[ \t]*\n(?:[ \t]*\n)+/g, '\n');
+}
+
+/**
+ * Normalize a writer bio identically to `Penalis_Policy::normalize_bio()`.
+ */
+export function normalizeBio(value: string): string {
+  const normalized = value.replace(/\r\n?/g, '\n').trim();
+  if (normalized === '') {
+    return '';
+  }
+
+  return normalized.replace(/[ \t]*\n(?:[ \t]*\n)*/g, '\n').trim();
+}
+
+/**
+ * Validate a writer bio against the maximum length after newline normalization.
+ */
+export function validateBio(value: string): string {
+  if (normalizeBio(value).length > BIO_MAX_LENGTH) {
+    return `Bio maksimal ${BIO_MAX_LENGTH} karakter.`;
   }
 
   return '';

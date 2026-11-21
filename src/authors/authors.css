@@ -380,7 +380,7 @@
   );
   transform: translateX(-120%);
   pointer-events: none;
-  animation: penalis-card-shine 6.5s ease-in-out infinite;
+  animation: penalis-card-shine 4.5s ease-in-out infinite;
 }
 
 @keyframes penalis-card-shine {

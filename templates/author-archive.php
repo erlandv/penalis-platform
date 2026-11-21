@@ -123,7 +123,22 @@ get_header();
 						</div>
 
 						<?php if ( '' !== (string) $penalis_data['bio'] ) : ?>
-							<p class="penalis-profile-bio"><?php echo nl2br( esc_html( (string) $penalis_data['bio'] ) ); ?></p>
+							<?php if ( ! empty( $penalis_data['is_bio_collapsible'] ) ) : ?>
+								<div class="penalis-profile-bio-wrap">
+									<p id="penalis-author-bio" class="penalis-profile-bio is-clamped" data-penalis-bio><?php echo nl2br( esc_html( (string) $penalis_data['bio'] ) ); ?></p>
+									<button
+										type="button"
+										class="penalis-profile-bio-toggle"
+										data-penalis-bio-toggle
+										aria-expanded="false"
+										aria-controls="penalis-author-bio"
+									>
+										Selengkapnya
+									</button>
+								</div>
+							<?php else : ?>
+								<p class="penalis-profile-bio"><?php echo nl2br( esc_html( (string) $penalis_data['bio'] ) ); ?></p>
+							<?php endif; ?>
 						<?php endif; ?>
 
 						<?php if ( ! empty( $penalis_data['can_write'] ) ) : ?>

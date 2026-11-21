@@ -9,7 +9,13 @@ import { MediaPickerDialog } from '../../components/MediaSelection';
 import { accountApi, ApiError, mediaApi } from '../../lib/api';
 import { displayNameOptions } from '../../lib/profile';
 import type { Account, DisplayNameMode, FieldErrors } from '../../lib/types';
-import { validateInstagram } from '../../lib/validation';
+import {
+  BIO_MAX_LENGTH,
+  collapseBioNewlines,
+  normalizeBio,
+  validateBio,
+  validateInstagram,
+} from '../../lib/validation';
 import { ErrorBanner, FieldError, FieldHint, PageHeading } from '../../components/ui';
 import { useToast } from '../../components/toastContext';
 
@@ -49,31 +55,46 @@ export function Profile({
   // automatic option rather than submitting a selection the server rejects.
   const selectedMode: DisplayNameMode = options.some((option) => option.mode === mode) ? mode : 'auto';
 
+  const bioLength = normalizeBio(description).length;
+  const isBioOverLimit = bioLength > BIO_MAX_LENGTH;
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
     setErrors({});
 
+    const fieldErrors: FieldErrors = {};
     const instagramError = validateInstagram(instagram);
     if (instagramError !== '') {
-      setErrors({ instagram: instagramError });
+      fieldErrors.instagram = instagramError;
+    }
+
+    const bioError = validateBio(description);
+    if (bioError !== '') {
+      fieldErrors.description = bioError;
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
       return;
     }
 
     setSaving(true);
 
     try {
+      const normalizedBio = normalizeBio(description);
       const updated = await accountApi.updateProfile({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         display_name_mode: selectedMode,
         ...(selectedMode === 'custom' ? { display_name: customName.trim() } : {}),
         instagram: instagram.trim(),
-        description,
+        description: normalizedBio,
       });
       onUpdated(updated);
       setCustomName(updated.displayNameMode === 'custom' ? updated.displayName : customName);
       setInstagram(updated.instagram ?? '');
+      setDescription(updated.description);
       showToast('Profil kamu telah diperbarui.');
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -248,12 +269,17 @@ export function Profile({
           <span>Bio</span>
           <textarea
             value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            rows={6}
-            maxLength={500}
-            aria-invalid={Boolean(errors.description)}
+            onChange={(event) => setDescription(collapseBioNewlines(event.target.value))}
+            rows={5}
+            maxLength={isBioOverLimit ? undefined : BIO_MAX_LENGTH}
+            aria-invalid={Boolean(errors.description) || isBioOverLimit}
           />
-          <FieldHint id="description-hint">{description.length}/500 karakter</FieldHint>
+          <FieldHint id="description-hint" className={isBioOverLimit ? 'penalis-field-hint--danger' : undefined}>
+            {bioLength}/{BIO_MAX_LENGTH} karakter
+            {isBioOverLimit
+              ? ` — Bio lama kamu melebihi batas ${BIO_MAX_LENGTH} karakter. Ringkas bio sebelum menyimpan perubahan profil.`
+              : ''}
+          </FieldHint>
           <FieldError errors={errors} name="description" />
         </label>
 

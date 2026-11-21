@@ -158,9 +158,17 @@ export function VerifiedWriterBadge({
  * is announced by screen readers when the field receives focus, because the
  * input points at this element through `aria-describedby`.
  */
-export function FieldHint({ id, children }: { id: string; children: ReactNode }) {
+export function FieldHint({
+  id,
+  className,
+  children,
+}: {
+  id: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <small className="penalis-field-hint" id={id}>
+    <small className={className ? `penalis-field-hint ${className}` : 'penalis-field-hint'} id={id}>
       {children}
     </small>
   );

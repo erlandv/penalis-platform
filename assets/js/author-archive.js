@@ -106,9 +106,42 @@
 		}
 	}
 
+	function initBioToggle() {
+		var bioEl = document.querySelector( '[data-penalis-bio]' );
+		var toggleBtn = document.querySelector( '[data-penalis-bio-toggle]' );
+		if ( ! bioEl || ! toggleBtn ) {
+			return;
+		}
+
+		function syncVisibility() {
+			if ( ! bioEl.classList.contains( 'is-clamped' ) ) {
+				toggleBtn.hidden = false;
+				return;
+			}
+			toggleBtn.hidden = bioEl.scrollHeight <= bioEl.clientHeight + 1;
+		}
+
+		syncVisibility();
+		window.addEventListener( 'resize', syncVisibility );
+
+		toggleBtn.addEventListener( 'click', function () {
+			var expanded = ! bioEl.classList.contains( 'is-clamped' );
+			if ( expanded ) {
+				bioEl.classList.add( 'is-clamped' );
+				toggleBtn.setAttribute( 'aria-expanded', 'false' );
+				toggleBtn.textContent = 'Selengkapnya';
+			} else {
+				bioEl.classList.remove( 'is-clamped' );
+				toggleBtn.setAttribute( 'aria-expanded', 'true' );
+				toggleBtn.textContent = 'Lebih sedikit';
+			}
+		} );
+	}
+
 	function init() {
 		initShareButton();
 		initCopyUrlButton();
+		initBioToggle();
 	}
 
 	if ( document.readyState === 'loading' ) {

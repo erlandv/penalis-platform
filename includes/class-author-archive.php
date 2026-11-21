@@ -269,31 +269,34 @@ final class Penalis_Author_Archive {
 	 * @return array<string,mixed>
 	 */
 	public static function get_profile_data( WP_User $author ) {
-		$user_id     = (int) $author->ID;
-		$profile_url = (string) get_author_posts_url( $user_id, $author->user_nicename );
-		$is_owner    = is_user_logged_in() && get_current_user_id() === $user_id;
-		$can_write   = $is_owner && Penalis_Account_Status::can_write( $user_id );
-		$post_count  = (int) count_user_posts( $user_id, 'post', true );
-		$joined      = Penalis_Datetime::format_indonesian_month_year_gmt( (string) $author->user_registered );
+		$user_id            = (int) $author->ID;
+		$profile_url        = (string) get_author_posts_url( $user_id, $author->user_nicename );
+		$is_owner           = is_user_logged_in() && get_current_user_id() === $user_id;
+		$can_write          = $is_owner && Penalis_Account_Status::can_write( $user_id );
+		$post_count         = (int) count_user_posts( $user_id, 'post', true );
+		$joined             = Penalis_Datetime::format_indonesian_month_year_gmt( (string) $author->user_registered );
+		$bio                = Penalis_Policy::normalize_bio( (string) get_user_meta( $user_id, 'description', true ) );
+		$is_bio_collapsible = '' !== $bio && ( Penalis_Policy::bio_length( $bio ) > Penalis_Policy::MAX_BIO || substr_count( $bio, "\n" ) >= 3 );
 
 		return array(
-			'id'                => $user_id,
-			'display_name'      => (string) $author->display_name,
-			'username'          => (string) $author->user_nicename,
-			'avatar_url'        => (string) Penalis_Avatar::get_url( $user_id ),
-			'profile_url'       => $profile_url,
-			'profile_url_label' => self::format_profile_url_label( $profile_url ),
-			'bio'               => trim( (string) get_user_meta( $user_id, 'description', true ) ),
-			'is_verified'       => Penalis_Authors::is_user_verified( $user_id ),
-			'is_senator'        => Penalis_Authors::is_user_senator( $user_id ),
-			'post_count'        => max( 0, $post_count ),
-			'total_views'       => self::get_author_total_views( $user_id ),
-			'joined_label'      => $joined,
-			'is_owner'          => $is_owner,
-			'can_write'         => $can_write,
-			'edit_profile_url'  => Penalis_Dashboard::dashboard_url( array( 'view' => 'profile' ) ),
-			'new_article_url'   => Penalis_Dashboard::dashboard_url( array( 'view' => 'editor' ) ),
-			'directory_url'     => self::directory_url(),
+			'id'                 => $user_id,
+			'display_name'       => (string) $author->display_name,
+			'username'           => (string) $author->user_nicename,
+			'avatar_url'         => (string) Penalis_Avatar::get_url( $user_id ),
+			'profile_url'        => $profile_url,
+			'profile_url_label'  => self::format_profile_url_label( $profile_url ),
+			'bio'                => $bio,
+			'is_bio_collapsible' => $is_bio_collapsible,
+			'is_verified'        => Penalis_Authors::is_user_verified( $user_id ),
+			'is_senator'         => Penalis_Authors::is_user_senator( $user_id ),
+			'post_count'         => max( 0, $post_count ),
+			'total_views'        => self::get_author_total_views( $user_id ),
+			'joined_label'       => $joined,
+			'is_owner'           => $is_owner,
+			'can_write'          => $can_write,
+			'edit_profile_url'   => Penalis_Dashboard::dashboard_url( array( 'view' => 'profile' ) ),
+			'new_article_url'    => Penalis_Dashboard::dashboard_url( array( 'view' => 'editor' ) ),
+			'directory_url'      => self::directory_url(),
 		);
 	}
 }

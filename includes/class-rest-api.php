@@ -980,7 +980,7 @@ final class Penalis_Rest_Api {
 		}
 
 		if ( isset( $input['description'] ) ) {
-			$update['description'] = sanitize_textarea_field( $input['description'] );
+			$update['description'] = Penalis_Policy::normalize_bio( sanitize_textarea_field( (string) $input['description'] ) );
 		}
 
 		if ( Penalis_Policy::is_valid_display_mode( $mode ) ) {

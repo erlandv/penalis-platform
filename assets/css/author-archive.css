@@ -295,12 +295,63 @@
   color: #065f46;
 }
 
+.penalis-author-archive-root .penalis-profile-bio-wrap {
+  margin: 0 0 1.15rem;
+  max-width: 68ch;
+}
+
 .penalis-author-archive-root .penalis-profile-bio {
   margin: 0 0 1.15rem;
   font-size: 0.975rem;
   color: var(--penalis-text);
   max-width: 68ch;
   line-height: 1.6;
+}
+
+.penalis-author-archive-root .penalis-profile-bio-wrap .penalis-profile-bio {
+  margin-bottom: 0.35rem;
+}
+
+.penalis-author-archive-root .penalis-profile-bio.is-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .penalis-author-archive-root .penalis-profile-bio.is-clamped {
+    -webkit-line-clamp: 5;
+    line-clamp: 5;
+  }
+}
+
+.penalis-author-archive-root button.penalis-profile-bio-toggle {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  height: auto;
+  border: 0;
+  background: transparent;
+  color: var(--penalis-accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.penalis-author-archive-root button.penalis-profile-bio-toggle:hover {
+  color: var(--penalis-accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.penalis-author-archive-root button.penalis-profile-bio-toggle:focus-visible {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .penalis-author-archive-root .penalis-profile-stats {

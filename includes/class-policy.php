@@ -39,6 +39,7 @@ final class Penalis_Policy {
 	public const MAX_DISPLAY_NAME = 80;
 	public const MAX_PERSON_NAME  = 50;
 	public const MAX_INSTAGRAM    = 30;
+	public const MAX_BIO          = 250;
 	public const AVATAR_MIN_EDGE  = 100;
 
 	public const AUTHORS_PER_PAGE     = 100;
@@ -87,6 +88,38 @@ final class Penalis_Policy {
 		}
 
 		return (string) preg_replace( '/\s+/u', ' ', $value );
+	}
+
+	/**
+	 * Normalize a writer bio: unify line endings, strip blank lines so at most
+	 * one consecutive newline remains, and trim outer whitespace.
+	 *
+	 * @param string $value Raw bio text.
+	 * @return string
+	 */
+	public static function normalize_bio( $value ) {
+		$value = str_replace( array( "\r\n", "\r" ), "\n", (string) $value );
+		$value = trim( $value );
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		// Strip whitespace-only lines and collapse consecutive newlines to a single
+		// line break so repeated Enter presses cannot stretch profile cards.
+		$value = (string) preg_replace( '/[ \t]*\n(?:[ \t]*\n)*/u', "\n", $value );
+
+		return trim( $value );
+	}
+
+	/**
+	 * Character length of a normalized writer bio.
+	 *
+	 * @param string $value Raw or normalized bio text.
+	 * @return int
+	 */
+	public static function bio_length( $value ) {
+		return self::length( self::normalize_bio( $value ) );
 	}
 
 	/**
@@ -707,9 +740,9 @@ final class Penalis_Policy {
 		}
 
 		if ( array_key_exists( 'description', $data ) ) {
-			$description = (string) $data['description'];
-			if ( self::length( $description ) > 500 ) {
-				$errors['description'] = 'Bio maksimal 500 karakter.';
+			$description = self::normalize_bio( (string) $data['description'] );
+			if ( self::length( $description ) > self::MAX_BIO ) {
+				$errors['description'] = sprintf( 'Bio maksimal %d karakter.', self::MAX_BIO );
 			}
 		}
 

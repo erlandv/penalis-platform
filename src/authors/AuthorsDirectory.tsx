@@ -345,7 +345,7 @@ export function AuthorsDirectory(): React.ReactElement {
                     </div>
                   </div>
                   {isCurrentUser && (
-                    <span className="penalis-authors-self-tag">You are here!</span>
+                    <span className="penalis-authors-self-tag">You</span>
                   )}
                 </a>
               );
