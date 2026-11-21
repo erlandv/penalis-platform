@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.1.0
+Stable tag: 2.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,12 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 2.2.0 =
+* Feature: Add a bundled, server-rendered public author archive template (`Penalis_Author_Archive`, `templates/author-archive.php`, `assets/css/author-archive.css`, `assets/js/author-archive.js`) for `/author/<username>/` with opt-out filter (`penalis_use_author_archive_template`) and theme override (`penalis-author-archive.php`) support. Includes a social-style profile header (avatar, verified and Senator badges, `@username`, copyable profile URL, locale-independent Indonesian joined date via `Penalis_Datetime::format_indonesian_month_year_gmt()`, published post & view totals, native Web Share API with clipboard fallback, and owner-only **Edit Profil** / **Tulis Karya** actions below the bio) plus a 3-column works grid with `dd/m/Y` dates and WordPress pagination.
+* Feature: Enforce a normalized 250-character bio limit (`Penalis_Policy::MAX_BIO`) and collapse consecutive blank lines to a single newline (`Penalis_Policy::normalize_bio()`, `normalizeBio()`, `collapseBioNewlines()`) without deleting existing longer bios. In **Profil** (`/dashboard/?view=profile`), writers with legacy bios longer than 250 characters see a clear over-limit counter/hint and can edit freely to shorten before saving; on public author archives, bios exceeding 250 characters (or 3+ newlines) render with CSS `line-clamp` (3 lines desktop, 5 lines mobile) and a **Selengkapnya** / **Lebih sedikit** toggle.
+* Feature: Add **Semua Kontributor** link (`window.penalisDashboard.authorsUrl`) directly below **Lihat profil publik** in the writer account menu.
+* Polish: Tighten consecutive badge spacing (`Name` <-> `Verified` <-> `Senator`) across `AuthorsDirectory`, `templates/author-archive.php`, and inline post badges, and skip `wp_footer` DOM badge injection on bundled author archives.
+
 = 2.1.0 =
 * Feature: Allow administrators to mark active `penalis_writer` accounts and unactivated legacy `contributor` accounts as **Senator Penalis** (`_penalis_is_senator`) from **Penalis → Penulis Penalis** with confirmation dialogs, status flags, and preserved filter/search pagination state, without granting staff capabilities to personal writer accounts.
 * Feature: Display an amber star Senator badge across the public authors directory (`[penalis_authors]`), single-post author boxes, author archive headings, and the `[penalis_senator_badge]` shortcode, backed by `Penalis_Policy::is_senator_author()`, `Penalis_Authors::is_user_senator()`, and automatic cache invalidation (`penalis_public_authors_v4`).
@@ -221,6 +227,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.2.0 =
+Introduces the bundled public author archive template (`/author/<username>/`) with social-style profile cards and native Web Share, enforces a normalized 250-character bio cap (preserving legacy long bios behind a collapsible toggle on public profiles), and adds a Semua Kontributor link to the writer dashboard account menu. If you previously used an Elementor Theme Builder Author Archive template, remove its display condition or set it to Draft so the bundled template takes over cleanly.
 
 = 2.1.0 =
 Adds public Senator Penalis star badges (managed per writer or legacy contributor in **Penalis → Penulis Penalis**), a Senator filter chip and badge legend in the public authors directory, inline Senator badges on posts and author archives, and a visual highlight on the signed-in author's own directory card.
