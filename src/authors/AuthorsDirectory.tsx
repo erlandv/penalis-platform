@@ -156,7 +156,7 @@ export function AuthorsDirectory(): React.ReactElement {
       <header className="penalis-authors-header">
         <h1 className="penalis-authors-title">Kontributor Penalis</h1>
         <p className="penalis-authors-subtitle">
-          Mereka yang karyanya telah di-publish di Penalis akan ditampilkan di halaman ini.
+          Mereka yang karya tulisnya telah publish di Penalis akan ditampilkan di halaman ini.<br />
           Klik nama kontributor untuk melihat profil dan kontribusi karya tulis mereka di Penalis.
         </p>
         <ul className="penalis-authors-legend" aria-label="Keterangan lencana kontributor">

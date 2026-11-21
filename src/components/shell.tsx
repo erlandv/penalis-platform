@@ -181,6 +181,7 @@ function ResendBanner({ email }: { email: string }) {
 function AccountMenu({
   account,
   role,
+  authorsUrl,
   adminUrl,
   reviewUrl,
   logoutUrl,
@@ -188,6 +189,7 @@ function AccountMenu({
 }: {
   account: Account;
   role: DashboardRole;
+  authorsUrl?: string;
   adminUrl?: string;
   reviewUrl?: string;
   logoutUrl: string;
@@ -358,6 +360,19 @@ function AccountMenu({
                   <Icon name="externalLink" />
                   <span>Lihat profil publik</span>
                 </a>
+
+                {authorsUrl ? (
+                  <a
+                    className="penalis-account__item"
+                    role="menuitem"
+                    href={authorsUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    <Icon name="users" />
+                    <span>Lihat semua kontributor</span>
+                  </a>
+                ) : null}
 
                 <button
                   type="button"
@@ -575,6 +590,7 @@ export function Shell({
           <AccountMenu
             account={account}
             role={role}
+            authorsUrl={bootstrap.authorsUrl}
             adminUrl={bootstrap.adminUrl}
             reviewUrl={bootstrap.reviewUrl}
             logoutUrl={bootstrap.logoutUrl}

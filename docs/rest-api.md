@@ -129,6 +129,7 @@ before the Vite module executes. The TypeScript contract lives in
 | `logoutUrl` | `string` | Nonce-signed logout URL redirecting back to `/dashboard/` |
 | `lostPassword` | `string` | Native fallback lost-password URL |
 | `homeUrl` | `string` | Public site home URL |
+| `authorsUrl` | `string` | Public contributors directory URL (`Penalis_Author_Archive::directory_url()`) |
 | `adminUrl` | `string` | Link to `admin.php?page=penalis-writers` (populated only for users with `list_users`) |
 | `reviewUrl` | `string` | Link to `admin.php?page=penalis-review` (populated for users with `edit_others_posts`) |
 | `siteName` | `string` | WordPress blog name |

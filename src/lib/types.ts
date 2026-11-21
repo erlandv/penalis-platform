@@ -74,6 +74,8 @@ export interface DashboardBootstrap {
   logoutUrl: string;
   lostPassword: string;
   homeUrl: string;
+  /** Public contributors directory URL (`[penalis_authors]`). */
+  authorsUrl?: string;
   adminUrl: string;
   /** wp-admin review screen, empty for accounts that cannot review. */
   reviewUrl: string;
