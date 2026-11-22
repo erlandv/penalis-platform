@@ -37,6 +37,7 @@ require_once __DIR__ . '/../includes/class-editorial-admin.php';
 require_once __DIR__ . '/../includes/class-access-control.php';
 require_once __DIR__ . '/../includes/class-rest-api.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
+require_once __DIR__ . '/../includes/class-media-usage.php';
 require_once __DIR__ . '/../includes/class-dashboard.php';
 require_once __DIR__ . '/../includes/class-rate-limiter.php';
 require_once __DIR__ . '/../includes/class-analytics.php';
@@ -1187,6 +1188,178 @@ penalis_assert( ! file_exists( $penalis_upload_root . '/penalis-avatars/' . $pen
 @rmdir( $penalis_upload_root . '/penalis-avatars' );
 @rmdir( $penalis_upload_root );
 unset( $GLOBALS['penalis_test_upload_dir'] );
+
+/* -------------------------------------------------------------------------
+ * Strict unused-only media deletion & usage protection
+ * ---------------------------------------------------------------------- */
+
+// Pure content matching rules (handles original, -scaled, intermediate sizes, wp-image-{id}, and avoids prefix collisions).
+penalis_same(
+	'2026/11/foto',
+	Penalis_Media_Usage::content_search_needle( 701, '2026/11/foto-scaled.jpg' ),
+	'Search needle strips extension and -scaled suffix.'
+);
+penalis_same(
+	true,
+	Penalis_Media_Usage::content_references_attachment(
+		'<p><img src="https://penalis.com/wp-content/uploads/2026/11/foto.jpg" alt=""></p>',
+		701,
+		'2026/11/foto.jpg'
+	),
+	'Exact full URL reference matches.'
+);
+penalis_same(
+	true,
+	Penalis_Media_Usage::content_references_attachment(
+		'<p><img src="https://penalis.com/wp-content/uploads/2026/11/foto-1024x683.jpg" alt=""></p>',
+		701,
+		'2026/11/foto-scaled.jpg'
+	),
+	'Intermediate size URL reference matches -scaled attachment.'
+);
+penalis_same(
+	true,
+	Penalis_Media_Usage::content_references_attachment(
+		'<img class="alignnone wp-image-701" src="https://cdn.example.com/other.jpg">',
+		701,
+		'2026/11/foto.jpg'
+	),
+	'wp-image-{id} class reference matches.'
+);
+penalis_same(
+	false,
+	Penalis_Media_Usage::content_references_attachment(
+		'<p><img src="https://penalis.com/wp-content/uploads/2026/11/foto-2.jpg"><img src="https://penalis.com/wp-content/uploads/2026/11/foto-liburan.jpg"></p>',
+		701,
+		'2026/11/foto.jpg'
+	),
+	'Similar filename prefixes (foto-2.jpg, foto-liburan.jpg) do not falsely match foto.jpg.'
+);
+
+penalis_reset();
+$GLOBALS['penalis_test_deleted_attachments'] = array();
+
+$penalis_writer_a = new WP_User( 41, array( Penalis_Roles::ROLE ) );
+$penalis_writer_b = new WP_User( 42, array( Penalis_Roles::ROLE ) );
+$GLOBALS['penalis_test_users'][41] = $penalis_writer_a;
+$GLOBALS['penalis_test_users'][42] = $penalis_writer_b;
+update_user_meta( 41, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+update_user_meta( 41, Penalis_Account_Status::META_ACCESS, '1' );
+update_user_meta( 42, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+update_user_meta( 42, Penalis_Account_Status::META_ACCESS, '1' );
+
+$penalis_make_att = static function ( $id, $author_id, $file ) {
+	$att                 = new WP_Post();
+	$att->ID             = $id;
+	$att->post_type      = 'attachment';
+	$att->post_status    = 'inherit';
+	$att->post_mime_type = 'image/jpeg';
+	$att->post_author    = $author_id;
+	$att->post_title     = basename( $file );
+	$GLOBALS['penalis_test_posts'][ $id ] = $att;
+	update_post_meta( $id, '_wp_attached_file', $file );
+	return $att;
+};
+
+$penalis_make_att( 801, 41, '2026/11/unused.jpg' );
+$penalis_make_att( 802, 41, '2026/11/published-cover.jpg' );
+$penalis_make_att( 803, 41, '2026/11/draft-inline.jpg' );
+$penalis_make_att( 804, 41, '2026/11/pending-cover.jpg' );
+$penalis_make_att( 805, 41, '2026/11/trashed-only.jpg' );
+$penalis_make_att( 806, 41, '2026/11/legacy-avatar.jpg' );
+$penalis_make_att( 807, 41, '2026/11/other-author-ref.jpg' );
+$penalis_make_att( 808, 42, '2026/11/writer-b-file.jpg' );
+
+// Published article using 802 as featured image.
+$penalis_pub              = new WP_Post();
+$penalis_pub->ID          = 901;
+$penalis_pub->post_type   = 'post';
+$penalis_pub->post_status = 'publish';
+$penalis_pub->post_author = 41;
+$penalis_pub->post_title  = 'Esai Senja';
+$GLOBALS['penalis_test_posts'][901] = $penalis_pub;
+update_post_meta( 901, '_thumbnail_id', 802 );
+
+// Draft article embedding 803 inline in post_content.
+$penalis_draft               = new WP_Post();
+$penalis_draft->ID           = 902;
+$penalis_draft->post_type    = 'post';
+$penalis_draft->post_status  = 'draft';
+$penalis_draft->post_author  = 41;
+$penalis_draft->post_title   = 'Draft Puisi';
+$penalis_draft->post_content = '<p>Teks</p><img src="https://example.com/wp-content/uploads/2026/11/draft-inline-1024x683.jpg" alt="" />';
+$GLOBALS['penalis_test_posts'][902] = $penalis_draft;
+
+// Pending review article using 804 as featured image.
+$penalis_pending              = new WP_Post();
+$penalis_pending->ID          = 903;
+$penalis_pending->post_type   = 'post';
+$penalis_pending->post_status = 'pending';
+$penalis_pending->post_author = 41;
+$penalis_pending->post_title  = 'Menunggu Kurasi';
+$GLOBALS['penalis_test_posts'][903] = $penalis_pending;
+update_post_meta( 903, '_thumbnail_id', 804 );
+
+// Trashed article referencing 805 (must NOT block deletion).
+$penalis_trashed              = new WP_Post();
+$penalis_trashed->ID          = 904;
+$penalis_trashed->post_type   = 'post';
+$penalis_trashed->post_status = 'trash';
+$penalis_trashed->post_author = 41;
+$penalis_trashed->post_title  = 'Dibuang';
+$GLOBALS['penalis_test_posts'][904] = $penalis_trashed;
+update_post_meta( 904, '_thumbnail_id', 805 );
+
+// Legacy avatar referencing 806.
+update_user_meta( 42, Penalis_Avatar::meta_key(), 806 );
+
+// Another author's draft referencing 807 (must protect without leaking title to user 41).
+$penalis_other_post               = new WP_Post();
+$penalis_other_post->ID           = 905;
+$penalis_other_post->post_type    = 'post';
+$penalis_other_post->post_status  = 'draft';
+$penalis_other_post->post_author  = 42;
+$penalis_other_post->post_title   = 'Rahasia Penulis Lain';
+$penalis_other_post->post_content = '<img src="https://example.com/wp-content/uploads/2026/11/other-author-ref.jpg">';
+$GLOBALS['penalis_test_posts'][905] = $penalis_other_post;
+
+penalis_same( false, Penalis_Media_Usage::inspect( 801, 41 )['inUse'], 'Unused attachment is marked deletable.' );
+penalis_same( true, Penalis_Media_Usage::inspect( 802, 41 )['inUse'], 'Published featured image is protected.' );
+penalis_same( true, Penalis_Media_Usage::inspect( 803, 41 )['inUse'], 'Draft inline image is strictly protected.' );
+penalis_same( true, Penalis_Media_Usage::inspect( 804, 41 )['inUse'], 'Pending-review featured image is protected.' );
+penalis_same( false, Penalis_Media_Usage::inspect( 805, 41 )['inUse'], 'Attachment referenced only by trashed post is deletable.' );
+penalis_same( true, Penalis_Media_Usage::inspect( 806, 41 )['inUse'], 'Attachment used as legacy avatar is protected.' );
+
+$penalis_cross_usage = Penalis_Media_Usage::inspect( 807, 41 );
+penalis_same( true, $penalis_cross_usage['inUse'], 'Attachment referenced by another author post is protected.' );
+penalis_same( array(), $penalis_cross_usage['usedIn'], 'Other author post title is never leaked in usedIn.' );
+penalis_assert( false === strpos( $penalis_cross_usage['reason'], 'Rahasia Penulis Lain' ), 'Other author post title is never leaked in error reason.' );
+
+// Capability layer (map_meta_cap) mirrors strict protection on attachments.
+$penalis_caps_used = Penalis_Access_Control::map_meta_cap( array( 'delete_posts' ), 'delete_post', 41, array( 802 ) );
+penalis_assert( in_array( 'do_not_allow', $penalis_caps_used, true ), 'map_meta_cap blocks delete_post on referenced attachment.' );
+$penalis_caps_unused = Penalis_Access_Control::map_meta_cap( array( 'delete_posts' ), 'delete_post', 41, array( 801 ) );
+penalis_assert( ! in_array( 'do_not_allow', $penalis_caps_unused, true ), 'map_meta_cap allows delete_post on unused own attachment.' );
+
+// REST handler: Penalis_Rest_Api::delete_media().
+$GLOBALS['penalis_test_current_user'] = 41;
+
+$penalis_del_foreign = Penalis_Rest_Api::delete_media( new WP_REST_Request( 'DELETE', '/penalis/v1/media/808', array( 'id' => 808 ) ) );
+penalis_assert( is_wp_error( $penalis_del_foreign ) && 'penalis_not_found' === $penalis_del_foreign->get_error_code(), 'Cannot delete another writer attachment (404).' );
+
+$penalis_del_draft_used = Penalis_Rest_Api::delete_media( new WP_REST_Request( 'DELETE', '/penalis/v1/media/803', array( 'id' => 803 ) ) );
+penalis_assert( is_wp_error( $penalis_del_draft_used ) && 'penalis_media_in_use' === $penalis_del_draft_used->get_error_code(), 'Cannot delete attachment referenced in a draft (409).' );
+penalis_same( 409, $penalis_del_draft_used->get_error_data()['status'], 'In-use media deletion returns HTTP 409.' );
+
+$penalis_del_ok = Penalis_Rest_Api::delete_media( new WP_REST_Request( 'DELETE', '/penalis/v1/media/801', array( 'id' => 801 ) ) );
+penalis_assert( $penalis_del_ok instanceof WP_REST_Response && 200 === $penalis_del_ok->get_status(), 'Deleting unused own attachment returns HTTP 200.' );
+penalis_assert( ! isset( $GLOBALS['penalis_test_posts'][801] ), 'Unused attachment is removed by delete_media().' );
+
+// Batch summary used by GET /penalis/v1/media.
+$penalis_batch = Penalis_Media_Usage::summarize_for_user( array( 802, 803, 805 ), 41 );
+penalis_same( true, $penalis_batch[802]['inUse'], 'Batch summary flags published featured image.' );
+penalis_same( true, $penalis_batch[803]['inUse'], 'Batch summary flags draft inline image.' );
+penalis_same( false, $penalis_batch[805]['inUse'], 'Batch summary allows trashed-only attachment.' );
 
 /* -------------------------------------------------------------------------
  * Dashboard script loading
@@ -5619,7 +5792,7 @@ $_SERVER = $penalis_original_server;
 $penalis_defaults = Penalis_Rate_Limiter::defaults();
 penalis_same( 5, $penalis_defaults['registration_ip']['limit'], 'Registration allows five attempts by default.' );
 penalis_same( HOUR_IN_SECONDS, $penalis_defaults['registration_ip']['window'], 'Default windows are one hour.' );
-penalis_same( 13, count( $penalis_defaults ), 'Every throttled action has a rule.' );
+penalis_same( 14, count( $penalis_defaults ), 'Every throttled action has a rule.' );
 
 $GLOBALS['penalis_test_options']['penalis_rate_limits'] = array(
 	'registration_ip' => array(

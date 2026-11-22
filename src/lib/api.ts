@@ -615,6 +615,11 @@ function mapWpMedia(media: WpMediaPayload, fallbackTitle = '', fallbackMime = ''
     thumbnail: media.media_details?.sizes?.thumbnail?.source_url ?? sourceUrl,
     full: sourceUrl,
     date: media.date_gmt ?? '',
+    inUse: false,
+    canDelete: true,
+    usageCount: 0,
+    usedIn: [],
+    deleteBlockedReason: '',
   };
 }
 
@@ -672,4 +677,12 @@ export const mediaApi = {
 
     return mapWpMedia(media, file.name, file.type);
   },
+
+  /** Permanently delete an unused attachment owned by the current writer. */
+  remove: (id: number) =>
+    request<{ deleted: boolean; id: number; message: string }>(`/media/${id}`, {
+      method: 'DELETE',
+      fallbackMessage: 'Gambar tidak dapat dihapus.',
+      retryAuth: true,
+    }),
 };

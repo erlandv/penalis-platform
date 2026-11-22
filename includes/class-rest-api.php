@@ -481,6 +481,16 @@ final class Penalis_Rest_Api {
 
 		register_rest_route(
 			self::NAMESPACE_V1,
+			'/media/(?P<id>\d+)',
+			array(
+				'methods'             => WP_REST_Server::DELETABLE,
+				'callback'            => array( __CLASS__, 'delete_media' ),
+				'permission_callback' => array( __CLASS__, 'require_active_writer' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
 			'/tags',
 			array(
 				'methods'             => WP_REST_Server::CREATABLE,
@@ -1736,9 +1746,18 @@ final class Penalis_Rest_Api {
 			)
 		);
 
+		$attachment_ids = array();
+		foreach ( $query->posts as $attachment ) {
+			$attachment_ids[] = (int) $attachment->ID;
+		}
+
+		$usage_map = Penalis_Media_Usage::summarize_for_user( $attachment_ids, $user_id );
+
 		$items = array();
 		foreach ( $query->posts as $attachment ) {
-			$items[] = self::prepare_media( $attachment );
+			$att_id  = (int) $attachment->ID;
+			$usage   = isset( $usage_map[ $att_id ] ) ? $usage_map[ $att_id ] : Penalis_Media_Usage::empty_summary();
+			$items[] = self::prepare_media( $attachment, $usage );
 		}
 
 		return new WP_REST_Response(
@@ -1748,6 +1767,69 @@ final class Penalis_Rest_Api {
 				'page'       => $page,
 				'perPage'    => $per_page,
 				'totalPages' => (int) $query->max_num_pages,
+			),
+			200
+		);
+	}
+
+	/**
+	 * Permanently delete an unused attachment owned by the current writer.
+	 *
+	 * Refuses with `409 penalis_media_in_use` when the attachment is referenced
+	 * by any active article (published, pending, or draft) or avatar.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function delete_media( $request ) {
+		$user_id = get_current_user_id();
+
+		if ( ! Penalis_Rate_Limiter::guard( 'media_delete', (string) $user_id ) ) {
+			return new WP_Error(
+				'penalis_rate_limited',
+				'Terlalu banyak permintaan menghapus media. Silakan coba lagi nanti.',
+				array( 'status' => 429 )
+			);
+		}
+		Penalis_Rate_Limiter::register( 'media_delete', (string) $user_id );
+
+		$attachment_id = (int) $request->get_param( 'id' );
+		$attachment    = $attachment_id > 0 ? get_post( $attachment_id ) : null;
+
+		if ( ! $attachment || 'attachment' !== $attachment->post_type || (int) $attachment->post_author !== $user_id ) {
+			return new WP_Error(
+				'penalis_not_found',
+				'Gambar tidak ditemukan.',
+				array( 'status' => 404 )
+			);
+		}
+
+		$usage = Penalis_Media_Usage::inspect( $attachment_id, $user_id );
+		if ( $usage['inUse'] ) {
+			return new WP_Error(
+				'penalis_media_in_use',
+				$usage['reason'],
+				array(
+					'status' => 409,
+					'usedIn' => $usage['usedIn'],
+				)
+			);
+		}
+
+		$deleted = wp_delete_attachment( $attachment_id, true );
+		if ( false === $deleted || null === $deleted ) {
+			return new WP_Error(
+				'penalis_media_delete_failed',
+				'Gambar tidak dapat dihapus. Silakan coba lagi.',
+				array( 'status' => 500 )
+			);
+		}
+
+		return new WP_REST_Response(
+			array(
+				'deleted' => true,
+				'id'      => $attachment_id,
+				'message' => 'Gambar telah dihapus.',
 			),
 			200
 		);
@@ -1975,21 +2057,28 @@ final class Penalis_Rest_Api {
 	/**
 	 * Prepare a media item.
 	 *
-	 * @param WP_Post $attachment Attachment post.
+	 * @param WP_Post                  $attachment Attachment post.
+	 * @param array<string,mixed>|null $usage      Optional usage summary from `Penalis_Media_Usage`.
 	 * @return array<string,mixed>
 	 */
-	private static function prepare_media( $attachment ) {
+	private static function prepare_media( $attachment, $usage = null ) {
 		$thumb = wp_get_attachment_image_src( $attachment->ID, 'thumbnail' );
 		$full  = wp_get_attachment_image_src( $attachment->ID, 'full' );
+		$info  = is_array( $usage ) ? $usage : Penalis_Media_Usage::empty_summary();
 
 		return array(
-			'id'        => (int) $attachment->ID,
-			'title'     => $attachment->post_title,
-			'mime'      => $attachment->post_mime_type,
-			'url'       => wp_get_attachment_url( $attachment->ID ),
-			'thumbnail' => $thumb ? $thumb[0] : '',
-			'full'      => $full ? $full[0] : '',
-			'date'      => $attachment->post_date_gmt,
+			'id'                  => (int) $attachment->ID,
+			'title'               => $attachment->post_title,
+			'mime'                => $attachment->post_mime_type,
+			'url'                 => wp_get_attachment_url( $attachment->ID ),
+			'thumbnail'           => $thumb ? $thumb[0] : '',
+			'full'                => $full ? $full[0] : '',
+			'date'                => $attachment->post_date_gmt,
+			'inUse'               => ! empty( $info['inUse'] ),
+			'canDelete'           => isset( $info['canDelete'] ) ? (bool) $info['canDelete'] : empty( $info['inUse'] ),
+			'usageCount'          => isset( $info['usageCount'] ) ? (int) $info['usageCount'] : 0,
+			'usedIn'              => isset( $info['usedIn'] ) && is_array( $info['usedIn'] ) ? $info['usedIn'] : array(),
+			'deleteBlockedReason' => isset( $info['reason'] ) ? (string) $info['reason'] : '',
 		);
 	}
 

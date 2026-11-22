@@ -82,7 +82,8 @@ administrators and editors) without writer status can also read them.
 | `/articles/(?P<id>\d+)/resubmit` | `POST` | `resubmit_article` | Owner-only: resubmit a `changes_requested` article to `pending_review` |
 | `/articles/(?P<id>\d+)/publish` | `POST` | `reject_legacy_publish` | Legacy route retained for explicit refusal; always returns `403 penalis_publish_forbidden` |
 | `/articles/(?P<id>\d+)/unpublish` | `POST` | `reject_legacy_publish` | Legacy route retained for explicit refusal; always returns `403 penalis_publish_forbidden` |
-| `/media` | `GET` | `list_media` | Paginated list of image attachments owned by the current writer |
+| `/media` | `GET` | `list_media` | Paginated list of image attachments owned by the current writer, including per-item usage status (`inUse`, `canDelete`, `usageCount`, `usedIn`, `deleteBlockedReason`) |
+| `/media/(?P<id>\d+)` | `DELETE` | `delete_media` | Permanently delete an unused attachment owned by the current writer (rate-limited per user; returns `409 penalis_media_in_use` if referenced by any published, pending, draft, scheduled, or private post, or by an avatar) |
 | `/tags` | `POST` | `create_tag` | Create or resolve a post tag by name (rate-limited per user, 30/hour by default; configurable at Pengaturan → Batas Percobaan) |
 
 > **Note on Review Actions:** Reviewer decisions are exposed twice, on purpose.

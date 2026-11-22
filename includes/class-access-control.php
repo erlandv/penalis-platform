@@ -480,6 +480,27 @@ final class Penalis_Access_Control {
 			}
 		}
 
+		// Refuse deleting any owned attachment that is referenced by an active
+		// article (published, pending, or draft) or avatar. The capability
+		// layer below mirrors the same rule for non-REST deletion paths.
+		if ( 'DELETE' === $method && 1 === preg_match( '#^/wp/v2/media/(\d+)#', $route, $matches ) ) {
+			$target = get_post( (int) $matches[1] );
+
+			if ( $target && 'attachment' === $target->post_type && (int) $target->post_author === (int) $user->ID ) {
+				$usage = Penalis_Media_Usage::inspect( (int) $target->ID, (int) $user->ID );
+				if ( $usage['inUse'] ) {
+					return new WP_Error(
+						'penalis_media_in_use',
+						$usage['reason'],
+						array(
+							'status' => 409,
+							'usedIn' => $usage['usedIn'],
+						)
+					);
+				}
+			}
+		}
+
 		// Any write operation requires an active writer account, except the
 		// account and verification routes that pending users may legitimately
 		// use.
@@ -524,6 +545,7 @@ final class Penalis_Access_Control {
 				'/penalis/v1/verification/',
 				'/penalis/v1/password/',
 				'/penalis/v1/notifications/',
+				'/penalis/v1/media/',
 				'/penalis/v1/tags',
 			);
 
@@ -1180,10 +1202,12 @@ final class Penalis_Access_Control {
 
 		// Attachments are owned media, not articles: they have the `inherit`
 		// status, so the editorial state rules must not be applied to them.
-		// Ownership and the write gate above are the whole rule, and no writer
-		// path may publish an attachment.
+		// Writers may delete only unused own attachments; any image referenced
+		// by an active post (published, pending, or draft) or avatar is protected.
 		if ( 'attachment' === $post->post_type ) {
 			if ( 'publish_post' === $cap ) {
+				$caps[] = 'do_not_allow';
+			} elseif ( 'delete_post' === $cap && Penalis_Media_Usage::is_in_use( (int) $post->ID ) ) {
 				$caps[] = 'do_not_allow';
 			}
 

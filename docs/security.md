@@ -77,10 +77,13 @@ unauthorized publishing:
    - `publish_post` for all writers (writers can never publish directly);
    - `edit_post` when the post is not owned by the writer, is already published,
      or is locked by its editorial state (`pending_review` or `rejected`);
-   - `delete_post` when the post or attachment is not owned by the writer, or
-     when the post is a published article (`publish` status or editorial state
-     `published`). Writers keep deleting their own drafts; reviewer takedowns
-     are audited and recoverable from **Penalis → Karya Terhapus**.
+   - `delete_post` when the post or attachment is not owned by the writer, when
+     the post is a published article (`publish` status or editorial state
+     `published`), or when an attachment is still referenced by any active post
+     (`publish`, `pending`, `draft`, `future`, `private` — featured image or
+     inline HTML) or avatar (`Penalis_Media_Usage`). Writers keep deleting
+     their own drafts and unused media; reviewer takedowns are audited and
+     recoverable from **Penalis → Karya Terhapus**.
 4. **REST Dispatch Guard (`rest_pre_dispatch`):**
    - Blocks restricted users from administrative core routes (`/wp/v2/users`,
      `/wp/v2/settings`, `/wp/v2/plugins`, `/wp/v2/themes`, `/wp/v2/pages`,

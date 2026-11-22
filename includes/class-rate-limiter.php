@@ -124,6 +124,12 @@ final class Penalis_Rate_Limiter {
 				'limit'       => 20,
 				'window'      => 60,
 			),
+			'media_delete'            => array(
+				'label'       => 'Menghapus media',
+				'description' => 'Permintaan menghapus gambar di Pustaka Media oleh satu akun dalam satu jam.',
+				'limit'       => 60,
+				'window'      => 60,
+			),
 		);
 	}
 

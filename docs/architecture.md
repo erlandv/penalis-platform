@@ -70,6 +70,7 @@ penalis-platform/
 │   ├── class-username-change.php         Re-authenticated login rename with advisory lock
 │   ├── class-author-history.php          Historical author slug reservation and 301 redirects
 │   ├── class-avatar.php                  Standalone avatar storage (`penalis-avatars/`) and built-in avatar provider
+│   ├── class-media-usage.php             Strict media usage inspection protecting referenced attachments from writer deletion
 │   ├── class-datetime.php                Site timezone-aware date/time formatting and Indonesian month-year helpers
 │   ├── class-dashboard.php               Dashboard page, shortcode, template, shared Vite manifest/module loader & SPA mount helper
 │   ├── class-authors.php                 Public authors directory ([penalis_authors]), verified & Senator badges, and post badge integration

@@ -17,6 +17,7 @@
   justify-content: center;
   padding: 1rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
   z-index: 100000;
 }
 
@@ -31,6 +32,7 @@
   max-height: min(85vh, 85dvh);
   margin: auto;
   overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow: var(--penalis-shadow-lg);
 }
 

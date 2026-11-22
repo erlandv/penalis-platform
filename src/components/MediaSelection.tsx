@@ -11,9 +11,10 @@
  * meaning for "confirm".
  */
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 
 import { ApiError, mediaApi } from '../lib/api';
+import { appendUniqueMedia } from '../lib/mediaPagination';
 import type { MediaItem } from '../lib/types';
 import { Dialog } from './Dialog';
 import { ImageDropzone } from './ImageDropzone';
@@ -27,6 +28,7 @@ export function MediaSelection({
   onCancel,
   busy = false,
   emptyMessage = 'Belum ada gambar. Upload gambar terlebih dahulu.',
+  afterGrid,
 }: {
   items: MediaItem[];
   selectedId: number | null;
@@ -35,6 +37,7 @@ export function MediaSelection({
   onCancel: () => void;
   busy?: boolean;
   emptyMessage?: string;
+  afterGrid?: ReactNode;
 }) {
   // A unique radio group name per instance, so two pickers on one page cannot
   // steal each other's selection.
@@ -46,31 +49,34 @@ export function MediaSelection({
       {items.length === 0 ? (
         <p className="penalis-muted">{emptyMessage}</p>
       ) : (
-        <div className="penalis-media-grid" role="radiogroup" aria-label="Pilih gambar">
-          {items.map((item) => {
-            const isSelected = item.id === selectedId;
-            const title = item.title || 'Tanpa judul';
+        <>
+          <div className="penalis-media-grid" role="radiogroup" aria-label="Pilih gambar">
+            {items.map((item) => {
+              const isSelected = item.id === selectedId;
+              const title = item.title || 'Tanpa judul';
 
-            return (
-              <label
-                key={item.id}
-                className={`penalis-media-card penalis-media-card--selectable ${isSelected ? 'is-selected' : ''}`}
-                title={title}
-              >
-                <input
-                  type="radio"
-                  name={groupName}
-                  className="penalis-media-card__radio"
-                  checked={isSelected}
-                  disabled={busy}
-                  onChange={() => onSelect(item.id)}
-                />
-                <img src={item.thumbnail || item.url} alt="" />
-                <span className="penalis-media-card__caption">{title}</span>
-              </label>
-            );
-          })}
-        </div>
+              return (
+                <label
+                  key={item.id}
+                  className={`penalis-media-card penalis-media-card--selectable ${isSelected ? 'is-selected' : ''}`}
+                  title={title}
+                >
+                  <input
+                    type="radio"
+                    name={groupName}
+                    className="penalis-media-card__radio"
+                    checked={isSelected}
+                    disabled={busy}
+                    onChange={() => onSelect(item.id)}
+                  />
+                  <img src={item.thumbnail || item.url} alt="" />
+                  <span className="penalis-media-card__caption">{title}</span>
+                </label>
+              );
+            })}
+          </div>
+          {afterGrid}
+        </>
       )}
 
       <div className="penalis-media-picker__footer">
@@ -123,7 +129,12 @@ export function MediaPickerDialog({
   onClose: () => void;
 }) {
   const [media, setMedia] = useState<MediaItem[]>([]);
+  const [mediaPage, setMediaPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalMedia, setTotalMedia] = useState(0);
   const [mediaLoading, setMediaLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState('');
   const [selectedMediaId, setSelectedMediaId] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
@@ -131,17 +142,24 @@ export function MediaPickerDialog({
   useEffect(() => {
     let cancelled = false;
     setMediaLoading(true);
+    setLoadMoreError('');
 
     mediaApi
       .list(1)
       .then((list) => {
         if (!cancelled) {
           setMedia(list.items);
+          setMediaPage(list.page);
+          setTotalPages(Math.max(1, list.totalPages));
+          setTotalMedia(list.total);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setMedia([]);
+          setMediaPage(1);
+          setTotalPages(1);
+          setTotalMedia(0);
         }
       })
       .finally(() => {
@@ -155,6 +173,28 @@ export function MediaPickerDialog({
     };
   }, []);
 
+  const loadMore = async () => {
+    if (loadingMore || mediaPage >= totalPages) {
+      return;
+    }
+
+    const nextPage = mediaPage + 1;
+    setLoadingMore(true);
+    setLoadMoreError('');
+
+    try {
+      const list = await mediaApi.list(nextPage);
+      setMedia((current) => appendUniqueMedia(current, list.items));
+      setMediaPage(list.page);
+      setTotalPages(Math.max(1, list.totalPages));
+      setTotalMedia(list.total);
+    } catch (caught) {
+      setLoadMoreError(caught instanceof ApiError ? caught.message : 'Media tambahan tidak dapat dimuat.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handleFile = async (file: File) => {
     setUploadError('');
     if (onFile) {
@@ -165,7 +205,9 @@ export function MediaPickerDialog({
     setUploading(true);
     try {
       const uploaded = await mediaApi.upload(file);
-      setMedia((current) => [uploaded, ...current]);
+      setMedia((current) => [uploaded, ...current.filter((entry) => entry.id !== uploaded.id)]);
+      setTotalMedia((current) => current + 1);
+      setSelectedMediaId(uploaded.id);
     } catch (caught) {
       setUploadError(caught instanceof ApiError ? caught.message : 'Gambar tidak dapat di-upload.');
     } finally {
@@ -174,6 +216,7 @@ export function MediaPickerDialog({
   };
 
   const isBusy = busy || uploading;
+  const hasMore = mediaPage < totalPages;
 
   return (
     <Dialog label={label} onClose={onClose}>
@@ -214,6 +257,25 @@ export function MediaPickerDialog({
             }}
             onCancel={onClose}
             busy={isBusy}
+            afterGrid={
+              hasMore || loadMoreError ? (
+                <div className="penalis-media-picker__more">
+                  {loadMoreError ? <ErrorBanner message={loadMoreError} /> : null}
+                  {hasMore ? (
+                    <button
+                      type="button"
+                      className="penalis-button penalis-button--ghost"
+                      onClick={() => void loadMore()}
+                      disabled={loadingMore || isBusy}
+                    >
+                      {loadingMore
+                        ? 'Memuat…'
+                        : `Muat lebih banyak (${media.length} dari ${Math.max(totalMedia, media.length)})`}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null
+            }
           />
         )}
       </div>

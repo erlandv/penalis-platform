@@ -310,6 +310,12 @@ export interface Article {
   tags: ArticleTerm[];
 }
 
+export interface MediaUsageRef {
+  id: number;
+  title: string;
+  status: string;
+}
+
 export interface MediaItem {
   id: number;
   title: string;
@@ -318,6 +324,11 @@ export interface MediaItem {
   thumbnail: string;
   full: string;
   date: string;
+  inUse?: boolean;
+  canDelete?: boolean;
+  usageCount?: number;
+  usedIn?: MediaUsageRef[];
+  deleteBlockedReason?: string;
 }
 
 export interface MediaList {

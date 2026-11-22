@@ -5,7 +5,7 @@
  * to produce a crisp 1:1 circular/square profile photo with zero external dependencies.
  */
 
-import { useCallback, useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 import {
   AVATAR_MIN_EDGE,
   CROP_OUTPUT_SIZE,
@@ -36,6 +36,7 @@ export function AvatarCropper({
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
 
+  const viewportRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<CropPoint>({ x: 0, y: 0 });
@@ -124,17 +125,36 @@ export function AvatarCropper({
     }
   };
 
-  const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const delta = e.deltaY < 0 ? 0.08 : -0.08;
-    setZoom((prev) => {
-      const next = Math.max(1, Math.min(3, prev + delta));
-      setOffset((prevOffset) =>
-        clampCropOffset(prevOffset.x, prevOffset.y, naturalSize.width, naturalSize.height, next),
-      );
-      return next;
-    });
-  };
+  // React registers synthetic `onWheel` listeners passively in modern browsers,
+  // which causes `preventDefault()` to be ignored and lets wheel zooming scroll
+  // the modal or page underneath. Attach a native non-passive listener instead.
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (loading || !viewport) {
+      return;
+    }
+
+    const onWheel = (event: globalThis.WheelEvent) => {
+      event.preventDefault();
+      if (busy || processing || Boolean(error) || naturalSize.width === 0 || naturalSize.height === 0) {
+        return;
+      }
+
+      const delta = event.deltaY < 0 ? 0.08 : -0.08;
+      setZoom((prev) => {
+        const next = Math.max(1, Math.min(3, prev + delta));
+        setOffset((prevOffset) =>
+          clampCropOffset(prevOffset.x, prevOffset.y, naturalSize.width, naturalSize.height, next),
+        );
+        return next;
+      });
+    };
+
+    viewport.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      viewport.removeEventListener('wheel', onWheel);
+    };
+  }, [loading, busy, processing, error, naturalSize]);
 
   const handleZoomChange = (newZoom: number) => {
     setZoom(newZoom);
@@ -241,12 +261,12 @@ export function AvatarCropper({
         ) : (
           <div className="penalis-cropper">
             <div
+              ref={viewportRef}
               className="penalis-cropper__viewport"
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
-              onWheel={handleWheel}
               role="region"
               aria-label="Area pemotongan foto. Geser untuk mengatur posisi."
             >

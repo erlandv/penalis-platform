@@ -17,6 +17,35 @@ import { useCallback, useEffect, useRef, type MouseEvent, type ReactNode } from 
 const FOCUSABLE_SELECTOR =
   'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
+let openDialogCount = 0;
+let savedBodyOverflow = '';
+let savedBodyPaddingRight = '';
+
+function lockBodyScroll(): void {
+  if (openDialogCount === 0) {
+    const bodyStyle = document.body.style;
+    savedBodyOverflow = bodyStyle.overflow;
+    savedBodyPaddingRight = bodyStyle.paddingRight;
+
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    if (scrollbarWidth > 0) {
+      const currentPadding = parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
+      bodyStyle.paddingRight = `${currentPadding + scrollbarWidth}px`;
+    }
+
+    bodyStyle.overflow = 'hidden';
+  }
+  openDialogCount += 1;
+}
+
+function unlockBodyScroll(): void {
+  openDialogCount = Math.max(0, openDialogCount - 1);
+  if (openDialogCount === 0) {
+    document.body.style.overflow = savedBodyOverflow;
+    document.body.style.paddingRight = savedBodyPaddingRight;
+  }
+}
+
 export function Dialog({
   label,
   onClose,
@@ -27,6 +56,13 @@ export function Dialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    lockBodyScroll();
+    return () => {
+      unlockBodyScroll();
+    };
+  }, []);
 
   useEffect(() => {
     const dialog = ref.current;

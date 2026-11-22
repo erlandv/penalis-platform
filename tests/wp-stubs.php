@@ -2287,11 +2287,57 @@ if ( ! function_exists( 'wp_get_attachment_image_src' ) ) {
 		$edge = is_array( $size ) && isset( $size[0] ) ? (int) $size[0] : 96;
 
 		return array(
-			'https://example.com/wp-content/uploads/attachment-' . (int) $attachment_id . '.jpg',
+			wp_get_attachment_url( $attachment_id ),
 			$edge,
 			$edge,
 			false,
 		);
+	}
+}
+
+if ( ! function_exists( 'wp_get_attachment_url' ) ) {
+	/**
+	 * Attachment URL stub.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return string|false
+	 */
+	function wp_get_attachment_url( $attachment_id ) {
+		$post = get_post( (int) $attachment_id );
+		if ( ! $post || 'attachment' !== $post->post_type ) {
+			return false;
+		}
+
+		$attached_file = (string) get_post_meta( (int) $attachment_id, '_wp_attached_file', true );
+		if ( '' !== $attached_file ) {
+			return 'https://example.com/wp-content/uploads/' . ltrim( $attached_file, '/' );
+		}
+
+		return 'https://example.com/wp-content/uploads/attachment-' . (int) $attachment_id . '.jpg';
+	}
+}
+
+if ( ! function_exists( 'wp_delete_attachment' ) ) {
+	/**
+	 * Attachment delete stub.
+	 *
+	 * @param int  $post_id      Attachment ID.
+	 * @param bool $force_delete Force permanent delete.
+	 * @return WP_Post|false
+	 */
+	function wp_delete_attachment( $post_id, $force_delete = false ) {
+		unset( $force_delete );
+		$post_id = (int) $post_id;
+		$post    = get_post( $post_id );
+
+		if ( ! $post || 'attachment' !== $post->post_type ) {
+			return false;
+		}
+
+		unset( $GLOBALS['penalis_test_posts'][ $post_id ] );
+		$GLOBALS['penalis_test_deleted_attachments'][] = $post_id;
+
+		return $post;
 	}
 }
 
