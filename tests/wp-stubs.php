@@ -253,6 +253,14 @@ if ( ! function_exists( 'update_user_meta' ) ) {
 	 * @return bool
 	 */
 	function update_user_meta( $user_id, $key, $value, $prev_value = '' ) {
+		if (
+			isset( $GLOBALS['penalis_test_fail_user_meta_keys'] ) &&
+			is_array( $GLOBALS['penalis_test_fail_user_meta_keys'] ) &&
+			in_array( (string) $key, $GLOBALS['penalis_test_fail_user_meta_keys'], true )
+		) {
+			return false;
+		}
+
 		$user = get_userdata( $user_id );
 		if ( ! $user ) {
 			return false;

@@ -39,7 +39,12 @@ final class Penalis_Avatar {
 	/**
 	 * Target square output dimension in pixels (matches `CROP_OUTPUT_SIZE`).
 	 */
-	public const OUTPUT_SIZE = 500;
+	public const OUTPUT_SIZE = 256;
+
+	/**
+	 * JPEG output quality (0-100).
+	 */
+	public const OUTPUT_QUALITY = 85;
 
 	/**
 	 * Maximum accepted upload size in bytes (5 MiB).
@@ -356,34 +361,43 @@ final class Penalis_Avatar {
 			return $filename;
 		}
 
-		$dest   = $dir['path'] . '/' . $filename;
-		$editor = wp_get_image_editor( $tmp );
+		$dest          = $dir['path'] . '/' . $filename;
+		$flattened_tmp = 'image/jpeg' !== $mime ? self::flatten_transparency_to_temp( $tmp, $mime ) : '';
+		$editor_source = '' !== $flattened_tmp ? $flattened_tmp : $tmp;
 
-		if ( is_wp_error( $editor ) ) {
-			return new WP_Error(
-				'penalis_avatar_process_failed',
-				'Foto profil tidak dapat diproses. Silakan coba gambar lain.',
-				array( 'status' => 400 )
-			);
-		}
+		try {
+			$editor = wp_get_image_editor( $editor_source );
 
-		// Normalize to a square JPEG capped at OUTPUT_SIZE. Re-encoding through
-		// GD/Imagick strips EXIF metadata and any trailing payload.
-		if ( $width !== $height || $width > self::OUTPUT_SIZE || $height > self::OUTPUT_SIZE ) {
-			$target  = min( self::OUTPUT_SIZE, $width, $height );
-			$resized = $editor->resize( $target, $target, true );
-
-			if ( is_wp_error( $resized ) ) {
+			if ( is_wp_error( $editor ) ) {
 				return new WP_Error(
 					'penalis_avatar_process_failed',
 					'Foto profil tidak dapat diproses. Silakan coba gambar lain.',
 					array( 'status' => 400 )
 				);
 			}
-		}
 
-		$editor->set_quality( 92 );
-		$saved = $editor->save( $dest, 'image/jpeg' );
+			// Normalize to a square JPEG capped at OUTPUT_SIZE. Re-encoding through
+			// GD/Imagick strips EXIF metadata and any trailing payload.
+			if ( $width !== $height || $width > self::OUTPUT_SIZE || $height > self::OUTPUT_SIZE ) {
+				$target  = min( self::OUTPUT_SIZE, $width, $height );
+				$resized = $editor->resize( $target, $target, true );
+
+				if ( is_wp_error( $resized ) ) {
+					return new WP_Error(
+						'penalis_avatar_process_failed',
+						'Foto profil tidak dapat diproses. Silakan coba gambar lain.',
+						array( 'status' => 400 )
+					);
+				}
+			}
+
+			$editor->set_quality( self::OUTPUT_QUALITY );
+			$saved = $editor->save( $dest, 'image/jpeg' );
+		} finally {
+			if ( '' !== $flattened_tmp && is_file( $flattened_tmp ) ) {
+				wp_delete_file( $flattened_tmp );
+			}
+		}
 
 		if ( is_wp_error( $saved ) ) {
 			return new WP_Error(
@@ -412,8 +426,20 @@ final class Penalis_Avatar {
 		}
 
 		$previous_file = self::get_file( $user_id );
+		$updated       = update_user_meta( $user_id, self::META_FILE, $filename );
 
-		update_user_meta( $user_id, self::META_FILE, $filename );
+		// Verify the DB write succeeded before detaching legacy meta or removing
+		// the previous file. Re-reading disambiguates a real DB failure from a
+		// no-op false return when the stored value is unchanged.
+		if ( false === $updated && self::get_file( $user_id ) !== $filename ) {
+			self::delete_standalone_file( $filename );
+
+			return new WP_Error(
+				'penalis_avatar_save_failed',
+				'Foto profil tidak dapat disimpan. Silakan coba lagi.',
+				array( 'status' => 500 )
+			);
+		}
 
 		// Detach any legacy attachment ID without touching the Media Library attachment.
 		delete_user_meta( $user_id, self::meta_key() );
@@ -699,5 +725,98 @@ final class Penalis_Avatar {
 		);
 
 		return isset( $map[ $imagetype ] ) ? $map[ $imagetype ] : '';
+	}
+
+	/**
+	 * Composite a non-JPEG image onto an opaque white canvas so transparent pixels
+	 * do not turn black when encoded to JPEG.
+	 *
+	 * Returns the path to a temporary opaque PNG file, or an empty string when
+	 * flattening is unavailable (in which case the caller falls back to the
+	 * original source).
+	 *
+	 * @param string $source Source image path.
+	 * @param string $mime   Verified MIME type (`image/png`, `image/gif`, `image/webp`).
+	 * @return string
+	 */
+	private static function flatten_transparency_to_temp( $source, $mime ) {
+		if ( function_exists( 'imagecreatetruecolor' ) && function_exists( 'imagepng' ) ) {
+			$src = false;
+			if ( 'image/png' === $mime && function_exists( 'imagecreatefrompng' ) ) {
+				$src = @imagecreatefrompng( $source ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Corrupt image inputs trigger warnings.
+			} elseif ( 'image/webp' === $mime && function_exists( 'imagecreatefromwebp' ) ) {
+				$src = @imagecreatefromwebp( $source ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Corrupt image inputs trigger warnings.
+			} elseif ( 'image/gif' === $mime && function_exists( 'imagecreatefromgif' ) ) {
+				$src = @imagecreatefromgif( $source ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Corrupt image inputs trigger warnings.
+			}
+
+			if ( false !== $src ) {
+				$w      = imagesx( $src );
+				$h      = imagesy( $src );
+				$canvas = $w > 0 && $h > 0 ? imagecreatetruecolor( $w, $h ) : false;
+
+				if ( false !== $canvas ) {
+					$white = imagecolorallocate( $canvas, 255, 255, 255 );
+					imagefill( $canvas, 0, 0, $white );
+					imagealphablending( $canvas, true );
+					imagecopy( $canvas, $src, 0, 0, 0, 0, $w, $h );
+
+					$temp = function_exists( 'wp_tempnam' )
+						? wp_tempnam( 'penalis-avatar-flat.png' )
+						: tempnam( sys_get_temp_dir(), 'penalis-avatar-flat-' );
+
+					$ok = is_string( $temp ) && '' !== $temp && imagepng( $canvas, $temp );
+
+					imagedestroy( $canvas );
+					imagedestroy( $src );
+
+					if ( $ok ) {
+						return $temp;
+					}
+
+					if ( is_string( $temp ) && '' !== $temp && is_file( $temp ) ) {
+						wp_delete_file( $temp );
+					}
+
+					return '';
+				}
+
+				imagedestroy( $src );
+			}
+		}
+
+		if ( class_exists( 'Imagick' ) && defined( 'Imagick::ALPHACHANNEL_REMOVE' ) ) {
+			try {
+				$imagick = new Imagick( $source );
+				$imagick->setImageBackgroundColor( '#ffffff' );
+				$imagick->setImageAlphaChannel( Imagick::ALPHACHANNEL_REMOVE );
+				$flattened = $imagick->mergeImageLayers( Imagick::LAYERMETHOD_FLATTEN );
+				$imagick->clear();
+
+				$temp = function_exists( 'wp_tempnam' )
+					? wp_tempnam( 'penalis-avatar-flat.png' )
+					: tempnam( sys_get_temp_dir(), 'penalis-avatar-flat-' );
+
+				if ( is_string( $temp ) && '' !== $temp ) {
+					$flattened->setImageFormat( 'png' );
+					$written = $flattened->writeImage( $temp );
+					$flattened->clear();
+
+					if ( $written ) {
+						return $temp;
+					}
+
+					if ( is_file( $temp ) ) {
+						wp_delete_file( $temp );
+					}
+				} else {
+					$flattened->clear();
+				}
+			} catch ( Exception $e ) {
+				return '';
+			}
+		}
+
+		return '';
 	}
 }

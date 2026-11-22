@@ -3,7 +3,7 @@
  */
 
 export const CROP_VIEWPORT_SIZE = 280;
-export const CROP_OUTPUT_SIZE = 500;
+export const CROP_OUTPUT_SIZE = 256;
 export const AVATAR_MIN_EDGE = 100;
 export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 export const AVATAR_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';

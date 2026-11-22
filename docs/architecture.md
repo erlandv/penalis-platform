@@ -498,7 +498,8 @@ empty paragraphs keep default TipTap behavior.
 
 ### 7.3 Standalone Avatar Storage
 Cropped profile photos uploaded from `/dashboard/?view=profile` are re-encoded
-server-side as square JPEGs (`500×500`) and stored directly inside
+server-side as opaque square JPEGs (`256×256`, quality 85, transparent sources
+flattened onto white) and stored directly inside
 `wp-content/uploads/penalis-avatars/u{user_id}-{12-hex}.jpg` instead of creating
 WordPress Media Library attachments. The stored basename is kept in user meta
 `_penalis_avatar_file`, and `Penalis_Avatar` registers `pre_get_avatar_data` as

@@ -186,13 +186,18 @@ export function AvatarCropper({
       const sWidth = cropNaturalSize;
       const sHeight = cropNaturalSize;
 
+      // Composite onto an opaque white background so transparent PNG/WebP areas
+      // do not become solid black when encoded as JPEG.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, CROP_OUTPUT_SIZE, CROP_OUTPUT_SIZE);
+
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
       ctx.drawImage(img, sx, sy, sWidth, sHeight, 0, 0, CROP_OUTPUT_SIZE, CROP_OUTPUT_SIZE);
 
       const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.92);
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85);
       });
 
       if (!blob) {

@@ -1074,7 +1074,8 @@ penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/' . $penalis_f
 penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/index.php' ), 'Avatar subfolder has index.php guard.' );
 penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/.htaccess' ), 'Avatar subfolder has .htaccess guard.' );
 penalis_same( 1, count( $GLOBALS['penalis_test_last_editor']->resizes ), 'Non-square/oversized upload is resized square.' );
-penalis_same( 400, $GLOBALS['penalis_test_last_editor']->resizes[0]['width'], 'Resize caps to min(OUTPUT_SIZE, width, height).' );
+penalis_same( 256, $GLOBALS['penalis_test_last_editor']->resizes[0]['width'], 'Resize caps to min(OUTPUT_SIZE, width, height).' );
+penalis_same( 85, $GLOBALS['penalis_test_last_editor']->quality, 'Avatar JPEG quality is 85.' );
 penalis_same( 0, Penalis_Avatar::get_id( 12 ), 'Legacy attachment meta is detached after standalone upload.' );
 penalis_assert( isset( $GLOBALS['penalis_test_posts'][501] ), 'Legacy Media Library attachment is never deleted.' );
 
@@ -1087,7 +1088,7 @@ penalis_same(
 penalis_same( 'User 12', $penalis_standalone_avatar['alt'], 'Avatar alt falls back to display_name.' );
 
 // Uploading a replacement immediately deletes the previous standalone file.
-$penalis_gif_2  = $penalis_make_gif( 500, 500 );
+$penalis_gif_2  = $penalis_make_gif( 256, 256 );
 $penalis_file_2 = Penalis_Avatar::upload(
 	12,
 	array(
@@ -1101,11 +1102,11 @@ unlink( $penalis_gif_2 );
 penalis_assert( is_string( $penalis_file_2 ) && $penalis_file_2 !== $penalis_file_1, 'Replacement upload gets a fresh unique token.' );
 penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_2 ), 'New standalone avatar file exists on disk.' );
 penalis_assert( ! file_exists( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_1 ), 'Superseded standalone avatar file is immediately deleted.' );
-penalis_same( 0, count( $GLOBALS['penalis_test_last_editor']->resizes ), 'Exact 500x500 square upload skips unnecessary resize.' );
+penalis_same( 0, count( $GLOBALS['penalis_test_last_editor']->resizes ), 'Exact 256x256 square upload skips unnecessary resize.' );
 
 // A failed save keeps the existing standalone avatar intact.
 $GLOBALS['penalis_test_image_editor_fail_save'] = true;
-$penalis_gif_3                                  = $penalis_make_gif( 500, 500 );
+$penalis_gif_3                                  = $penalis_make_gif( 256, 256 );
 $penalis_fail_res                               = Penalis_Avatar::upload(
 	12,
 	array(
@@ -1120,6 +1121,59 @@ $GLOBALS['penalis_test_image_editor_fail_save'] = false;
 penalis_assert( is_wp_error( $penalis_fail_res ), 'Failed image editor save returns WP_Error.' );
 penalis_same( $penalis_file_2, Penalis_Avatar::get_file( 12 ), 'Failed replacement preserves existing avatar meta.' );
 penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_2 ), 'Failed replacement preserves existing avatar file on disk.' );
+
+// A failed update_user_meta() keeps the existing avatar intact and cleans up the new orphan file.
+$GLOBALS['penalis_test_fail_user_meta_keys'] = array( Penalis_Avatar::META_FILE );
+$penalis_gif_4                               = $penalis_make_gif( 256, 256 );
+$penalis_meta_fail_res                       = Penalis_Avatar::upload(
+	12,
+	array(
+		'tmp_name' => $penalis_gif_4,
+		'error'    => UPLOAD_ERR_OK,
+		'size'     => filesize( $penalis_gif_4 ),
+	)
+);
+unlink( $penalis_gif_4 );
+unset( $GLOBALS['penalis_test_fail_user_meta_keys'] );
+
+penalis_assert( is_wp_error( $penalis_meta_fail_res ), 'Failed update_user_meta() returns WP_Error.' );
+penalis_same( 'penalis_avatar_save_failed', $penalis_meta_fail_res->get_error_code(), 'Failed update_user_meta() returns penalis_avatar_save_failed.' );
+penalis_same( $penalis_file_2, Penalis_Avatar::get_file( 12 ), 'Failed meta write preserves existing avatar meta.' );
+penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_2 ), 'Failed meta write preserves existing avatar file on disk.' );
+$penalis_remaining_jpgs = glob( $penalis_upload_root . '/penalis-avatars/u12-*.jpg' );
+penalis_same( array( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_2 ), $penalis_remaining_jpgs, 'Failed meta write cleans up the newly written orphan file.' );
+
+// Transparent PNG uploaded directly is flattened onto white instead of black (when GD is available).
+if ( function_exists( 'imagecreatetruecolor' ) && function_exists( 'imagepng' ) && function_exists( 'imagecreatefrompng' ) ) {
+	$penalis_png_path = tempnam( sys_get_temp_dir(), 'penalis-alpha-' );
+	$penalis_png_img  = imagecreatetruecolor( 120, 120 );
+	imagesavealpha( $penalis_png_img, true );
+	imagealphablending( $penalis_png_img, false );
+	$penalis_transparent = imagecolorallocatealpha( $penalis_png_img, 0, 0, 0, 127 );
+	imagefill( $penalis_png_img, 0, 0, $penalis_transparent );
+	imagepng( $penalis_png_img, $penalis_png_path );
+	imagedestroy( $penalis_png_img );
+
+	$penalis_file_3 = Penalis_Avatar::upload(
+		12,
+		array(
+			'tmp_name' => $penalis_png_path,
+			'error'    => UPLOAD_ERR_OK,
+			'size'     => filesize( $penalis_png_path ),
+		)
+	);
+	unlink( $penalis_png_path );
+
+	penalis_assert( is_string( $penalis_file_3 ) && Penalis_Avatar::is_valid_filename( $penalis_file_3 ), 'Transparent PNG upload succeeds.' );
+	$penalis_saved_img = imagecreatefrompng( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_3 );
+	$penalis_rgb       = imagecolorat( $penalis_saved_img, 0, 0 );
+	$penalis_r         = ( $penalis_rgb >> 16 ) & 0xFF;
+	$penalis_g         = ( $penalis_rgb >> 8 ) & 0xFF;
+	$penalis_b         = $penalis_rgb & 0xFF;
+	imagedestroy( $penalis_saved_img );
+	penalis_same( array( 255, 255, 255 ), array( $penalis_r, $penalis_g, $penalis_b ), 'Transparent PNG corner pixel is flattened to white.' );
+	$penalis_file_2 = $penalis_file_3;
+}
 
 // Clearing removes the standalone file and meta.
 Penalis_Avatar::clear( 12 );
