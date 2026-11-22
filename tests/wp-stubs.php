@@ -1660,6 +1660,8 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 		private $method = 'GET';
 		/** @var array<string,mixed> */
 		private $params = array();
+		/** @var array<string,mixed> */
+		private $file_params = array();
 
 		/**
 		 * Constructor.
@@ -1672,6 +1674,25 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 			$this->method = strtoupper( (string) $method );
 			$this->route  = (string) $route;
 			$this->params = (array) $params;
+		}
+
+		/**
+		 * Uploaded files map.
+		 *
+		 * @return array<string,mixed>
+		 */
+		public function get_file_params() {
+			return $this->file_params;
+		}
+
+		/**
+		 * Set uploaded files map for tests.
+		 *
+		 * @param array<string,mixed> $files Files array.
+		 * @return void
+		 */
+		public function set_file_params( $files ) {
+			$this->file_params = (array) $files;
 		}
 
 		/**
@@ -2150,5 +2171,213 @@ if ( ! function_exists( 'wp_safe_redirect' ) ) {
 			'status'   => $status,
 		);
 		return true;
+	}
+}
+
+if ( ! function_exists( 'untrailingslashit' ) ) {
+	/**
+	 * Strip trailing slashes.
+	 *
+	 * @param string $value Path or URL.
+	 * @return string
+	 */
+	function untrailingslashit( $value ) {
+		return rtrim( (string) $value, '/\\' );
+	}
+}
+
+if ( ! function_exists( 'wp_upload_dir' ) ) {
+	/**
+	 * Uploads directory stub.
+	 *
+	 * @return array<string,mixed>
+	 */
+	function wp_upload_dir() {
+		if ( isset( $GLOBALS['penalis_test_upload_dir'] ) && is_array( $GLOBALS['penalis_test_upload_dir'] ) ) {
+			return $GLOBALS['penalis_test_upload_dir'];
+		}
+
+		$base = sys_get_temp_dir() . '/penalis-test-uploads';
+
+		return array(
+			'basedir' => $base,
+			'baseurl' => 'https://example.com/wp-content/uploads',
+			'error'   => false,
+		);
+	}
+}
+
+if ( ! function_exists( 'wp_mkdir_p' ) ) {
+	/**
+	 * Recursive mkdir stub.
+	 *
+	 * @param string $target Directory path.
+	 * @return bool
+	 */
+	function wp_mkdir_p( $target ) {
+		if ( is_dir( $target ) ) {
+			return true;
+		}
+
+		return mkdir( $target, 0777, true );
+	}
+}
+
+if ( ! function_exists( 'wp_delete_file' ) ) {
+	/**
+	 * Delete file stub.
+	 *
+	 * @param string $file File path.
+	 * @return void
+	 */
+	function wp_delete_file( $file ) {
+		if ( is_file( $file ) ) {
+			unlink( $file );
+		}
+	}
+}
+
+if ( ! function_exists( 'wp_max_upload_size' ) ) {
+	/**
+	 * Max upload size stub.
+	 *
+	 * @return int
+	 */
+	function wp_max_upload_size() {
+		return isset( $GLOBALS['penalis_test_max_upload_size'] )
+			? (int) $GLOBALS['penalis_test_max_upload_size']
+			: 10485760;
+	}
+}
+
+if ( ! function_exists( 'wp_attachment_is_image' ) ) {
+	/**
+	 * Whether a stub attachment is an image.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return bool
+	 */
+	function wp_attachment_is_image( $attachment_id ) {
+		$post = get_post( (int) $attachment_id );
+		return $post && 'attachment' === $post->post_type && 0 === strpos( (string) $post->post_mime_type, 'image/' );
+	}
+}
+
+if ( ! function_exists( 'wp_get_attachment_image_src' ) ) {
+	/**
+	 * Attachment image source stub.
+	 *
+	 * @param int          $attachment_id Attachment ID.
+	 * @param string|int[] $size          Size.
+	 * @return array<int,mixed>|false
+	 */
+	function wp_get_attachment_image_src( $attachment_id, $size = 'thumbnail' ) {
+		if ( ! wp_attachment_is_image( $attachment_id ) ) {
+			return false;
+		}
+
+		$edge = is_array( $size ) && isset( $size[0] ) ? (int) $size[0] : 96;
+
+		return array(
+			'https://example.com/wp-content/uploads/attachment-' . (int) $attachment_id . '.jpg',
+			$edge,
+			$edge,
+			false,
+		);
+	}
+}
+
+if ( ! class_exists( 'Penalis_Test_Image_Editor' ) ) {
+	/**
+	 * Minimal WP_Image_Editor double for standalone avatar upload tests.
+	 */
+	class Penalis_Test_Image_Editor {
+		/** @var string */
+		private $source;
+		/** @var int */
+		public $quality = 82;
+		/** @var array<int,array<string,mixed>> */
+		public $resizes = array();
+
+		/**
+		 * Constructor.
+		 *
+		 * @param string $source Source image path.
+		 */
+		public function __construct( $source ) {
+			$this->source = $source;
+		}
+
+		/**
+		 * Record a resize call.
+		 *
+		 * @param int  $max_w Width.
+		 * @param int  $max_h Height.
+		 * @param bool $crop  Crop flag.
+		 * @return true
+		 */
+		public function resize( $max_w, $max_h, $crop = false ) {
+			$this->resizes[] = array(
+				'width'  => (int) $max_w,
+				'height' => (int) $max_h,
+				'crop'   => (bool) $crop,
+			);
+			return true;
+		}
+
+		/**
+		 * Set JPEG quality.
+		 *
+		 * @param int $quality Quality.
+		 * @return true
+		 */
+		public function set_quality( $quality ) {
+			$this->quality = (int) $quality;
+			return true;
+		}
+
+		/**
+		 * Persist re-encoded image bytes to destination.
+		 *
+		 * @param string $dest Destination path.
+		 * @param string $mime Target MIME type.
+		 * @return array<string,mixed>|WP_Error
+		 */
+		public function save( $dest, $mime = null ) {
+			if ( ! empty( $GLOBALS['penalis_test_image_editor_fail_save'] ) ) {
+				return new WP_Error( 'save_failed', 'Disk full.' );
+			}
+
+			$bytes = file_get_contents( $this->source );
+			if ( false === $bytes || false === file_put_contents( $dest, $bytes ) ) {
+				return new WP_Error( 'save_failed', 'Cannot write destination.' );
+			}
+
+			return array(
+				'path'      => $dest,
+				'file'      => basename( $dest ),
+				'width'     => 500,
+				'height'    => 500,
+				'mime-type' => $mime ? $mime : 'image/jpeg',
+			);
+		}
+	}
+}
+
+if ( ! function_exists( 'wp_get_image_editor' ) ) {
+	/**
+	 * Image editor factory stub.
+	 *
+	 * @param string $path Source image path.
+	 * @return Penalis_Test_Image_Editor|WP_Error
+	 */
+	function wp_get_image_editor( $path ) {
+		if ( ! empty( $GLOBALS['penalis_test_image_editor_error'] ) ) {
+			return new WP_Error( 'image_no_editor', 'No editor available.' );
+		}
+
+		$editor                               = new Penalis_Test_Image_Editor( $path );
+		$GLOBALS['penalis_test_last_editor']  = $editor;
+		return $editor;
 	}
 }

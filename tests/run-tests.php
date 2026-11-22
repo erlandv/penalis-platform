@@ -965,7 +965,7 @@ penalis_assert( '' !== Penalis_Policy::validate_avatar( 'image/png', 400, 400, f
 penalis_same( array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' ), Penalis_Policy::avatar_mimes(), 'Avatar mime list matches the upload policy.' );
 
 /* -------------------------------------------------------------------------
- * Avatar identifier resolution
+ * Avatar identifier resolution & standalone storage
  * ---------------------------------------------------------------------- */
 
 penalis_reset();
@@ -978,15 +978,161 @@ penalis_same( 12, Penalis_Avatar::resolve_user_id( 'user12@example.com' ), 'Emai
 penalis_same( 0, Penalis_Avatar::resolve_user_id( 'not-an-email' ), 'Unknown strings resolve to zero.' );
 penalis_same( 0, Penalis_Avatar::resolve_user_id( 'nobody@example.com' ), 'Unknown emails resolve to zero.' );
 
-$penalis_post            = new WP_Post();
+$penalis_post              = new WP_Post();
 $penalis_post->post_author = 12;
 penalis_same( 12, Penalis_Avatar::resolve_user_id( $penalis_post ), 'Post authors resolve.' );
 
-$penalis_comment           = new WP_Comment();
-$penalis_comment->user_id  = 12;
+$penalis_comment          = new WP_Comment();
+$penalis_comment->user_id = 12;
 penalis_same( 12, Penalis_Avatar::resolve_user_id( $penalis_comment ), 'Comment authors resolve.' );
 
-penalis_same( true, Penalis_Avatar::is_provider(), 'The built-in provider is active without One User Avatar.' );
+// Strict filename validation prevents traversal and arbitrary paths.
+penalis_same( true, Penalis_Avatar::is_valid_filename( 'u42-0123456789ab.jpg' ), 'Server-generated avatar filename is valid.' );
+penalis_same( false, Penalis_Avatar::is_valid_filename( '../u42-0123456789ab.jpg' ), 'Traversal filename is rejected.' );
+penalis_same( false, Penalis_Avatar::is_valid_filename( 'avatar-profile.jpg' ), 'Legacy static filename is rejected.' );
+penalis_same( false, Penalis_Avatar::is_valid_filename( 'u42-0123456789ab.php' ), 'Non-JPEG extension is rejected.' );
+penalis_same( false, Penalis_Avatar::is_valid_filename( 'u42-0123456789AB.jpg' ), 'Uppercase hex token is rejected.' );
+
+// Build a minimal valid GIF89a with configurable width/height (pure PHP, no GD required).
+$penalis_make_gif = static function ( $width, $height ) {
+	$path = tempnam( sys_get_temp_dir(), 'penalis-gif-' );
+	$gif  = 'GIF89a'
+		. pack( 'vv', (int) $width, (int) $height )
+		. "\x80\x00\x00\x00\x00\x00\xff\xff\xff\x2c\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02\x44\x01\x00\x3b";
+	file_put_contents( $path, $gif );
+	return $path;
+};
+
+$penalis_upload_root                = sys_get_temp_dir() . '/penalis-avatar-test-' . uniqid( '', true );
+$GLOBALS['penalis_test_upload_dir'] = array(
+	'basedir' => $penalis_upload_root,
+	'baseurl' => 'https://example.com/wp-content/uploads',
+	'error'   => false,
+);
+$GLOBALS['penalis_test_image_editor_error']     = false;
+$GLOBALS['penalis_test_image_editor_fail_save'] = false;
+
+// Legacy attachment fallback works without migration.
+$penalis_legacy_attachment                 = new WP_Post();
+$penalis_legacy_attachment->ID             = 501;
+$penalis_legacy_attachment->post_type      = 'attachment';
+$penalis_legacy_attachment->post_mime_type = 'image/jpeg';
+$penalis_legacy_attachment->post_author    = 12;
+$GLOBALS['penalis_test_posts'][501]        = $penalis_legacy_attachment;
+update_user_meta( 12, Penalis_Avatar::meta_key(), 501 );
+
+penalis_same( true, Penalis_Avatar::has_avatar( 12 ), 'Legacy attachment avatar reports has_avatar=true.' );
+$penalis_legacy_avatar = Penalis_Avatar::filter_avatar_data( array( 'size' => 96, 'alt' => '' ), 12 );
+penalis_same(
+	'https://example.com/wp-content/uploads/attachment-501.jpg',
+	$penalis_legacy_avatar['url'],
+	'Legacy attachment avatar resolves via filter_avatar_data().'
+);
+penalis_same( true, $penalis_legacy_avatar['found_avatar'], 'Legacy attachment avatar marks found_avatar.' );
+
+// Reject small images (< 100x100) and non-images.
+$penalis_small_gif = $penalis_make_gif( 80, 80 );
+$penalis_small_res = Penalis_Avatar::upload(
+	12,
+	array(
+		'tmp_name' => $penalis_small_gif,
+		'error'    => UPLOAD_ERR_OK,
+		'size'     => filesize( $penalis_small_gif ),
+	)
+);
+penalis_assert( is_wp_error( $penalis_small_res ), 'Images smaller than 100x100 are rejected.' );
+unlink( $penalis_small_gif );
+
+$penalis_not_image = tempnam( sys_get_temp_dir(), 'penalis-txt-' );
+file_put_contents( $penalis_not_image, 'not an image at all' );
+$penalis_txt_res = Penalis_Avatar::upload(
+	12,
+	array(
+		'tmp_name' => $penalis_not_image,
+		'error'    => UPLOAD_ERR_OK,
+		'size'     => filesize( $penalis_not_image ),
+	)
+);
+penalis_assert( is_wp_error( $penalis_txt_res ), 'Non-image uploads are rejected.' );
+unlink( $penalis_not_image );
+
+// Upload a valid 600x400 image: stored in penalis-avatars/, resized square, legacy meta detached (attachment untouched).
+$penalis_gif_1  = $penalis_make_gif( 600, 400 );
+$penalis_file_1 = Penalis_Avatar::upload(
+	12,
+	array(
+		'tmp_name' => $penalis_gif_1,
+		'error'    => UPLOAD_ERR_OK,
+		'size'     => filesize( $penalis_gif_1 ),
+	)
+);
+unlink( $penalis_gif_1 );
+
+penalis_assert( is_string( $penalis_file_1 ) && Penalis_Avatar::is_valid_filename( $penalis_file_1 ), 'Valid upload stores a u{id}-{token}.jpg filename.' );
+penalis_assert( 0 === strpos( (string) $penalis_file_1, 'u12-' ), 'Stored filename is prefixed with user ID.' );
+penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_1 ), 'Standalone avatar file exists on disk.' );
+penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/index.php' ), 'Avatar subfolder has index.php guard.' );
+penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/.htaccess' ), 'Avatar subfolder has .htaccess guard.' );
+penalis_same( 1, count( $GLOBALS['penalis_test_last_editor']->resizes ), 'Non-square/oversized upload is resized square.' );
+penalis_same( 400, $GLOBALS['penalis_test_last_editor']->resizes[0]['width'], 'Resize caps to min(OUTPUT_SIZE, width, height).' );
+penalis_same( 0, Penalis_Avatar::get_id( 12 ), 'Legacy attachment meta is detached after standalone upload.' );
+penalis_assert( isset( $GLOBALS['penalis_test_posts'][501] ), 'Legacy Media Library attachment is never deleted.' );
+
+$penalis_standalone_avatar = Penalis_Avatar::filter_avatar_data( array( 'size' => 96, 'alt' => '' ), 12 );
+penalis_same(
+	'https://example.com/wp-content/uploads/penalis-avatars/' . $penalis_file_1,
+	$penalis_standalone_avatar['url'],
+	'Standalone avatar URL resolves from penalis-avatars/.'
+);
+penalis_same( 'User 12', $penalis_standalone_avatar['alt'], 'Avatar alt falls back to display_name.' );
+
+// Uploading a replacement immediately deletes the previous standalone file.
+$penalis_gif_2  = $penalis_make_gif( 500, 500 );
+$penalis_file_2 = Penalis_Avatar::upload(
+	12,
+	array(
+		'tmp_name' => $penalis_gif_2,
+		'error'    => UPLOAD_ERR_OK,
+		'size'     => filesize( $penalis_gif_2 ),
+	)
+);
+unlink( $penalis_gif_2 );
+
+penalis_assert( is_string( $penalis_file_2 ) && $penalis_file_2 !== $penalis_file_1, 'Replacement upload gets a fresh unique token.' );
+penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_2 ), 'New standalone avatar file exists on disk.' );
+penalis_assert( ! file_exists( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_1 ), 'Superseded standalone avatar file is immediately deleted.' );
+penalis_same( 0, count( $GLOBALS['penalis_test_last_editor']->resizes ), 'Exact 500x500 square upload skips unnecessary resize.' );
+
+// A failed save keeps the existing standalone avatar intact.
+$GLOBALS['penalis_test_image_editor_fail_save'] = true;
+$penalis_gif_3                                  = $penalis_make_gif( 500, 500 );
+$penalis_fail_res                               = Penalis_Avatar::upload(
+	12,
+	array(
+		'tmp_name' => $penalis_gif_3,
+		'error'    => UPLOAD_ERR_OK,
+		'size'     => filesize( $penalis_gif_3 ),
+	)
+);
+unlink( $penalis_gif_3 );
+$GLOBALS['penalis_test_image_editor_fail_save'] = false;
+
+penalis_assert( is_wp_error( $penalis_fail_res ), 'Failed image editor save returns WP_Error.' );
+penalis_same( $penalis_file_2, Penalis_Avatar::get_file( 12 ), 'Failed replacement preserves existing avatar meta.' );
+penalis_assert( is_file( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_2 ), 'Failed replacement preserves existing avatar file on disk.' );
+
+// Clearing removes the standalone file and meta.
+Penalis_Avatar::clear( 12 );
+penalis_same( '', Penalis_Avatar::get_file( 12 ), 'Clearing removes _penalis_avatar_file meta.' );
+penalis_same( false, Penalis_Avatar::has_avatar( 12 ), 'Clearing sets has_avatar to false.' );
+penalis_assert( ! file_exists( $penalis_upload_root . '/penalis-avatars/' . $penalis_file_2 ), 'Clearing immediately deletes standalone avatar file.' );
+
+// Cleanup temporary test directory.
+@unlink( $penalis_upload_root . '/penalis-avatars/index.php' );
+@unlink( $penalis_upload_root . '/penalis-avatars/.htaccess' );
+@rmdir( $penalis_upload_root . '/penalis-avatars' );
+@rmdir( $penalis_upload_root );
+unset( $GLOBALS['penalis_test_upload_dir'] );
 
 /* -------------------------------------------------------------------------
  * Dashboard script loading
@@ -5419,7 +5565,7 @@ $_SERVER = $penalis_original_server;
 $penalis_defaults = Penalis_Rate_Limiter::defaults();
 penalis_same( 5, $penalis_defaults['registration_ip']['limit'], 'Registration allows five attempts by default.' );
 penalis_same( HOUR_IN_SECONDS, $penalis_defaults['registration_ip']['window'], 'Default windows are one hour.' );
-penalis_same( 12, count( $penalis_defaults ), 'Every throttled action has a rule.' );
+penalis_same( 13, count( $penalis_defaults ), 'Every throttled action has a rule.' );
 
 $GLOBALS['penalis_test_options']['penalis_rate_limits'] = array(
 	'registration_ip' => array(

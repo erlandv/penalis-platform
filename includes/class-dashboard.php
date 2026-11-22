@@ -457,6 +457,7 @@ final class Penalis_Dashboard {
 					'lastName'        => (string) get_user_meta( $user_id, 'last_name', true ),
 					'displayNameMode' => Penalis_Account_Status::get_display_name_mode( $user_id ),
 					'avatarId'        => Penalis_Avatar::get_id( $user_id ),
+					'hasAvatar'       => Penalis_Avatar::has_avatar( $user_id ),
 					'avatarUrl'       => Penalis_Avatar::get_url( $user_id ),
 					'email'           => $user->user_email,
 					'description'     => (string) get_user_meta( $user_id, 'description', true ),

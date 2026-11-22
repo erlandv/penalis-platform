@@ -1,10 +1,10 @@
 /**
  * Shared image selection controls for the media picker dialogs.
  *
- * Used by the article editor (featured image / insert image) and the profile
- * avatar picker, so all three dialogs behave the same way: the whole card is
- * the target, the selection is a native radio group, and a single "Pilih"
- * button in a sticky footer applies it.
+ * Used by the article editor (featured image and inline insert image), so both
+ * dialogs behave the same way: the whole card is the target, the selection is
+ * a native radio group, and a single "Pilih" button in a sticky footer applies
+ * it.
  *
  * The component is presentational on purpose — it owns no data fetching and no
  * upload logic, because each caller has a different source and a different

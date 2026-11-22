@@ -22,12 +22,42 @@ if ( ! $penalis_opt_in ) {
 	return;
 }
 
-// History, notifications, and Senator markers may belong to accounts without
-// standard Penalis status metadata (administrators or legacy contributors).
+// History, notifications, avatar file references, and Senator markers may belong
+// to accounts without standard Penalis status metadata (administrators or legacy
+// contributors).
 delete_metadata( 'user', 0, '_penalis_author_history', '', true );
 delete_metadata( 'user', 0, '_penalis_author_history_reserved', '', true );
 delete_metadata( 'user', 0, '_penalis_notifications', '', true );
 delete_metadata( 'user', 0, '_penalis_is_senator', '', true );
+delete_metadata( 'user', 0, '_penalis_avatar_file', '', true );
+
+// Remove derived standalone avatar files when the site owner opted into data removal.
+$penalis_uploads = wp_upload_dir();
+if ( empty( $penalis_uploads['error'] ) && ! empty( $penalis_uploads['basedir'] ) ) {
+	$penalis_avatar_dir = untrailingslashit( (string) $penalis_uploads['basedir'] ) . '/penalis-avatars';
+	if ( is_dir( $penalis_avatar_dir ) ) {
+		$penalis_avatar_entries = @scandir( $penalis_avatar_dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Best-effort opt-in cleanup.
+		if ( is_array( $penalis_avatar_entries ) ) {
+			foreach ( $penalis_avatar_entries as $penalis_avatar_entry ) {
+				if ( '.' === $penalis_avatar_entry || '..' === $penalis_avatar_entry ) {
+					continue;
+				}
+				if (
+					'index.php' === $penalis_avatar_entry ||
+					'.htaccess' === $penalis_avatar_entry ||
+					1 === preg_match( '/^u[0-9]+-[a-f0-9]{12}\.jpg$/', $penalis_avatar_entry )
+				) {
+					$penalis_avatar_path = $penalis_avatar_dir . '/' . $penalis_avatar_entry;
+					if ( is_file( $penalis_avatar_path ) ) {
+						wp_delete_file( $penalis_avatar_path );
+					}
+				}
+			}
+		}
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir,WordPress.PHP.NoSilencedErrors.Discouraged -- Best-effort opt-in cleanup of empty directory.
+		@rmdir( $penalis_avatar_dir );
+	}
+}
 
 // Remove V2 editorial metadata from posts (posts themselves are never deleted).
 $penalis_post_meta_keys = array(

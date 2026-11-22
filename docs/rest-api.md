@@ -56,8 +56,8 @@ reports a staff role.
 | `/account/password` | `POST` | `update_password` | Change own password (requires `current_password`, `new_password` >= 12 chars) |
 | `/account/username` | `POST` | `change_username` | Re-authenticated `user_login` change inside a MySQL advisory lock; records 301 redirect and ends sessions |
 | `/account/email` | `POST` | `request_email_change` | Re-authenticated request to change email; emails a six-digit code to the new address |
-| `/account/avatar` | `POST` | `set_avatar` | Set profile photo from an attachment owned by the current user (minimum 100x100px) |
-| `/account/avatar` | `DELETE` | `remove_avatar` | Remove the current user's profile photo |
+| `/account/avatar` | `POST` | `set_avatar` | Upload a profile photo (`multipart/form-data` field `file`, JPEG/PNG/GIF/WebP, minimum 100×100px, max 5 MB) into `uploads/penalis-avatars/u{id}-{token}.jpg` and immediately delete the superseded standalone file (rate-limited per account) |
+| `/account/avatar` | `DELETE` | `remove_avatar` | Remove the current user's profile photo (deletes the standalone file inside `penalis-avatars/`; legacy Media Library attachments are only detached) |
 | `/notifications` | `GET` | `list_notifications` | Return the signed-in user's bounded editorial notifications (up to 50) and `unreadCount`. Each item carries `articleId`, `articleTitle`, `feedback`, `targetView`, `targetUrl`, and `reviewUrl`; `targetUrl` adds `penalis_focus=feedback` when the entry has revision notes |
 | `/notifications/read` | `POST` | `mark_notifications_read` | Mark all of the signed-in user's notifications as read |
 | `/notifications/(?P<id>[a-zA-Z0-9_\-]+)/read` | `POST` | `mark_notifications_read` | Mark a single notification as read |
@@ -140,7 +140,7 @@ before the Vite module executes. The TypeScript contract lives in
 | `role` | `DashboardRole` | Resolved role from `Penalis_Policy::dashboard_role()`: `administrator`, `editor`, `writer`, `pending`, or `suspended` (empty string for guests) |
 | `status` | `AccountStatus` | Current account status (`active`, `pending_verification`, etc.) |
 | `statusLabel` | `string` | Indonesian label for the current account status |
-| `user` | `object \| null` | Profile fields (`id`, `displayName`, `firstName`, `lastName`, `displayNameMode`, `avatarId`, `avatarUrl`, `email`, `description`, `instagram`, `authorUrl`) |
+| `user` | `object \| null` | Profile fields (`id`, `displayName`, `firstName`, `lastName`, `displayNameMode`, `avatarId`, `hasAvatar`, `avatarUrl`, `email`, `description`, `instagram`, `authorUrl`) |
 
 ---
 

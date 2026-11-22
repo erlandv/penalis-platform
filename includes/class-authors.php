@@ -390,7 +390,8 @@ final class Penalis_Authors {
 			Penalis_Account_Status::META_STATUS,
 			Penalis_Account_Status::META_ACCESS,
 			Penalis_Account_Status::META_SENATOR,
-			'_penalis_avatar_id',
+			Penalis_Avatar::META_FILE,
+			Penalis_Avatar::meta_key(),
 		);
 
 		if ( in_array( (string) $meta_key, $watched, true ) ) {

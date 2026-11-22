@@ -323,20 +323,12 @@ final class Penalis_Rest_Api {
 				array(
 					'methods'             => WP_REST_Server::CREATABLE,
 					'callback'            => array( __CLASS__, 'set_avatar' ),
-					'permission_callback' => array( __CLASS__, 'require_logged_in' ),
-					'args'                => array(
-						'attachment_id' => array(
-							'required'          => true,
-							'type'              => 'integer',
-							'minimum'           => 1,
-							'sanitize_callback' => 'absint',
-						),
-					),
+					'permission_callback' => array( __CLASS__, 'require_active_writer_or_reviewer' ),
 				),
 				array(
 					'methods'             => WP_REST_Server::DELETABLE,
 					'callback'            => array( __CLASS__, 'remove_avatar' ),
-					'permission_callback' => array( __CLASS__, 'require_logged_in' ),
+					'permission_callback' => array( __CLASS__, 'require_active_writer_or_reviewer' ),
 				),
 			)
 		);
@@ -888,6 +880,7 @@ final class Penalis_Rest_Api {
 				'lastName'                => (string) get_user_meta( $user_id, 'last_name', true ),
 				'displayNameMode'         => Penalis_Account_Status::get_display_name_mode( $user_id ),
 				'avatarId'                => Penalis_Avatar::get_id( $user_id ),
+				'hasAvatar'               => Penalis_Avatar::has_avatar( $user_id ),
 				'avatarUrl'               => Penalis_Avatar::get_url( $user_id ),
 				'email'                   => $user->user_email,
 				'pendingEmail'            => $pending_email,
@@ -1100,13 +1093,35 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
-	 * Assign a profile photo from the writer's media library.
+	 * Upload and assign a standalone profile photo.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function set_avatar( $request ) {
-		$result = Penalis_Avatar::set( get_current_user_id(), (int) $request['attachment_id'] );
+		$user_id = get_current_user_id();
+
+		if ( ! Penalis_Rate_Limiter::guard( 'avatar_upload', (string) $user_id ) ) {
+			return new WP_Error(
+				'penalis_rate_limited',
+				'Terlalu banyak percobaan mengganti foto profil. Silakan coba lagi nanti.',
+				array( 'status' => 429 )
+			);
+		}
+		Penalis_Rate_Limiter::register( 'avatar_upload', (string) $user_id );
+
+		$files = $request->get_file_params();
+		$file  = isset( $files['file'] ) && is_array( $files['file'] ) ? $files['file'] : null;
+
+		if ( null === $file ) {
+			return new WP_Error(
+				'penalis_avatar_missing',
+				'Pilih gambar untuk foto profil kamu.',
+				array( 'status' => 400 )
+			);
+		}
+
+		$result = Penalis_Avatar::upload( $user_id, $file );
 
 		if ( is_wp_error( $result ) ) {
 			return $result;

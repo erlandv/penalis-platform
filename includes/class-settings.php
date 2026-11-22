@@ -947,9 +947,6 @@ JS;
 				Dipakai untuk penulis yang belum memilih foto sendiri. Gambar ini disimpan sebagai
 				foto profil bawaan situs, sehingga tampil konsisten di arsip penulis, direktori
 				kontributor, dan komentar.
-				<?php if ( Penalis_Avatar::is_supported() ) : ?>
-					Plugin One User Avatar aktif dan mengelola pengaturan yang sama.
-				<?php endif; ?>
 			</p>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">

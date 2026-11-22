@@ -1,5 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { clampCropOffset } from './crop';
+import { AVATAR_MAX_BYTES, clampCropOffset, validateAvatarFile } from './crop';
+
+describe('validateAvatarFile', () => {
+  it('accepts supported image types within the size limit', () => {
+    expect(validateAvatarFile({ type: 'image/jpeg', size: 1024 })).toBe('');
+    expect(validateAvatarFile({ type: 'image/png', size: AVATAR_MAX_BYTES })).toBe('');
+    expect(validateAvatarFile({ type: 'image/gif', size: 512 })).toBe('');
+    expect(validateAvatarFile({ type: 'image/webp', size: 2048 })).toBe('');
+  });
+
+  it('passes through empty MIME types for OS file pickers that omit them', () => {
+    expect(validateAvatarFile({ type: '', size: 1024 })).toBe('');
+  });
+
+  it('rejects unsupported MIME types such as SVG and PDF', () => {
+    expect(validateAvatarFile({ type: 'image/svg+xml', size: 1024 })).not.toBe('');
+    expect(validateAvatarFile({ type: 'application/pdf', size: 1024 })).not.toBe('');
+  });
+
+  it('rejects files larger than the 5 MB limit', () => {
+    expect(validateAvatarFile({ type: 'image/jpeg', size: AVATAR_MAX_BYTES + 1 })).not.toBe('');
+  });
+});
 
 describe('clampCropOffset', () => {
   it('returns zero point when dimensions are zero or invalid', () => {

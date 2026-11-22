@@ -361,9 +361,19 @@ export const accountApi = {
       method: 'POST',
     }),
 
-  /** Assign an existing media attachment as the profile photo. */
-  setAvatar: (attachmentId: number) =>
-    request<Account>('/account/avatar', { method: 'POST', body: { attachment_id: attachmentId } }),
+  /** Upload a cropped profile photo to dedicated avatar storage. */
+  setAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('file', file, file.name);
+
+    return request<Account>('/account/avatar', {
+      method: 'POST',
+      body: form,
+      fallbackMessage: 'Foto profil kamu tidak dapat diperbarui.',
+      networkMessage: 'Foto profil kamu tidak dapat diperbarui. Periksa koneksi kamu.',
+      retryAuth: true,
+    });
+  },
 
   /** Detach the profile photo and fall back to the site default. */
   removeAvatar: () => request<Account>('/account/avatar', { method: 'DELETE' }),

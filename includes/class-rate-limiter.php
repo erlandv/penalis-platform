@@ -118,6 +118,12 @@ final class Penalis_Rate_Limiter {
 				'limit'       => 30,
 				'window'      => 60,
 			),
+			'avatar_upload'           => array(
+				'label'       => 'Mengunggah foto profil',
+				'description' => 'Percobaan mengganti foto profil oleh satu akun dalam satu jam.',
+				'limit'       => 20,
+				'window'      => 60,
+			),
 		);
 	}
 

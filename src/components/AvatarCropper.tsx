@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type WheelEvent } from 'react';
 import {
+  AVATAR_MIN_EDGE,
   CROP_OUTPUT_SIZE,
   CROP_VIEWPORT_SIZE,
   clampCropOffset,
@@ -22,7 +23,7 @@ export function AvatarCropper({
   onCancel,
   busy = false,
 }: {
-  imageSource: File | string;
+  imageSource: File;
   onCrop: (file: File) => Promise<void> | void;
   onCancel: () => void;
   busy?: boolean;
@@ -42,28 +43,21 @@ export function AvatarCropper({
 
   useEffect(() => {
     let active = true;
-    let objectUrlToRevoke = '';
-
+    const objectUrl = URL.createObjectURL(imageSource);
     const img = new Image();
-    if (
-      typeof imageSource === 'string' &&
-      !imageSource.startsWith('blob:') &&
-      !imageSource.startsWith('data:')
-    ) {
-      img.crossOrigin = 'anonymous';
-    }
 
-    const src =
-      typeof imageSource === 'string'
-        ? imageSource
-        : (objectUrlToRevoke = URL.createObjectURL(imageSource));
-
-    setResolvedUrl(src);
+    setResolvedUrl(objectUrl);
     setLoading(true);
     setError('');
 
     img.onload = () => {
       if (!active) {
+        return;
+      }
+      if (img.naturalWidth < AVATAR_MIN_EDGE || img.naturalHeight < AVATAR_MIN_EDGE) {
+        setNaturalSize({ width: 0, height: 0 });
+        setError('Pilih gambar minimal 100 x 100 piksel.');
+        setLoading(false);
         return;
       }
       setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
@@ -80,13 +74,11 @@ export function AvatarCropper({
       setLoading(false);
     };
 
-    img.src = src;
+    img.src = objectUrl;
 
     return () => {
       active = false;
-      if (objectUrlToRevoke) {
-        URL.revokeObjectURL(objectUrlToRevoke);
-      }
+      URL.revokeObjectURL(objectUrl);
     };
   }, [imageSource]);
 
@@ -209,7 +201,8 @@ export function AvatarCropper({
         return;
       }
 
-      const croppedFile = new File([blob], 'avatar-profile.jpg', {
+      // Transport filename only; the server assigns the final `u{id}-{token}.jpg` name.
+      const croppedFile = new File([blob], 'avatar.jpg', {
         type: 'image/jpeg',
         lastModified: Date.now(),
       });

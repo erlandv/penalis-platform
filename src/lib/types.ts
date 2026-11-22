@@ -30,6 +30,7 @@ export interface BootstrapUser {
   lastName?: string;
   displayNameMode?: DisplayNameMode;
   avatarId?: number;
+  hasAvatar?: boolean;
   avatarUrl?: string;
   authorUrl?: string;
   email: string;
@@ -183,6 +184,7 @@ export interface Account {
   lastName: string;
   displayNameMode: DisplayNameMode;
   avatarId: number;
+  hasAvatar?: boolean;
   avatarUrl: string;
   authorUrl: string;
   email: string;

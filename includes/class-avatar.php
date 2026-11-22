@@ -1,6 +1,6 @@
 <?php
 /**
- * Avatar integration with One User Avatar.
+ * Standalone profile photo storage and built-in WordPress avatar provider.
  *
  * @package Penalis_Platform
  */
@@ -10,40 +10,47 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Reads and writes the avatar managed by the One User Avatar plugin.
+ * Stores cropped profile photos in a dedicated uploads subfolder (`penalis-avatars/`)
+ * so the WordPress Media Library stays reserved for article assets.
  *
- * One User Avatar stores the avatar attachment ID in a prefixed user meta key
- * (`{prefix}user_avatar`) and filters the core avatar functions. Reusing that
- * storage lets writers manage their photo from the dashboard without adding a
- * second avatar provider or migrating existing images. Nothing here registers
- * its own avatar filter: the provider stays authoritative.
+ * Legacy accounts that already have an attachment ID stored in `{prefix}user_avatar`
+ * continue to resolve that attachment as a read-only fallback without migration.
+ * Replacing or clearing an avatar detaches the legacy meta without ever deleting
+ * Media Library attachments, while immediately removing the superseded derived file
+ * inside `penalis-avatars/` so storage stays at one file per user.
  */
 final class Penalis_Avatar {
 
 	/**
-	 * User meta suffix used by One User Avatar.
+	 * User meta key storing the standalone avatar filename inside `penalis-avatars/`.
+	 */
+	public const META_FILE = '_penalis_avatar_file';
+
+	/**
+	 * Legacy user meta suffix storing a Media Library attachment ID.
 	 */
 	public const META_SUFFIX = 'user_avatar';
 
 	/**
-	 * Post meta One User Avatar uses to mark an attachment as an avatar.
+	 * Uploads subfolder dedicated to cropped profile photos.
 	 */
-	public const META_ATTACHMENT_MARKER = '_wp_attachment_wp_user_avatar';
+	public const SUBDIR = 'penalis-avatars';
 
 	/**
-	 * Whether the external avatar provider is active.
-	 *
-	 * @return bool
+	 * Target square output dimension in pixels (matches `CROP_OUTPUT_SIZE`).
 	 */
-	public static function is_supported() {
-		return function_exists( 'get_wp_user_avatar' );
-	}
+	public const OUTPUT_SIZE = 500;
 
 	/**
-	 * User meta key for the avatar attachment ID.
+	 * Maximum accepted upload size in bytes (5 MiB).
+	 */
+	public const MAX_FILE_SIZE = 5242880;
+
+	/**
+	 * Legacy user meta key for an attachment-based avatar ID.
 	 *
-	 * One User Avatar prefixes the key with the site table prefix, so it is not
-	 * safe to hardcode `wp_user_avatar`.
+	 * Prefixed with the site table prefix so existing production records continue
+	 * to resolve without migration.
 	 *
 	 * @return string
 	 */
@@ -54,7 +61,162 @@ final class Penalis_Avatar {
 	}
 
 	/**
-	 * Current avatar attachment ID.
+	 * Whether a filename matches the strict server-generated standalone pattern.
+	 *
+	 * Only basenames matching `u{user_id}-{12-hex}.jpg` are ever read or deleted,
+	 * preventing path traversal and arbitrary file operations.
+	 *
+	 * @param mixed $filename Candidate filename.
+	 * @return bool
+	 */
+	public static function is_valid_filename( $filename ) {
+		return is_string( $filename ) && 1 === preg_match( '/^u[0-9]+-[a-f0-9]{12}\.jpg$/', $filename );
+	}
+
+	/**
+	 * Effective maximum upload size in bytes.
+	 *
+	 * @return int
+	 */
+	public static function max_file_size() {
+		if ( function_exists( 'wp_max_upload_size' ) ) {
+			$wp_max = (int) wp_max_upload_size();
+			if ( $wp_max > 0 && $wp_max < self::MAX_FILE_SIZE ) {
+				return $wp_max;
+			}
+		}
+
+		return self::MAX_FILE_SIZE;
+	}
+
+	/**
+	 * Resolve the dedicated avatar storage directory path and public URL.
+	 *
+	 * @return array{path:string,url:string}|WP_Error
+	 */
+	public static function storage_dir() {
+		$uploads = wp_upload_dir();
+
+		if ( ! empty( $uploads['error'] ) || empty( $uploads['basedir'] ) || empty( $uploads['baseurl'] ) ) {
+			return new WP_Error(
+				'penalis_avatar_storage_unavailable',
+				'Direktori penyimpanan foto profil tidak tersedia.',
+				array( 'status' => 500 )
+			);
+		}
+
+		return array(
+			'path' => untrailingslashit( (string) $uploads['basedir'] ) . '/' . self::SUBDIR,
+			'url'  => untrailingslashit( (string) $uploads['baseurl'] ) . '/' . self::SUBDIR,
+		);
+	}
+
+	/**
+	 * Ensure the dedicated avatar subfolder exists and is hardened against
+	 * directory listing and PHP execution.
+	 *
+	 * @return array{path:string,url:string}|WP_Error
+	 */
+	public static function ensure_storage_dir() {
+		$dir = self::storage_dir();
+		if ( is_wp_error( $dir ) ) {
+			return $dir;
+		}
+
+		if ( ! is_dir( $dir['path'] ) && ! wp_mkdir_p( $dir['path'] ) ) {
+			return new WP_Error(
+				'penalis_avatar_storage_unavailable',
+				'Direktori penyimpanan foto profil tidak dapat dibuat.',
+				array( 'status' => 500 )
+			);
+		}
+
+		$index_file = $dir['path'] . '/index.php';
+		if ( ! file_exists( $index_file ) && is_writable( $dir['path'] ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- Checking dedicated uploads subfolder before writing guard files.
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Writing static directory index guard inside uploads.
+			file_put_contents( $index_file, "<?php\n// Silence is golden.\n" );
+		}
+
+		$htaccess_file = $dir['path'] . '/.htaccess';
+		if ( ! file_exists( $htaccess_file ) && is_writable( $dir['path'] ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- Checking dedicated uploads subfolder before writing guard files.
+			$rules  = "Options -Indexes\n";
+			$rules .= "<FilesMatch \"\\.(?:php|phtml|phar|php[3-8])$\">\n";
+			$rules .= "\t<IfModule mod_authz_core.c>\n";
+			$rules .= "\t\tRequire all denied\n";
+			$rules .= "\t</IfModule>\n";
+			$rules .= "\t<IfModule !mod_authz_core.c>\n";
+			$rules .= "\t\tOrder allow,deny\n";
+			$rules .= "\t\tDeny from all\n";
+			$rules .= "\t</IfModule>\n";
+			$rules .= "</FilesMatch>\n";
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Writing static security guard inside uploads.
+			file_put_contents( $htaccess_file, $rules );
+		}
+
+		return $dir;
+	}
+
+	/**
+	 * Stored standalone avatar filename for a user, or an empty string when none.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string
+	 */
+	public static function get_file( $user_id ) {
+		$value = get_user_meta( (int) $user_id, self::META_FILE, true );
+
+		return self::is_valid_filename( $value ) ? $value : '';
+	}
+
+	/**
+	 * Absolute path to the user's standalone avatar file when it exists on disk.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string
+	 */
+	public static function get_file_path( $user_id ) {
+		$filename = self::get_file( $user_id );
+		if ( '' === $filename ) {
+			return '';
+		}
+
+		$dir = self::storage_dir();
+		if ( is_wp_error( $dir ) ) {
+			return '';
+		}
+
+		$path = $dir['path'] . '/' . $filename;
+
+		return is_file( $path ) && is_readable( $path ) ? $path : '';
+	}
+
+	/**
+	 * Public URL to the user's standalone avatar file when it exists on disk.
+	 *
+	 * @param int $user_id User ID.
+	 * @return string
+	 */
+	public static function get_file_url( $user_id ) {
+		$filename = self::get_file( $user_id );
+		if ( '' === $filename ) {
+			return '';
+		}
+
+		$dir = self::storage_dir();
+		if ( is_wp_error( $dir ) ) {
+			return '';
+		}
+
+		$path = $dir['path'] . '/' . $filename;
+		if ( ! is_file( $path ) || ! is_readable( $path ) ) {
+			return '';
+		}
+
+		return $dir['url'] . '/' . $filename;
+	}
+
+	/**
+	 * Legacy attachment-based avatar ID, if the user still uses one.
 	 *
 	 * @param int $user_id User ID.
 	 * @return int
@@ -66,7 +228,25 @@ final class Penalis_Avatar {
 	}
 
 	/**
-	 * Public avatar URL, resolved by whichever provider is active.
+	 * Whether the user currently has a custom profile photo (standalone or legacy).
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function has_avatar( $user_id ) {
+		$user_id = (int) $user_id;
+
+		if ( '' !== self::get_file_path( $user_id ) ) {
+			return true;
+		}
+
+		$attachment_id = self::get_id( $user_id );
+
+		return $attachment_id > 0 && wp_attachment_is_image( $attachment_id );
+	}
+
+	/**
+	 * Public avatar URL resolved through WordPress's avatar pipeline.
 	 *
 	 * @param int $user_id User ID.
 	 * @param int $size    Square size in pixels.
@@ -77,130 +257,240 @@ final class Penalis_Avatar {
 	}
 
 	/**
-	 * Validate an attachment for use as the user's avatar.
+	 * Validate, re-encode, and store an uploaded profile photo in `penalis-avatars/`.
 	 *
-	 * @param int $user_id       User ID.
-	 * @param int $attachment_id Attachment ID.
-	 * @return true|WP_Error
+	 * Follows a safe write-new -> update-meta -> delete-old sequence so a failure
+	 * mid-upload never leaves the user without their previous photo. Any legacy
+	 * attachment meta is detached without deleting the Media Library attachment.
+	 *
+	 * @param int                 $user_id User ID.
+	 * @param array<string,mixed> $file    Uploaded file entry (from `$_FILES`).
+	 * @return string|WP_Error Stored filename on success.
 	 */
-	public static function validate( $user_id, $attachment_id ) {
-		$attachment_id = (int) $attachment_id;
-		$attachment    = get_post( $attachment_id );
-
-		if ( ! $attachment || 'attachment' !== $attachment->post_type ) {
+	public static function upload( $user_id, $file ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
 			return new WP_Error(
-				'penalis_avatar_invalid',
-				'Gambar tersebut tidak tersedia di pustaka media.',
+				'penalis_avatar_invalid_user',
+				'Akun pengguna tidak ditemukan.',
 				array( 'status' => 400 )
 			);
 		}
 
-		$metadata = wp_get_attachment_metadata( $attachment_id );
-		$width    = isset( $metadata['width'] ) ? (int) $metadata['width'] : 0;
-		$height   = isset( $metadata['height'] ) ? (int) $metadata['height'] : 0;
-
-		// A writer may keep an avatar an administrator assigned to them, but may
-		// not grab another user's upload.
-		$permitted = (int) $attachment->post_author === (int) $user_id || self::get_id( $user_id ) === $attachment_id;
-
-		$error = Penalis_Policy::validate_avatar(
-			(string) $attachment->post_mime_type,
-			$width,
-			$height,
-			$permitted
-		);
-
-		if ( '' !== $error ) {
-			return new WP_Error( 'penalis_avatar_invalid', $error, array( 'status' => 400 ) );
+		if ( ! is_array( $file ) ) {
+			return new WP_Error(
+				'penalis_avatar_missing',
+				'Pilih gambar untuk foto profil kamu.',
+				array( 'status' => 400 )
+			);
 		}
 
-		return true;
+		$upload_error = isset( $file['error'] ) ? (int) $file['error'] : UPLOAD_ERR_NO_FILE;
+		if ( UPLOAD_ERR_OK !== $upload_error ) {
+			if ( UPLOAD_ERR_INI_SIZE === $upload_error || UPLOAD_ERR_FORM_SIZE === $upload_error ) {
+				return new WP_Error(
+					'penalis_avatar_too_large',
+					'Ukuran gambar terlalu besar. Maksimal 5 MB.',
+					array( 'status' => 400 )
+				);
+			}
+
+			return new WP_Error(
+				'penalis_avatar_upload_failed',
+				'Gambar tidak dapat di-upload. Silakan coba lagi.',
+				array( 'status' => 400 )
+			);
+		}
+
+		$tmp = isset( $file['tmp_name'] ) ? (string) $file['tmp_name'] : '';
+		if ( '' === $tmp || ! is_file( $tmp ) || ! is_readable( $tmp ) ) {
+			return new WP_Error(
+				'penalis_avatar_unreadable',
+				'File yang di-upload tidak dapat divalidasi.',
+				array( 'status' => 400 )
+			);
+		}
+
+		$size = (int) filesize( $tmp );
+		if ( $size <= 0 ) {
+			return new WP_Error(
+				'penalis_avatar_empty',
+				'File gambar kosong atau rusak.',
+				array( 'status' => 400 )
+			);
+		}
+
+		if ( $size > self::max_file_size() ) {
+			return new WP_Error(
+				'penalis_avatar_too_large',
+				'Ukuran gambar terlalu besar. Maksimal 5 MB.',
+				array( 'status' => 400 )
+			);
+		}
+
+		$info = @getimagesize( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- Invalid uploads trigger PHP notices.
+		if ( false === $info || ! isset( $info[0], $info[1], $info[2] ) ) {
+			return new WP_Error(
+				'penalis_avatar_invalid',
+				'File yang di-upload bukan gambar yang valid.',
+				array( 'status' => 400 )
+			);
+		}
+
+		$width  = (int) $info[0];
+		$height = (int) $info[1];
+		$mime   = self::mime_from_imagetype( (int) $info[2] );
+
+		$policy_error = Penalis_Policy::validate_avatar( $mime, $width, $height, true );
+		if ( '' !== $policy_error ) {
+			return new WP_Error( 'penalis_avatar_invalid', $policy_error, array( 'status' => 400 ) );
+		}
+
+		$dir = self::ensure_storage_dir();
+		if ( is_wp_error( $dir ) ) {
+			return $dir;
+		}
+
+		$filename = self::generate_filename( $user_id, $dir['path'] );
+		if ( is_wp_error( $filename ) ) {
+			return $filename;
+		}
+
+		$dest   = $dir['path'] . '/' . $filename;
+		$editor = wp_get_image_editor( $tmp );
+
+		if ( is_wp_error( $editor ) ) {
+			return new WP_Error(
+				'penalis_avatar_process_failed',
+				'Foto profil tidak dapat diproses. Silakan coba gambar lain.',
+				array( 'status' => 400 )
+			);
+		}
+
+		// Normalize to a square JPEG capped at OUTPUT_SIZE. Re-encoding through
+		// GD/Imagick strips EXIF metadata and any trailing payload.
+		if ( $width !== $height || $width > self::OUTPUT_SIZE || $height > self::OUTPUT_SIZE ) {
+			$target  = min( self::OUTPUT_SIZE, $width, $height );
+			$resized = $editor->resize( $target, $target, true );
+
+			if ( is_wp_error( $resized ) ) {
+				return new WP_Error(
+					'penalis_avatar_process_failed',
+					'Foto profil tidak dapat diproses. Silakan coba gambar lain.',
+					array( 'status' => 400 )
+				);
+			}
+		}
+
+		$editor->set_quality( 92 );
+		$saved = $editor->save( $dest, 'image/jpeg' );
+
+		if ( is_wp_error( $saved ) ) {
+			return new WP_Error(
+				'penalis_avatar_save_failed',
+				'Foto profil tidak dapat disimpan. Silakan coba lagi.',
+				array( 'status' => 500 )
+			);
+		}
+
+		$saved_path = isset( $saved['path'] ) ? (string) $saved['path'] : $dest;
+		if ( $saved_path !== $dest && is_file( $saved_path ) ) {
+			wp_delete_file( $saved_path );
+			return new WP_Error(
+				'penalis_avatar_save_failed',
+				'Foto profil tidak dapat disimpan. Silakan coba lagi.',
+				array( 'status' => 500 )
+			);
+		}
+
+		if ( ! is_file( $dest ) || ! is_readable( $dest ) ) {
+			return new WP_Error(
+				'penalis_avatar_save_failed',
+				'Foto profil tidak dapat disimpan. Silakan coba lagi.',
+				array( 'status' => 500 )
+			);
+		}
+
+		$previous_file = self::get_file( $user_id );
+
+		update_user_meta( $user_id, self::META_FILE, $filename );
+
+		// Detach any legacy attachment ID without touching the Media Library attachment.
+		delete_user_meta( $user_id, self::meta_key() );
+
+		// Immediately remove the superseded derived avatar file so each user keeps one file.
+		if ( '' !== $previous_file && $previous_file !== $filename ) {
+			self::delete_standalone_file( $previous_file );
+		}
+
+		return $filename;
 	}
 
 	/**
-	 * Assign an attachment as the user's avatar.
+	 * Remove the user's profile photo.
 	 *
-	 * @param int $user_id       User ID.
-	 * @param int $attachment_id Attachment ID.
-	 * @return true|WP_Error
-	 */
-	public static function set( $user_id, $attachment_id ) {
-		$user_id       = (int) $user_id;
-		$attachment_id = (int) $attachment_id;
-
-		$valid = self::validate( $user_id, $attachment_id );
-
-		if ( is_wp_error( $valid ) ) {
-			return $valid;
-		}
-
-		update_user_meta( $user_id, self::meta_key(), $attachment_id );
-
-		// Keep One User Avatar's bookkeeping in sync so its own screens can find
-		// and replace this attachment later.
-		delete_metadata( 'post', null, self::META_ATTACHMENT_MARKER, $user_id, true );
-		update_post_meta( $attachment_id, self::META_ATTACHMENT_MARKER, $user_id );
-
-		return true;
-	}
-
-	/**
-	 * Detach the user's avatar.
-	 *
-	 * The attachment stays in the media library; only the association is
-	 * removed, so no files are deleted on the writer's behalf.
+	 * Removes the standalone derived file inside `penalis-avatars/` immediately.
+	 * Any legacy Media Library attachment is only detached (never deleted).
 	 *
 	 * @param int $user_id User ID.
 	 * @return void
 	 */
 	public static function clear( $user_id ) {
-		$user_id = (int) $user_id;
-		$current = self::get_id( $user_id );
+		$user_id       = (int) $user_id;
+		$previous_file = self::get_file( $user_id );
 
+		delete_user_meta( $user_id, self::META_FILE );
 		delete_user_meta( $user_id, self::meta_key() );
 
-		if ( $current > 0 ) {
-			delete_post_meta( $current, self::META_ATTACHMENT_MARKER, $user_id );
+		if ( '' !== $previous_file ) {
+			self::delete_standalone_file( $previous_file );
 		}
+	}
+
+	/**
+	 * Delete a single validated standalone avatar file from `penalis-avatars/`.
+	 *
+	 * @param string $filename Stored basename.
+	 * @return bool
+	 */
+	public static function delete_standalone_file( $filename ) {
+		if ( ! self::is_valid_filename( $filename ) ) {
+			return false;
+		}
+
+		$dir = self::storage_dir();
+		if ( is_wp_error( $dir ) ) {
+			return false;
+		}
+
+		$path = $dir['path'] . '/' . $filename;
+		if ( ! is_file( $path ) ) {
+			return false;
+		}
+
+		wp_delete_file( $path );
+
+		return ! file_exists( $path );
 	}
 
 	/**
 	 * Register the built-in avatar provider.
 	 *
-	 * One User Avatar stays authoritative while it is active: registering a
-	 * second filter would make the rendered avatar depend on hook order. The
-	 * built-in provider only takes over once that plugin is gone.
-	 *
 	 * @return void
 	 */
 	public static function register_provider() {
-		if ( self::is_supported() ) {
-			return;
-		}
-
 		add_filter( 'pre_get_avatar_data', array( __CLASS__, 'filter_avatar_data' ), 10, 2 );
 	}
 
 	/**
-	 * Whether this plugin currently renders avatars.
-	 *
-	 * @return bool
-	 */
-	public static function is_provider() {
-		return ! self::is_supported();
-	}
-
-	/**
-	 * Supply avatar data from the stored attachment.
+	 * Supply avatar data from standalone storage, legacy attachment, or site default.
 	 *
 	 * WordPress calls this filter for both get_avatar() and get_avatar_url(),
-	 * and re-invokes it with a doubled size for the 2x srcset entry, so only the
-	 * requested size has to be resolved here.
+	 * and re-invokes it with a doubled size for the 2x srcset entry.
 	 *
 	 * Identifiers that resolve to no user (guest commenters, Gravatar hashes)
-	 * still receive the site default photo, matching the previous provider.
-	 * Gravatar accounts are not consulted while a default photo is configured,
-	 * which keeps rendering deterministic and avoids an outbound request.
+	 * still receive the site default photo when configured, keeping rendering
+	 * deterministic and avoiding outbound Gravatar requests.
 	 *
 	 * @param array<string,mixed> $args        Avatar arguments.
 	 * @param mixed               $id_or_email User identifier.
@@ -216,26 +506,31 @@ final class Penalis_Avatar {
 		$size = isset( $args['size'] ) ? (int) $args['size'] : 96;
 		$size = $size > 0 ? $size : 96;
 
-		$attachment_id = $user_id > 0 ? self::get_id( $user_id ) : 0;
-
-		if ( $attachment_id > 0 && wp_attachment_is_image( $attachment_id ) ) {
-			$image = self::image_src( $attachment_id, $size );
-
-			if ( $image ) {
-				$args['url']          = $image[0];
+		if ( $user_id > 0 ) {
+			// 1. Dedicated standalone file in `penalis-avatars/`.
+			$standalone_url = self::get_file_url( $user_id );
+			if ( '' !== $standalone_url ) {
+				$args['url']          = $standalone_url;
 				$args['found_avatar'] = true;
-				$args['width']        = (int) $image[1];
-				$args['height']       = (int) $image[2];
+				$args['width']        = $size;
+				$args['height']       = $size;
 
-				if ( isset( $args['alt'] ) && '' === (string) $args['alt'] ) {
-					$user = get_userdata( $user_id );
+				return self::apply_user_alt( $args, $user_id );
+			}
 
-					if ( $user ) {
-						$args['alt'] = $user->display_name;
-					}
+			// 2. Read-only fallback to legacy attachment-based avatar.
+			$attachment_id = self::get_id( $user_id );
+			if ( $attachment_id > 0 && wp_attachment_is_image( $attachment_id ) ) {
+				$image = self::image_src( $attachment_id, $size );
+
+				if ( $image ) {
+					$args['url']          = $image[0];
+					$args['found_avatar'] = true;
+					$args['width']        = (int) $image[1];
+					$args['height']       = (int) $image[2];
+
+					return self::apply_user_alt( $args, $user_id );
 				}
-
-				return $args;
 			}
 		}
 
@@ -243,11 +538,29 @@ final class Penalis_Avatar {
 	}
 
 	/**
+	 * Fill in the avatar alt text from the user's display name when empty.
+	 *
+	 * @param array<string,mixed> $args    Avatar arguments.
+	 * @param int                 $user_id User ID.
+	 * @return array<string,mixed>
+	 */
+	private static function apply_user_alt( $args, $user_id ) {
+		if ( isset( $args['alt'] ) && '' === (string) $args['alt'] ) {
+			$user = get_userdata( $user_id );
+
+			if ( $user ) {
+				$args['alt'] = $user->display_name;
+			}
+		}
+
+		return $args;
+	}
+
+	/**
 	 * Use the site default photo for users without one.
 	 *
-	 * Mirrors One User Avatar: the custom default only applies while the core
-	 * `avatar_default` option selects it, so an administrator can still choose
-	 * Gravatar or Mystery Person.
+	 * Reuses the existing `avatar_default` / `avatar_default_wp_user_avatar` options
+	 * so configured production defaults continue to apply without migration.
 	 *
 	 * @param array<string,mixed> $args Avatar arguments.
 	 * @param int                 $size Requested size.
@@ -336,5 +649,55 @@ final class Penalis_Avatar {
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Generate a unique `u{user_id}-{12-hex}.jpg` filename inside the target directory.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param string $dir     Storage directory path.
+	 * @return string|WP_Error
+	 */
+	private static function generate_filename( $user_id, $dir ) {
+		for ( $attempt = 0; $attempt < 5; $attempt++ ) {
+			try {
+				$token = bin2hex( random_bytes( 6 ) );
+			} catch ( Exception $e ) {
+				return new WP_Error(
+					'penalis_avatar_entropy_failed',
+					'Foto profil tidak dapat diproses saat ini. Silakan coba lagi.',
+					array( 'status' => 500 )
+				);
+			}
+
+			$filename = 'u' . (int) $user_id . '-' . $token . '.jpg';
+
+			if ( ! file_exists( $dir . '/' . $filename ) ) {
+				return $filename;
+			}
+		}
+
+		return new WP_Error(
+			'penalis_avatar_name_collision',
+			'Foto profil tidak dapat disimpan saat ini. Silakan coba lagi.',
+			array( 'status' => 500 )
+		);
+	}
+
+	/**
+	 * Map a PHP `IMAGETYPE_*` constant to a canonical allowed MIME type.
+	 *
+	 * @param int $imagetype Constant from `getimagesize()[2]`.
+	 * @return string Empty string when unsupported.
+	 */
+	private static function mime_from_imagetype( $imagetype ) {
+		$map = array(
+			IMAGETYPE_JPEG => 'image/jpeg',
+			IMAGETYPE_PNG  => 'image/png',
+			IMAGETYPE_GIF  => 'image/gif',
+			IMAGETYPE_WEBP => 'image/webp',
+		);
+
+		return isset( $map[ $imagetype ] ) ? $map[ $imagetype ] : '';
 	}
 }

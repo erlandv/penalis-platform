@@ -69,7 +69,7 @@ penalis-platform/
 │   ├── class-email-change.php            Verified email address change flow
 │   ├── class-username-change.php         Re-authenticated login rename with advisory lock
 │   ├── class-author-history.php          Historical author slug reservation and 301 redirects
-│   ├── class-avatar.php                  Avatar storage and fallback provider (One User Avatar compatible)
+│   ├── class-avatar.php                  Standalone avatar storage (`penalis-avatars/`) and built-in avatar provider
 │   ├── class-datetime.php                Site timezone-aware date/time formatting and Indonesian month-year helpers
 │   ├── class-dashboard.php               Dashboard page, shortcode, template, shared Vite manifest/module loader & SPA mount helper
 │   ├── class-authors.php                 Public authors directory ([penalis_authors]), verified & Senator badges, and post badge integration
@@ -425,7 +425,8 @@ No custom database tables are created.
 | `_penalis_last_email_failed_at` | Timestamp of most recent outgoing mail failure |
 | `_penalis_last_email_failed_context` | Context identifier of most recent mail failure |
 | `_penalis_notifications` | Bounded array of editorial notifications (max 50) |
-| `{prefix}user_avatar` | Profile photo attachment ID (shared with One User Avatar) |
+| `_penalis_avatar_file` | Standalone cropped profile photo basename inside `uploads/penalis-avatars/` (`u{id}-{12-hex}.jpg`) |
+| `{prefix}user_avatar` | Legacy profile photo attachment ID (read-only fallback for existing accounts) |
 
 ### 6.2 Post Meta
 
@@ -454,7 +455,7 @@ No custom database tables are created.
 | `penalis_remove_data_audit` | Option | Last uninstall opt-in change: `state`, `user_id`, `user_login`, `time` |
 | `penalis_dashboard_captcha_enabled` | Option | Dashboard-only CAPTCHA switch (`1`/`0`, default `1`). Never mirrors `cfturnstile_login`/`_register`/`_reset` |
 | `penalis_dashboard_captcha_audit` | Option | Last CAPTCHA switch change: `state`, `user_id`, `user_login`, `time` |
-| `avatar_default_wp_user_avatar` | Option | Default profile photo attachment ID (shared with One User Avatar) |
+| `avatar_default_wp_user_avatar` | Option | Site-wide default profile photo attachment ID configured on **Pengaturan → Foto Profil** |
 | `penalis_pending_review_count` | Transient | Cached count of `pending_review` article submissions |
 | `penalis_activation_notice` | Transient | Short-lived post-activation admin notice flag |
 | `penalis_dup_notice_<id>` | Transient | One-hour throttle for duplicate registration and legacy notices |
@@ -495,12 +496,18 @@ paragraphs (outside lists) so a single `Enter` inserts a `<br>` line break and
 a double `Enter` splits into a new `<p>` paragraph, while headings, lists, and
 empty paragraphs keep default TipTap behavior.
 
-### 7.3 One User Avatar Coexistence
-Profile photo attachment IDs are stored in `{prefix}user_avatar`, the exact
-meta key used by the One User Avatar plugin. While One User Avatar is active, it
-serves all avatars; when it is inactive, `Penalis_Avatar` hooks into
-`pre_get_avatar_data` and serves them from the same metadata with zero
-migration.
+### 7.3 Standalone Avatar Storage
+Cropped profile photos uploaded from `/dashboard/?view=profile` are re-encoded
+server-side as square JPEGs (`500×500`) and stored directly inside
+`wp-content/uploads/penalis-avatars/u{user_id}-{12-hex}.jpg` instead of creating
+WordPress Media Library attachments. The stored basename is kept in user meta
+`_penalis_avatar_file`, and `Penalis_Avatar` registers `pre_get_avatar_data` as
+the built-in provider. Replacing or removing an avatar immediately removes the
+superseded derived file inside `penalis-avatars/` so storage stays at one file
+per user. Existing accounts that still reference a Media Library attachment in
+`{prefix}user_avatar` continue to resolve that attachment as a read-only
+fallback without migration, and those legacy attachments are never deleted when
+the writer replaces or removes their photo.
 
 ### 7.4 Hardcoded Indonesian UI Copy
 Penalis is an Indonesian literary community. User-facing copy in the dashboard,

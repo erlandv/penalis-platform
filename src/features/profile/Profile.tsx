@@ -2,11 +2,12 @@
  * Writer profile: identity fields, public name preference, and profile photo.
  */
 
-import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { AvatarCropper } from '../../components/AvatarCropper';
-import { MediaPickerDialog } from '../../components/MediaSelection';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
 
-import { accountApi, ApiError, mediaApi } from '../../lib/api';
+import { accountApi, ApiError } from '../../lib/api';
+import { AVATAR_ACCEPT, validateAvatarFile } from '../../lib/crop';
 import { displayNameOptions } from '../../lib/profile';
 import type { Account, DisplayNameMode, FieldErrors } from '../../lib/types';
 import {
@@ -39,12 +40,11 @@ export function Profile({
 
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState('');
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [cropTarget, setCropTarget] = useState<File | string | null>(null);
-  const closePicker = useCallback(() => {
-    setPickerOpen(false);
-    setCropTarget(null);
-  }, []);
+  const [cropTarget, setCropTarget] = useState<File | null>(null);
+  const [confirmRemoveAvatar, setConfirmRemoveAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const hasAvatar = account.hasAvatar ?? account.avatarId > 0;
 
   const options = useMemo(
     () => displayNameOptions(firstName, lastName, account.username),
@@ -108,9 +108,28 @@ export function Profile({
     }
   };
 
-  const openPicker = () => {
+  const openFilePicker = () => {
     setAvatarError('');
-    setPickerOpen(true);
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Reset so choosing the same file twice still fires `change`.
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    const validationError = validateAvatarFile(file);
+    if (validationError !== '') {
+      setAvatarError(validationError);
+      return;
+    }
+
+    setAvatarError('');
+    setCropTarget(file);
   };
 
   const handleCroppedAvatar = async (croppedFile: File) => {
@@ -118,16 +137,14 @@ export function Profile({
     setAvatarError('');
 
     try {
-      const uploaded = await mediaApi.upload(croppedFile);
-      const updated = await accountApi.setAvatar(uploaded.id);
+      const updated = await accountApi.setAvatar(croppedFile);
       onUpdated(updated);
       setCropTarget(null);
-      setPickerOpen(false);
       showToast('Foto profil kamu telah diperbarui.');
     } catch (caught) {
-      setAvatarError(
-        caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat diperbarui.',
-      );
+      const message = caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat diperbarui.';
+      setAvatarError(message);
+      throw new Error(message);
     } finally {
       setAvatarBusy(false);
     }
@@ -140,8 +157,10 @@ export function Profile({
     try {
       const updated = await accountApi.removeAvatar();
       onUpdated(updated);
+      setConfirmRemoveAvatar(false);
       showToast('Foto profil kamu telah dihapus.');
     } catch (caught) {
+      setConfirmRemoveAvatar(false);
       setAvatarError(caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat dihapus.');
     } finally {
       setAvatarBusy(false);
@@ -160,28 +179,40 @@ export function Profile({
 
         <div className="penalis-avatar__body">
           <h3>Foto Profil</h3>
-          <p className="penalis-muted">Ganti atau hapus foto profil.</p>
+          <p className="penalis-muted">
+            Gunakan gambar JPEG, PNG, GIF, atau WebP minimal 100 × 100 piksel (maks. 5 MB).
+          </p>
 
           <div className="penalis-actions-row">
             <button
               type="button"
               className="penalis-button penalis-button--ghost"
-              onClick={openPicker}
+              onClick={openFilePicker}
               disabled={avatarBusy}
             >
               Ganti foto
             </button>
-            {account.avatarId > 0 ? (
+            {hasAvatar ? (
               <button
                 type="button"
                 className="penalis-button penalis-button--danger"
-                onClick={() => void removeAvatar()}
+                onClick={() => setConfirmRemoveAvatar(true)}
                 disabled={avatarBusy}
               >
                 Hapus foto
               </button>
             ) : null}
           </div>
+
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept={AVATAR_ACCEPT}
+            className="penalis-dropzone__input"
+            tabIndex={-1}
+            disabled={avatarBusy}
+            onChange={handleAvatarFileChange}
+          />
 
           {avatarError ? <ErrorBanner message={avatarError} /> : null}
         </div>
@@ -295,17 +326,17 @@ export function Profile({
           onCancel={() => setCropTarget(null)}
           busy={avatarBusy}
         />
-      ) : pickerOpen ? (
-        <MediaPickerDialog
-          label="Pilih foto profil"
-          title="Pilih Foto Profil"
-          dropzoneHint="JPEG, PNG, GIF, atau WebP, minimal 100 x 100 piksel."
-          emptyMessage="Kamu belum upload gambar apa pun. Gunakan kontrol upload di atas."
-          externalError={avatarError}
+      ) : null}
+
+      {confirmRemoveAvatar ? (
+        <ConfirmDialog
+          title="Hapus foto profil?"
+          description={<p>Foto profil kamu akan dihapus dan diganti dengan foto bawaan.</p>}
+          confirmLabel="Hapus foto"
+          tone="danger"
           busy={avatarBusy}
-          onFile={(file) => setCropTarget(file)}
-          onConfirm={(item) => setCropTarget(item.full || item.thumbnail)}
-          onClose={closePicker}
+          onConfirm={() => void removeAvatar()}
+          onCancel={() => setConfirmRemoveAvatar(false)}
         />
       ) : null}
     </div>
