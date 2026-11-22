@@ -5,7 +5,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, articlesApi, isStaleEditorialError } from '../../lib/api';
-import type { ArticleList, ArticleSummary } from '../../lib/types';
+import type {
+  AccountCounts,
+  ArticleList,
+  ArticleSummary,
+  EditorialState,
+  EditorFocus,
+} from '../../lib/types';
 import { editorialStateLabel, formatDate, formatNumber, truncate } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -19,13 +25,21 @@ import {
   StatusBadge,
 } from '../../components/ui';
 
-const FILTERS = [
-  { value: 'all', label: 'Semua' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'pending_review', label: 'Menunggu review' },
-  { value: 'changes_requested', label: 'Perlu revisi' },
-  { value: 'rejected', label: 'Ditolak' },
-  { value: 'published', label: 'Terbit' },
+const FILTERS: ReadonlyArray<{
+  value: string;
+  label: string;
+  countOf: (counts: AccountCounts) => number;
+}> = [
+  { value: 'all', label: 'Semua', countOf: (counts) => counts.all },
+  { value: 'draft', label: 'Draft', countOf: (counts) => counts.draft },
+  { value: 'pending_review', label: 'Menunggu review', countOf: (counts) => counts.pending },
+  {
+    value: 'changes_requested',
+    label: 'Perlu revisi',
+    countOf: (counts) => counts.changes_requested ?? 0,
+  },
+  { value: 'rejected', label: 'Ditolak', countOf: (counts) => counts.rejected ?? 0 },
+  { value: 'published', label: 'Terbit', countOf: (counts) => counts.publish },
 ];
 
 /**
@@ -40,16 +54,32 @@ type PendingAction =
   | { kind: 'resubmit'; article: ArticleSummary }
   | null;
 
+function editorialFooterHint(state: EditorialState): string {
+  switch (state) {
+    case 'pending_review':
+      return 'Sedang dalam antrean review Senator';
+    case 'changes_requested':
+      return 'Perbarui karya sesuai catatan lalu submit ulang';
+    case 'rejected':
+      return 'Karya tidak lolos kurasi Senator';
+    case 'draft':
+      return 'Draft belum di-submit untuk review';
+    case 'published':
+      return 'Terbit di situs Penalis';
+  }
+}
+
 export function Articles({
   onEdit,
   onCreate,
 }: {
-  onEdit: (id: number) => void;
+  onEdit: (id: number, focus?: EditorFocus) => void;
   onCreate: () => void;
 }) {
   const [status, setStatus] = useState('all');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<ArticleList | null>(null);
+  const [counts, setCounts] = useState<AccountCounts | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -63,6 +93,7 @@ export function Articles({
     try {
       const result = await articlesApi.list(page, status);
       setData(result);
+      setCounts(result.counts);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Karya tulismu tidak dapat dimuat.');
     } finally {
@@ -141,18 +172,26 @@ export function Articles({
       />
 
       <div className="penalis-tabs" role="tablist" aria-label="Saring menurut status">
-        {FILTERS.map((filter) => (
-          <button
-            key={filter.value}
-            type="button"
-            role="tab"
-            aria-selected={status === filter.value}
-            className={`penalis-tab ${status === filter.value ? 'is-active' : ''}`}
-            onClick={() => changeStatus(filter.value)}
-          >
-            {filter.label}
-          </button>
-        ))}
+        {FILTERS.map((filter) => {
+          const isActive = status === filter.value;
+          const tabCount = counts ? filter.countOf(counts) : null;
+
+          return (
+            <button
+              key={filter.value}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`penalis-tab ${isActive ? 'is-active' : ''}`}
+              onClick={() => changeStatus(filter.value)}
+            >
+              <span>{filter.label}</span>
+              {tabCount !== null ? (
+                <span className="penalis-tab__count">{formatNumber(tabCount)}</span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
       {error ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
@@ -174,118 +213,169 @@ export function Articles({
           }
         />
       ) : (
-        <div className="penalis-table-wrap">
-          <table className="penalis-table">
-            <thead>
-              <tr>
-                <th scope="col">Judul Karya</th>
-                <th scope="col">Status</th>
-                <th scope="col">Views</th>
-                <th scope="col">Diubah</th>
-                <th scope="col">Tindakan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.items.map((article) => (
-                <tr key={article.id}>
-                  <td>
-                    <strong>{article.title || 'Tanpa judul'}</strong>
-                    <p className="penalis-muted">{truncate(article.excerpt, 100)}</p>
-                    {article.feedback ? (
-                      <p className="penalis-article-feedback-note">
-                        <strong>Catatan review:</strong> {truncate(article.feedback, 140)}
-                      </p>
-                    ) : null}
-                  </td>
-                  <td data-label="Status">
-                    <div className="penalis-status-cell">
-                      <StatusBadge
-                        status={article.editorialState}
-                        label={article.editorialStateLabel || editorialStateLabel(article.editorialState)}
-                      />
-                      {article.reviewCycle > 0 ? (
-                        <span className="penalis-table__submeta">Cycle {article.reviewCycle}</span>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td data-label="Views">{formatNumber(article.views)}</td>
-                  <td data-label="Diubah">{formatDate(article.modified)}</td>
-                  <td data-label="Tindakan">
+        <ul className="penalis-manuscript-list">
+          {data?.items.map((article) => {
+            const titleText = article.title || 'Tanpa judul';
+            const showViews = article.editorialState === 'published' || article.views > 0;
+            const editLabel =
+              article.editorialState === 'changes_requested'
+                ? 'Revisi'
+                : article.canEdit
+                  ? 'Ubah'
+                  : 'Lihat detail';
 
-                    <div className="penalis-row-actions penalis-row-actions--compact">
+            return (
+              <li
+                key={article.id}
+                className={`penalis-manuscript-card penalis-manuscript-card--${article.editorialState}`}
+              >
+                <div className="penalis-manuscript-card__header">
+                  <div className="penalis-manuscript-card__badges">
+                    <StatusBadge
+                      status={article.editorialState}
+                      label={
+                        article.editorialStateLabel ||
+                        editorialStateLabel(article.editorialState)
+                      }
+                    />
+                    {article.reviewCycle > 0 ? (
+                      <span className="penalis-table__cycle-pill">
+                        Cycle {article.reviewCycle}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <span className="penalis-table__date">
+                    Diubah {formatDate(article.modified)}
+                  </span>
+                </div>
+
+                <div className="penalis-manuscript-card__body">
+                  <h3 className="penalis-manuscript-card__title">
+                    <button
+                      type="button"
+                      className="penalis-table__title-button"
+                      onClick={() => onEdit(article.id)}
+                      disabled={busyId === article.id}
+                    >
+                      {titleText}
+                    </button>
+                  </h3>
+
+                  {article.excerpt ? (
+                    <p className="penalis-manuscript-card__excerpt penalis-muted">
+                      {truncate(article.excerpt, 200)}
+                    </p>
+                  ) : null}
+
+                  {article.feedback ? (
+                    <button
+                      type="button"
+                      className={`penalis-article-feedback-note penalis-article-feedback-note--${article.editorialState}`}
+                      onClick={() => onEdit(article.id, 'feedback')}
+                      disabled={busyId === article.id}
+                      title="Buka catatan review Senator di editor"
+                    >
+                      <span className="penalis-article-feedback-note__label">
+                        Catatan Senator:
+                      </span>
+                      <span className="penalis-article-feedback-note__text">
+                        {article.feedback}
+                      </span>
+                      <span className="penalis-article-feedback-note__arrow" aria-hidden="true">
+                        <Icon name="chevronRight" />
+                      </span>
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="penalis-manuscript-card__footer">
+                  <div className="penalis-manuscript-card__metrics">
+                    {showViews ? (
+                      <span
+                        className="penalis-article-views"
+                        aria-label={`${formatNumber(article.views)} views`}
+                      >
+                        <Icon name="eye" />
+                        <span>{formatNumber(article.views)} views</span>
+                      </span>
+                    ) : (
+                      <span className="penalis-manuscript-card__hint">
+                        {editorialFooterHint(article.editorialState)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="penalis-manuscript-card__actions">
+                    <button
+                      type="button"
+                      className={`penalis-button ${article.canEdit ? 'penalis-button--soft' : 'penalis-button--ghost'}`}
+                      onClick={() => onEdit(article.id)}
+                      disabled={busyId === article.id}
+                      aria-label={`${editLabel} “${titleText}”`}
+                    >
+                      <Icon name={article.canEdit ? 'edit' : 'eye'} />
+                      <span>{editLabel}</span>
+                    </button>
+
+                    {article.editorialState === 'published' && article.link ? (
+                      <a
+                        className="penalis-button penalis-button--ghost"
+                        href={article.link}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        aria-label="Lihat karya terbit"
+                      >
+                        <Icon name="externalLink" />
+                        <span>Lihat karya terbit</span>
+                      </a>
+                    ) : null}
+
+                    {article.canSubmit ? (
                       <button
                         type="button"
-                        className="penalis-icon-button"
-                        onClick={() => onEdit(article.id)}
+                        className="penalis-button penalis-button--primary"
+                        onClick={() => setPending({ kind: 'submit', article })}
                         disabled={busyId === article.id}
-                        aria-label={
-                          article.canEdit
-                            ? `Ubah “${article.title || 'Tanpa judul'}”`
-                            : `Lihat detail “${article.title || 'Tanpa judul'}”`
-                        }
-                        title={article.canEdit ? 'Ubah' : 'Lihat detail'}
+                        aria-label={`Submit review “${titleText}”`}
                       >
-                        <Icon name={article.canEdit ? 'edit' : 'eye'} />
+                        <Icon name="send" />
+                        <span>Submit review</span>
                       </button>
+                    ) : null}
 
-                      {article.editorialState === 'published' && article.link ? (
-                        <a
-                          className="penalis-icon-button"
-                          href={article.link}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          aria-label={`Lihat “${article.title || 'Tanpa judul'}” di situs`}
-                          title="Lihat di situs"
-                        >
-                          <Icon name="externalLink" />
-                        </a>
-                      ) : null}
+                    {article.canResubmit ? (
+                      <button
+                        type="button"
+                        className="penalis-button penalis-button--primary"
+                        onClick={() => setPending({ kind: 'resubmit', article })}
+                        disabled={busyId === article.id}
+                        aria-label={`Submit ulang “${titleText}”`}
+                      >
+                        <Icon name="send" />
+                        <span>Submit ulang</span>
+                      </button>
+                    ) : null}
 
-                      {article.canSubmit ? (
-                        <button
-                          type="button"
-                          className="penalis-icon-button"
-                          onClick={() => setPending({ kind: 'submit', article })}
-                          disabled={busyId === article.id}
-                          aria-label={`Submit review “${article.title || 'Tanpa judul'}”`}
-                          title="Submit review"
-                        >
-                          <Icon name="send" />
-                        </button>
-                      ) : null}
-
-                      {article.canResubmit ? (
-                        <button
-                          type="button"
-                          className="penalis-icon-button"
-                          onClick={() => setPending({ kind: 'resubmit', article })}
-                          disabled={busyId === article.id}
-                          aria-label={`Submit ulang “${article.title || 'Tanpa judul'}”`}
-                          title="Submit ulang"
-                        >
-                          <Icon name="send" />
-                        </button>
-                      ) : null}
-
-                      {article.editorialState !== 'published' && article.editorialState !== 'pending_review' ? (
-                        <button
-                          type="button"
-                          className="penalis-icon-button penalis-icon-button--danger"
-                          onClick={() => setPending({ kind: 'delete', article })}
-                          disabled={busyId === article.id}
-                          aria-label={`Hapus “${article.title || 'Tanpa judul'}”`}
-                          title="Hapus"
-                        >
-                          <Icon name="trash" />
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    {article.editorialState !== 'published' &&
+                    article.editorialState !== 'pending_review' ? (
+                      <button
+                        type="button"
+                        className="penalis-button penalis-button--danger"
+                        onClick={() => setPending({ kind: 'delete', article })}
+                        disabled={busyId === article.id}
+                        aria-label={`Hapus “${titleText}”`}
+                      >
+                        <Icon name="trash" />
+                        <span>Hapus</span>
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {data ? <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} /> : null}

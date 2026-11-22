@@ -636,7 +636,12 @@ export function App() {
           />
         );
       case 'articles':
-        return <Articles onEdit={(id) => openEditor(id)} onCreate={() => openEditor()} />;
+        return (
+          <Articles
+            onEdit={(id, focus) => openEditor(id, focus)}
+            onCreate={() => openEditor()}
+          />
+        );
       case 'editor':
         return (
           <Editor

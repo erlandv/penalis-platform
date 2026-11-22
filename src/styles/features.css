@@ -243,14 +243,91 @@
   white-space: nowrap;
 }
 
-.penalis-article-feedback-note {
-  margin: 0.35rem 0 0;
-  padding: 0.35rem 0.55rem;
-  border-left: 3px solid var(--penalis-accent);
+/**
+ * Single-line clickable Senator review feedback strip inside an article card.
+ *
+ * Scoped under `.penalis-dashboard-root` because it is rendered as a `<button>`
+ * that opens the editor directly focused on the review feedback panel.
+ */
+.penalis-dashboard-root .penalis-article-feedback-note {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  margin: 0.55rem 0 0;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius-xs);
   background: var(--penalis-surface-alt);
-  border-radius: 0 6px 6px 0;
-  font-size: 0.82rem;
+  background-image: none;
+  box-shadow: none;
+  font: inherit;
+  font-size: 0.81rem;
+  line-height: 1.35;
   color: var(--penalis-text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.penalis-dashboard-root .penalis-article-feedback-note:hover:not(:disabled) {
+  border-color: var(--penalis-border-hover);
+}
+
+.penalis-dashboard-root .penalis-article-feedback-note:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.penalis-article-feedback-note__label {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--penalis-muted);
+  white-space: nowrap;
+}
+
+.penalis-article-feedback-note__text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.penalis-article-feedback-note__arrow {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  color: var(--penalis-muted);
+}
+
+.penalis-article-feedback-note__arrow svg {
+  width: 14px;
+  height: 14px;
+}
+
+.penalis-dashboard-root .penalis-article-feedback-note--changes_requested {
+  border-color: var(--penalis-warning-border);
+  background: var(--penalis-warning-soft);
+}
+
+.penalis-article-feedback-note--changes_requested .penalis-article-feedback-note__label,
+.penalis-article-feedback-note--changes_requested .penalis-article-feedback-note__arrow {
+  color: var(--penalis-warning);
+}
+
+.penalis-dashboard-root .penalis-article-feedback-note--rejected {
+  border-color: var(--penalis-danger-border);
+  background: var(--penalis-danger-soft);
+}
+
+.penalis-article-feedback-note--rejected .penalis-article-feedback-note__label,
+.penalis-article-feedback-note--rejected .penalis-article-feedback-note__arrow {
+  color: var(--penalis-danger);
 }
 
 /*
