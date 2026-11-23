@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.2.0
+Stable tag: 2.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,13 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 2.3.0 =
+* Feature: Add **#KalimatHariIni** (`Penalis_Daily_Quotes`, `Penalis_Daily_Quotes_Admin`) — ephemeral 24-hour writer sentences (plain text, up to 200 characters and 3 lines, no stored quote history, rolling quota of 3 publishes per 24 hours serialized via per-user MySQL advisory locks). Includes a social-note composer on the writer dashboard **Ringkasan** (`GET/DELETE /penalis/v1/quotes/me`, `POST /penalis/v1/quotes`), an active social-note card below the profile card on `/author/<username>/` (with client-side `data-expires-at` cache expiry guard and copy-quote action), and an auto-created `/kalimat-hari-ini/` showcase (`[penalis_kalimat_hari_ini]`, `GET /penalis/v1/quotes`, separate Vite bundle) with search, sorting, pagination, copy-quote, and a subtle shine highlight on the signed-in writer's own card.
+* Feature: Add centralized Senator moderation for **#KalimatHariIni** in **Dashboard Senator** (`/dashboard/?view=quotes`, `DELETE /penalis/v1/quotes/{user_id}`, with search, sort, load-more pagination, and confirmation dialogs) and in `wp-admin` (**Penalis → Kalimat Hari Ini**, `?page=penalis-quotes`), keeping the public `/kalimat-hari-ini/` page read-only.
+* Feature: Upgrade dashboard **Media** management with direct image uploads, pagination, per-user rate-limited deletion of unused writer-owned images (`DELETE /penalis/v1/media/{id}`), and strict usage tracking (`Penalis_Media_Usage`) that blocks deleting any image still referenced as a featured image, inline article image, or avatar (`409 penalis_media_in_use`).
+* Feature: Store cropped writer profile photos as standalone opaque `256×256` JPEGs (quality 85, PNG transparency flattened onto white) under `wp-content/uploads/penalis-avatars/` (`_penalis_avatar_file`, `Penalis_Avatar`) via rate-limited `POST /penalis/v1/account/avatar` instead of creating Media Library attachments, automatically deleting superseded files while keeping read-only fallback for legacy `{prefix}user_avatar` attachments and opt-in uninstall cleanup.
+* Feature: Redesign the writer dashboard **Daftar Karya** screen (`Articles.tsx`) with a responsive card layout and per-status article counts.
+
 = 2.2.0 =
 * Feature: Add a bundled, server-rendered public author archive template (`Penalis_Author_Archive`, `templates/author-archive.php`, `assets/css/author-archive.css`, `assets/js/author-archive.js`) for `/author/<username>/` with opt-out filter (`penalis_use_author_archive_template`) and theme override (`penalis-author-archive.php`) support. Includes a social-style profile header (avatar, verified and Senator badges, `@username`, copyable profile URL, locale-independent Indonesian joined date via `Penalis_Datetime::format_indonesian_month_year_gmt()`, published post & view totals, native Web Share API with clipboard fallback, and owner-only **Edit Profil** / **Tulis Karya** actions below the bio) plus a 3-column works grid with `dd/m/Y` dates and WordPress pagination.
 * Feature: Enforce a normalized 250-character bio limit (`Penalis_Policy::MAX_BIO`) and collapse consecutive blank lines to a single newline (`Penalis_Policy::normalize_bio()`, `normalizeBio()`, `collapseBioNewlines()`) without deleting existing longer bios. In **Profil** (`/dashboard/?view=profile`), writers with legacy bios longer than 250 characters see a clear over-limit counter/hint and can edit freely to shorten before saving; on public author archives, bios exceeding 250 characters (or 3+ newlines) render with CSS `line-clamp` (3 lines desktop, 5 lines mobile) and a **Selengkapnya** / **Lebih sedikit** toggle.
@@ -227,6 +234,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.3.0 =
+Adds #KalimatHariIni (24-hour writer sentences on author archives and the auto-created /kalimat-hari-ini/ page, with Senator moderation in Dashboard Senator and Penalis → Kalimat Hari Ini), upgrades the writer Media library with upload, delete, and strict usage protection, moves cropped profile photos to standalone 256x256 JPEG storage (keeping legacy avatars working without migration), and refreshes the Daftar Karya article list with counts and a card layout. Upgrading automatically creates the /kalimat-hari-ini/ page if it does not already exist; visit Settings → Permalinks and save once if needed.
 
 = 2.2.0 =
 Introduces the bundled public author archive template (`/author/<username>/`) with social-style profile cards and native Web Share, enforces a normalized 250-character bio cap (preserving legacy long bios behind a collapsible toggle on public profiles), and adds a Semua Kontributor link to the writer dashboard account menu. If you previously used an Elementor Theme Builder Author Archive template, remove its display condition or set it to Draft so the bundled template takes over cleanly.
