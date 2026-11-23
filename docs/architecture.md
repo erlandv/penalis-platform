@@ -31,6 +31,8 @@ WordPress (PHP)                               Browser (React SPA)
 - **Scoped asset loading.** The React dashboard is mounted via the
   `[penalis_dashboard]` shortcode on the `/dashboard/` page (`templates/dashboard.php`),
   the public authors directory via `[penalis_authors]` (`templates/authors.php`),
+  the public `#KalimatHariIni` showcase via `[penalis_kalimat_hari_ini]` on the
+  auto-created `/kalimat-hari-ini/` page (`templates/daily-quotes.php`),
   and author archives via `templates/author-archive.php`. Each surface enqueues
   its scripts and styles only on its matching requests, never site-wide.
 
@@ -74,6 +76,8 @@ penalis-platform/
 │   ├── class-datetime.php                Site timezone-aware date/time formatting and Indonesian month-year helpers
 │   ├── class-dashboard.php               Dashboard page, shortcode, template, shared Vite manifest/module loader & SPA mount helper
 │   ├── class-authors.php                 Public authors directory ([penalis_authors]), verified & Senator badges, and post badge integration
+│   ├── class-daily-quotes.php            #KalimatHariIni 24-hour writer quotes storage, rolling 3x/24h quota, public showcase ([penalis_kalimat_hari_ini])
+│   ├── class-daily-quotes-admin.php      Penalis → Kalimat Hari Ini wp-admin moderation console
 │   ├── class-author-archive.php          Public author archive template routing, profile data, and scoped assets
 │   ├── class-emails.php                  Centralized template-driven transactional email dispatcher and failure tracking
 │   ├── class-email-template.php          Branded responsive HTML email layout and Markdown renderer
@@ -87,13 +91,15 @@ penalis-platform/
 ├── templates/
 │   ├── dashboard.php                     Minimal theme-compatible wrapper for [penalis_dashboard]
 │   ├── authors.php                       Minimal theme-compatible wrapper for [penalis_authors]
+│   ├── daily-quotes.php                  Minimal theme-compatible wrapper for [penalis_kalimat_hari_ini]
 │   └── author-archive.php                Server-rendered public author profile and works archive template
 ├── src/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
 │   ├── authors/                          Separate public React entry point for [penalis_authors] directory (authors.css)
+│   ├── quotes/                           Separate public React entry point for [penalis_kalimat_hari_ini] showcase (quotes.css)
 │   ├── components/                       Shared UI primitives (ui.tsx), RoleChip, Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, PasswordMatchHint, PasswordPairFields, PasswordStrengthMeter, Toast, Toggle, TurnstileWidget
-│   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings, review, notifications
-│   ├── lib/                              Typed API client, validation, OTP challenge helpers, deeplinks, HTML/profile/crop helpers, permissions.ts (role model + view access table), navigation.ts (role-specific nav groups)
+│   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings, review, notifications, quotes
+│   ├── lib/                              Typed API client, validation, dailyQuote helpers, OTP challenge helpers, deeplinks, HTML/profile/crop helpers, permissions.ts (role model + view access table), navigation.ts (role-specific nav groups)
 │   └── styles/                           Dashboard CSS: tokens.css, main.css (@import index), section files
 ├── build/                                Generated production Vite bundle and manifest (gitignored)
 ├── tests/
@@ -116,10 +122,11 @@ On `plugins_loaded`, `Penalis_Plugin::run()` initializes components in order:
 4. `Penalis_Rest_Api::init()`
 5. `Penalis_Dashboard::init()`
 6. `Penalis_Authors::init()`
-7. `Penalis_Author_Archive::init()`
-8. `Penalis_Author_History::init()`
-9. `Penalis_Avatar::register_provider()`
-10. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, and `Penalis_Email_Settings::init()` (when `is_admin()`)
+7. `Penalis_Daily_Quotes::init()`
+8. `Penalis_Author_Archive::init()`
+9. `Penalis_Author_History::init()`
+10. `Penalis_Avatar::register_provider()`
+11. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, `Penalis_Daily_Quotes_Admin::init()`, `Penalis_Email_Settings::init()`, `Penalis_Email_Log_Admin::init()`, and `Penalis_Settings::init()` (when `is_admin()`)
 
 ### Optional Third-Party Integrations
 
@@ -359,7 +366,13 @@ editors.
      state; a reviewer can restore it through `wp_untrash_post()` with an
      explicit confirmation. Untrashing from the native Posts screen clears the
      same record, so the console never shows an already-live article.
-4. **Penalis → Penulis Penalis** (`?page=penalis-writers`, `Penalis_Admin::render_page()`)
+4. **Penalis → Kalimat Hari Ini** (`?page=penalis-quotes`, `Penalis_Daily_Quotes_Admin::render_page()`)
+   - Moderation table of currently active 24-hour `#KalimatHariIni` entries
+     accessible to administrators and editors (`edit_others_posts`), with
+     search, newest/oldest sorting, pagination (20 per page), and
+     confirmation-gated removal (`Penalis_Admin::render_confirm_modal()` +
+     `admin-post.php?action=penalis_delete_quote_action`).
+5. **Penalis → Penulis Penalis** (`?page=penalis-writers`, `Penalis_Admin::render_page()`)
    - Account management table with status tabs (`Semua yang dikelola`, `Aktif`,
      `Menunggu verifikasi`, `Ditangguhkan`, `Akun lama`), search toolbar,
      Instagram handle column (`@username`), collapsible audit history, and
@@ -367,7 +380,7 @@ editors.
      `Aktifkan kembali`, `Kirim ulang verifikasi`, `Kirim link aktivasi`,
      `Aktifkan langsung`). Site-wide settings moved to **Pengaturan**; the screen
      only links there.
-5. **Penalis → Pengaturan** (`?page=penalis-settings`, `Penalis_Settings::render_page()`)
+6. **Penalis → Pengaturan** (`?page=penalis-settings`, `Penalis_Settings::render_page()`)
    - Centralized home for every site-wide setting, administrator-only
      (`manage_options`). One tab per setting group, rendered server-side
      (`&tab=<slug>`) so a tab can be linked, bookmarked, and restored after
@@ -428,6 +441,9 @@ No custom database tables are created.
 | `_penalis_notifications` | Bounded array of editorial notifications (max 50) |
 | `_penalis_avatar_file` | Standalone cropped profile photo basename inside `uploads/penalis-avatars/` (`u{id}-{12-hex}.jpg`) |
 | `{prefix}user_avatar` | Legacy profile photo attachment ID (read-only fallback for existing accounts) |
+| `_penalis_daily_quote` | Active `#KalimatHariIni` record (`text`, `created_at`, `expires_at`) — no quote history is stored |
+| `_penalis_daily_quote_expires` | Unix timestamp (`expires_at`) indexed for active-quote `WP_User_Query` / `get_users()` lookups |
+| `_penalis_daily_quote_publishes` | Bounded rolling 24-hour array of publish timestamps (max 3) enforcing the 3x/24h quota across deletes |
 
 ### 6.2 Post Meta
 
@@ -452,12 +468,15 @@ No custom database tables are created.
 | `penalis_email_templates` | Option | Serialized associative array containing custom subjects, bodies, and footers for transactional emails |
 | `penalis_dashboard_page_id` | Option | Page ID of the `/dashboard/` page |
 | `penalis_dashboard_page_created_by_plugin` | Option | Guard ensuring uninstall only removes a plugin-created page |
+| `penalis_daily_quotes_page_id` | Option | Page ID of the auto-created `/kalimat-hari-ini/` page |
+| `penalis_daily_quotes_page_created_by_plugin` | Option | Guard ensuring uninstall only removes a plugin-created `/kalimat-hari-ini/` page |
 | `penalis_remove_data_on_uninstall` | Option | Opt-in flag (`1`/`0`, default `0`) for destructive uninstall, managed on **Pengaturan → Data** |
 | `penalis_remove_data_audit` | Option | Last uninstall opt-in change: `state`, `user_id`, `user_login`, `time` |
 | `penalis_dashboard_captcha_enabled` | Option | Dashboard-only CAPTCHA switch (`1`/`0`, default `1`). Never mirrors `cfturnstile_login`/`_register`/`_reset` |
 | `penalis_dashboard_captcha_audit` | Option | Last CAPTCHA switch change: `state`, `user_id`, `user_login`, `time` |
 | `avatar_default_wp_user_avatar` | Option | Site-wide default profile photo attachment ID configured on **Pengaturan → Foto Profil** |
 | `penalis_pending_review_count` | Transient | Cached count of `pending_review` article submissions |
+| `penalis_daily_quotes_v1` | Transient | Short-lived (120s) cached list of active `#KalimatHariIni` entries, filtered by `expiresAt > now` on every read |
 | `penalis_activation_notice` | Transient | Short-lived post-activation admin notice flag |
 | `penalis_dup_notice_<id>` | Transient | One-hour throttle for duplicate registration and legacy notices |
 | `penalis_rl_<md5>` | Transient | Rate-limiter bucket counters |
@@ -467,14 +486,15 @@ No custom database tables are created.
 ## 7. Key Technical Decisions
 
 ### 7.1 Vite Instead of `@wordpress/scripts`
-The writer dashboard (`/dashboard/`) and the public authors directory
-(`[penalis_authors]`) are standalone React SPAs, not Gutenberg plugins inside
-`wp-admin`. Vite builds both entry points (`src/app/index.tsx` and
-`src/authors/index.tsx`), splits the TipTap editor into a lazy-loaded chunk, and
-outputs `build/manifest.json`. Both SPAs share the manifest/asset helpers on
-`Penalis_Dashboard` (`enqueue_vite_entry()`, `ensure_same_origin_url()`,
-`format_module_script_tag()`, `resolve_bundled_template()`, and
-`render_spa_mount()`).
+The writer dashboard (`/dashboard/`), the public authors directory
+(`[penalis_authors]`), and the public `#KalimatHariIni` showcase
+(`[penalis_kalimat_hari_ini]`) are standalone React SPAs, not Gutenberg plugins
+inside `wp-admin`. Vite builds all three entry points (`src/app/index.tsx`,
+`src/authors/index.tsx`, and `src/quotes/index.tsx`), splits the TipTap editor
+into a lazy-loaded chunk, and outputs `build/manifest.json`. All three SPAs
+share the manifest/asset helpers on `Penalis_Dashboard` (`enqueue_vite_entry()`,
+`ensure_same_origin_url()`, `format_module_script_tag()`,
+`resolve_bundled_template()`, and `render_spa_mount()`).
 
 `ensure_same_origin_url()` compares full origins (`scheme://host[:port]`), not
 bare hosts, and rebuilds from the complete `home_url()` origin, so an off-site
@@ -594,23 +614,24 @@ archives (`Penalis_Author_Archive`).
 The dashboard and authors directory use plain CSS with shared custom
 properties; there is no preprocessor, utility framework, or CSS-in-JS layer.
 - **One token source:** `src/styles/tokens.css` declares brand, state, radius,
-  and shadow tokens on both `.penalis-dashboard-root` and
-  `.penalis-authors-root`. Each root overrides neutral values (border, text,
-  muted, shadow) in its own entry stylesheet; the authors directory uses a
-  lighter frame because it renders inside a public theme. A shared value must
-  keep the same custom-property name in both roots.
+  and shadow tokens on `.penalis-dashboard-root`, `.penalis-authors-root`, and
+  `.penalis-quotes-root`. Each root overrides neutral values (border, text,
+  muted, shadow) in its own entry stylesheet; the public directories use a
+  lighter frame because they render inside a public theme. A shared value must
+  keep the same custom-property name across roots.
 - **Cascade-ordered sections:** `src/styles/main.css` is only an `@import`
   index. It loads `tokens.css` first, then `base`, `layout`, `components`,
   `forms`, `articles`, `editor`, `media`, `overlays`, `responsive`, `features`,
   and `notifications`. That order is the cascade order; do not reorder imports
   without checking selectors that rely on source order.
 - **Vite inlines CSS imports:** Vite merges CSS `@import` statements into one
-  stylesheet per entry, so `build/manifest.json` still lists one CSS file for
-  `src/app/index.tsx` and one for `src/authors/index.tsx`. Importing a shared
-  CSS file from a TSX entry instead makes Vite emit a separate CSS chunk that
-  is not listed in the entry's `css` array. `Penalis_Dashboard::enqueue_vite_entry()`
-  enqueues only that array, so such a stylesheet would never load in WordPress.
-  Use CSS `@import` inside the entry stylesheet for shared CSS.
+  stylesheet per entry, so `build/manifest.json` still lists one CSS file each
+  for `src/app/index.tsx`, `src/authors/index.tsx`, and `src/quotes/index.tsx`.
+  Importing a shared CSS file from a TSX entry instead makes Vite emit a
+  separate CSS chunk that is not listed in the entry's `css` array.
+  `Penalis_Dashboard::enqueue_vite_entry()` enqueues only that array, so such a
+  stylesheet would never load in WordPress. Use CSS `@import` inside the entry
+  stylesheet for shared CSS.
 - **Standalone plugin CSS (`assets/css/`):** `assets/css/admin.css` is loaded
   directly by `Penalis_Admin` on `wp-admin` screens, and
   `assets/css/author-archive.css` is loaded directly by `Penalis_Author_Archive`
@@ -1013,6 +1034,43 @@ and footer rather than a React SPA or an Elementor Theme Builder template.
   lines on desktop, `5` on mobile) and a **Selengkapnya** / **Lebih sedikit**
   toggle (`assets/js/author-archive.js`), hidden automatically if the viewport
   does not overflow; shorter bios show no toggle.
+
+### 7.19 Ephemeral `#KalimatHariIni` (`Penalis_Daily_Quotes`)
+Active writers can publish one short sentence (plain text, up to 200 characters
+and 3 lines) that stays live for 24 hours on `/author/<username>/` and on the
+auto-created `/kalimat-hari-ini/` showcase (`[penalis_kalimat_hari_ini]`).
+- **Ephemeral user meta, no custom table, no quote history:** Each writer holds
+  at most one active record in `_penalis_daily_quote` (`text`, `created_at`,
+  `expires_at`) plus `_penalis_daily_quote_expires` for active-quote queries.
+  Once 24 hours pass or the quote is deleted, the text is gone.
+- **Rolling 3x/24h quota under a per-user lock:** Writers may delete their
+  active quote and publish a new one within 24 hours, capped at 3 publishes per
+  rolling 24-hour window (`_penalis_daily_quote_publishes`). Deleting never
+  restores used slots, and both publish and delete run inside
+  `Penalis_Account_Status::with_advisory_lock( 'penalis_daily_quote_' . $user_id )`
+  so concurrent requests cannot exceed the quota.
+- **Instant suspension & cache-safe expiry:** `get_active_for_user()` requires
+  `Penalis_Account_Status::can_write()`, so suspending a writer immediately
+  hides their quote. `query_quotes()` re-filters `expiresAt > now` even on
+  transient cache hits, and `templates/author-archive.php` emits
+  `data-expires-at` so `assets/js/author-archive.js` removes a stale cached card
+  in the browser if full-page HTML caching lags behind the 24-hour mark.
+- **Theme-safe Social Note cards:** Quote cards across `/dashboard/`,
+  `/author/<username>/`, and `/kalimat-hari-ini/` use `<div>` + `<p>` instead of
+  `<blockquote>` / `<footer>` so active WordPress themes cannot inject
+  `blockquote::before` quotation glyphs or double dashes, and render
+  `#KalimatHariIni` as clean accent-colored hashtag text (clickable to
+  `/kalimat-hari-ini/` on the author archive, non-clickable on the showcase and
+  dashboard). On `/kalimat-hari-ini/`, the signed-in writer's own card receives
+  the `.penalis-quote-card--self` subtle highlight and shine sweep (without the
+  `"You"` badge reserved for `/author/`).
+- **Centralized Senator moderation:** The public `/kalimat-hari-ini/` page stays
+  strictly read/copy-only (no moderation nonce or delete button). Senators
+  (administrators and editors) moderate active quotes from **Dashboard Senator**
+  (`/dashboard/?view=quotes`, `QuotesModeration.tsx` with search, sort, and
+  load-more pagination) or `wp-admin` (**Penalis → Kalimat Hari Ini**,
+  `Penalis_Daily_Quotes_Admin`).
+
 
 
 

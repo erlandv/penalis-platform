@@ -8,7 +8,7 @@ describe('navGroupsForRole', () => {
       const groups = navGroupsForRole(role);
       const views = groups.flatMap((group) => group.items.map((item) => item.view));
 
-      expect(views).toEqual(['overview', 'review', 'notifications', 'settings']);
+      expect(views).toEqual(['overview', 'review', 'quotes', 'notifications', 'settings']);
       expect(views).not.toContain('editor');
       expect(views).not.toContain('articles');
       expect(views).not.toContain('media');
@@ -22,6 +22,7 @@ describe('navGroupsForRole', () => {
 
     expect(views).toEqual(['overview', 'articles', 'media', 'notifications', 'profile', 'settings']);
     expect(views).not.toContain('review');
+    expect(views).not.toContain('quotes');
     // Writing is an action, not a nav destination.
     expect(views).not.toContain('editor');
   });
@@ -47,6 +48,7 @@ describe('isViewName', () => {
   it('accepts known views', () => {
     expect(isViewName('overview')).toBe(true);
     expect(isViewName('review')).toBe(true);
+    expect(isViewName('quotes')).toBe(true);
     expect(isViewName('editor')).toBe(true);
   });
 

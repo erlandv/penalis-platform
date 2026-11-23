@@ -77,6 +77,8 @@ export interface DashboardBootstrap {
   homeUrl: string;
   /** Public contributors directory URL (`[penalis_authors]`). */
   authorsUrl?: string;
+  /** Public #KalimatHariIni showcase URL (`[penalis_kalimat_hari_ini]`). */
+  dailyQuotesUrl?: string;
   adminUrl: string;
   /** wp-admin review screen, empty for accounts that cannot review. */
   reviewUrl: string;
@@ -375,6 +377,51 @@ export interface ApiErrorShape {
   };
 }
 
+export interface DailyQuote {
+  text: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export interface DailyQuoteQuota {
+  used: number;
+  limit: number;
+  remaining: number;
+  resetAt: number;
+}
+
+export interface WriterDailyQuoteState {
+  quote: DailyQuote | null;
+  quota: DailyQuoteQuota;
+  maxLength: number;
+  maxLines: number;
+  ttlSeconds: number;
+  canPublish: boolean;
+  publicUrl: string;
+}
+
+export interface DailyQuoteModerationItem {
+  authorId: number;
+  text: string;
+  createdAt: number;
+  expiresAt: number;
+  displayName: string;
+  username: string;
+  avatarUrl: string;
+  authorUrl: string;
+  isVerified: boolean;
+  isSenator: boolean;
+}
+
+export interface DailyQuoteModerationList {
+  items: DailyQuoteModerationItem[];
+  total: number;
+  totalAll: number;
+  page: number;
+  perPage: number;
+  hasMore: boolean;
+}
+
 export type ViewName =
   | 'overview'
   | 'notifications'
@@ -383,4 +430,5 @@ export type ViewName =
   | 'profile'
   | 'settings'
   | 'media'
-  | 'review';
+  | 'review'
+  | 'quotes';

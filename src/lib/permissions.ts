@@ -94,6 +94,7 @@ const VIEW_ACCESS: Record<ViewName, readonly DashboardRole[]> = {
   overview: ['administrator', 'editor', 'writer', 'pending', 'suspended'],
   notifications: ['administrator', 'editor', 'writer'],
   review: ['administrator', 'editor'],
+  quotes: ['administrator', 'editor'],
   articles: ['writer'],
   editor: ['writer'],
   media: ['writer'],

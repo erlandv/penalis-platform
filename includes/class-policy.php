@@ -45,6 +45,13 @@ final class Penalis_Policy {
 	public const AUTHORS_PER_PAGE     = 100;
 	public const AUTHORS_MAX_PER_PAGE = 100;
 
+	public const DAILY_QUOTE_MAX_LENGTH   = 200;
+	public const DAILY_QUOTE_MAX_LINES    = 3;
+	public const DAILY_QUOTE_TTL          = 86400;
+	public const DAILY_QUOTE_DAILY_LIMIT  = 3;
+	public const DAILY_QUOTE_PER_PAGE     = 24;
+	public const DAILY_QUOTE_MAX_PER_PAGE = 50;
+
 	/**
 	 * Multibyte-safe string length with a non-mbstring fallback.
 	 *
@@ -1074,5 +1081,185 @@ final class Penalis_Policy {
 		);
 
 		return $authors;
+	}
+
+	/**
+	 * Normalize a #KalimatHariIni text: strip HTML tags, unify line endings,
+	 * collapse horizontal whitespace per line, drop blank lines, and trim.
+	 *
+	 * @param string $value Raw quote text.
+	 * @return string
+	 */
+	public static function normalize_daily_quote( $value ) {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- Pure-policy class must not depend on WordPress.
+		$value = strip_tags( (string) $value );
+		$value = str_replace( array( "\r\n", "\r" ), "\n", $value );
+		$lines = explode( "\n", $value );
+		$clean = array();
+
+		foreach ( $lines as $line ) {
+			$line = trim( (string) preg_replace( '/[ \t]+/u', ' ', $line ) );
+			if ( '' !== $line ) {
+				$clean[] = $line;
+			}
+		}
+
+		return implode( "\n", $clean );
+	}
+
+	/**
+	 * Character length of a normalized #KalimatHariIni text.
+	 *
+	 * @param string $value Raw or normalized quote text.
+	 * @return int
+	 */
+	public static function daily_quote_length( $value ) {
+		return self::length( self::normalize_daily_quote( $value ) );
+	}
+
+	/**
+	 * Validate a #KalimatHariIni submission.
+	 *
+	 * @param string $value Raw quote text.
+	 * @return string Error message, or empty string when valid.
+	 */
+	public static function validate_daily_quote( $value ) {
+		$normalized = self::normalize_daily_quote( $value );
+
+		if ( '' === $normalized ) {
+			return 'Tulis kalimat terlebih dahulu sebelum menerbitkan #KalimatHariIni.';
+		}
+
+		$line_count = substr_count( $normalized, "\n" ) + 1;
+		if ( $line_count > self::DAILY_QUOTE_MAX_LINES ) {
+			return sprintf( '#KalimatHariIni maksimal %d baris agar tetap ringkas dibaca.', self::DAILY_QUOTE_MAX_LINES );
+		}
+
+		if ( self::length( $normalized ) > self::DAILY_QUOTE_MAX_LENGTH ) {
+			return sprintf( '#KalimatHariIni maksimal %d karakter.', self::DAILY_QUOTE_MAX_LENGTH );
+		}
+
+		return '';
+	}
+
+	/**
+	 * Whether a stored #KalimatHariIni record is currently active.
+	 *
+	 * @param mixed    $record Stored meta value.
+	 * @param int|null $now    Current Unix timestamp.
+	 * @return bool
+	 */
+	public static function is_daily_quote_active( $record, $now = null ) {
+		if ( ! is_array( $record ) ) {
+			return false;
+		}
+
+		$now        = null === $now ? time() : (int) $now;
+		$text       = isset( $record['text'] ) ? self::normalize_daily_quote( (string) $record['text'] ) : '';
+		$created_at = isset( $record['created_at'] ) ? (int) $record['created_at'] : 0;
+		$expires_at = isset( $record['expires_at'] ) ? (int) $record['expires_at'] : 0;
+
+		return '' !== $text && $created_at > 0 && $expires_at > $now;
+	}
+
+	/**
+	 * Compute the rolling 24-hour publish quota for #KalimatHariIni.
+	 *
+	 * Deleting an active quote does not restore this budget: a writer may
+	 * publish at most DAILY_QUOTE_DAILY_LIMIT times within any rolling 24-hour
+	 * window.
+	 *
+	 * @param mixed    $timestamps Raw stored publish timestamps.
+	 * @param int|null $now        Current Unix timestamp.
+	 * @return array{timestamps:int[],used:int,limit:int,remaining:int,reset_at:int}
+	 */
+	public static function daily_quote_rate_state( $timestamps, $now = null ) {
+		$now    = null === $now ? time() : (int) $now;
+		$cutoff = $now - self::DAILY_QUOTE_TTL;
+		$pruned = array();
+
+		if ( is_array( $timestamps ) ) {
+			foreach ( $timestamps as $ts ) {
+				$ts = (int) $ts;
+				if ( $ts > $cutoff && $ts <= $now ) {
+					$pruned[] = $ts;
+				}
+			}
+		}
+
+		sort( $pruned, SORT_NUMERIC );
+
+		$used      = count( $pruned );
+		$limit     = self::DAILY_QUOTE_DAILY_LIMIT;
+		$remaining = max( 0, $limit - $used );
+		$reset_at  = ( $used >= $limit && isset( $pruned[0] ) ) ? ( $pruned[0] + self::DAILY_QUOTE_TTL ) : 0;
+
+		return array(
+			'timestamps' => $pruned,
+			'used'       => $used,
+			'limit'      => $limit,
+			'remaining'  => $remaining,
+			'reset_at'   => $reset_at,
+		);
+	}
+
+	/**
+	 * Normalize the sort key for the public #KalimatHariIni directory.
+	 *
+	 * @param mixed $sort Requested sort mode.
+	 * @return string
+	 */
+	public static function normalize_daily_quotes_sort( $sort ) {
+		$allowed = array( 'newest', 'oldest', 'random' );
+
+		if ( is_string( $sort ) && in_array( $sort, $allowed, true ) ) {
+			return $sort;
+		}
+
+		return 'newest';
+	}
+
+	/**
+	 * Sort normalized public #KalimatHariIni records.
+	 *
+	 * @param array<int,array<string,mixed>> $quotes Quote records.
+	 * @param string                         $sort   Normalized sort mode.
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function sort_daily_quotes( $quotes, $sort ) {
+		$mode   = self::normalize_daily_quotes_sort( $sort );
+		$quotes = array_values( $quotes );
+
+		if ( 'random' === $mode ) {
+			if ( count( $quotes ) > 1 ) {
+				shuffle( $quotes );
+			}
+			return $quotes;
+		}
+
+		usort(
+			$quotes,
+			static function ( $a, $b ) use ( $mode ) {
+				$created_a = isset( $a['createdAt'] ) ? (int) $a['createdAt'] : 0;
+				$created_b = isset( $b['createdAt'] ) ? (int) $b['createdAt'] : 0;
+				$id_a      = isset( $a['authorId'] ) ? (int) $a['authorId'] : 0;
+				$id_b      = isset( $b['authorId'] ) ? (int) $b['authorId'] : 0;
+
+				if ( 'oldest' === $mode ) {
+					if ( $created_a !== $created_b ) {
+						return $created_a <=> $created_b;
+					}
+					return $id_a <=> $id_b;
+				}
+
+				// Default: newest.
+				if ( $created_a !== $created_b ) {
+					return $created_b <=> $created_a;
+				}
+				return $id_a <=> $id_b;
+			}
+		);
+
+		return $quotes;
 	}
 }

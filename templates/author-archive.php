@@ -165,6 +165,18 @@ get_header();
 									</svg>
 									<span>Tulis Karya</span>
 								</a>
+								<a
+									class="penalis-archive-btn"
+									href="<?php echo esc_url( (string) $penalis_data['new_quote_url'] ); ?>"
+								>
+									<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+										<path d="M17 6H3" />
+										<path d="M21 12H8" />
+										<path d="M21 18H8" />
+										<path d="M3 12v6" />
+									</svg>
+									<span>#KalimatHariIni</span>
+								</a>
 							</div>
 						<?php endif; ?>
 
@@ -183,6 +195,93 @@ get_header();
 					</div>
 				</div>
 			</section>
+
+			<?php if ( is_array( $penalis_data['daily_quote'] ) ) : ?>
+				<?php
+				$penalis_quote_text      = (string) $penalis_data['daily_quote']['text'];
+				$penalis_quote_expires   = (int) $penalis_data['daily_quote']['expiresAt'];
+				$penalis_quote_copy_text = sprintf(
+					"\"%s\"\n— %s (#KalimatHariIni)\n%s",
+					$penalis_quote_text,
+					(string) $penalis_data['display_name'],
+					(string) $penalis_data['profile_url']
+				);
+				?>
+				<section
+					class="penalis-daily-quote-card"
+					aria-label="Kalimat Hari Ini"
+					data-penalis-daily-quote
+					data-expires-at="<?php echo esc_attr( (string) $penalis_quote_expires ); ?>"
+				>
+					<div class="penalis-daily-quote-head">
+						<div class="penalis-daily-quote-author-row">
+							<img
+								src="<?php echo esc_url( (string) $penalis_data['avatar_url'] ); ?>"
+								alt=""
+								class="penalis-daily-quote-avatar"
+								width="38"
+								height="38"
+								aria-hidden="true"
+							>
+							<div class="penalis-daily-quote-identity">
+								<div class="penalis-daily-quote-name-row">
+									<span class="penalis-daily-quote-name"><?php echo esc_html( (string) $penalis_data['display_name'] ); ?></span>
+									<?php if ( ! empty( $penalis_data['is_verified'] ) || ! empty( $penalis_data['is_senator'] ) ) : ?>
+										<span class="penalis-daily-quote-badges">
+											<?php
+											if ( ! empty( $penalis_data['is_verified'] ) ) {
+												echo Penalis_Authors::verified_badge_html( '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static escaped badge markup.
+											}
+											if ( ! empty( $penalis_data['is_senator'] ) ) {
+												echo Penalis_Authors::senator_badge_html( '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static escaped badge markup.
+											}
+											?>
+										</span>
+									<?php endif; ?>
+								</div>
+								<div class="penalis-daily-quote-submeta">
+									<span>@<?php echo esc_html( (string) $penalis_data['username'] ); ?></span>
+									<?php if ( '' !== (string) $penalis_data['daily_quote_relative'] ) : ?>
+										<span aria-hidden="true">&middot;</span>
+										<span><?php echo esc_html( (string) $penalis_data['daily_quote_relative'] ); ?></span>
+									<?php endif; ?>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="penalis-daily-quote-body">
+						<p class="penalis-daily-quote-text"><?php echo nl2br( esc_html( $penalis_quote_text ) ); ?></p>
+						<a
+							class="penalis-daily-quote-hashtag"
+							href="<?php echo esc_url( (string) $penalis_data['daily_quotes_url'] ); ?>"
+						>#KalimatHariIni</a>
+					</div>
+
+					<div class="penalis-daily-quote-foot">
+						<button
+							type="button"
+							class="penalis-daily-quote-action"
+							data-penalis-copy-quote
+							data-copy-text="<?php echo esc_attr( $penalis_quote_copy_text ); ?>"
+							data-default-label="Salin"
+							data-copied-label="Disalin!"
+						>
+							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+								<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+								<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+							</svg>
+							<span data-penalis-copy-quote-label>Salin</span>
+						</button>
+						<a
+							class="penalis-daily-quote-link"
+							href="<?php echo esc_url( (string) $penalis_data['daily_quotes_url'] ); ?>"
+						>
+							Lihat semua &rarr;
+						</a>
+					</div>
+				</section>
+			<?php endif; ?>
 
 			<p class="penalis-archive-sr-status" role="status" aria-live="polite" data-penalis-archive-status></p>
 

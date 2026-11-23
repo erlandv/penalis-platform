@@ -33,12 +33,21 @@ authentication store.
 - **Dual-Mode React Dashboard (`/dashboard/`)** — Single-page application built
   with React 18, TypeScript, and Vite that enforces the no-hybrid-account rule:
   **Dashboard Penulis** provides a lazy-loaded TipTap WYSIWYG editor (with raw
-  HTML mode, keyboard shortcuts, and revision caps), media library, writer
-  profile & avatar picker, per-channel notification preferences, and
-  re-authenticated credential settings (password, verified email change, and
-  301-redirected username rename); **Dashboard Senator** opens an isolated
-  curation workspace with an in-dashboard **Review Karya** queue and manuscript
-  reader.
+  HTML mode, keyboard shortcuts, and revision caps), a **#KalimatHariIni**
+  24-hour quote composer on **Ringkasan**, media library, writer profile &
+  avatar picker, per-channel notification preferences, and re-authenticated
+  credential settings (password, verified email change, and 301-redirected
+  username rename); **Dashboard Senator** opens an isolated curation workspace
+  with an in-dashboard **Review Karya** queue, manuscript reader, and
+  **Kalimat Hari Ini** moderation console.
+- **#KalimatHariIni (`/kalimat-hari-ini/`, `[penalis_kalimat_hari_ini]`)** —
+  Ephemeral daily writer sentences (plain text, up to 200 characters / 3 lines,
+  24-hour expiry with no stored quote history, rolling quota of 3 publishes per
+  24 hours) displayed as social-note cards on `/author/<username>/` and on the
+  auto-created public `/kalimat-hari-ini/` showcase (with search, sorting,
+  copy-quote, pagination, and a subtle shine highlight on the signed-in writer's
+  own card). Senator moderation is centralized in `/dashboard/?view=quotes` and
+  **Penalis → Kalimat Hari Ini** in `wp-admin`.
 - **Public Authors Directory (`[penalis_authors]`)** — Dedicated React directory
   with live search, **Semua / Verified / Senator** filter chips, views/posts/A–Z
   sorting (with Post Views Counter integration), an inline SVG badge legend, and
@@ -48,15 +57,17 @@ authentication store.
   theme override and opt-out filter) featuring avatar, verified and Senator star
   badges (`[penalis_verified_badge]`, `[penalis_senator_badge]`), copyable
   profile URL, Indonesian joined date, contribution and view totals, native Web
-  Share API with clipboard fallback, owner-only quick actions (**Edit Profil**
-  and **Tulis Karya**), and a paginated works grid.
+  Share API with clipboard fallback, owner-only quick actions (**Edit Profil**,
+  **Tulis Karya**, and **#KalimatHariIni**), an active **#KalimatHariIni**
+  social-note card with client-side expiry guard, and a paginated works grid.
 - **Unified WordPress Admin Console (`Penalis`)** — Centralized `wp-admin` menu
   with **Ringkasan** (overview counters and 8-week editorial analytics),
-  **Review Karya Tulis** & **Karya Terhapus**, **Penulis Penalis** (writer
-  account curation and **Senator Penalis** marking for active writers and legacy
-  contributors), **Log Email** (transactional delivery log, preview, and
-  resend), and tabbed **Pengaturan** (**Keamanan**, **Pendaftaran**, **Batas
-  Percobaan**, **Foto Profil**, **Email**, and **Data**).
+  **Review Karya Tulis** & **Karya Terhapus**, **Kalimat Hari Ini** (active
+  24-hour quote moderation), **Penulis Penalis** (writer account curation and
+  **Senator Penalis** marking for active writers and legacy contributors), **Log
+  Email** (transactional delivery log, preview, and resend), and tabbed
+  **Pengaturan** (**Keamanan**, **Pendaftaran**, **Batas Percobaan**, **Foto
+  Profil**, **Email**, and **Data**).
 
 ---
 

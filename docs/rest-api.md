@@ -6,7 +6,8 @@ notifications, and dashboard helpers.
 
 All responses under `penalis/v1` send `Cache-Control: no-store, private, max-age=0`,
 except `GET /penalis/v1/authors` (for deterministic sort modes), which is public and sends
-`Cache-Control: public, max-age=120`.
+`Cache-Control: public, max-age=120`, and anonymous `GET /penalis/v1/quotes`
+(when `sort` is not `random`), which sends `Cache-Control: public, max-age=30`.
 Authenticated requests use WordPress login cookies and the `wp_rest` nonce in
 the `X-WP-Nonce` header.
 
@@ -34,6 +35,7 @@ that prevent account enumeration.
 | `/account/email/confirm` | `POST` | `confirm_email_change` | Consume `challenge_id` + `code`, re-verify availability, and update `user_email` |
 | `/account/email/resend` | `POST` | `resend_email_change` | Re-issue the code for the pending address without repeating the password |
 | `/authors` | `GET` | `handle_public_authors` | Public paginated directory of `penalis_writer` and `contributor` accounts with `>= 1` published post (excluding `suspended`), including each author's `postCount`, total published `views`, `isVerified`, and `isSenator` (plus `totalSenator`). Supports `search`, `sort` (`most_posts`, `least_posts`, `most_views`, `least_views`, `name_asc`, `name_desc`, `random`), `verified`, `senator`, `page`, and `per_page` (default `100`, max `100`) |
+| `/quotes` | `GET` | `handle_public_quotes` | Public paginated showcase of currently active 24-hour `#KalimatHariIni` entries from active writers (excluding expired entries and `suspended` accounts). Supports `search` (matches quote text, display name, or username), `sort` (`newest`, `oldest`, `random`), `page`, and `per_page` (default `24`, max `50`) |
 
 ### 1.2 Signed-In Account Routes (`require_logged_in`)
 
@@ -85,6 +87,10 @@ administrators and editors) without writer status can also read them.
 | `/media` | `GET` | `list_media` | Paginated list of image attachments owned by the current writer, including per-item usage status (`inUse`, `canDelete`, `usageCount`, `usedIn`, `deleteBlockedReason`) |
 | `/media/(?P<id>\d+)` | `DELETE` | `delete_media` | Permanently delete an unused attachment owned by the current writer (rate-limited per user; returns `409 penalis_media_in_use` if referenced by any published, pending, draft, scheduled, or private post, or by an avatar) |
 | `/tags` | `POST` | `create_tag` | Create or resolve a post tag by name (rate-limited per user, 30/hour by default; configurable at Pengaturan → Batas Percobaan) |
+| `/quotes/me` | `GET` | `handle_my_quote` | Active-writer only: return the writer's active `#KalimatHariIni` (or `null`), rolling 24-hour `quota` (`used`, `limit`, `remaining`, `resetAt`), `maxLength` (`200`), `maxLines` (`3`), `ttlSeconds` (`86400`), `canPublish`, and `publicUrl` |
+| `/quotes` | `POST` | `handle_publish_quote` | Active-writer only: publish a new `#KalimatHariIni` (`text`, max 200 chars, max 3 lines, 24h TTL) inside a per-user advisory lock. Returns `201` with updated writer state, `409 penalis_quote_already_active` if a quote is still live, `422 penalis_validation_error` on invalid input, or `429 penalis_quote_limit_reached` once 3 publishes occurred in the rolling 24-hour window |
+| `/quotes/me` | `DELETE` | `handle_delete_my_quote` | Active-writer only: delete the writer's active `#KalimatHariIni` immediately without restoring the rolling 24-hour publish quota |
+| `/quotes/(?P<user_id>\d+)` | `DELETE` | `handle_moderate_delete_quote` | Reviewer-only (`edit_others_posts`): remove a writer's active `#KalimatHariIni` from the Dashboard Senator moderation console (`/dashboard/?view=quotes`); returns `{ deleted: true, authorId }` |
 
 > **Note on Review Actions:** Reviewer decisions are exposed twice, on purpose.
 > The dashboard queue (`POST /articles/{id}/decision`) and the wp-admin screen
@@ -131,6 +137,7 @@ before the Vite module executes. The TypeScript contract lives in
 | `lostPassword` | `string` | Native fallback lost-password URL |
 | `homeUrl` | `string` | Public site home URL |
 | `authorsUrl` | `string` | Public contributors directory URL (`Penalis_Author_Archive::directory_url()`) |
+| `dailyQuotesUrl` | `string` | Public `#KalimatHariIni` showcase URL (`Penalis_Daily_Quotes::page_url()`) |
 | `adminUrl` | `string` | Link to `admin.php?page=penalis-writers` (populated only for users with `list_users`) |
 | `reviewUrl` | `string` | Link to `admin.php?page=penalis-review` (populated for users with `edit_others_posts`) |
 | `siteName` | `string` | WordPress blog name |
@@ -161,6 +168,8 @@ directly from transactional emails and public links:
 | `penalis_turnstile_error=1` | Flag | Sign-in form with CAPTCHA verification failure banner |
 | `view=editor&id=<post_id>` | Signed-in view route | Opens a specific article in the dashboard editor. A view the resolved role cannot open (for example `view=editor` for a Senator) is clamped to `view=overview` and the URL is rewritten |
 | `view=review&id=<post_id>` | Signed-in view route (staff) | Opens a specific submission in the reviewer reader, the same workspace **Baca karya** opens. Notification rows use this so a Senator lands on the article instead of the bare queue. A non-reviewer role is clamped to `view=overview` |
+| `view=quotes` | Signed-in view route (staff) | Opens the Senator `#KalimatHariIni` moderation console (`QuotesModeration.tsx`). Non-reviewer roles are clamped to `view=overview` |
+| `#kalimat-hari-ini` | Hash anchor on Overview (writer) | Smoothly scrolls an active writer to the `#KalimatHariIni` composer panel on Ringkasan (used by the author-archive quick action and `/kalimat-hari-ini/` CTA) |
 
 > **No bearer links for verification.** Registration, legacy activation, and
 > email changes are confirmed with a six-digit code typed into the dashboard, so

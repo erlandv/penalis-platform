@@ -78,14 +78,21 @@ register -> verify email -> active writer -> write draft in /dashboard/ -> submi
   submitted articles under **Penalis → Review Karya Tulis** (with a unified
   overview at **Penalis → Ringkasan**).
 - Active writers receive the `penalis_writer` role and use `/dashboard/` for
-  overview, notifications, own articles, editor, media, profile, and settings.
+  overview (including the 24-hour **#KalimatHariIni** social-note composer),
+  notifications, own articles, editor, media, profile, and settings.
+- Active writers may also publish one short **#KalimatHariIni** sentence (max
+  200 characters, 3 lines, no history, 24-hour TTL, up to 3 publishes per
+  rolling 24 hours) that renders as a social-note card on `/author/<username>/`
+  and in the public `/kalimat-hari-ini/` showcase (`[penalis_kalimat_hari_ini]`,
+  auto-created on activation/upgrade).
 - Staff — administrators and editors, called **Senator** in user-facing copy —
   may also open `/dashboard/` in a curation mode: the REST account guard accepts
   `edit_others_posts`, the shell renders **Dashboard Senator** with a role chip,
-  the navigation is the curation set (Ringkasan, Review Karya, Notifikasi,
-  Pengaturan), and the review queue is worked in place. They never gain writer
-  capabilities (`canWrite` stays `false`), and the writer views (Daftar Karya,
-  editor, Media, Profil) are not rendered at all rather than shown disabled.
+  the navigation is the curation set (Ringkasan, Review Karya, Kalimat Hari Ini,
+  Notifikasi, Pengaturan), and both the review queue and `#KalimatHariIni`
+  moderation are worked in place. They never gain writer capabilities
+  (`canWrite` stays `false`), and the writer views (Daftar Karya, editor, Media,
+  Profil) are not rendered at all rather than shown disabled.
 - **No hybrid accounts.** Penalis policy is that a staff account never writes.
   A staff member who wants to publish logs out and signs in with their own
   writer account. `Penalis_Policy::dashboard_role()` resolves staff before
@@ -186,8 +193,9 @@ assets/js/admin-review.js     Confirmation modals (createModalController) and in
 assets/js/author-archive.js   Native Web Share API and copy-to-clipboard handlers for author archives
 templates/dashboard.php       Minimal theme wrapper for [penalis_dashboard]
 templates/authors.php         Minimal theme wrapper for [penalis_authors]
+templates/daily-quotes.php    Minimal theme wrapper for [penalis_kalimat_hari_ini]
 templates/author-archive.php  Server-rendered profile & works archive template (penalis-author-archive.php override)
-src/                        React SPAs (app/, authors/, components/, features/, lib/, styles/)
+src/                        React SPAs (app/, authors/, quotes/, components/, features/, lib/, styles/)
                             styles/: tokens.css, main.css (@import index), section files
 build/                      Generated Vite output and manifest.json (gitignored)
 tests/                      Plain-PHP unit/workflow tests (run-tests.php) and WP stubs (wp-stubs.php)
@@ -197,9 +205,10 @@ readme.txt                  WordPress plugin readme and changelog
 
 - **Admin screens (`wp-admin`):** Top-level menu **Penalis**
   (`admin.php?page=penalis-platform`) with submenus **Ringkasan**
-  (`penalis-platform`), **Review Karya Tulis** (`penalis-review`),
-  **Penulis Penalis** (`penalis-writers`), and **Pengaturan**
-  (`penalis-settings`, administrators only). **Pengaturan** holds one tab per
+  (`penalis-platform`), **Review Karya Tulis** (`penalis-review`), **Karya
+  Terhapus** (`penalis-trashed`), **Kalimat Hari Ini** (`penalis-quotes`),
+  **Penulis Penalis** (`penalis-writers`), **Log Email** (`penalis-email-log`),
+  and **Pengaturan** (`penalis-settings`, administrators only). **Pengaturan** holds one tab per
   setting group — `Keamanan` (dashboard CAPTCHA), `Foto Profil` (site-wide
   default avatar), and `Email` (transactional templates). Every new site-wide
   setting belongs there as a tab registered in `Penalis_Settings::tabs()`, never
@@ -213,8 +222,9 @@ readme.txt                  WordPress plugin readme and changelog
   tokens. `main.css` is only an `@import` index that loads the section files
   (`base`, `layout`, `components`, `forms`, `articles`, `editor`, `media`,
   `overlays`, `responsive`, `features`, `notifications`) in cascade order;
-  `src/authors/authors.css` is the separate public-directory stylesheet and
-  imports the same tokens. Vite inlines those CSS `@import`s into **one**
+  `src/authors/authors.css` and `src/quotes/quotes.css` are the separate
+  public-directory stylesheets and import the same tokens. Vite inlines those
+  CSS `@import`s into **one**
   stylesheet per entry. Never import a shared CSS file from a TSX entry: Vite
   then emits a separate CSS chunk that `enqueue_vite_entry()` cannot enqueue
   because it only reads each entry's `css` array from `build/manifest.json`.
@@ -226,11 +236,12 @@ readme.txt                  WordPress plugin readme and changelog
   - **Vite & SPA mounting (`Penalis_Dashboard`):** `enqueue_vite_entry()`,
     `ensure_same_origin_url()`, `format_module_script_tag()`,
     `resolve_bundled_template()`, and `render_spa_mount()` are shared by
-    `Penalis_Dashboard`, `Penalis_Authors`, and `Penalis_Author_Archive`.
+    `Penalis_Dashboard`, `Penalis_Authors`, `Penalis_Daily_Quotes`, and
+    `Penalis_Author_Archive`.
   - **MySQL advisory locks (`Penalis_Account_Status`):** Use
     `Penalis_Account_Status::with_advisory_lock()` (used by `Penalis_Otp`,
-    `Penalis_Username_Change`, `Penalis_Editorial_Workflow`, and
-    `Penalis_Editorial_Notifications`) so `GET_LOCK`
+    `Penalis_Username_Change`, `Penalis_Editorial_Workflow`,
+    `Penalis_Editorial_Notifications`, and `Penalis_Daily_Quotes`) so `GET_LOCK`
     and `RELEASE_LOCK` stay paired in a `try / finally` block.
   - **Editorial queries & counts (`Penalis_Editorial_Workflow`):** Use
     `state_query_clauses()` and `count_matching_posts()` in both REST and

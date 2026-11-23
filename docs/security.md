@@ -94,7 +94,11 @@ unauthorized publishing:
      `penalis_published_delete_denied` (403) instead of a generic capability
      error, so the writer knows to contact a reviewer.
    - Blocks non-allowlisted write routes and verifies media parent ownership
-     before upload processing begins.
+     before upload processing begins. For `#KalimatHariIni`, active writers are
+     allowlisted exclusively for `POST /penalis/v1/quotes` and
+     `DELETE /penalis/v1/quotes/me`; `DELETE /penalis/v1/quotes/{user_id}` is
+     refused for writers at `rest_pre_dispatch` (`penalis_rest_forbidden`) as
+     well as by `require_reviewer()`.
 5. **REST Post & Media Insert Filters (`rest_pre_insert_post`, `rest_pre_insert_attachment`):**
    - Forces `post_author` to the authenticated session user.
    - Refuses `status: publish` (`403 penalis_publish_forbidden`).
@@ -149,6 +153,21 @@ unauthorized publishing:
   - Editorial notifications (`_penalis_notifications`) and transactional emails
     are strictly recipient-scoped (`can_receive_notification()`) and never
     include private `post_content`.
+- **`#KalimatHariIni` Safeguards (`Penalis_Daily_Quotes`):**
+  - **Plain-Text & Length Enforcement:** Server-side `Penalis_Policy::normalize_daily_quote()`
+    strips all HTML tags, collapses horizontal whitespace, removes blank lines,
+    and rejects submissions exceeding `200` UTF-8 characters or `3` lines.
+  - **Per-User Advisory Lock & Rolling Quota:** Publish and delete operations
+    acquire `GET_LOCK('penalis_daily_quote_' . $user_id)` so concurrent
+    requests cannot bypass the single-active-quote check or the rolling 3
+    publishes per 24 hours quota (`_penalis_daily_quote_publishes`). Deleting an
+    active quote never restores used quota slots.
+  - **Immediate Suspension & Role Separation:** Active quotes are only returned
+    while `Penalis_Account_Status::can_write()` holds, so suspending a writer
+    hides their quote immediately. Staff moderation (`DELETE /penalis/v1/quotes/{user_id}`
+    and `admin-post.php?action=penalis_delete_quote_action`) requires
+    `edit_others_posts` plus nonce verification, and the public
+    `/kalimat-hari-ini/` page never exposes a moderation nonce or delete control.
 
 ---
 

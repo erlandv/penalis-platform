@@ -123,6 +123,17 @@
 		}
 	};
 
+	var QUOTE_ACTION_CONFIG = {
+		delete_quote: {
+			badge: 'Hapus #KalimatHariIni',
+			badgeClass: 'penalis-badge penalis-badge--rejected',
+			title: 'Hapus #KalimatHariIni ini?',
+			description: 'Kalimat akan segera diturunkan dari halaman profil penulis dan halaman publik #KalimatHariIni.',
+			confirmLabel: 'Ya, Hapus Kalimat',
+			confirmClass: 'button penalis-confirm-modal__btn-reject'
+		}
+	};
+
 	function trapModalKeys( modal, cancelBtn, submitBtn, onClose ) {
 		document.addEventListener( 'keydown', function ( event ) {
 			if ( modal.hidden ) {
@@ -424,10 +435,45 @@
 		}
 	}
 
+	function initQuoteDeleteConfirmation() {
+		var contextText = document.getElementById( 'penalis-quote-confirm-context-text' );
+
+		var controller = createModalController( {
+			prefix: 'penalis-quote-confirm',
+			onOpen: function ( config, triggerEl ) {
+				if ( contextText && triggerEl ) {
+					var author = triggerEl.getAttribute( 'data-penalis-quote-author' ) || '';
+					var text = triggerEl.getAttribute( 'data-penalis-quote-text' ) || '';
+					contextText.textContent = author ? author + ' — "' + text + '"' : text;
+				}
+			},
+			onConfirm: function ( targetForm ) {
+				targetForm.submit();
+			}
+		} );
+
+		if ( ! controller ) {
+			return;
+		}
+
+		var quoteButtons = document.querySelectorAll( '[data-penalis-delete-quote]' );
+		for ( var i = 0; i < quoteButtons.length; i++ ) {
+			quoteButtons[ i ].addEventListener( 'click', function ( event ) {
+				var config = QUOTE_ACTION_CONFIG.delete_quote;
+				if ( ! config || ! this.form ) {
+					return;
+				}
+				event.preventDefault();
+				controller.open( config, this, this.form );
+			} );
+		}
+	}
+
 	function initAll() {
 		initReviewConfirmation();
 		initWriterConfirmation();
 		initRestoreConfirmation();
+		initQuoteDeleteConfirmation();
 	}
 
 	if ( document.readyState === 'loading' ) {

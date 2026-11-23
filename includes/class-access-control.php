@@ -561,6 +561,16 @@ final class Penalis_Access_Control {
 				$allowed = true;
 			}
 
+			if (
+				! $allowed &&
+				(
+					( 'POST' === $method && '/penalis/v1/quotes' === $route ) ||
+					( 'DELETE' === $method && '/penalis/v1/quotes/me' === $route )
+				)
+			) {
+				$allowed = true;
+			}
+
 			if ( ! $allowed ) {
 				return new WP_Error(
 					'penalis_rest_forbidden',

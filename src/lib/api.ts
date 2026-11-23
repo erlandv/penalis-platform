@@ -15,6 +15,7 @@ import type {
   ArticleList,
   ArticleReview,
   ChallengeResponse,
+  DailyQuoteModerationList,
   DisplayNameMode,
   FieldErrors,
   MediaItem,
@@ -25,6 +26,7 @@ import type {
   ReviewDecisionResult,
   ReviewQueueList,
   Term,
+  WriterDailyQuoteState,
 } from './types';
 
 export class ApiError extends Error {
@@ -683,6 +685,45 @@ export const mediaApi = {
     request<{ deleted: boolean; id: number; message: string }>(`/media/${id}`, {
       method: 'DELETE',
       fallbackMessage: 'Gambar tidak dapat dihapus.',
+      retryAuth: true,
+    }),
+};
+
+/* ------------------------- #KalimatHariIni --------------------------- */
+
+export const quotesApi = {
+  me: () => request<WriterDailyQuoteState>('/quotes/me'),
+
+  list: (params: { search?: string; sort?: 'newest' | 'oldest'; page?: number; perPage?: number } = {}) => {
+    const query = new URLSearchParams();
+    if (params.search && params.search.trim() !== '') {
+      query.set('search', params.search.trim());
+    }
+    query.set('sort', params.sort ?? 'newest');
+    query.set('page', String(Math.max(1, params.page ?? 1)));
+    query.set('per_page', String(Math.max(1, params.perPage ?? 12)));
+    return request<DailyQuoteModerationList>(`/quotes?${query.toString()}`);
+  },
+
+  publish: (text: string) =>
+    request<WriterDailyQuoteState>('/quotes', {
+      method: 'POST',
+      body: { text },
+      fallbackMessage: '#KalimatHariIni tidak dapat diterbitkan.',
+      retryAuth: true,
+    }),
+
+  remove: () =>
+    request<WriterDailyQuoteState>('/quotes/me', {
+      method: 'DELETE',
+      fallbackMessage: '#KalimatHariIni tidak dapat dihapus.',
+      retryAuth: true,
+    }),
+
+  moderateDelete: (authorId: number) =>
+    request<{ deleted: boolean; authorId: number }>(`/quotes/${authorId}`, {
+      method: 'DELETE',
+      fallbackMessage: '#KalimatHariIni tidak dapat dihapus.',
       retryAuth: true,
     }),
 };

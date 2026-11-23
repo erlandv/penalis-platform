@@ -122,6 +122,8 @@ if ( ! class_exists( 'WP_User' ) ) {
 		public $display_name;
 		/** @var string */
 		public $user_pass;
+		/** @var string */
+		public $user_registered = '2025-01-01 00:00:00';
 		/** @var string[] */
 		public $roles;
 		/** @var array<string,array<string,mixed>> */
@@ -354,6 +356,7 @@ if ( ! function_exists( 'get_users' ) ) {
 	function get_users( $args ) {
 		$key        = isset( $args['meta_key'] ) ? $args['meta_key'] : '';
 		$value      = isset( $args['meta_value'] ) ? $args['meta_value'] : '';
+		$meta_query = isset( $args['meta_query'] ) && is_array( $args['meta_query'] ) ? $args['meta_query'] : array();
 		$role       = isset( $args['role'] ) ? (string) $args['role'] : '';
 		$capability = isset( $args['capability'] ) ? (string) $args['capability'] : '';
 		$out        = array();
@@ -367,9 +370,49 @@ if ( ! function_exists( 'get_users' ) ) {
 				continue;
 			}
 
-			if ( '' === $key || ( isset( $user->meta[ $key ] ) && in_array( $value, (array) $user->meta[ $key ], true ) ) ) {
-				$out[] = $user->ID;
+			if ( '' !== $key && ( ! isset( $user->meta[ $key ] ) || ! in_array( $value, (array) $user->meta[ $key ], true ) ) ) {
+				continue;
 			}
+
+			$meta_matched = true;
+			foreach ( $meta_query as $clause ) {
+				if ( ! is_array( $clause ) || empty( $clause['key'] ) ) {
+					continue;
+				}
+				$m_key     = (string) $clause['key'];
+				$compare   = isset( $clause['compare'] ) ? strtoupper( (string) $clause['compare'] ) : '=';
+				$has_meta  = isset( $user->meta[ $m_key ] ) && ! empty( $user->meta[ $m_key ] );
+				$first_val = $has_meta ? reset( $user->meta[ $m_key ] ) : '';
+
+				if ( 'EXISTS' === $compare ) {
+					if ( ! $has_meta ) {
+						$meta_matched = false;
+						break;
+					}
+					continue;
+				}
+
+				if ( '>' === $compare ) {
+					$expected = isset( $clause['value'] ) ? $clause['value'] : 0;
+					if ( ! $has_meta || (int) $first_val <= (int) $expected ) {
+						$meta_matched = false;
+						break;
+					}
+					continue;
+				}
+
+				$expected = isset( $clause['value'] ) ? $clause['value'] : '';
+				if ( ! $has_meta || (string) $first_val !== (string) $expected ) {
+					$meta_matched = false;
+					break;
+				}
+			}
+
+			if ( ! $meta_matched ) {
+				continue;
+			}
+
+			$out[] = $user->ID;
 		}
 
 		return $out;
@@ -670,6 +713,8 @@ if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
 		public $users = 'wp_users';
 		/** @var string */
 		public $usermeta = 'wp_usermeta';
+		/** @var string */
+		public $posts = 'wp_posts';
 
 		/**
 		 * Prepare a simple %s / %d query.
@@ -1191,6 +1236,44 @@ if ( ! function_exists( 'esc_url' ) ) {
 	}
 }
 
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	/**
+	 * Raw URL sanitization stub.
+	 *
+	 * @param string $url URL.
+	 * @return string
+	 */
+	function esc_url_raw( $url ) {
+		return (string) $url;
+	}
+}
+
+if ( ! function_exists( 'count_user_posts' ) ) {
+	/**
+	 * Count published posts authored by a user stub.
+	 *
+	 * @param int    $user_id   User ID.
+	 * @param string $post_type Post type.
+	 * @return string
+	 */
+	function count_user_posts( $user_id, $post_type = 'post' ) {
+		$count = 0;
+		if ( isset( $GLOBALS['penalis_test_posts'] ) && is_array( $GLOBALS['penalis_test_posts'] ) ) {
+			foreach ( $GLOBALS['penalis_test_posts'] as $post ) {
+				if (
+					(int) $post->post_author === (int) $user_id &&
+					(string) $post->post_type === (string) $post_type &&
+					'publish' === (string) $post->post_status
+				) {
+					$count++;
+				}
+			}
+		}
+
+		return (string) $count;
+	}
+}
+
 if ( ! function_exists( 'wp_salt' ) ) {
 	/**
 	 * Deterministic salt double for HMAC tests.
@@ -1480,6 +1563,42 @@ if ( ! function_exists( 'wp_update_post' ) ) {
 		$GLOBALS['penalis_test_post_updates'][] = $data;
 
 		return (int) $post->ID;
+	}
+}
+
+if ( ! function_exists( 'wp_insert_post' ) ) {
+	/**
+	 * Insert a post double.
+	 *
+	 * @param array $data  Post data.
+	 * @param bool  $error Whether to return a WP_Error.
+	 * @return int|WP_Error
+	 */
+	function wp_insert_post( $data, $error = false ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- Stub signature.
+		$next_id = 10000;
+		if ( isset( $GLOBALS['penalis_test_posts'] ) && is_array( $GLOBALS['penalis_test_posts'] ) && ! empty( $GLOBALS['penalis_test_posts'] ) ) {
+			$next_id = max( array_map( 'intval', array_keys( $GLOBALS['penalis_test_posts'] ) ) ) + 1;
+		}
+
+		$post = new WP_Post(
+			$next_id,
+			isset( $data['post_author'] ) ? (int) $data['post_author'] : 0,
+			isset( $data['post_status'] ) ? (string) $data['post_status'] : 'draft',
+			isset( $data['post_title'] ) ? (string) $data['post_title'] : ''
+		);
+		$post->post_content = isset( $data['post_content'] ) ? (string) $data['post_content'] : '';
+		$post->post_type    = isset( $data['post_type'] ) ? (string) $data['post_type'] : 'post';
+		$post->post_name    = isset( $data['post_name'] ) ? (string) $data['post_name'] : '';
+
+		if ( isset( $data['meta_input'] ) && is_array( $data['meta_input'] ) ) {
+			foreach ( $data['meta_input'] as $meta_key => $meta_val ) {
+				$post->meta[ (string) $meta_key ] = $meta_val;
+			}
+		}
+
+		$GLOBALS['penalis_test_posts'][ $next_id ] = $post;
+
+		return $next_id;
 	}
 }
 
@@ -1807,6 +1926,22 @@ if ( ! class_exists( 'WP_REST_Response' ) ) {
 		public function header( $key, $value ) {
 			$this->headers[ (string) $key ] = (string) $value;
 		}
+	}
+}
+
+if ( ! function_exists( 'rest_ensure_response' ) ) {
+	/**
+	 * Wrap a value in WP_REST_Response unless it is already a response or WP_Error.
+	 *
+	 * @param mixed $response Response data.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	function rest_ensure_response( $response ) {
+		if ( is_wp_error( $response ) || $response instanceof WP_REST_Response ) {
+			return $response;
+		}
+
+		return new WP_REST_Response( $response );
 	}
 }
 

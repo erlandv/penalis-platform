@@ -277,26 +277,33 @@ final class Penalis_Author_Archive {
 		$joined             = Penalis_Datetime::format_indonesian_month_year_gmt( (string) $author->user_registered );
 		$bio                = Penalis_Policy::normalize_bio( (string) get_user_meta( $user_id, 'description', true ) );
 		$is_bio_collapsible = '' !== $bio && ( Penalis_Policy::bio_length( $bio ) > Penalis_Policy::MAX_BIO || substr_count( $bio, "\n" ) >= 3 );
+		$daily_quote        = Penalis_Daily_Quotes::get_active_for_user( $user_id );
 
 		return array(
-			'id'                 => $user_id,
-			'display_name'       => (string) $author->display_name,
-			'username'           => (string) $author->user_nicename,
-			'avatar_url'         => (string) Penalis_Avatar::get_url( $user_id ),
-			'profile_url'        => $profile_url,
-			'profile_url_label'  => self::format_profile_url_label( $profile_url ),
-			'bio'                => $bio,
-			'is_bio_collapsible' => $is_bio_collapsible,
-			'is_verified'        => Penalis_Authors::is_user_verified( $user_id ),
-			'is_senator'         => Penalis_Authors::is_user_senator( $user_id ),
-			'post_count'         => max( 0, $post_count ),
-			'total_views'        => self::get_author_total_views( $user_id ),
-			'joined_label'       => $joined,
-			'is_owner'           => $is_owner,
-			'can_write'          => $can_write,
-			'edit_profile_url'   => Penalis_Dashboard::dashboard_url( array( 'view' => 'profile' ) ),
-			'new_article_url'    => Penalis_Dashboard::dashboard_url( array( 'view' => 'editor' ) ),
-			'directory_url'      => self::directory_url(),
+			'id'                   => $user_id,
+			'display_name'         => (string) $author->display_name,
+			'username'             => (string) $author->user_nicename,
+			'avatar_url'           => (string) Penalis_Avatar::get_url( $user_id ),
+			'profile_url'          => $profile_url,
+			'profile_url_label'    => self::format_profile_url_label( $profile_url ),
+			'bio'                  => $bio,
+			'is_bio_collapsible'   => $is_bio_collapsible,
+			'is_verified'          => Penalis_Authors::is_user_verified( $user_id ),
+			'is_senator'           => Penalis_Authors::is_user_senator( $user_id ),
+			'post_count'           => max( 0, $post_count ),
+			'total_views'          => self::get_author_total_views( $user_id ),
+			'joined_label'         => $joined,
+			'is_owner'             => $is_owner,
+			'can_write'            => $can_write,
+			'edit_profile_url'     => Penalis_Dashboard::dashboard_url( array( 'view' => 'profile' ) ),
+			'new_article_url'      => Penalis_Dashboard::dashboard_url( array( 'view' => 'editor' ) ),
+			'new_quote_url'        => Penalis_Dashboard::dashboard_url() . '#kalimat-hari-ini',
+			'directory_url'        => self::directory_url(),
+			'daily_quotes_url'     => Penalis_Daily_Quotes::page_url(),
+			'daily_quote'          => $daily_quote,
+			'daily_quote_relative' => is_array( $daily_quote )
+				? Penalis_Daily_Quotes::format_relative_time( (int) $daily_quote['createdAt'] )
+				: '',
 		);
 	}
 }

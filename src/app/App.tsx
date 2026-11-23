@@ -40,6 +40,7 @@ import { Media } from '../features/media/Media';
 import { Notifications } from '../features/notifications/Notifications';
 import { useNotifications } from '../features/notifications/useNotifications';
 import { ReviewQueue } from '../features/review/ReviewQueue';
+import { QuotesModeration } from '../features/quotes/QuotesModeration';
 
 /**
  * Password reset form reached from the reset email.
@@ -635,6 +636,8 @@ export function App() {
             onCloseReader={() => openReviewArticle(undefined, { replace: true })}
           />
         );
+      case 'quotes':
+        return <QuotesModeration />;
       case 'articles':
         return (
           <Articles

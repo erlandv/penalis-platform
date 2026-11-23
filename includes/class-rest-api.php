@@ -536,6 +536,76 @@ final class Penalis_Rest_Api {
 				),
 			)
 		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/quotes',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'handle_public_quotes' ),
+					'permission_callback' => '__return_true',
+					'args'                => array(
+						'search'   => array(
+							'type'     => 'string',
+							'required' => false,
+						),
+						'sort'     => array(
+							'type'     => 'string',
+							'required' => false,
+						),
+						'page'     => array(
+							'type'     => 'integer',
+							'required' => false,
+							'default'  => 1,
+						),
+						'per_page' => array(
+							'type'     => 'integer',
+							'required' => false,
+							'default'  => Penalis_Policy::DAILY_QUOTE_PER_PAGE,
+						),
+					),
+				),
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( __CLASS__, 'handle_publish_quote' ),
+					'permission_callback' => array( __CLASS__, 'require_active_writer' ),
+					'args'                => array(
+						'text' => array(
+							'type'     => 'string',
+							'required' => true,
+						),
+					),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/quotes/me',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'handle_my_quote' ),
+					'permission_callback' => array( __CLASS__, 'require_active_writer' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( __CLASS__, 'handle_delete_my_quote' ),
+					'permission_callback' => array( __CLASS__, 'require_active_writer' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/quotes/(?P<user_id>\d+)',
+			array(
+				'methods'             => WP_REST_Server::DELETABLE,
+				'callback'            => array( __CLASS__, 'handle_moderate_delete_quote' ),
+				'permission_callback' => array( __CLASS__, 'require_reviewer' ),
+			)
+		);
 	}
 
 	/**
@@ -2235,6 +2305,101 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
+	 * Return the public #KalimatHariIni showcase feed.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public static function handle_public_quotes( $request ) {
+		$result = Penalis_Daily_Quotes::query_quotes(
+			array(
+				'search'   => $request->get_param( 'search' ),
+				'sort'     => $request->get_param( 'sort' ),
+				'page'     => $request->get_param( 'page' ),
+				'per_page' => $request->get_param( 'per_page' ),
+			)
+		);
+
+		return rest_ensure_response( $result );
+	}
+
+	/**
+	 * Return the signed-in active writer's #KalimatHariIni state and 24-hour quota.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public static function handle_my_quote() {
+		return rest_ensure_response(
+			Penalis_Daily_Quotes::get_writer_state( get_current_user_id() )
+		);
+	}
+
+	/**
+	 * Publish a new #KalimatHariIni for the signed-in active writer.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_publish_quote( $request ) {
+		$result = Penalis_Daily_Quotes::publish(
+			get_current_user_id(),
+			(string) $request->get_param( 'text' )
+		);
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return new WP_REST_Response( $result, 201 );
+	}
+
+	/**
+	 * Delete the signed-in active writer's active #KalimatHariIni.
+	 *
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_delete_my_quote() {
+		$result = Penalis_Daily_Quotes::delete_for_user( get_current_user_id() );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return rest_ensure_response( $result );
+	}
+
+	/**
+	 * Remove a writer's active #KalimatHariIni as a Senator (reviewer moderation).
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_moderate_delete_quote( $request ) {
+		$target_user_id = (int) $request->get_param( 'user_id' );
+		$target_user    = get_userdata( $target_user_id );
+
+		if ( ! $target_user instanceof WP_User ) {
+			return new WP_Error(
+				'penalis_not_found',
+				'Penulis tidak ditemukan.',
+				array( 'status' => 404 )
+			);
+		}
+
+		$result = Penalis_Daily_Quotes::delete_for_user( $target_user_id );
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		return rest_ensure_response(
+			array(
+				'deleted'  => true,
+				'authorId' => $target_user_id,
+			)
+		);
+	}
+
+	/**
 	 * Add private cache headers to Penalis responses.
 	 *
 	 * @param WP_HTTP_Response $response Response.
@@ -2255,6 +2420,16 @@ final class Penalis_Rest_Api {
 
 		if ( '/' . self::NAMESPACE_V1 . '/authors' === $route && 'random' !== $request->get_param( 'sort' ) ) {
 			$response->header( 'Cache-Control', 'public, max-age=120' );
+			return $response;
+		}
+
+		if (
+			'/' . self::NAMESPACE_V1 . '/quotes' === $route &&
+			'GET' === strtoupper( (string) $request->get_method() ) &&
+			! is_user_logged_in() &&
+			'random' !== $request->get_param( 'sort' )
+		) {
+			$response->header( 'Cache-Control', 'public, max-age=30' );
 			return $response;
 		}
 

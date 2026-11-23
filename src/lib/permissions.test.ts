@@ -76,6 +76,7 @@ describe('canAccessView', () => {
     for (const role of ['administrator', 'editor'] as const) {
       expect(canAccessView(role, 'overview')).toBe(true);
       expect(canAccessView(role, 'review')).toBe(true);
+      expect(canAccessView(role, 'quotes')).toBe(true);
       expect(canAccessView(role, 'notifications')).toBe(true);
       expect(canAccessView(role, 'settings')).toBe(true);
       expect(canAccessView(role, 'articles')).toBe(false);
@@ -92,6 +93,7 @@ describe('canAccessView', () => {
     expect(canAccessView('writer', 'profile')).toBe(true);
     expect(canAccessView('writer', 'notifications')).toBe(true);
     expect(canAccessView('writer', 'review')).toBe(false);
+    expect(canAccessView('writer', 'quotes')).toBe(false);
   });
 
   it('limits pending and suspended accounts to status screens', () => {
@@ -104,6 +106,7 @@ describe('canAccessView', () => {
       expect(canAccessView(role, 'media')).toBe(false);
       expect(canAccessView(role, 'profile')).toBe(false);
       expect(canAccessView(role, 'review')).toBe(false);
+      expect(canAccessView(role, 'quotes')).toBe(false);
     }
   });
 });

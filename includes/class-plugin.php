@@ -66,6 +66,7 @@ final class Penalis_Plugin {
 		Penalis_Rest_Api::init();
 		Penalis_Dashboard::init();
 		Penalis_Authors::init();
+		Penalis_Daily_Quotes::init();
 		Penalis_Author_Archive::init();
 		Penalis_Author_History::init();
 		Penalis_Avatar::register_provider();
@@ -73,6 +74,7 @@ final class Penalis_Plugin {
 		if ( is_admin() ) {
 			Penalis_Admin::init();
 			Penalis_Editorial_Admin::init();
+			Penalis_Daily_Quotes_Admin::init();
 			Penalis_Email_Settings::init();
 			Penalis_Email_Log_Admin::init();
 			Penalis_Settings::init();
@@ -107,6 +109,7 @@ final class Penalis_Plugin {
 		// modifies an existing page. It runs on init because post types are not
 		// registered yet at plugins_loaded.
 		add_action( 'init', array( 'Penalis_Activator', 'ensure_dashboard_page' ), 20 );
+		add_action( 'init', array( 'Penalis_Activator', 'ensure_daily_quotes_page' ), 20 );
 	}
 
 	/**

@@ -1,0 +1,634 @@
+/* ==========================================================================
+   Penalis public #KalimatHariIni showcase
+   Scoped to .penalis-quotes-root so it does not disturb the public theme.
+
+   Shared tokens live in styles/tokens.css. This root overrides only the
+   neutral scale to match the lighter theme-wrapped surface of the authors
+   directory.
+   ========================================================================== */
+
+@import '../styles/tokens.css';
+
+.penalis-quotes-root {
+  --penalis-border: #e9ecef;
+  --penalis-border-hover: #d0d7de;
+  --penalis-text: #1b1f24;
+  --penalis-muted: #5e6670;
+  --penalis-card-bg: var(--penalis-surface-alt);
+  --penalis-fill: #f8f9fa;
+  --penalis-fill-hover: #f3f4f6;
+  --penalis-fill-strong: #f1f3f5;
+  --penalis-skeleton: #e9ecef;
+  --penalis-shadow: 0 2px 8px rgba(17, 24, 39, 0.04);
+  --penalis-shadow-hover: 0 8px 22px rgba(17, 24, 39, 0.08);
+
+  color: var(--penalis-text);
+  background: var(--penalis-bg);
+  padding: 1rem 1.25rem 4rem;
+  font-family: inherit;
+  line-height: 1.5;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.penalis-quotes-root *,
+.penalis-quotes-root *::before,
+.penalis-quotes-root *::after {
+  box-sizing: border-box;
+}
+
+.penalis-quotes-root .penalis-quotes-container {
+  width: 100%;
+  max-width: 1280px;
+  min-width: 0;
+  margin: 0 auto;
+  background: var(--penalis-surface);
+  border-radius: var(--penalis-radius);
+  padding: 2.25rem 2.5rem;
+}
+
+@media (max-width: 640px) {
+  .penalis-quotes-root {
+    padding: 0.75rem 0.75rem 2.5rem;
+  }
+
+  .penalis-quotes-root .penalis-quotes-container {
+    padding: 1.25rem 1rem;
+  }
+}
+
+.penalis-quotes-root .penalis-quotes-sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Header */
+.penalis-quotes-root .penalis-quotes-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.penalis-quotes-root .penalis-quotes-header-main {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.penalis-quotes-root .penalis-quotes-title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.65rem, 3vw, 2.15rem);
+  font-weight: 700;
+  color: var(--penalis-text);
+  line-height: 1.2;
+}
+
+.penalis-quotes-root .penalis-quotes-title-hash {
+  color: var(--penalis-accent);
+}
+
+.penalis-quotes-root .penalis-quotes-subtitle {
+  margin: 0;
+  font-size: 0.975rem;
+  color: var(--penalis-muted);
+  max-width: 720px;
+}
+
+.penalis-quotes-root .penalis-quotes-header-cta {
+  flex: 0 0 auto;
+}
+
+.penalis-quotes-root a.penalis-quotes-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 1.15rem;
+  border-radius: var(--penalis-radius-control);
+  background: var(--penalis-accent);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  line-height: 1.25;
+  transition: background-color 0.15s ease;
+}
+
+.penalis-quotes-root a.penalis-quotes-cta-btn:hover {
+  background: var(--penalis-accent-strong);
+  color: #ffffff;
+}
+
+.penalis-quotes-root a.penalis-quotes-cta-btn:focus-visible {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
+}
+
+/* Toolbar */
+.penalis-quotes-root .penalis-quotes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.875rem;
+  margin-bottom: 1.15rem;
+}
+
+.penalis-quotes-root .penalis-quotes-search-wrap {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 400px;
+}
+
+@media (max-width: 640px) {
+  .penalis-quotes-root .penalis-quotes-search-wrap {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}
+
+.penalis-quotes-root .penalis-quotes-search-icon {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--penalis-muted);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.penalis-quotes-root input.penalis-quotes-search-input {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0.625rem 2.35rem 0.625rem 2.65rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius-control);
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  line-height: 1.4;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.penalis-quotes-root input.penalis-quotes-search-input::-webkit-search-decoration,
+.penalis-quotes-root input.penalis-quotes-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+.penalis-quotes-root input.penalis-quotes-search-input:focus {
+  outline: none;
+  border-color: var(--penalis-accent);
+  box-shadow: 0 0 0 3px var(--penalis-accent-soft);
+}
+
+.penalis-quotes-root button.penalis-quotes-search-clear {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0.28rem;
+  min-height: 0;
+  height: auto;
+  border: none;
+  background: transparent;
+  color: var(--penalis-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.penalis-quotes-root button.penalis-quotes-search-clear:hover {
+  color: var(--penalis-text);
+  background: var(--penalis-fill-strong);
+}
+
+.penalis-quotes-root .penalis-quotes-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.penalis-quotes-root .penalis-quotes-sort-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--penalis-muted);
+  white-space: nowrap;
+}
+
+.penalis-quotes-root .penalis-quotes-sort-text {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.penalis-quotes-root select.penalis-quotes-sort-select {
+  margin: 0;
+  padding: 0.55rem 2.2rem 0.55rem 0.85rem;
+  min-height: 0;
+  height: auto;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius-control);
+  background-color: var(--penalis-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235e6670' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 14px 14px;
+  -webkit-appearance: none;
+  appearance: none;
+  color: var(--penalis-text);
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.penalis-quotes-root select.penalis-quotes-sort-select:focus {
+  outline: none;
+  border-color: var(--penalis-accent);
+  box-shadow: 0 0 0 3px var(--penalis-accent-soft);
+}
+
+.penalis-quotes-root .penalis-quotes-summary {
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--penalis-muted);
+}
+
+/* Grid & Cards */
+.penalis-quotes-root .penalis-quotes-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+@media (max-width: 1024px) {
+  .penalis-quotes-root .penalis-quotes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .penalis-quotes-root .penalis-quotes-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.penalis-quotes-root .penalis-quote-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1.2rem 1.25rem 1rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-surface);
+  box-shadow: var(--penalis-shadow);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.penalis-quotes-root .penalis-quote-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--penalis-shadow-hover);
+  border-color: var(--penalis-border-hover);
+}
+
+.penalis-quotes-root .penalis-quote-card--self {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--penalis-surface) 0%, #f8f4ff 100%);
+  border-color: var(--penalis-accent-border);
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.1);
+}
+
+.penalis-quotes-root .penalis-quote-card--self:hover {
+  border-color: #c4b5fd;
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.16);
+}
+
+.penalis-quotes-root .penalis-quote-card--self img.penalis-quote-card__avatar {
+  box-shadow: 0 0 0 2px var(--penalis-surface), 0 0 0 4px var(--penalis-accent);
+}
+
+.penalis-quotes-root .penalis-quote-card--self::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.65) 48%,
+    rgba(255, 255, 255, 0.2) 55%,
+    transparent 75%
+  );
+  transform: translateX(-120%);
+  pointer-events: none;
+  animation: penalis-quote-card-shine 4.5s ease-in-out infinite;
+}
+
+@keyframes penalis-quote-card-shine {
+  0%, 8% {
+    transform: translateX(-120%);
+  }
+  30%, 100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .penalis-quotes-root .penalis-quote-card--self::after {
+    animation: none;
+    display: none;
+  }
+}
+
+.penalis-quotes-root .penalis-quote-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.penalis-quotes-root .penalis-quote-card__body {
+  flex: 1;
+  margin-bottom: 1rem;
+}
+
+.penalis-quotes-root p.penalis-quote-card__text {
+  margin: 0 0 0.5rem;
+  font-size: 1.02rem;
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--penalis-text);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.penalis-quotes-root .penalis-quote-card__hashtag {
+  display: inline-block;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--penalis-accent);
+  line-height: 1.35;
+}
+
+.penalis-quotes-root .penalis-quote-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--penalis-border);
+}
+
+.penalis-quotes-root .penalis-quote-card__expiry {
+  font-size: 0.78rem;
+  color: var(--penalis-muted);
+}
+
+.penalis-quotes-root a.penalis-quote-card__author {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.penalis-quotes-root a.penalis-quote-card__author:hover .penalis-quote-card__name {
+  color: var(--penalis-accent);
+}
+
+.penalis-quotes-root a.penalis-quote-card__author:focus-visible {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.penalis-quotes-root img.penalis-quote-card__avatar {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--penalis-fill-strong);
+}
+
+.penalis-quotes-root .penalis-quote-card__identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.penalis-quotes-root .penalis-quote-card__name-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.penalis-quotes-root .penalis-quote-card__name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--penalis-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.penalis-quotes-root .penalis-quote-card__verified {
+  display: inline-flex;
+  align-items: center;
+  color: #1d9bf0;
+  flex-shrink: 0;
+}
+
+.penalis-quotes-root .penalis-quote-card__senator {
+  display: inline-flex;
+  align-items: center;
+  color: #d97706;
+  flex-shrink: 0;
+}
+
+.penalis-quotes-root .penalis-quote-card__submeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--penalis-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.penalis-quotes-root .penalis-quote-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.penalis-quotes-root button.penalis-quote-card__btn {
+  margin: 0;
+  padding: 0.32rem 0.6rem;
+  min-height: 0;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius-xs);
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font-size: 0.78rem;
+  font-weight: 500;
+  font-family: inherit;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.penalis-quotes-root button.penalis-quote-card__btn:hover {
+  background: var(--penalis-fill-hover);
+  border-color: var(--penalis-border-hover);
+}
+
+.penalis-quotes-root button.penalis-quote-card__btn.is-copied {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.penalis-quotes-root button.penalis-quote-card__btn:focus-visible,
+.penalis-quotes-root button.penalis-quotes-btn:focus-visible {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
+}
+
+/* Buttons & Load More */
+.penalis-quotes-root .penalis-quotes-loadmore {
+  margin-top: 1.75rem;
+  display: flex;
+  justify-content: center;
+}
+
+.penalis-quotes-root button.penalis-quotes-btn {
+  margin: 0;
+  padding: 0.6rem 1.25rem;
+  min-height: 0;
+  height: auto;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius-control);
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.penalis-quotes-root button.penalis-quotes-btn:hover:not(:disabled) {
+  background: var(--penalis-fill-hover);
+  border-color: var(--penalis-border-hover);
+}
+
+.penalis-quotes-root button.penalis-quotes-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Empty & Error States */
+.penalis-quotes-root .penalis-quotes-state {
+  padding: 3rem 1.5rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius);
+  background: var(--penalis-fill);
+  text-align: center;
+}
+
+.penalis-quotes-root .penalis-quotes-state-title {
+  margin: 0 0 0.45rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--penalis-text);
+}
+
+.penalis-quotes-root .penalis-quotes-state-text {
+  margin: 0 auto 1.25rem;
+  max-width: 480px;
+  font-size: 0.92rem;
+  color: var(--penalis-muted);
+}
+
+/* Skeletons */
+.penalis-quotes-root .penalis-quote-card--skeleton {
+  pointer-events: none;
+}
+
+.penalis-quotes-root .penalis-quote-skeleton {
+  background: var(--penalis-skeleton);
+  border-radius: 6px;
+}
+
+.penalis-quotes-root .penalis-quote-skeleton--tag {
+  width: 112px;
+  height: 20px;
+  margin-bottom: 1rem;
+  border-radius: 9999px;
+}
+
+.penalis-quotes-root .penalis-quote-skeleton--line {
+  width: 100%;
+  height: 18px;
+  margin-bottom: 0.55rem;
+}
+
+.penalis-quotes-root .penalis-quote-skeleton--line-short {
+  width: 72%;
+  height: 18px;
+  margin-bottom: 1.4rem;
+}
+
+.penalis-quotes-root .penalis-quote-skeleton-author {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--penalis-border);
+}
+
+.penalis-quotes-root .penalis-quote-skeleton--avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+}
+
+.penalis-quotes-root .penalis-quote-skeleton--name {
+  width: 130px;
+  height: 16px;
+}

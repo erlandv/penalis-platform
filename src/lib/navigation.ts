@@ -28,6 +28,7 @@ export interface NavGroup {
 const OVERVIEW: NavItem = { view: 'overview', label: 'Ringkasan', icon: 'layoutDashboard' };
 const NOTIFICATIONS: NavItem = { view: 'notifications', label: 'Notifikasi', icon: 'bell' };
 const REVIEW: NavItem = { view: 'review', label: 'Review Karya', icon: 'check' };
+const QUOTES: NavItem = { view: 'quotes', label: 'Kalimat Hari Ini', icon: 'quote' };
 const ARTICLES: NavItem = { view: 'articles', label: 'Daftar Karya', icon: 'fileText' };
 const MEDIA: NavItem = { view: 'media', label: 'Media', icon: 'image' };
 const PROFILE: NavItem = { view: 'profile', label: 'Profil', icon: 'user' };
@@ -49,7 +50,7 @@ export function navGroupsForRole(role: DashboardRole): NavGroup[] {
       {
         id: 'curation',
         label: 'Kurasi',
-        items: [OVERVIEW, REVIEW, NOTIFICATIONS],
+        items: [OVERVIEW, REVIEW, QUOTES, NOTIFICATIONS],
       },
       {
         id: 'account',
@@ -94,6 +95,7 @@ const VIEWS: readonly ViewName[] = [
   'settings',
   'media',
   'review',
+  'quotes',
 ];
 
 /** Whether a query-string value names a dashboard view. */

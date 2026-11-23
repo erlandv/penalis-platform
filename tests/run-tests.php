@@ -58,6 +58,8 @@ require_once __DIR__ . '/../includes/class-email-change.php';
 require_once __DIR__ . '/../includes/class-turnstile.php';
 require_once __DIR__ . '/../includes/class-revisions.php';
 require_once __DIR__ . '/../includes/class-authors.php';
+require_once __DIR__ . '/../includes/class-daily-quotes.php';
+require_once __DIR__ . '/../includes/class-daily-quotes-admin.php';
 require_once __DIR__ . '/../includes/class-author-archive.php';
 
 $GLOBALS['penalis_failures'] = 0;
@@ -6063,6 +6065,192 @@ penalis_same( '1', $penalis_first_week->format( 'N' ), 'Weeks start on Monday.' 
 penalis_same( '00:00', $penalis_first_week->format( 'H:i' ), 'Weeks start at midnight.' );
 penalis_assert( $penalis_week_bounds[8] > strtotime( '2026-11-19 10:00:00' ), 'The window ends after the reference date.' );
 penalis_same( 8, count( Penalis_Analytics::bucket_timestamps( array(), $penalis_week_bounds ) ), 'Buckets match the requested week count.' );
+
+/* -------------------------------------------------------------------------
+ * #KalimatHariIni: pure policy, 24h expiry, 3x/24h quota, public feed, page
+ * ---------------------------------------------------------------------- */
+
+penalis_same(
+	"Baris satu\nBaris dua",
+	Penalis_Policy::normalize_daily_quote( "  <b>Baris   satu</b> \r\n\r\n   Baris\tdua  \n " ),
+	'Daily quote normalization strips HTML, collapses spaces, and removes blank lines.'
+);
+penalis_assert(
+	'' !== Penalis_Policy::validate_daily_quote( '   ' ),
+	'Empty #KalimatHariIni is rejected.'
+);
+penalis_assert(
+	'' !== Penalis_Policy::validate_daily_quote( "Satu\nDua\nTiga\nEmpat" ),
+	'#KalimatHariIni with more than 3 lines is rejected.'
+);
+penalis_same(
+	'',
+	Penalis_Policy::validate_daily_quote( str_repeat( 'a', 200 ) ),
+	'#KalimatHariIni at exactly 200 characters is accepted.'
+);
+penalis_assert(
+	'' !== Penalis_Policy::validate_daily_quote( str_repeat( 'a', 201 ) ),
+	'#KalimatHariIni above 200 characters is rejected.'
+);
+penalis_same(
+	'newest',
+	Penalis_Policy::normalize_daily_quotes_sort( 'invalid' ),
+	'Unknown daily quotes sort falls back to newest.'
+);
+
+$penalis_q_now   = 1800000000;
+$penalis_q_quota = Penalis_Policy::daily_quote_rate_state(
+	array( $penalis_q_now - 90000, $penalis_q_now - 1000, $penalis_q_now - 500 ),
+	$penalis_q_now
+);
+penalis_same( 2, $penalis_q_quota['used'], 'Timestamps older than 24 hours roll out of the quota window.' );
+penalis_same( 1, $penalis_q_quota['remaining'], 'One publish slot remains when two occurred within 24 hours.' );
+penalis_same( 0, $penalis_q_quota['reset_at'], 'Reset timestamp is zero while quota remains.' );
+
+// Setup active writers and a non-writer for #KalimatHariIni workflow tests.
+$GLOBALS['penalis_test_users'][501]                = new WP_User( 501, array( Penalis_Roles::ROLE ) );
+$GLOBALS['penalis_test_users'][501]->display_name  = 'Erland Ramdhani';
+$GLOBALS['penalis_test_users'][501]->user_nicename = 'erland';
+update_user_meta( 501, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+update_user_meta( 501, Penalis_Account_Status::META_ACCESS, '1' );
+
+$GLOBALS['penalis_test_users'][502]                = new WP_User( 502, array( Penalis_Roles::ROLE ) );
+$GLOBALS['penalis_test_users'][502]->display_name  = 'Nadia Aksara';
+$GLOBALS['penalis_test_users'][502]->user_nicename = 'nadia';
+update_user_meta( 502, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+update_user_meta( 502, Penalis_Account_Status::META_ACCESS, '1' );
+
+$GLOBALS['penalis_test_users'][503]                = new WP_User( 503, array( 'subscriber' ) );
+$GLOBALS['penalis_test_users'][503]->display_name  = 'Pending User';
+update_user_meta( 503, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_PENDING_VERIFICATION );
+update_user_meta( 503, Penalis_Account_Status::META_ACCESS, '0' );
+
+$penalis_q_pending = Penalis_Daily_Quotes::publish( 503, 'Halo dunia', $penalis_q_now );
+penalis_assert( is_wp_error( $penalis_q_pending ), 'Pending accounts cannot publish #KalimatHariIni.' );
+
+$penalis_q_1 = Penalis_Daily_Quotes::publish( 501, 'Kita gak punya apa-apa selain semangat', $penalis_q_now );
+penalis_assert( is_array( $penalis_q_1 ), 'Active writer can publish #KalimatHariIni.' );
+penalis_same( 'Kita gak punya apa-apa selain semangat', $penalis_q_1['quote']['text'], 'Published quote text is stored.' );
+penalis_same( $penalis_q_now + 86400, $penalis_q_1['quote']['expiresAt'], 'Published quote expires in exactly 24 hours.' );
+penalis_same( 2, $penalis_q_1['quota']['remaining'], 'Publishing once leaves 2 remaining slots in 24 hours.' );
+penalis_same( false, $penalis_q_1['canPublish'], 'Writer cannot publish a second quote while one is active.' );
+
+$penalis_q_dup = Penalis_Daily_Quotes::publish( 501, 'Kalimat kedua tanpa hapus', $penalis_q_now + 10 );
+penalis_assert( is_wp_error( $penalis_q_dup ), 'Publishing while a quote is still active returns an error.' );
+penalis_same( 'penalis_quote_already_active', $penalis_q_dup->get_error_code(), 'Duplicate active quote uses penalis_quote_already_active code.' );
+
+// Delete and publish 2nd & 3rd quotes within 24 hours; 4th must be rate-limited.
+Penalis_Daily_Quotes::delete_for_user( 501, $penalis_q_now + 60 );
+penalis_same( null, Penalis_Daily_Quotes::get_active_for_user( 501, $penalis_q_now + 60 ), 'Deleted quote disappears immediately.' );
+
+$penalis_q_2 = Penalis_Daily_Quotes::publish( 501, 'Kalimat kedua hari ini', $penalis_q_now + 120 );
+penalis_assert( is_array( $penalis_q_2 ), 'Writer can republish after deleting (2nd of 3).' );
+penalis_same( 1, $penalis_q_2['quota']['remaining'], 'Second publish leaves 1 slot remaining.' );
+
+Penalis_Daily_Quotes::delete_for_user( 501, $penalis_q_now + 180 );
+$penalis_q_3 = Penalis_Daily_Quotes::publish( 501, 'Kalimat ketiga hari ini', $penalis_q_now + 240 );
+penalis_assert( is_array( $penalis_q_3 ), 'Writer can publish 3rd quote within 24 hours.' );
+penalis_same( 0, $penalis_q_3['quota']['remaining'], 'Third publish exhausts the 24-hour quota.' );
+penalis_same( $penalis_q_now + 86400, $penalis_q_3['quota']['resetAt'], 'Reset time matches 24 hours after oldest publish in window.' );
+
+Penalis_Daily_Quotes::delete_for_user( 501, $penalis_q_now + 300 );
+$penalis_q_4 = Penalis_Daily_Quotes::publish( 501, 'Kalimat keempat harus ditolak', $penalis_q_now + 360 );
+penalis_assert( is_wp_error( $penalis_q_4 ), 'Fourth publish within 24 hours is blocked.' );
+penalis_same( 'penalis_quote_limit_reached', $penalis_q_4->get_error_code(), '4th publish returns penalis_quote_limit_reached.' );
+
+// After 24 hours have passed since the first publish, one slot opens up again.
+$penalis_q_after_24h = Penalis_Daily_Quotes::publish( 501, 'Kalimat esok hari', $penalis_q_now + 86401 );
+penalis_assert( is_array( $penalis_q_after_24h ), 'Writer can publish again once oldest publish rolls past 24 hours.' );
+
+// Second writer publishes later so newest/oldest sort and search can be verified.
+Penalis_Daily_Quotes::publish( 502, 'Menulis adalah cara paling sunyi untuk bicara', $penalis_q_now + 86500 );
+
+$penalis_feed_newest = Penalis_Daily_Quotes::query_quotes( array( 'sort' => 'newest' ), $penalis_q_now + 86600 );
+penalis_same( 2, $penalis_feed_newest['total'], 'Public feed returns both active quotes.' );
+penalis_same( 502, $penalis_feed_newest['items'][0]['authorId'], 'Newest sort puts latest quote first.' );
+
+$penalis_feed_oldest = Penalis_Daily_Quotes::query_quotes( array( 'sort' => 'oldest' ), $penalis_q_now + 86600 );
+penalis_same( 501, $penalis_feed_oldest['items'][0]['authorId'], 'Oldest sort puts earliest quote first.' );
+
+$penalis_feed_search = Penalis_Daily_Quotes::query_quotes( array( 'search' => 'sunyi' ), $penalis_q_now + 86600 );
+penalis_same( 1, $penalis_feed_search['total'], 'Search matches quote content.' );
+penalis_same( 502, $penalis_feed_search['items'][0]['authorId'], 'Search returns the matching author.' );
+
+// Expiry hides both quotes automatically once 24 hours elapse.
+$penalis_feed_expired = Penalis_Daily_Quotes::query_quotes( array(), $penalis_q_now + 86500 + 86400 );
+penalis_same( 0, $penalis_feed_expired['total'], 'Expired quotes disappear automatically after 24 hours.' );
+
+// Suspending an active writer immediately hides their active quote.
+update_user_meta( 502, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_SUSPENDED );
+update_user_meta( 502, Penalis_Account_Status::META_ACCESS, '0' );
+penalis_same( null, Penalis_Daily_Quotes::get_active_for_user( 502, $penalis_q_now + 86600 ), 'Suspended writer quote is hidden immediately.' );
+
+// Re-activate 502, clear old future-timestamp test quote, and check author archive data + Senator moderation delete.
+update_user_meta( 502, Penalis_Account_Status::META_STATUS, Penalis_Policy::STATUS_ACTIVE );
+update_user_meta( 502, Penalis_Account_Status::META_ACCESS, '1' );
+Penalis_Daily_Quotes::delete_for_user( 502, time() );
+Penalis_Daily_Quotes::publish( 502, 'Kutipan aktif di profil', time() );
+$penalis_archive_profile = Penalis_Author_Archive::get_profile_data( $GLOBALS['penalis_test_users'][502] );
+penalis_assert( is_array( $penalis_archive_profile['daily_quote'] ), 'Author archive profile includes active #KalimatHariIni.' );
+penalis_same( 'Kutipan aktif di profil', $penalis_archive_profile['daily_quote']['text'], 'Author archive profile carries normalized quote text.' );
+
+$penalis_mod_delete = Penalis_Rest_Api::handle_moderate_delete_quote(
+	new WP_REST_Request( 'DELETE', '/penalis/v1/quotes/502', array( 'user_id' => 502 ) )
+);
+penalis_same( true, $penalis_mod_delete->get_data()['deleted'], 'Senator moderation delete succeeds.' );
+penalis_same( null, Penalis_Daily_Quotes::get_active_for_user( 502 ), 'Moderated quote is removed.' );
+
+// Layer 4 (rest_pre_dispatch) allows active writers to publish and delete their own quote,
+// while still refusing cross-writer moderation routes and pending accounts.
+$GLOBALS['penalis_test_current_user'] = 501;
+penalis_same(
+	null,
+	Penalis_Access_Control::guard_rest_request( null, null, new WP_REST_Request( 'POST', '/penalis/v1/quotes' ) ),
+	'Active writer is allowed through rest_pre_dispatch for POST /penalis/v1/quotes.'
+);
+penalis_same(
+	null,
+	Penalis_Access_Control::guard_rest_request( null, null, new WP_REST_Request( 'DELETE', '/penalis/v1/quotes/me' ) ),
+	'Active writer is allowed through rest_pre_dispatch for DELETE /penalis/v1/quotes/me.'
+);
+$penalis_guard_cross_delete = Penalis_Access_Control::guard_rest_request( null, null, new WP_REST_Request( 'DELETE', '/penalis/v1/quotes/502' ) );
+penalis_assert( is_wp_error( $penalis_guard_cross_delete ), 'Active writer is blocked at rest_pre_dispatch from DELETE /penalis/v1/quotes/{user_id}.' );
+penalis_same( 'penalis_rest_forbidden', $penalis_guard_cross_delete->get_error_code(), 'Cross-writer quote delete fails with penalis_rest_forbidden.' );
+
+$GLOBALS['penalis_test_current_user'] = 503;
+$penalis_guard_pending_quote          = Penalis_Access_Control::guard_rest_request( null, null, new WP_REST_Request( 'POST', '/penalis/v1/quotes' ) );
+penalis_assert( is_wp_error( $penalis_guard_pending_quote ), 'Pending user is blocked at rest_pre_dispatch from POST /penalis/v1/quotes.' );
+penalis_same( 'penalis_account_inactive', $penalis_guard_pending_quote->get_error_code(), 'Pending user quote publish fails with penalis_account_inactive.' );
+
+// Activator creates `/kalimat-hari-ini/` page and is idempotent.
+delete_option( Penalis_Daily_Quotes::OPTION_PAGE_ID );
+delete_option( Penalis_Daily_Quotes::OPTION_PAGE_OWNED );
+$penalis_quotes_page_1 = Penalis_Activator::ensure_daily_quotes_page();
+penalis_assert( $penalis_quotes_page_1 > 0, 'Activator creates the /kalimat-hari-ini/ page.' );
+penalis_same( 'kalimat-hari-ini', get_post( $penalis_quotes_page_1 )->post_name, 'Created page uses slug kalimat-hari-ini.' );
+penalis_same( '[penalis_kalimat_hari_ini]', get_post( $penalis_quotes_page_1 )->post_content, 'Created page contains the #KalimatHariIni shortcode.' );
+penalis_same( $penalis_quotes_page_1, Penalis_Activator::ensure_daily_quotes_page(), 'ensure_daily_quotes_page() is idempotent.' );
+
+// wp-admin moderation screen registration and screen detection.
+penalis_assert(
+	Penalis_Admin::is_penalis_screen( 'penalis_page_' . Penalis_Daily_Quotes_Admin::PAGE_SLUG ),
+	'Penalis_Admin::is_penalis_screen() recognizes the Kalimat Hari Ini submenu.'
+);
+penalis_assert(
+	false !== strpos( Penalis_Daily_Quotes_Admin::page_url( array( 's' => 'semangat' ) ), 'page=penalis-quotes' ),
+	'Penalis_Daily_Quotes_Admin::page_url() builds the wp-admin moderation URL.'
+);
+penalis_same(
+	1,
+	Penalis_Daily_Quotes_Admin::active_count(),
+	'active_count() reports 1 when one writer has an active quote.'
+);
+Penalis_Daily_Quotes::delete_for_user( 501 );
+penalis_same(
+	0,
+	Penalis_Daily_Quotes_Admin::active_count(),
+	'active_count() drops to 0 after the remaining active quote is deleted.'
+);
 
 /* -------------------------------------------------------------------------
  * Report

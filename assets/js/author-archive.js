@@ -138,10 +138,41 @@
 		} );
 	}
 
+	function initDailyQuote() {
+		var quoteCard = document.querySelector( '[data-penalis-daily-quote]' );
+		if ( ! quoteCard ) {
+			return;
+		}
+
+		// Hide stale cached quotes immediately if 24h expiry has already passed.
+		var expiresRaw = quoteCard.getAttribute( 'data-expires-at' );
+		var expiresAt = expiresRaw ? parseInt( expiresRaw, 10 ) : 0;
+		if ( expiresAt > 0 && Math.floor( Date.now() / 1000 ) >= expiresAt ) {
+			quoteCard.parentNode.removeChild( quoteCard );
+			return;
+		}
+
+		var copyBtn = quoteCard.querySelector( '[data-penalis-copy-quote]' );
+		if ( copyBtn ) {
+			copyBtn.addEventListener( 'click', function () {
+				var btn = this;
+				var text = btn.getAttribute( 'data-copy-text' ) || '';
+				var labelEl = btn.querySelector( '[data-penalis-copy-quote-label]' );
+				if ( ! text ) {
+					return;
+				}
+				copyText( text ).then( function () {
+					announceCopied( btn, labelEl );
+				} ).catch( function () {} );
+			} );
+		}
+	}
+
 	function init() {
 		initShareButton();
 		initCopyUrlButton();
 		initBioToggle();
+		initDailyQuote();
 	}
 
 	if ( document.readyState === 'loading' ) {

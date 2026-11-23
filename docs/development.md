@@ -44,16 +44,18 @@ npm run check      # Run lint + typecheck + test + build
 
 The production build generates:
 - `build/manifest.json`
-- `build/assets/dashboard-<hash>.js` and `build/assets/dashboard-<hash>.css` (writer dashboard shell)
+- `build/assets/dashboard-<hash>.js` and `build/assets/dashboard-<hash>.css` (writer & Senator dashboard shell)
 - `build/assets/authors-<hash>.js` and `build/assets/authors-<hash>.css` (public `[penalis_authors]` directory)
+- `build/assets/quotes-<hash>.js` and `build/assets/quotes-<hash>.css` (public `[penalis_kalimat_hari_ini]` showcase)
 - `build/assets/RichTextEditor-<hash>.js` (lazy-loaded TipTap editor chunk)
-- `build/assets/icons-<hash>.js` (shared SVG icon chunk)
+- `build/assets/icons-<hash>.js` and `build/assets/dailyQuote-<hash>.js` (shared SVG icon and daily-quote helper chunks)
 
 Dashboard CSS sources live in `src/styles/`: `tokens.css` (shared design
 tokens), `main.css` (an `@import` index), and section files in cascade order
 (`base`, `layout`, `components`, `forms`, `articles`, `editor`, `media`,
-`overlays`, `responsive`, `features`, `notifications`). The authors directory
-has its own `src/authors/authors.css` and imports the same tokens. Vite inlines
+`overlays`, `responsive`, `features`, `notifications`). The public directories
+have their own `src/authors/authors.css` and `src/quotes/quotes.css` and import
+the same tokens. Vite inlines
 these CSS `@import`s, so each entry still produces exactly one CSS file. Do not
 import a shared CSS file from a TSX entry: Vite then emits a separate CSS chunk
 that is absent from the manifest entry's `css` array, and
@@ -86,20 +88,25 @@ composer check           # Run composer lint + php tests/run-tests.php
   policy and state machine, serialized workflow transitions, REST route
   permissions, IDOR guards, post-insert filters, username/email changes,
   author slug redirects, avatar fallback, bounded notifications, public author
-  directory/archive policies (`Penalis_Authors`, `Penalis_Author_Archive`), and
+  directory/archive policies (`Penalis_Authors`, `Penalis_Author_Archive`),
+  `#KalimatHariIni` validation, 24-hour expiry, rolling 3x/24h quota,
+  `rest_pre_dispatch` allowlisting, and wp-admin moderation
+  (`Penalis_Daily_Quotes`, `Penalis_Daily_Quotes_Admin`), and
   timezone-aware / Indonesian date formatting (`Penalis_Datetime` with IANA and
   fixed-offset site timezones, including Jakarta and year rollover).
 
-### 3.2 Frontend Unit Tests (`src/lib/*.test.ts`, `src/authors/*.test.ts`)
+### 3.2 Frontend Unit Tests (`src/lib/*.test.ts`, `src/authors/*.test.ts`, `src/quotes/*.test.ts`)
 - Runs via Vitest in the `node` environment.
-- Tests pure logic across `src/lib/` and `src/authors/`: validation rules
+- Tests pure logic across `src/lib/`, `src/authors/`, and `src/quotes/`: validation rules
   including `validatePasswordPair()` (`validation.test.ts`), deeplink parsing and
   token shape checks (`deeplink.test.ts`), verification code normalization,
   countdown formatting, and `toActiveChallenge()` (`otp.test.ts`), HTML
   normalization (`html.test.ts`), formatting (`format.test.ts`), public display
   name derivation (`profile.test.ts`), image crop math (`crop.test.ts`),
   lazy-chunk retry/preload helpers (`lazyWithRetry.test.ts`), public authors
-  URL query state (`src/authors/query.test.ts`), notification feed
+  URL query state (`src/authors/query.test.ts`), public `#KalimatHariIni` URL
+  query state and client-side quote normalization/time formatting
+  (`src/quotes/query.test.ts`), notification feed
   filtering/grouping (`src/features/notifications/query.test.ts`), and the
   dashboard role model (`permissions.test.ts`, `navigation.test.ts`).
 - `permissions.test.ts` pins the rule that matters most: a staff account that
@@ -204,9 +211,11 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
 
 1. **Activation & Admin Console**
    - Activate **Penalis Platform**, save **Settings → Permalinks**, and verify
-     that `/dashboard/` loads and the top-level **Penalis** menu appears in
-     `wp-admin` with submenus **Ringkasan**, **Review Karya Tulis**,
-     **Penulis Penalis**, and **Pengaturan** (administrators only).
+     that `/dashboard/` and `/kalimat-hari-ini/` load and the top-level
+     **Penalis** menu appears in `wp-admin` with submenus **Ringkasan**,
+     **Review Karya Tulis**, **Karya Terhapus**, **Kalimat Hari Ini**,
+     **Penulis Penalis**, **Log Email**, and **Pengaturan** (administrators
+     only).
    - Open **Penalis → Pengaturan** and confirm the three tabs render:
      `Keamanan`, `Foto Profil` (media picker opens), and `Email` (template
      editor with its group tabs). The retired
@@ -252,8 +261,8 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
      click **Submit Ulang**.
    - In `/dashboard/`, verify the Senator experience: the title reads
      **Dashboard Senator** with a role chip, the navigation is Ringkasan /
-     Review Karya / Notifikasi / Pengaturan only, and a deep link to
-     `?view=editor` lands on Ringkasan with an explanatory notice.
+     Review Karya / Kalimat Hari Ini / Notifikasi / Pengaturan only, and a deep
+     link to `?view=editor` lands on Ringkasan with an explanatory notice.
 6. **Editorial Review: Approval & Read-Only Published State**
    - As a Senator (administrator or editor), click **Setujui dan terbitkan**
      and confirm.
@@ -283,7 +292,24 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
     - Open `/author/<username>/` (with any Elementor author archive display
       condition removed) and confirm the profile card, `Bagikan` native
       share / copy fallback, copyable profile URL, `Bergabung <Bulan> <Tahun>`
-      in Indonesian, owner-only `Edit Profil` / `Tulis Karya` buttons below the
-      bio, 3-column works grid with `dd/mm/yyyy` dates, and WordPress pagination
-      on desktop and mobile viewports.
+      in Indonesian, owner-only `Edit Profil` / `Tulis Karya` /
+      `#KalimatHariIni` buttons below the bio, 3-column works grid with
+      `dd/mm/yyyy` dates, and WordPress pagination on desktop and mobile
+      viewports.
+11. **`#KalimatHariIni` (Writer, Public Showcase & Senator Moderation)**
+    - Confirm activation/upgrade creates `/kalimat-hari-ini/` containing
+      `[penalis_kalimat_hari_ini]`.
+    - As an active writer on `/dashboard/` (**Ringkasan**), publish a
+      `#KalimatHariIni` (verify the 200-character and 3-line limits), confirm
+      the social-note card appears below the profile card on
+      `/author/<username>/` (with clickable `#KalimatHariIni` hashtag and
+      **Salin** button) and on `/kalimat-hari-ini/` (with the subtle self-card
+      highlight/shine and no `"You"` pill).
+    - Delete the active quote from `/dashboard/`, republish twice more within
+      24 hours, and confirm the 4th publish attempt is blocked (`429`) until the
+      rolling 24-hour window opens.
+    - As a Senator (administrator or editor), verify `/kalimat-hari-ini/` shows
+      no inline delete button and that active quotes can be searched, paginated,
+      and removed from both `/dashboard/?view=quotes` (**Kalimat Hari Ini**) and
+      `wp-admin` (**Penalis → Kalimat Hari Ini**).
 

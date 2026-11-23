@@ -30,6 +30,11 @@ final class Penalis_Activator {
 	public const LEGACY_SLUG = 'penalis-dashboard';
 
 	/**
+	 * Preferred #KalimatHariIni page slug.
+	 */
+	public const DAILY_QUOTES_SLUG = Penalis_Daily_Quotes::PAGE_SLUG;
+
+	/**
 	 * Run on activation.
 	 *
 	 * @return void
@@ -48,6 +53,7 @@ final class Penalis_Activator {
 		}
 
 		self::ensure_dashboard_page();
+		self::ensure_daily_quotes_page();
 		flush_rewrite_rules( false );
 
 		set_transient( 'penalis_activation_notice', '1', 60 );
@@ -102,6 +108,64 @@ final class Penalis_Activator {
 
 		update_option( 'penalis_dashboard_page_id', (int) $page_id, false );
 		update_option( 'penalis_dashboard_page_created_by_plugin', '1', false );
+
+		return (int) $page_id;
+	}
+
+	/**
+	 * Create the public #KalimatHariIni page (`/kalimat-hari-ini/`) if it does not exist.
+	 *
+	 * Existing pages are never modified. If a page with the preferred slug
+	 * already holds the shortcode, its ID is stored without marking it as
+	 * plugin-created so opt-in uninstall leaves it alone.
+	 *
+	 * @return int Page ID, or 0 on failure.
+	 */
+	public static function ensure_daily_quotes_page() {
+		$existing_id = (int) get_option( Penalis_Daily_Quotes::OPTION_PAGE_ID, 0 );
+
+		if ( $existing_id > 0 ) {
+			$existing = get_post( $existing_id );
+			if ( $existing && 'page' === $existing->post_type && 'trash' !== $existing->post_status ) {
+				return $existing_id;
+			}
+		}
+
+		if ( function_exists( 'get_page_by_path' ) ) {
+			$slug_match = get_page_by_path( self::DAILY_QUOTES_SLUG, OBJECT, 'page' );
+			if (
+				$slug_match instanceof WP_Post &&
+				'trash' !== $slug_match->post_status &&
+				false !== strpos( (string) $slug_match->post_content, '[' . Penalis_Daily_Quotes::SHORTCODE . ']' )
+			) {
+				update_option( Penalis_Daily_Quotes::OPTION_PAGE_ID, (int) $slug_match->ID, false );
+				return (int) $slug_match->ID;
+			}
+		}
+
+		$page_id = wp_insert_post(
+			array(
+				'post_title'     => 'Kalimat Hari Ini',
+				'post_name'      => self::DAILY_QUOTES_SLUG,
+				'post_content'   => '[' . Penalis_Daily_Quotes::SHORTCODE . ']',
+				'post_status'    => 'publish',
+				'post_type'      => 'page',
+				'comment_status' => 'closed',
+				'ping_status'    => 'closed',
+				'post_author'    => self::acting_admin_id(),
+				'meta_input'     => array(
+					'_penalis_daily_quotes_page' => '1',
+				),
+			),
+			true
+		);
+
+		if ( is_wp_error( $page_id ) || ! $page_id ) {
+			return 0;
+		}
+
+		update_option( Penalis_Daily_Quotes::OPTION_PAGE_ID, (int) $page_id, false );
+		update_option( Penalis_Daily_Quotes::OPTION_PAGE_OWNED, '1', false );
 
 		return (int) $page_id;
 	}

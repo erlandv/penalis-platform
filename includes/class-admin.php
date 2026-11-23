@@ -139,6 +139,7 @@ final class Penalis_Admin {
 			self::PAGE_SLUG,
 			Penalis_Editorial_Admin::PAGE_SLUG,
 			Penalis_Editorial_Admin::TRASHED_PAGE_SLUG,
+			Penalis_Daily_Quotes_Admin::PAGE_SLUG,
 			Penalis_Settings::PAGE_SLUG,
 			Penalis_Email_Log_Admin::PAGE_SLUG,
 		);

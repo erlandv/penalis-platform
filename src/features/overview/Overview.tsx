@@ -28,6 +28,7 @@ import {
 } from '../../components/ui';
 import { NotificationList } from '../notifications/NotificationList';
 import type { NotificationsController } from '../notifications/useNotifications';
+import { DailyQuotePanel } from '../quotes/DailyQuotePanel';
 
 const PREVIEW_NOTIFICATIONS = 3;
 const PREVIEW_ARTICLES = 3;
@@ -303,6 +304,8 @@ export function Overview({
           </button>
         </div>
       ) : null}
+
+      {role === 'writer' ? <DailyQuotePanel account={account} /> : null}
 
       {canSeeNotifications ? (
         <Panel

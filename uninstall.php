@@ -30,6 +30,9 @@ delete_metadata( 'user', 0, '_penalis_author_history_reserved', '', true );
 delete_metadata( 'user', 0, '_penalis_notifications', '', true );
 delete_metadata( 'user', 0, '_penalis_is_senator', '', true );
 delete_metadata( 'user', 0, '_penalis_avatar_file', '', true );
+delete_metadata( 'user', 0, '_penalis_daily_quote', '', true );
+delete_metadata( 'user', 0, '_penalis_daily_quote_expires', '', true );
+delete_metadata( 'user', 0, '_penalis_daily_quote_publishes', '', true );
 
 // Remove derived standalone avatar files when the site owner opted into data removal.
 $penalis_uploads = wp_upload_dir();
@@ -77,6 +80,12 @@ foreach ( $penalis_post_meta_keys as $penalis_post_meta_key ) {
 // Remove the plugin role.
 remove_role( 'penalis_writer' );
 
+// Read plugin-owned page flags before removing plugin options.
+$penalis_page_id        = (int) get_option( 'penalis_dashboard_page_id', 0 );
+$penalis_page_owned     = '1' === get_option( 'penalis_dashboard_page_created_by_plugin', '0' );
+$penalis_quotes_page_id = (int) get_option( 'penalis_daily_quotes_page_id', 0 );
+$penalis_quotes_owned   = '1' === get_option( 'penalis_daily_quotes_page_created_by_plugin', '0' );
+
 // Delete plugin options.
 $penalis_options = array(
 	'penalis_platform_version',
@@ -84,6 +93,8 @@ $penalis_options = array(
 	'penalis_registration_enabled',
 	'penalis_remove_data_on_uninstall',
 	'penalis_dashboard_page_created_by_plugin',
+	'penalis_daily_quotes_page_id',
+	'penalis_daily_quotes_page_created_by_plugin',
 	'penalis_dashboard_captcha_enabled',
 	'penalis_dashboard_captcha_audit',
 	'penalis_registration_audit',
@@ -104,13 +115,21 @@ foreach ( $penalis_options as $penalis_option ) {
 
 // Delete transients used for operational state.
 delete_transient( 'penalis_activation_notice' );
+delete_transient( 'penalis_daily_quotes_v1' );
 
 // Remove the dashboard page only if this plugin created it.
-$penalis_page_id = (int) get_option( 'penalis_dashboard_page_id', 0 );
-if ( $penalis_page_id > 0 && '1' === get_option( 'penalis_dashboard_page_created_by_plugin', '0' ) ) {
+if ( $penalis_page_id > 0 && $penalis_page_owned ) {
 	$penalis_page = get_post( $penalis_page_id );
 	if ( $penalis_page && false !== strpos( (string) $penalis_page->post_content, '[penalis_dashboard]' ) ) {
 		wp_delete_post( $penalis_page_id, true );
+	}
+}
+
+// Remove the #KalimatHariIni page only if this plugin created it.
+if ( $penalis_quotes_page_id > 0 && $penalis_quotes_owned ) {
+	$penalis_quotes_page = get_post( $penalis_quotes_page_id );
+	if ( $penalis_quotes_page && false !== strpos( (string) $penalis_quotes_page->post_content, '[penalis_kalimat_hari_ini]' ) ) {
+		wp_delete_post( $penalis_quotes_page_id, true );
 	}
 }
 

@@ -17,7 +17,8 @@
    ========================================================================== */
 
 .penalis-dashboard-root,
-.penalis-authors-root {
+.penalis-authors-root,
+.penalis-quotes-root {
   --penalis-bg: #f7f9f8;
   --penalis-bg-fade: rgba(247, 249, 248, 0);
   --penalis-surface: #ffffff;
