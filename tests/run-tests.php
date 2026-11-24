@@ -60,6 +60,7 @@ require_once __DIR__ . '/../includes/class-revisions.php';
 require_once __DIR__ . '/../includes/class-authors.php';
 require_once __DIR__ . '/../includes/class-daily-quotes.php';
 require_once __DIR__ . '/../includes/class-daily-quotes-admin.php';
+require_once __DIR__ . '/../includes/class-article-share.php';
 require_once __DIR__ . '/../includes/class-author-archive.php';
 
 $GLOBALS['penalis_failures'] = 0;
@@ -6360,6 +6361,107 @@ penalis_same(
 	0,
 	count( Penalis_Editorial_Notifications::get_for_user( 501 ) ),
 	'Self-deleting a quote does not trigger a takedown notification.'
+);
+
+$penalis_brand = Penalis_Dashboard::brand_assets();
+penalis_assert(
+	false !== strpos( $penalis_brand['logoUrl'], 'assets/images/logo.png' ),
+	'brand_assets() exposes the bundled Penalis wordmark logo.'
+);
+penalis_assert(
+	false !== strpos( $penalis_brand['iconUrl'], 'assets/images/icon.png' ),
+	'brand_assets() exposes the bundled Penalis square icon.'
+);
+penalis_assert(
+	is_readable( PENALIS_PLATFORM_DIR . 'assets/images/logo.png' ) && is_readable( PENALIS_PLATFORM_DIR . 'assets/images/icon.png' ),
+	'Bundled logo.png and icon.png exist inside assets/images/.'
+);
+
+// Article share card: clean excerpt spacing, payload, shortcode, and auto-append deduplication.
+Penalis_Article_Share::reset_state();
+$penalis_poem_post                = new WP_Post();
+$penalis_poem_post->ID            = 710;
+$penalis_poem_post->post_author   = 501;
+$penalis_poem_post->post_type     = 'post';
+$penalis_poem_post->post_status   = 'publish';
+$penalis_poem_post->post_title    = 'Wayang Topeng';
+$penalis_poem_post->post_excerpt  = '';
+$penalis_poem_post->post_content  = '<p>Sejatinya setiap masa<br>Adalah<br/>Bermain peran</p><p>Berbagi peran</p>';
+$penalis_poem_post->post_date_gmt = '2026-05-22 08:00:00';
+$GLOBALS['penalis_test_posts'][710] = $penalis_poem_post;
+
+penalis_same(
+	'Sejatinya setiap masa Adalah Bermain peran Berbagi peran',
+	Penalis_Article_Share::clean_excerpt( $penalis_poem_post, 20 ),
+	'clean_excerpt() inserts spaces at <br> and </p> boundaries so poetry lines do not glue together.'
+);
+
+$penalis_article_payload = Penalis_Article_Share::build_article_payload( $penalis_poem_post );
+penalis_same( 'Wayang Topeng', $penalis_article_payload['title'], 'build_article_payload() returns decoded article title.' );
+penalis_same( 'Erland Ramdhani', $penalis_article_payload['displayName'], 'build_article_payload() includes author display name.' );
+penalis_same( 'erland', $penalis_article_payload['username'], 'build_article_payload() includes author username.' );
+
+$penalis_embed_first  = Penalis_Article_Share::render_embedded_payload( $penalis_poem_post );
+$penalis_embed_second = Penalis_Article_Share::render_embedded_payload( $penalis_poem_post );
+penalis_assert( false !== strpos( $penalis_embed_first, 'data-penalis-article-card="710"' ), 'render_embedded_payload() outputs JSON script tag for article.' );
+penalis_same( '', $penalis_embed_second, 'render_embedded_payload() emits at most once per post per request.' );
+
+Penalis_Article_Share::reset_state();
+$penalis_shortcode_html = Penalis_Article_Share::render_shortcode( array( 'id' => 710 ) );
+penalis_assert( false !== strpos( $penalis_shortcode_html, 'data-penalis-open-card="article"' ), '[penalis_share_article] renders share trigger button for published posts.' );
+penalis_assert( false !== strpos( $penalis_shortcode_html, 'data-penalis-article-id="710"' ), '[penalis_share_article] tags button with post ID.' );
+
+$penalis_draft_post              = new WP_Post();
+$penalis_draft_post->ID          = 711;
+$penalis_draft_post->post_author = 501;
+$penalis_draft_post->post_type   = 'post';
+$penalis_draft_post->post_status = 'draft';
+$penalis_draft_post->post_title  = 'Draft Rahasia';
+$GLOBALS['penalis_test_posts'][711] = $penalis_draft_post;
+penalis_same(
+	'',
+	Penalis_Article_Share::render_shortcode( array( 'id' => 711 ) ),
+	'[penalis_share_article] renders nothing for unpublished drafts.'
+);
+
+// Auto-append on single posts skips when shortcode was already rendered for the same post.
+$GLOBALS['penalis_test_is_singular']     = 'post';
+$GLOBALS['penalis_test_in_the_loop']     = true;
+$GLOBALS['penalis_test_is_main_query']   = true;
+$GLOBALS['penalis_test_is_feed']         = false;
+$GLOBALS['penalis_test_current_post_id'] = 710;
+$GLOBALS['post']                         = $penalis_poem_post;
+
+penalis_same(
+	'<p>Isi puisi</p>',
+	Penalis_Article_Share::append_single_post_bar( '<p>Isi puisi</p>' ),
+	'append_single_post_bar() skips auto-bar when [penalis_share_article] already rendered on the post.'
+);
+
+Penalis_Article_Share::reset_state();
+$penalis_auto_bar_html = Penalis_Article_Share::append_single_post_bar( '<p>Isi puisi</p>' );
+penalis_assert( false !== strpos( $penalis_auto_bar_html, 'penalis-article-share-bar' ), 'append_single_post_bar() appends share bar on single published posts when shortcode is absent.' );
+penalis_assert( false !== strpos( $penalis_auto_bar_html, 'data-penalis-article-card="710"' ), 'append_single_post_bar() embeds JSON payload once.' );
+
+// Theme below-article hook renders cleanly and never duplicates after the_content bar.
+ob_start();
+Penalis_Article_Share::render_below_article_hook();
+$penalis_dup_below = ob_get_clean();
+penalis_same( '', $penalis_dup_below, 'render_below_article_hook() does not render a duplicate bar on the same post.' );
+
+Penalis_Article_Share::reset_state();
+ob_start();
+Penalis_Article_Share::render_below_article_hook();
+$penalis_below_html = ob_get_clean();
+penalis_assert( false !== strpos( $penalis_below_html, 'penalis-article-share-bar' ), 'render_below_article_hook() renders share bar below content/tags on Atlas.' );
+
+unset(
+	$GLOBALS['penalis_test_is_singular'],
+	$GLOBALS['penalis_test_in_the_loop'],
+	$GLOBALS['penalis_test_is_main_query'],
+	$GLOBALS['penalis_test_is_feed'],
+	$GLOBALS['penalis_test_current_post_id'],
+	$GLOBALS['post']
 );
 
 /* -------------------------------------------------------------------------

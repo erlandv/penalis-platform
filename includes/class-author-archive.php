@@ -17,7 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Penalis_Author_Archive {
 
-	public const ASSET_HANDLE = 'penalis-author-archive';
+	public const ASSET_HANDLE      = 'penalis-author-archive';
+	public const SHARE_CARD_HANDLE = 'penalis-author-archive-card';
 
 	/**
 	 * Register hooks.
@@ -27,6 +28,7 @@ final class Penalis_Author_Archive {
 	public static function init() {
 		add_filter( 'template_include', array( __CLASS__, 'maybe_use_template' ), 99 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_assets' ) );
+		add_filter( 'script_loader_tag', array( __CLASS__, 'module_script_tag' ), 10, 3 );
 		add_filter( 'body_class', array( __CLASS__, 'body_class' ) );
 	}
 
@@ -100,6 +102,62 @@ final class Penalis_Author_Archive {
 
 		wp_enqueue_style( self::ASSET_HANDLE, $css['url'], array(), $css['version'] );
 		wp_enqueue_script( self::ASSET_HANDLE, $js['url'], array(), $js['version'], true );
+
+		$author = self::resolve_queried_author();
+		if ( ! $author instanceof WP_User ) {
+			return;
+		}
+
+		if ( ! Penalis_Dashboard::enqueue_vite_entry( 'src/share-card/author-archive.ts', self::SHARE_CARD_HANDLE ) ) {
+			return;
+		}
+
+		$data  = self::get_profile_data( $author );
+		$brand = Penalis_Dashboard::brand_assets();
+		$quote = is_array( $data['daily_quote'] ) ? array(
+			'text'        => (string) $data['daily_quote']['text'],
+			'displayName' => (string) $data['display_name'],
+			'username'    => (string) $data['username'],
+			'avatarUrl'   => (string) $data['avatar_url'],
+			'authorUrl'   => (string) $data['profile_url'],
+			'siteUrl'     => (string) $data['daily_quotes_url'],
+			'isVerified'  => ! empty( $data['is_verified'] ),
+			'isSenator'   => ! empty( $data['is_senator'] ),
+		) : null;
+
+		wp_localize_script(
+			self::SHARE_CARD_HANDLE,
+			'penalisAuthorArchive',
+			array(
+				'brandLogoUrl' => $brand['logoUrl'],
+				'brandIconUrl' => $brand['iconUrl'],
+				'profile'      => array(
+					'displayName' => (string) $data['display_name'],
+					'username'    => (string) $data['username'],
+					'avatarUrl'   => (string) $data['avatar_url'],
+					'profileUrl'  => (string) $data['profile_url'],
+					'bio'         => (string) $data['bio'],
+					'postCount'   => (int) $data['post_count'],
+					'totalViews'  => null === $data['total_views'] ? null : (int) $data['total_views'],
+					'joinedLabel' => (string) $data['joined_label'],
+					'isVerified'  => ! empty( $data['is_verified'] ),
+					'isSenator'   => ! empty( $data['is_senator'] ),
+				),
+				'quote'        => $quote,
+			)
+		);
+	}
+
+	/**
+	 * Load the author archive share-card bundle as an ES module.
+	 *
+	 * @param string $tag    Script tag.
+	 * @param string $handle Script handle.
+	 * @param string $src    Script source URL.
+	 * @return string
+	 */
+	public static function module_script_tag( $tag, $handle, $src ) {
+		return Penalis_Dashboard::format_module_script_tag( $tag, $handle, $src, self::SHARE_CARD_HANDLE );
 	}
 
 	/**

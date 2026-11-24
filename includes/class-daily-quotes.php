@@ -165,6 +165,8 @@ final class Penalis_Daily_Quotes {
 		$is_staff  = $user_id > 0 && Penalis_Editorial_Workflow::can_review( $user_id );
 		$can_write = $user_id > 0 && ! $is_staff && Penalis_Account_Status::can_write( $user_id );
 
+		$brand = Penalis_Dashboard::brand_assets();
+
 		wp_localize_script(
 			self::ASSET_HANDLE,
 			'penalisDailyQuotes',
@@ -176,6 +178,8 @@ final class Penalis_Daily_Quotes {
 				'canWrite'      => $can_write,
 				'isStaff'       => $is_staff,
 				'dashboardUrl'  => esc_url_raw( Penalis_Dashboard::dashboard_url() . '#kalimat-hari-ini' ),
+				'brandLogoUrl'  => $brand['logoUrl'],
+				'brandIconUrl'  => $brand['iconUrl'],
 			)
 		);
 	}

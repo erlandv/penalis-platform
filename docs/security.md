@@ -166,8 +166,20 @@ unauthorized publishing:
     while `Penalis_Account_Status::can_write()` holds, so suspending a writer
     hides their quote immediately. Staff moderation (`DELETE /penalis/v1/quotes/{user_id}`
     and `admin-post.php?action=penalis_delete_quote_action`) requires
-    `edit_others_posts` plus nonce verification, and the public
-    `/kalimat-hari-ini/` page never exposes a moderation nonce or delete control.
+    `edit_others_posts`, nonce verification, and a sanitized plain-text removal
+    reason (1–300 characters); deleting records a dashboard-only `quote_removed`
+    notification (never emailing quote text or bypassing privacy boundaries). The
+    public `/kalimat-hari-ini/` page never exposes a moderation nonce or delete
+    control.
+- **Public Share Card Payloads (`Penalis_Article_Share`, `Penalis_Author_Archive`):**
+  - Embedded `<script type="application/json">` payloads for published articles
+    and author profiles are encoded with `JSON_HEX_TAG | JSON_HEX_AMP` to prevent
+    script-tag breakout, and `Penalis_Article_Share` strictly refuses non-`post`
+    or non-`publish` records so drafts, pending reviews, and private posts can
+    never be serialized into public markup. Image assets (`brandLogoUrl`,
+    `brandIconUrl`, avatars, featured covers) are normalized to same-origin URLs
+    via `Penalis_Dashboard::ensure_same_origin_url()` so Canvas 2D export never
+    taints or leaks cross-origin credentials.
 
 ---
 

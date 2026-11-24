@@ -47,15 +47,17 @@ The production build generates:
 - `build/assets/dashboard-<hash>.js` and `build/assets/dashboard-<hash>.css` (writer & Senator dashboard shell)
 - `build/assets/authors-<hash>.js` and `build/assets/authors-<hash>.css` (public `[penalis_authors]` directory)
 - `build/assets/quotes-<hash>.js` and `build/assets/quotes-<hash>.css` (public `[penalis_kalimat_hari_ini]` showcase)
+- `build/assets/shareCard-<hash>.js` (lightweight vanilla-TS share-card modal bundle for public author archives and single posts — zero React)
 - `build/assets/RichTextEditor-<hash>.js` (lazy-loaded TipTap editor chunk)
-- `build/assets/icons-<hash>.js` and `build/assets/dailyQuote-<hash>.js` (shared SVG icon and daily-quote helper chunks)
+- `build/assets/icons-<hash>.js`, `build/assets/dailyQuote-<hash>.js`, and `build/assets/ShareCardModal-<hash>.js` / `build/assets/shareCard-*.js` (shared SVG icon, daily-quote, and Canvas share-card chunks)
 
 Dashboard CSS sources live in `src/styles/`: `tokens.css` (shared design
 tokens), `main.css` (an `@import` index), and section files in cascade order
 (`base`, `layout`, `components`, `forms`, `articles`, `editor`, `media`,
-`overlays`, `responsive`, `features`, `notifications`). The public directories
-have their own `src/authors/authors.css` and `src/quotes/quotes.css` and import
-the same tokens. Vite inlines
+`overlays`, `responsive`, `features`, `notifications`, `share-card`). The public
+directories have their own `src/authors/authors.css` and `src/quotes/quotes.css`
+and import the same tokens (and `quotes.css` also `@import`s
+`../styles/share-card.css`). Vite inlines
 these CSS `@import`s, so each entry still produces exactly one CSS file. Do not
 import a shared CSS file from a TSX entry: Vite then emits a separate CSS chunk
 that is absent from the manifest entry's `css` array, and
@@ -90,8 +92,12 @@ composer check           # Run composer lint + php tests/run-tests.php
   author slug redirects, avatar fallback, bounded notifications, public author
   directory/archive policies (`Penalis_Authors`, `Penalis_Author_Archive`),
   `#KalimatHariIni` validation, 24-hour expiry, rolling 3x/24h quota,
-  `rest_pre_dispatch` allowlisting, and wp-admin moderation
-  (`Penalis_Daily_Quotes`, `Penalis_Daily_Quotes_Admin`), and
+  `rest_pre_dispatch` allowlisting, required takedown reasons, dashboard-only
+  `quote_removed` notifications, and wp-admin moderation (`Penalis_Daily_Quotes`,
+  `Penalis_Daily_Quotes_Admin`), shareable article cards (`Penalis_Article_Share`:
+  `clean_excerpt()`, payload serialization, `[penalis_share_article]` shortcode,
+  single-post auto-bar deduplication, and `penalis_auto_append_article_share`
+  opt-out filter), `Penalis_Dashboard::brand_assets()`, and
   timezone-aware / Indonesian date formatting (`Penalis_Datetime` with IANA and
   fixed-offset site timezones, including Jakarta and year rollover).
 
@@ -103,12 +109,14 @@ composer check           # Run composer lint + php tests/run-tests.php
   countdown formatting, and `toActiveChallenge()` (`otp.test.ts`), HTML
   normalization (`html.test.ts`), formatting (`format.test.ts`), public display
   name derivation (`profile.test.ts`), image crop math (`crop.test.ts`),
+  Canvas share-card formats, themes, dynamic font resolution, text wrapping,
+  filenames, and copy-to-clipboard metadata (`shareCard.test.ts`),
   lazy-chunk retry/preload helpers (`lazyWithRetry.test.ts`), public authors
   URL query state (`src/authors/query.test.ts`), public `#KalimatHariIni` URL
   query state and client-side quote normalization/time formatting
   (`src/quotes/query.test.ts`), notification feed
-  filtering/grouping (`src/features/notifications/query.test.ts`), and the
-  dashboard role model (`permissions.test.ts`, `navigation.test.ts`).
+  filtering/grouping including `quote_removed` (`src/features/notifications/query.test.ts`),
+  and the dashboard role model (`permissions.test.ts`, `navigation.test.ts`).
 - `permissions.test.ts` pins the rule that matters most: a staff account that
   also carries writer access still resolves to `administrator`/`editor`, so the
   writer UI never opens for it. `navigation.test.ts` pins the per-role nav sets,
@@ -290,12 +298,12 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
       and subtle accent highlight + `You` pill on the signed-in author's own
       card.
     - Open `/author/<username>/` (with any Elementor author archive display
-      condition removed) and confirm the profile card, `Bagikan` native
-      share / copy fallback, copyable profile URL, `Bergabung <Bulan> <Tahun>`
-      in Indonesian, owner-only `Edit Profil` / `Tulis Karya` /
-      `#KalimatHariIni` buttons below the bio, 3-column works grid with
-      `dd/mm/yyyy` dates, and WordPress pagination on desktop and mobile
-      viewports.
+      condition removed) and confirm the profile card, unified **Bagikan**
+      trigger (opening the Share Card modal), copyable profile URL,
+      `Bergabung <Bulan> <Tahun>` in Indonesian, owner-only `Edit Profil` /
+      `Tulis Karya` / `#KalimatHariIni` buttons below the bio, 3-column works
+      grid with `dd/mm/yyyy` dates, spaced poetry excerpts, per-card **Bagikan**
+      trigger, and WordPress pagination on desktop and mobile viewports.
 11. **`#KalimatHariIni` (Writer, Public Showcase & Senator Moderation)**
     - Confirm activation/upgrade creates `/kalimat-hari-ini/` containing
       `[penalis_kalimat_hari_ini]`.
@@ -303,13 +311,31 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
       `#KalimatHariIni` (verify the 200-character and 3-line limits), confirm
       the social-note card appears below the profile card on
       `/author/<username>/` (with clickable `#KalimatHariIni` hashtag and
-      **Salin** button) and on `/kalimat-hari-ini/` (with the subtle self-card
-      highlight/shine and no `"You"` pill).
+      unified **Bagikan** button) and on `/kalimat-hari-ini/` (with the subtle
+      self-card highlight/shine, unified **Bagikan** button, and no `"You"` pill).
     - Delete the active quote from `/dashboard/`, republish twice more within
       24 hours, and confirm the 4th publish attempt is blocked (`429`) until the
       rolling 24-hour window opens.
     - As a Senator (administrator or editor), verify `/kalimat-hari-ini/` shows
       no inline delete button and that active quotes can be searched, paginated,
-      and removed from both `/dashboard/?view=quotes` (**Kalimat Hari Ini**) and
-      `wp-admin` (**Penalis → Kalimat Hari Ini**).
+      and removed with a mandatory reason (testing quick-reason chips and empty
+      validation) from both `/dashboard/?view=quotes` (**Kalimat Hari Ini**) and
+      `wp-admin` (**Penalis → Kalimat Hari Ini**). Confirm the writer receives a
+      dashboard-only `#KalimatHariIni dihapus` notification containing the
+      reason, and that no email is sent.
+12. **Shareable Social Cards (Profile, `#KalimatHariIni`, and Published Articles)**
+    - Trigger **Bagikan** on `/author/<username>/` (profile header, active
+      `#KalimatHariIni`, and `.penalis-archive-card`), `/kalimat-hari-ini/`,
+      `/dashboard/` (Profile, active `#KalimatHariIni`, and published works in
+      **Daftar Karya**), and a published single post.
+    - Verify Story (`9:16`, 1080×1920) and Feed (`1:1`, 1080×1080) format
+      switches, all three themes (**Kertas**, **Senja**, **Malam**), theme font
+      inheritance, official Penalis logo/watermark rendering, PNG download
+      (**Unduh PNG**), Web Share API file sharing where supported, and the
+      in-modal copy button (**Salin tautan profil**, **Salin kutipan**, **Salin
+      tautan karya**).
+    - On a published single post, confirm the auto-appended share callout bar
+      renders below like/dislike controls and post tags (not above them). Place
+      `[penalis_share_article]` manually inside a post and verify the auto-bar
+      does not render a duplicate.
 

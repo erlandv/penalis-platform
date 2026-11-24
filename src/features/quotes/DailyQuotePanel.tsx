@@ -11,8 +11,6 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 import { ApiError, quotesApi } from '../../lib/api';
 import { getBootstrap } from '../../lib/bootstrap';
 import {
-  buildQuoteShareText,
-  copyToClipboard,
   countCodePoints,
   DAILY_QUOTE_MAX_LENGTH,
   DAILY_QUOTE_MAX_LINES,
@@ -25,6 +23,7 @@ import { formatDateTime } from '../../lib/format';
 import type { Account, WriterDailyQuoteState } from '../../lib/types';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { Icon } from '../../components/icons';
+import { ShareCardModal } from '../../components/ShareCardModal';
 import { useToast } from '../../components/toastContext';
 import { ErrorBanner, Notice, Panel, Spinner, StatusBadge, VerifiedWriterBadge } from '../../components/ui';
 
@@ -45,6 +44,7 @@ export function DailyQuotePanel({ account }: { account: Account }) {
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
 
   const loadState = useCallback(async () => {
     setLoading(true);
@@ -139,17 +139,6 @@ export function DailyQuotePanel({ account }: { account: Account }) {
     }
   };
 
-  const handleCopy = async () => {
-    if (!state?.quote) {
-      return;
-    }
-
-    const copied = await copyToClipboard(
-      buildQuoteShareText(state.quote.text, account.displayName, account.authorUrl || publicUrl),
-    );
-    showToast(copied ? 'Kutipan disalin ke clipboard.' : 'Gagal menyalin kutipan.', copied ? 'success' : 'danger');
-  };
-
   const quota = state?.quota;
   const activeQuote = state?.quote ?? null;
 
@@ -230,10 +219,11 @@ export function DailyQuotePanel({ account }: { account: Account }) {
             <div className="penalis-daily-quote-active__actions">
               <button
                 type="button"
-                className="penalis-button penalis-button--ghost"
-                onClick={() => void handleCopy()}
+                className="penalis-button penalis-button--primary"
+                onClick={() => setShowShareCard(true)}
               >
-                Salin kutipan
+                <Icon name="share" />
+                <span>Bagikan</span>
               </button>
               <button
                 type="button"
@@ -349,6 +339,28 @@ export function DailyQuotePanel({ account }: { account: Account }) {
           busy={deleting}
           onConfirm={() => void handleDelete()}
           onCancel={() => setConfirmDelete(false)}
+        />
+      ) : null}
+
+      {showShareCard && activeQuote ? (
+        <ShareCardModal
+          payload={{
+            kind: 'quote',
+            text: activeQuote.text,
+            displayName: account.displayName,
+            username: account.username,
+            avatarUrl: account.avatarUrl,
+            authorUrl: account.authorUrl,
+            siteUrl: publicUrl || getBootstrap().homeUrl,
+            isVerified: account.isVerified ?? (account.canWrite && account.emailVerified),
+            isSenator: Boolean(account.isSenator),
+          }}
+          brand={{
+            logoUrl: getBootstrap().brandLogoUrl,
+            iconUrl: getBootstrap().brandIconUrl,
+          }}
+          onClose={() => setShowShareCard(false)}
+          onNotify={(message, tone) => showToast(message, tone)}
         />
       ) : null}
     </div>

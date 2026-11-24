@@ -8,6 +8,7 @@
    ========================================================================== */
 
 @import '../styles/tokens.css';
+@import '../styles/share-card.css';
 
 .penalis-quotes-root {
   --penalis-border: #e9ecef;

@@ -84,7 +84,16 @@ register -> verify email -> active writer -> write draft in /dashboard/ -> submi
   200 characters, 3 lines, no history, 24-hour TTL, up to 3 publishes per
   rolling 24 hours) that renders as a social-note card on `/author/<username>/`
   and in the public `/kalimat-hari-ini/` showcase (`[penalis_kalimat_hari_ini]`,
-  auto-created on activation/upgrade).
+  auto-created on activation/upgrade). When a Senator deletes an active quote,
+  a deletion reason (max 300 characters, with quick-reason presets) is required
+  and the writer receives a dashboard-only `quote_removed` notification (no
+  email).
+- Visitors, writers, and Senators can generate client-side Canvas 2D
+  **Shareable Social Cards** (Instagram Story `9:16` and Feed `1:1` PNGs in
+  three themes, plus in-modal link/quote copy) from a single unified **Bagikan**
+  trigger for writer profiles, active `#KalimatHariIni` quotes, and published
+  articles (via the single-post auto-bar, `[penalis_share_article]` shortcode,
+  author archive work cards, and Dashboard **Daftar Karya**).
 - Staff — administrators and editors, called **Senator** in user-facing copy —
   may also open `/dashboard/` in a curation mode: the REST account guard accepts
   `edit_others_posts`, the shell renders **Dashboard Senator** with a role chip,
@@ -189,14 +198,16 @@ uninstall.php               Opt-in cleanup only
 includes/                   PHP classes (Penalis_ prefix, one concern per file)
 assets/css/admin.css          Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email, Pengaturan)
 assets/css/author-archive.css Public author archive stylesheet (.penalis-author-archive-root)
+assets/css/article-share.css  Public single-post share bar & [penalis_share_article] stylesheet
+assets/images/                Official brand assets (logo.png, icon.png) embedded in Canvas share cards
 assets/js/admin-review.js     Confirmation modals (createModalController) and inline validation for wp-admin actions
-assets/js/author-archive.js   Native Web Share API and copy-to-clipboard handlers for author archives
+assets/js/author-archive.js   Profile URL copy-to-clipboard, bio collapse toggle, and stale quote expiry guard for author archives
 templates/dashboard.php       Minimal theme wrapper for [penalis_dashboard]
 templates/authors.php         Minimal theme wrapper for [penalis_authors]
 templates/daily-quotes.php    Minimal theme wrapper for [penalis_kalimat_hari_ini]
 templates/author-archive.php  Server-rendered profile & works archive template (penalis-author-archive.php override)
-src/                        React SPAs (app/, authors/, quotes/, components/, features/, lib/, styles/)
-                            styles/: tokens.css, main.css (@import index), section files
+src/                        React SPAs & share-card module (app/, authors/, quotes/, share-card/, components/, features/, lib/, styles/)
+                            styles/: tokens.css, main.css (@import index), section files (incl. share-card.css)
 build/                      Generated Vite output and manifest.json (gitignored)
 tests/                      Plain-PHP unit/workflow tests (run-tests.php) and WP stubs (wp-stubs.php)
 docs/                       Developer documentation (architecture, rest-api, security, development)
@@ -221,23 +232,31 @@ readme.txt                  WordPress plugin readme and changelog
 - **Frontend styling:** `src/styles/tokens.css` is the single source of design
   tokens. `main.css` is only an `@import` index that loads the section files
   (`base`, `layout`, `components`, `forms`, `articles`, `editor`, `media`,
-  `overlays`, `responsive`, `features`, `notifications`) in cascade order;
-  `src/authors/authors.css` and `src/quotes/quotes.css` are the separate
-  public-directory stylesheets and import the same tokens. Vite inlines those
+  `overlays`, `responsive`, `features`, `notifications`, `share-card`) in
+  cascade order; `src/authors/authors.css` and `src/quotes/quotes.css` are the
+  separate public-directory stylesheets and import the same tokens (and
+  `quotes.css` also `@import`s `../styles/share-card.css`). Vite inlines those
   CSS `@import`s into **one**
   stylesheet per entry. Never import a shared CSS file from a TSX entry: Vite
   then emits a separate CSS chunk that `enqueue_vite_entry()` cannot enqueue
   because it only reads each entry's `css` array from `build/manifest.json`.
-  `assets/css/admin.css` stays a standalone wp-admin stylesheet with its own
-  shared pill/avatar primitives, and `assets/css/author-archive.css` +
-  `assets/js/author-archive.js` are enqueued directly by
-  `Penalis_Author_Archive` on public author archive requests.
+  `src/share-card/author-archive.ts` is a lightweight vanilla-TS Vite entry
+  (zero React) that reuses `src/lib/shareCard.ts` on public author archives and
+  single posts. `assets/css/admin.css` stays a standalone wp-admin stylesheet
+  with its own shared pill/avatar primitives, `assets/css/author-archive.css` +
+  `assets/js/author-archive.js` are enqueued directly by `Penalis_Author_Archive`,
+  and `assets/css/article-share.css` is enqueued directly by `Penalis_Article_Share`.
 - **Shared PHP helpers (reuse instead of duplicating):**
   - **Vite & SPA mounting (`Penalis_Dashboard`):** `enqueue_vite_entry()`,
     `ensure_same_origin_url()`, `format_module_script_tag()`,
-    `resolve_bundled_template()`, and `render_spa_mount()` are shared by
-    `Penalis_Dashboard`, `Penalis_Authors`, `Penalis_Daily_Quotes`, and
-    `Penalis_Author_Archive`.
+    `resolve_bundled_template()`, `render_spa_mount()`, and `brand_assets()` are
+    shared by `Penalis_Dashboard`, `Penalis_Authors`, `Penalis_Daily_Quotes`,
+    `Penalis_Author_Archive`, and `Penalis_Article_Share`.
+  - **Clean article excerpts (`Penalis_Article_Share`):** Use
+    `Penalis_Article_Share::clean_excerpt()` whenever producing plain-text post
+    excerpts (single-post share payloads, author archive cards, and REST article
+    summaries) so `<br>` and block boundaries become spaces instead of gluing
+    poetry lines together.
   - **MySQL advisory locks (`Penalis_Account_Status`):** Use
     `Penalis_Account_Status::with_advisory_lock()` (used by `Penalis_Otp`,
     `Penalis_Username_Change`, `Penalis_Editorial_Workflow`,
@@ -272,10 +291,12 @@ readme.txt                  WordPress plugin readme and changelog
   - Always use `src/components/PasswordInput.tsx` for password fields so the
     accessible show/hide toggle stays consistent.
   - Use `<MediaPickerDialog>` in `src/components/MediaSelection.tsx` for media
-    upload/selection modals, `<HoneypotField>` and `<VerifiedWriterBadge>` in
-    `src/components/ui.tsx`, `validatePasswordPair()` in `src/lib/validation.ts`,
-    `toActiveChallenge()` in `src/lib/otp.ts`, and `isStaleEditorialError()` in
-    `src/lib/api.ts`.
+    upload/selection modals, `<ShareCardModal>` in
+    `src/components/ShareCardModal.tsx` (backed by `src/lib/shareCard.ts`) for
+    all React share triggers (`profile`, `quote`, `article`), `<HoneypotField>`
+    and `<VerifiedWriterBadge>` in `src/components/ui.tsx`,
+    `validatePasswordPair()` in `src/lib/validation.ts`, `toActiveChallenge()`
+    in `src/lib/otp.ts`, and `isStaleEditorialError()` in `src/lib/api.ts`.
   - Use the single `useNotifications()` controller
     (`src/features/notifications/useNotifications.ts`) for every notification
     surface — the header bell (`src/components/NotificationBell.tsx`), the

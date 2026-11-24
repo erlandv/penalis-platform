@@ -48,12 +48,7 @@ get_header();
 							<button
 								type="button"
 								class="penalis-archive-btn penalis-archive-btn--primary"
-								data-penalis-share
-								data-share-url="<?php echo esc_url( (string) $penalis_data['profile_url'] ); ?>"
-								data-share-title="<?php echo esc_attr( (string) $penalis_data['display_name'] . ' — ' . wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) ); ?>"
-								data-share-text="<?php echo esc_attr( sprintf( 'Baca karya tulis %s di Penalis.', (string) $penalis_data['display_name'] ) ); ?>"
-								data-default-label="Bagikan"
-								data-copied-label="Tautan disalin!"
+								data-penalis-open-card="profile"
 							>
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
 									<circle cx="18" cy="5" r="3" />
@@ -62,7 +57,7 @@ get_header();
 									<line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
 									<line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
 								</svg>
-								<span data-penalis-share-label>Bagikan</span>
+								<span>Bagikan</span>
 							</button>
 						</div>
 					</div>
@@ -198,14 +193,8 @@ get_header();
 
 			<?php if ( is_array( $penalis_data['daily_quote'] ) ) : ?>
 				<?php
-				$penalis_quote_text      = (string) $penalis_data['daily_quote']['text'];
-				$penalis_quote_expires   = (int) $penalis_data['daily_quote']['expiresAt'];
-				$penalis_quote_copy_text = sprintf(
-					"\"%s\"\n— %s (#KalimatHariIni)\n%s",
-					$penalis_quote_text,
-					(string) $penalis_data['display_name'],
-					(string) $penalis_data['profile_url']
-				);
+				$penalis_quote_text    = (string) $penalis_data['daily_quote']['text'];
+				$penalis_quote_expires = (int) $penalis_data['daily_quote']['expiresAt'];
 				?>
 				<section
 					class="penalis-daily-quote-card"
@@ -259,20 +248,22 @@ get_header();
 					</div>
 
 					<div class="penalis-daily-quote-foot">
-						<button
-							type="button"
-							class="penalis-daily-quote-action"
-							data-penalis-copy-quote
-							data-copy-text="<?php echo esc_attr( $penalis_quote_copy_text ); ?>"
-							data-default-label="Salin"
-							data-copied-label="Disalin!"
-						>
-							<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-								<rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-								<path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-							</svg>
-							<span data-penalis-copy-quote-label>Salin</span>
-						</button>
+						<div class="penalis-daily-quote-foot-actions">
+							<button
+								type="button"
+								class="penalis-daily-quote-action"
+								data-penalis-open-card="quote"
+							>
+								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+									<circle cx="18" cy="5" r="3" />
+									<circle cx="6" cy="12" r="3" />
+									<circle cx="18" cy="19" r="3" />
+									<line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+									<line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+								</svg>
+								<span>Bagikan</span>
+							</button>
+						</div>
 						<a
 							class="penalis-daily-quote-link"
 							href="<?php echo esc_url( (string) $penalis_data['daily_quotes_url'] ); ?>"
@@ -312,7 +303,9 @@ get_header();
 							$penalis_date_text = $penalis_post_obj instanceof WP_Post
 								? Penalis_Datetime::format_gmt( (string) $penalis_post_obj->post_date_gmt, 'd/m/Y' )
 								: get_the_date( 'd/m/Y' );
-							$penalis_excerpt   = wp_trim_words( wp_strip_all_tags( (string) get_the_excerpt() ), 22, '…' );
+							$penalis_excerpt   = $penalis_post_obj instanceof WP_Post
+								? Penalis_Article_Share::clean_excerpt( $penalis_post_obj, 22 )
+								: wp_trim_words( wp_strip_all_tags( (string) get_the_excerpt() ), 22, '…' );
 							?>
 							<article class="penalis-archive-card">
 								<a class="penalis-archive-card-media" href="<?php the_permalink(); ?>" tabindex="-1" aria-hidden="true">
@@ -354,10 +347,31 @@ get_header();
 									<?php endif; ?>
 
 									<div class="penalis-archive-card-meta">
-										<span><?php echo esc_html( $penalis_date_text ); ?></span>
-										<?php if ( null !== $penalis_views ) : ?>
-											<span aria-hidden="true">·</span>
-											<span><?php echo esc_html( Penalis_Author_Archive::format_number( $penalis_views ) ); ?> views</span>
+										<div class="penalis-archive-card-meta-info">
+											<span><?php echo esc_html( $penalis_date_text ); ?></span>
+											<?php if ( null !== $penalis_views ) : ?>
+												<span aria-hidden="true">·</span>
+												<span><?php echo esc_html( Penalis_Author_Archive::format_number( $penalis_views ) ); ?> views</span>
+											<?php endif; ?>
+										</div>
+										<?php if ( $penalis_post_obj instanceof WP_Post ) : ?>
+											<button
+												type="button"
+												class="penalis-archive-card-share"
+												data-penalis-open-card="article"
+												data-penalis-article-id="<?php echo esc_attr( (string) $penalis_post_id ); ?>"
+												aria-label="<?php echo esc_attr( sprintf( 'Bagikan karya tulis: %s', (string) $penalis_post_obj->post_title ) ); ?>"
+											>
+												<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+													<circle cx="18" cy="5" r="3" />
+													<circle cx="6" cy="12" r="3" />
+													<circle cx="18" cy="19" r="3" />
+													<line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+													<line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+												</svg>
+												<span>Bagikan</span>
+											</button>
+											<?php echo Penalis_Article_Share::render_embedded_payload( $penalis_post_obj ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON-encoded via wp_json_encode with HEX_TAG/HEX_AMP. ?>
 										<?php endif; ?>
 									</div>
 								</div>

@@ -5,8 +5,11 @@
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { AvatarCropper } from '../../components/AvatarCropper';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { Icon } from '../../components/icons';
+import { ShareCardModal } from '../../components/ShareCardModal';
 
 import { accountApi, ApiError } from '../../lib/api';
+import { getBootstrap } from '../../lib/bootstrap';
 import { AVATAR_ACCEPT, validateAvatarFile } from '../../lib/crop';
 import { displayNameOptions } from '../../lib/profile';
 import type { Account, DisplayNameMode, FieldErrors } from '../../lib/types';
@@ -42,6 +45,7 @@ export function Profile({
   const [avatarError, setAvatarError] = useState('');
   const [cropTarget, setCropTarget] = useState<File | null>(null);
   const [confirmRemoveAvatar, setConfirmRemoveAvatar] = useState(false);
+  const [showProfileCard, setShowProfileCard] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const hasAvatar = account.hasAvatar ?? account.avatarId > 0;
@@ -172,6 +176,16 @@ export function Profile({
       <PageHeading
         title="Profil Penulis"
         description="Informasi profil kamu akan tampil di halaman karya tulis yang telah terbit dan juga akan tampil di halaman publik profil kamu."
+        action={
+          <button
+            type="button"
+            className="penalis-button penalis-button--ghost"
+            onClick={() => setShowProfileCard(true)}
+          >
+            <Icon name="share" />
+            <span>Bagikan Profil</span>
+          </button>
+        }
       />
 
       <section className="penalis-avatar" aria-label="Foto profil">
@@ -337,6 +351,30 @@ export function Profile({
           busy={avatarBusy}
           onConfirm={() => void removeAvatar()}
           onCancel={() => setConfirmRemoveAvatar(false)}
+        />
+      ) : null}
+
+      {showProfileCard ? (
+        <ShareCardModal
+          payload={{
+            kind: 'profile',
+            displayName: account.displayName,
+            username: account.username,
+            avatarUrl: account.avatarUrl,
+            profileUrl: account.authorUrl || getBootstrap().homeUrl,
+            bio: account.description,
+            postCount: account.counts.publish,
+            totalViews: typeof account.counts.views === 'number' ? account.counts.views : null,
+            joinedLabel: account.joinedLabel,
+            isVerified: account.isVerified ?? (account.canWrite && account.emailVerified),
+            isSenator: Boolean(account.isSenator),
+          }}
+          brand={{
+            logoUrl: getBootstrap().brandLogoUrl,
+            iconUrl: getBootstrap().brandIconUrl,
+          }}
+          onClose={() => setShowProfileCard(false)}
+          onNotify={(message, tone) => showToast(message, tone)}
         />
       ) : null}
     </div>

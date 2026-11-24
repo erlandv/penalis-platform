@@ -30,6 +30,8 @@ export interface PenalisDailyQuotesBootConfig {
   canWrite?: boolean | string;
   isStaff?: boolean | string;
   dashboardUrl?: string;
+  brandLogoUrl?: string;
+  brandIconUrl?: string;
 }
 
 declare global {

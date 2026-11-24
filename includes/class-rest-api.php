@@ -980,6 +980,9 @@ final class Penalis_Rest_Api {
 				'role'                    => Penalis_Policy::dashboard_role( $is_admin, $is_reviewer, $status, $can_write ),
 				'isAdministrator'         => $is_admin,
 				'isReviewer'              => $is_reviewer,
+				'isVerified'              => Penalis_Authors::is_user_verified( $user_id ),
+				'isSenator'               => Penalis_Authors::is_user_senator( $user_id ),
+				'joinedLabel'             => Penalis_Datetime::format_indonesian_month_year_gmt( (string) $user->user_registered ),
 				'canWrite'                => $can_write,
 				'canView'                 => $is_reviewer || Penalis_Account_Status::can_view_dashboard( $user_id ),
 				'emailVerified'           => '1' === (string) get_user_meta( $user_id, Penalis_Account_Status::META_VERIFIED, true ),
@@ -2058,23 +2061,34 @@ final class Penalis_Rest_Api {
 	 */
 	private static function prepare_article_summary( $post ) {
 		$thumbnail = get_the_post_thumbnail_url( $post, 'thumbnail' );
+		$cover_raw = get_the_post_thumbnail_url( $post, 'large' );
+		$category  = Penalis_Author_Archive::get_primary_category( (int) $post->ID );
 
 		return array_merge(
 			self::prepare_editorial_fields( $post ),
 			array(
-				'title'     => $post->post_title,
-				'excerpt'   => wp_trim_words( wp_strip_all_tags( $post->post_excerpt ? $post->post_excerpt : $post->post_content ), 30 ),
-				'date'      => $post->post_date_gmt,
-				'modified'  => $post->post_modified_gmt,
-				'link'      => 'publish' === $post->post_status ? get_permalink( $post ) : '',
-				'views'     => self::get_post_views( $post ),
-				'editUrl'   => Penalis_Dashboard::dashboard_url(
+				'title'          => $post->post_title,
+				'excerpt'        => Penalis_Article_Share::clean_excerpt( $post, 30 ),
+				'date'           => $post->post_date_gmt,
+				'modified'       => $post->post_modified_gmt,
+				'publishedLabel' => 'publish' === $post->post_status && '' !== (string) $post->post_date_gmt
+					? Penalis_Datetime::format_gmt( (string) $post->post_date_gmt, 'j M Y' )
+					: '',
+				'category'       => $category instanceof WP_Term
+					? html_entity_decode( (string) $category->name, ENT_QUOTES, 'UTF-8' )
+					: '',
+				'link'           => 'publish' === $post->post_status ? get_permalink( $post ) : '',
+				'views'          => self::get_post_views( $post ),
+				'editUrl'        => Penalis_Dashboard::dashboard_url(
 					array(
 						'view' => 'editor',
 						'id'   => (int) $post->ID,
 					)
 				),
-				'thumbnail' => $thumbnail ? $thumbnail : '',
+				'thumbnail'      => $thumbnail ? $thumbnail : '',
+				'coverUrl'       => is_string( $cover_raw ) && '' !== $cover_raw
+					? Penalis_Dashboard::ensure_same_origin_url( $cover_raw )
+					: '',
 			)
 		);
 	}

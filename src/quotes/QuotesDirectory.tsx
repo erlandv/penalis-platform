@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SenatorBadgeIcon, VerifiedBadgeIcon } from '../components/icons';
+import { ShareCardModal } from '../components/ShareCardModal';
 import {
-  buildQuoteShareText,
-  copyToClipboard,
   formatQuoteRelativeTime,
   formatQuoteRemainingTime,
 } from '../lib/dailyQuote';
@@ -36,11 +35,14 @@ function CloseIcon(): React.ReactElement {
   );
 }
 
-function CopyIcon(): React.ReactElement {
+function ShareIcon(): React.ReactElement {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
     </svg>
   );
 }
@@ -66,19 +68,10 @@ export function QuotesDirectory(): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
-  const [copiedAuthorId, setCopiedAuthorId] = useState<number>(0);
   const [statusAnnouncement, setStatusAnnouncement] = useState<string>('');
+  const [shareTarget, setShareTarget] = useState<PublicDailyQuoteItem | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
-  const copyTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimerRef.current !== null) {
-        window.clearTimeout(copyTimerRef.current);
-      }
-    };
-  }, []);
 
   // Debounce search input into active filter state.
   useEffect(() => {
@@ -182,22 +175,6 @@ export function QuotesDirectory(): React.ReactElement {
       return;
     }
     void fetchQuotes(page + 1, true);
-  };
-
-  const handleCopyQuote = async (item: PublicDailyQuoteItem) => {
-    const ok = await copyToClipboard(buildQuoteShareText(item.text, item.displayName, item.authorUrl));
-    if (!ok) {
-      return;
-    }
-
-    setCopiedAuthorId(item.authorId);
-    setStatusAnnouncement(`Kutipan dari ${item.displayName} disalin.`);
-    if (copyTimerRef.current !== null) {
-      window.clearTimeout(copyTimerRef.current);
-    }
-    copyTimerRef.current = window.setTimeout(() => {
-      setCopiedAuthorId(0);
-    }, 2200);
   };
 
   const hasActiveSearch = filter.search !== '';
@@ -349,7 +326,6 @@ export function QuotesDirectory(): React.ReactElement {
             <div className="penalis-quotes-grid">
               {items.map((item) => {
                 const isOwn = currentUserId > 0 && item.authorId === currentUserId;
-                const isCopied = copiedAuthorId === item.authorId;
 
                 return (
                   <article
@@ -411,12 +387,12 @@ export function QuotesDirectory(): React.ReactElement {
                       <div className="penalis-quote-card__actions">
                         <button
                           type="button"
-                          className={`penalis-quote-card__btn${isCopied ? ' is-copied' : ''}`}
-                          onClick={() => void handleCopyQuote(item)}
-                          aria-label={`Salin kutipan dari ${item.displayName}`}
+                          className="penalis-quote-card__btn"
+                          onClick={() => setShareTarget(item)}
+                          aria-label={`Bagikan kutipan dari ${item.displayName}`}
                         >
-                          <CopyIcon />
-                          <span>{isCopied ? 'Disalin!' : 'Salin'}</span>
+                          <ShareIcon />
+                          <span>Bagikan</span>
                         </button>
                       </div>
                     </div>
@@ -440,6 +416,28 @@ export function QuotesDirectory(): React.ReactElement {
           </>
         )}
       </div>
+
+      {shareTarget ? (
+        <ShareCardModal
+          payload={{
+            kind: 'quote',
+            text: shareTarget.text,
+            displayName: shareTarget.displayName,
+            username: shareTarget.username,
+            avatarUrl: shareTarget.avatarUrl,
+            authorUrl: shareTarget.authorUrl,
+            siteUrl: `${window.location.origin}${window.location.pathname}`,
+            isVerified: shareTarget.isVerified,
+            isSenator: shareTarget.isSenator,
+          }}
+          brand={{
+            logoUrl: boot?.brandLogoUrl,
+            iconUrl: boot?.brandIconUrl,
+          }}
+          onClose={() => setShareTarget(null)}
+          onNotify={(message) => setStatusAnnouncement(message)}
+        />
+      ) : null}
     </div>
   );
 }

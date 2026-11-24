@@ -16,6 +16,7 @@ export default defineConfig({
         dashboard: 'src/app/index.tsx',
         authors: 'src/authors/index.tsx',
         quotes: 'src/quotes/index.tsx',
+        shareCard: 'src/share-card/author-archive.ts',
       },
       output: {
         entryFileNames: 'assets/[name]-[hash].js',

@@ -651,6 +651,7 @@ export function App() {
       case 'articles':
         return (
           <Articles
+            account={account}
             onEdit={(id, focus) => openEditor(id, focus)}
             onCreate={() => openEditor()}
           />

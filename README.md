@@ -45,9 +45,11 @@ authentication store.
   24-hour expiry with no stored quote history, rolling quota of 3 publishes per
   24 hours) displayed as social-note cards on `/author/<username>/` and on the
   auto-created public `/kalimat-hari-ini/` showcase (with search, sorting,
-  copy-quote, pagination, and a subtle shine highlight on the signed-in writer's
-  own card). Senator moderation is centralized in `/dashboard/?view=quotes` and
-  **Penalis → Kalimat Hari Ini** in `wp-admin`.
+  unified **Bagikan** modal, pagination, and a subtle shine highlight on the
+  signed-in writer's own card). Senator moderation is centralized in
+  `/dashboard/?view=quotes` and **Penalis → Kalimat Hari Ini** in `wp-admin`,
+  requiring a deletion reason (with quick-reason presets) and delivering a
+  dashboard-only writer notification without sending email.
 - **Public Authors Directory (`[penalis_authors]`)** — Dedicated React directory
   with live search, **Semua / Verified / Senator** filter chips, views/posts/A–Z
   sorting (with Post Views Counter integration), an inline SVG badge legend, and
@@ -56,10 +58,21 @@ authentication store.
   SEO-friendly author profile template (`templates/author-archive.php`, with
   theme override and opt-out filter) featuring avatar, verified and Senator star
   badges (`[penalis_verified_badge]`, `[penalis_senator_badge]`), copyable
-  profile URL, Indonesian joined date, contribution and view totals, native Web
-  Share API with clipboard fallback, owner-only quick actions (**Edit Profil**,
-  **Tulis Karya**, and **#KalimatHariIni**), an active **#KalimatHariIni**
-  social-note card with client-side expiry guard, and a paginated works grid.
+  profile URL, Indonesian joined date, contribution and view totals, unified
+  **Bagikan** triggers (profile, active `#KalimatHariIni`, and each published
+  work card), owner-only quick actions (**Edit Profil**, **Tulis Karya**, and
+  **#KalimatHariIni**), an active **#KalimatHariIni** social-note card with
+  client-side expiry guard, and a paginated works grid with poetry-safe excerpts.
+- **Shareable Social Cards (`Bagikan`, `[penalis_share_article]`)** — Pure
+  client-side Canvas 2D PNG card generator for Instagram Story (`9:16`,
+  1080×1920) and Feed (`1:1`, 1080×1080) in three editorial themes (**Kertas**,
+  **Senja**, **Malam**) with dynamic theme font inheritance, official Penalis
+  branding, Web Share API file sharing + PNG download, and a secondary copy
+  action inside the modal. Supports **Profile** cards, **#KalimatHariIni**
+  cards, and **Published Article** cards across `/dashboard/`,
+  `/kalimat-hari-ini/`, `/author/<username>/`, an auto-appended single-post
+  share bar (placed below like/dislike controls and tags), and the
+  `[penalis_share_article]` shortcode.
 - **Unified WordPress Admin Console (`Penalis`)** — Centralized `wp-admin` menu
   with **Ringkasan** (overview counters and 8-week editorial analytics),
   **Review Karya Tulis** & **Karya Terhapus**, **Kalimat Hari Ini** (active

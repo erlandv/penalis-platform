@@ -697,9 +697,48 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: space-between;
+  gap: 0.4rem 0.65rem;
   font-size: 0.8125rem;
   color: var(--penalis-muted);
+}
+
+.penalis-author-archive-root .penalis-archive-card-meta-info {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.penalis-author-archive-root button.penalis-archive-card-share {
+  margin: 0;
+  padding: 0.24rem 0.58rem;
+  min-height: 0;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: var(--penalis-radius-xs);
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.penalis-author-archive-root button.penalis-archive-card-share:hover {
+  background: var(--penalis-fill-hover);
+  border-color: var(--penalis-border-hover);
+  color: var(--penalis-accent-strong);
+}
+
+.penalis-author-archive-root button.penalis-archive-card-share:focus-visible {
+  outline: 2px solid var(--penalis-accent);
+  outline-offset: 2px;
 }
 
 /* Pagination */
@@ -773,4 +812,343 @@
 .penalis-author-archive-root .penalis-archive-empty p {
   margin: 0 0 1rem;
   color: var(--penalis-muted);
+}
+
+.penalis-author-archive-root .penalis-profile-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.penalis-author-archive-root .penalis-daily-quote-foot-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* Shareable Social Card Modal */
+.penalis-share-modal[hidden] {
+  display: none !important;
+}
+
+.penalis-share-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.penalis-share-modal .penalis-share-card-modal {
+  width: 100%;
+  max-width: 780px;
+  max-height: calc(100vh - 2rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--penalis-surface, #ffffff);
+  color: var(--penalis-text, #1b1f24);
+  border: 1px solid var(--penalis-border, #e9ecef);
+  border-radius: var(--penalis-radius, 18px);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
+  text-align: left;
+}
+
+.penalis-share-modal .penalis-share-card-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.35rem 0.95rem;
+  border-bottom: 1px solid var(--penalis-border, #e9ecef);
+}
+
+.penalis-share-modal .penalis-share-card-modal__title {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--penalis-text, #1b1f24);
+}
+
+.penalis-share-modal .penalis-share-card-modal__subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.84rem;
+  color: var(--penalis-muted, #5e6670);
+  line-height: 1.4;
+}
+
+.penalis-share-modal button.penalis-share-card-modal__close {
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--penalis-muted, #5e6670);
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.penalis-share-modal button.penalis-share-card-modal__close:hover:not(:disabled) {
+  background: var(--penalis-fill, #f8f9fa);
+  color: var(--penalis-text, #1b1f24);
+}
+
+.penalis-share-modal .penalis-share-card-modal__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
+  gap: 1.25rem;
+  padding: 1.25rem 1.35rem 1.35rem;
+  overflow-y: auto;
+  align-items: center;
+}
+
+.penalis-share-modal .penalis-share-card-modal__stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  padding: 1rem;
+  border-radius: 14px;
+  background: var(--penalis-fill, #f8f9fa);
+  border: 1px solid var(--penalis-border, #e9ecef);
+}
+
+.penalis-share-modal .penalis-share-card-modal__frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+}
+
+.penalis-share-modal .penalis-share-card-modal__frame--story {
+  max-width: 245px;
+  aspect-ratio: 9 / 16;
+}
+
+.penalis-share-modal .penalis-share-card-modal__frame--feed {
+  max-width: 350px;
+  aspect-ratio: 1 / 1;
+}
+
+.penalis-share-modal .penalis-share-card-modal__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.16s ease;
+}
+
+.penalis-share-modal .penalis-share-card-modal__canvas.is-loading {
+  opacity: 0.45;
+}
+
+.penalis-share-modal .penalis-share-card-modal__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--penalis-text, #1b1f24);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.penalis-share-modal .penalis-share-card-modal__loading[hidden] {
+  display: none;
+}
+
+.penalis-share-modal .penalis-share-card-modal__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+}
+
+.penalis-share-modal .penalis-share-card-modal__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.penalis-share-modal .penalis-share-card-modal__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--penalis-muted, #5e6670);
+}
+
+.penalis-share-modal .penalis-share-card-modal__segmented,
+.penalis-share-modal .penalis-share-card-modal__themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.penalis-share-modal button.penalis-share-card-modal__pill,
+.penalis-share-modal button.penalis-share-card-modal__theme-btn {
+  margin: 0;
+  min-height: 0;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.48rem 0.8rem;
+  border: 1px solid var(--penalis-border, #e9ecef);
+  border-radius: 999px;
+  background: var(--penalis-surface, #ffffff);
+  color: var(--penalis-text, #1b1f24);
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+.penalis-share-modal button.penalis-share-card-modal__pill:hover,
+.penalis-share-modal button.penalis-share-card-modal__theme-btn:hover {
+  border-color: var(--penalis-accent, #7c3aed);
+  background: var(--penalis-fill, #f8f9fa);
+}
+
+.penalis-share-modal button.penalis-share-card-modal__pill.is-active,
+.penalis-share-modal button.penalis-share-card-modal__theme-btn.is-active {
+  border-color: var(--penalis-accent, #7c3aed);
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--penalis-accent-strong, #6d28d9);
+  font-weight: 600;
+}
+
+.penalis-share-modal .penalis-share-card-modal__ratio {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.penalis-share-modal .penalis-share-card-modal__swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(24, 24, 27, 0.22);
+  flex-shrink: 0;
+}
+
+.penalis-share-modal .penalis-share-card-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
+}
+
+.penalis-share-modal button.penalis-share-card-modal__btn {
+  margin: 0;
+  min-height: 42px;
+  padding: 0.6rem 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: var(--penalis-radius-control, 10px);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.penalis-share-modal button.penalis-share-card-modal__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.penalis-share-modal button.penalis-share-card-modal__btn--primary {
+  border: 1px solid var(--penalis-accent, #7c3aed);
+  background: var(--penalis-accent, #7c3aed);
+  color: #ffffff;
+}
+
+.penalis-share-modal button.penalis-share-card-modal__btn--primary:hover:not(:disabled) {
+  background: var(--penalis-accent-strong, #6d28d9);
+  border-color: var(--penalis-accent-strong, #6d28d9);
+}
+
+.penalis-share-modal button.penalis-share-card-modal__btn--ghost {
+  border: 1px solid var(--penalis-border, #e9ecef);
+  background: var(--penalis-surface, #ffffff);
+  color: var(--penalis-text, #1b1f24);
+}
+
+.penalis-share-modal button.penalis-share-card-modal__btn--ghost:hover:not(:disabled) {
+  background: var(--penalis-fill, #f8f9fa);
+  border-color: var(--penalis-accent, #7c3aed);
+}
+
+.penalis-share-modal button.penalis-share-card-modal__btn.is-copied {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.penalis-share-modal .penalis-share-card-modal__error {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #b91c1c;
+}
+
+.penalis-share-modal .penalis-share-card-modal__status {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #047857;
+}
+
+.penalis-share-modal .penalis-share-card-modal__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--penalis-muted, #5e6670);
+}
+
+@media (max-width: 720px) {
+  .penalis-share-modal .penalis-share-card-modal__body {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem 1.05rem 1.15rem;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__stage {
+    min-height: 240px;
+    padding: 0.75rem;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__frame--story {
+    max-width: 195px;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__frame--feed {
+    max-width: 260px;
+  }
 }

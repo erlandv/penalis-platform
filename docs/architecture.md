@@ -33,8 +33,10 @@ WordPress (PHP)                               Browser (React SPA)
   the public authors directory via `[penalis_authors]` (`templates/authors.php`),
   the public `#KalimatHariIni` showcase via `[penalis_kalimat_hari_ini]` on the
   auto-created `/kalimat-hari-ini/` page (`templates/daily-quotes.php`),
-  and author archives via `templates/author-archive.php`. Each surface enqueues
-  its scripts and styles only on its matching requests, never site-wide.
+  author archives via `templates/author-archive.php`, and published single-post
+  share controls via `Penalis_Article_Share` (`[penalis_share_article]` or the
+  auto-appended share callout). Each surface enqueues its scripts and styles
+  only on its matching requests, never site-wide.
 
 ---
 
@@ -78,6 +80,7 @@ penalis-platform/
 │   ├── class-authors.php                 Public authors directory ([penalis_authors]), verified & Senator badges, and post badge integration
 │   ├── class-daily-quotes.php            #KalimatHariIni 24-hour writer quotes storage, rolling 3x/24h quota, public showcase ([penalis_kalimat_hari_ini])
 │   ├── class-daily-quotes-admin.php      Penalis → Kalimat Hari Ini wp-admin moderation console
+│   ├── class-article-share.php           Published-article share bar, [penalis_share_article] shortcode, clean_excerpt(), and embedded JSON payloads
 │   ├── class-author-archive.php          Public author archive template routing, profile data, and scoped assets
 │   ├── class-emails.php                  Centralized template-driven transactional email dispatcher and failure tracking
 │   ├── class-email-template.php          Branded responsive HTML email layout and Markdown renderer
@@ -86,8 +89,10 @@ penalis-platform/
 ├── assets/
 │   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email)
 │   ├── css/author-archive.css            Public author archive stylesheet (.penalis-author-archive-root)
+│   ├── css/article-share.css             Public single-post share bar & [penalis_share_article] stylesheet
+│   ├── images/                           Official brand assets (logo.png, icon.png) embedded in Canvas share cards
 │   ├── js/admin-review.js                Shared modal controller (createModalController) and inline validation for wp-admin actions
-│   └── js/author-archive.js              Native Web Share API and copy-to-clipboard handlers for author archives
+│   └── js/author-archive.js              Profile URL copy-to-clipboard, bio collapse toggle, and stale quote expiry guard for author archives
 ├── templates/
 │   ├── dashboard.php                     Minimal theme-compatible wrapper for [penalis_dashboard]
 │   ├── authors.php                       Minimal theme-compatible wrapper for [penalis_authors]
@@ -97,10 +102,11 @@ penalis-platform/
 │   ├── app/                              React entry point (index.tsx) and root router (App.tsx)
 │   ├── authors/                          Separate public React entry point for [penalis_authors] directory (authors.css)
 │   ├── quotes/                           Separate public React entry point for [penalis_kalimat_hari_ini] showcase (quotes.css)
-│   ├── components/                       Shared UI primitives (ui.tsx), RoleChip, Dialog, ConfirmDialog, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, PasswordMatchHint, PasswordPairFields, PasswordStrengthMeter, Toast, Toggle, TurnstileWidget
+│   ├── share-card/                       Lightweight vanilla-TS share-card modal entry (author-archive.ts) for author archives and single posts
+│   ├── components/                       Shared UI primitives (ui.tsx), RoleChip, Dialog, ConfirmDialog, ShareCardModal, MediaSelection/MediaPickerDialog, OtpForm, PasswordInput, PasswordMatchHint, PasswordPairFields, PasswordStrengthMeter, Toast, Toggle, TurnstileWidget
 │   ├── features/                         Feature views: auth, overview, articles, editor, media, profile, settings, review, notifications, quotes
-│   ├── lib/                              Typed API client, validation, dailyQuote helpers, OTP challenge helpers, deeplinks, HTML/profile/crop helpers, permissions.ts (role model + view access table), navigation.ts (role-specific nav groups)
-│   └── styles/                           Dashboard CSS: tokens.css, main.css (@import index), section files
+│   ├── lib/                              Typed API client, validation, shareCard (Canvas 2D generator), dailyQuote helpers, OTP challenge helpers, deeplinks, HTML/profile/crop helpers, permissions.ts (role model + view access table), navigation.ts (role-specific nav groups)
+│   └── styles/                           Dashboard CSS: tokens.css, main.css (@import index), section files (incl. share-card.css)
 ├── build/                                Generated production Vite bundle and manifest (gitignored)
 ├── tests/
 │   ├── run-tests.php                     Zero-dependency PHP unit and workflow test suite
@@ -119,14 +125,17 @@ On `plugins_loaded`, `Penalis_Plugin::run()` initializes components in order:
 1. `Penalis_Plugin::maybe_upgrade()`
 2. `Penalis_Access_Control::init()`
 3. `Penalis_Editorial_Notifications::init()`
-4. `Penalis_Rest_Api::init()`
-5. `Penalis_Dashboard::init()`
-6. `Penalis_Authors::init()`
-7. `Penalis_Daily_Quotes::init()`
-8. `Penalis_Author_Archive::init()`
-9. `Penalis_Author_History::init()`
-10. `Penalis_Avatar::register_provider()`
-11. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, `Penalis_Daily_Quotes_Admin::init()`, `Penalis_Email_Settings::init()`, `Penalis_Email_Log_Admin::init()`, and `Penalis_Settings::init()` (when `is_admin()`)
+4. `Penalis_Article_Takedown::init()`
+5. `Penalis_Revisions::init()`
+6. `Penalis_Rest_Api::init()`
+7. `Penalis_Dashboard::init()`
+8. `Penalis_Authors::init()`
+9. `Penalis_Daily_Quotes::init()`
+10. `Penalis_Article_Share::init()`
+11. `Penalis_Author_Archive::init()`
+12. `Penalis_Author_History::init()`
+13. `Penalis_Avatar::register_provider()`
+14. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, `Penalis_Daily_Quotes_Admin::init()`, `Penalis_Email_Settings::init()`, `Penalis_Email_Log_Admin::init()`, and `Penalis_Settings::init()` (when `is_admin()`)
 
 ### Optional Third-Party Integrations
 
@@ -318,6 +327,11 @@ Key invariants:
   untouched while the endpoint still answers `200`, so the dashboard replaces
   its optimistic read receipt with the authoritative response instead of
   assuming the write landed.
+  In addition to editorial actions, Senator `#KalimatHariIni` takedowns record a
+  dashboard-only `Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED`
+  (`quote_removed`, `articleId: 0`, `targetView: 'overview'`, carrying the
+  mandatory removal reason) that never sends email and is exempt from article
+  notification opt-out preferences.
 - **Notification surfaces:** The dashboard exposes the same list in three
   places, all fed by one `useNotifications()` controller in `App.tsx` so the
   unread badge can never disagree with the feed: the header bell
@@ -370,8 +384,9 @@ editors.
    - Moderation table of currently active 24-hour `#KalimatHariIni` entries
      accessible to administrators and editors (`edit_others_posts`), with
      search, newest/oldest sorting, pagination (20 per page), and
-     confirmation-gated removal (`Penalis_Admin::render_confirm_modal()` +
-     `admin-post.php?action=penalis_delete_quote_action`).
+     reason-required confirmation removal (max 300 characters, with quick-reason
+     presets via `admin-post.php?action=penalis_delete_quote_action`), which
+     notifies the writer inside `/dashboard/` without sending email.
 5. **Penalis → Penulis Penalis** (`?page=penalis-writers`, `Penalis_Admin::render_page()`)
    - Account management table with status tabs (`Semua yang dikelola`, `Aktif`,
      `Menunggu verifikasi`, `Ditangguhkan`, `Akun lama`), search toolbar,
@@ -489,12 +504,14 @@ No custom database tables are created.
 The writer dashboard (`/dashboard/`), the public authors directory
 (`[penalis_authors]`), and the public `#KalimatHariIni` showcase
 (`[penalis_kalimat_hari_ini]`) are standalone React SPAs, not Gutenberg plugins
-inside `wp-admin`. Vite builds all three entry points (`src/app/index.tsx`,
-`src/authors/index.tsx`, and `src/quotes/index.tsx`), splits the TipTap editor
-into a lazy-loaded chunk, and outputs `build/manifest.json`. All three SPAs
-share the manifest/asset helpers on `Penalis_Dashboard` (`enqueue_vite_entry()`,
-`ensure_same_origin_url()`, `format_module_script_tag()`,
-`resolve_bundled_template()`, and `render_spa_mount()`).
+inside `wp-admin`. Vite builds all four entry points (`src/app/index.tsx`,
+`src/authors/index.tsx`, `src/quotes/index.tsx`, and the lightweight vanilla-TS
+`src/share-card/author-archive.ts` entry for public author archives and single
+posts), splits the TipTap editor into a lazy-loaded chunk, and outputs
+`build/manifest.json`. All entry points share the manifest/asset helpers on
+`Penalis_Dashboard` (`enqueue_vite_entry()`, `ensure_same_origin_url()`,
+`format_module_script_tag()`, `resolve_bundled_template()`,
+`render_spa_mount()`, and `brand_assets()`).
 
 `ensure_same_origin_url()` compares full origins (`scheme://host[:port]`), not
 bare hosts, and rebuilds from the complete `home_url()` origin, so an off-site
@@ -622,22 +639,25 @@ properties; there is no preprocessor, utility framework, or CSS-in-JS layer.
 - **Cascade-ordered sections:** `src/styles/main.css` is only an `@import`
   index. It loads `tokens.css` first, then `base`, `layout`, `components`,
   `forms`, `articles`, `editor`, `media`, `overlays`, `responsive`, `features`,
-  and `notifications`. That order is the cascade order; do not reorder imports
-  without checking selectors that rely on source order.
+  `notifications`, and `share-card`. That order is the cascade order; do not
+  reorder imports without checking selectors that rely on source order.
 - **Vite inlines CSS imports:** Vite merges CSS `@import` statements into one
   stylesheet per entry, so `build/manifest.json` still lists one CSS file each
-  for `src/app/index.tsx`, `src/authors/index.tsx`, and `src/quotes/index.tsx`.
+  for `src/app/index.tsx`, `src/authors/index.tsx`, and `src/quotes/index.tsx`
+  (with `src/quotes/quotes.css` also `@import`ing `../styles/share-card.css`).
   Importing a shared CSS file from a TSX entry instead makes Vite emit a
   separate CSS chunk that is not listed in the entry's `css` array.
   `Penalis_Dashboard::enqueue_vite_entry()` enqueues only that array, so such a
   stylesheet would never load in WordPress. Use CSS `@import` inside the entry
   stylesheet for shared CSS.
 - **Standalone plugin CSS (`assets/css/`):** `assets/css/admin.css` is loaded
-  directly by `Penalis_Admin` on `wp-admin` screens, and
+  directly by `Penalis_Admin` on `wp-admin` screens,
   `assets/css/author-archive.css` is loaded directly by `Penalis_Author_Archive`
   on author archive requests (matching the light neutral scale of
-  `.penalis-authors-root`). Neither is part of the Vite build; do not inline
-  those rules in PHP.
+  `.penalis-authors-root`), and `assets/css/article-share.css` is loaded
+  directly by `Penalis_Article_Share` on single posts and wherever
+  `[penalis_share_article]` renders. None of them is part of the Vite build; do
+  not inline those rules in PHP.
 - **Fixed brand glyph:** the verified badge SVG uses a literal Twitter blue
   (`#1d9bf0`) in `base.css` rather than a token, because it is a fixed brand
   mark that must not be recoloured by a theme override.
@@ -1017,15 +1037,20 @@ and footer rather than a React SPA or an Elementor Theme Builder template.
   `/author/` and `/author/<username>/` keep a tighter gap between consecutive
   badges (`Verified` ↔ `Senator`) than between the display name and the first
   badge.
-- **Minimalist action layout:** The top-right bar next to the avatar keeps only
-  **Bagikan** (`assets/js/author-archive.js`, using `navigator.share()` with a
-  clipboard fallback) so the row stays single-line on mobile; owner-only actions
-  (**Edit Profil** and **Tulis Karya**, gated by `can_write()`) sit below the
-  bio.
-- **Locale-independent Indonesian dates:** The joined date uses
+- **Unified sharing & minimalist action layout:** The top-right bar next to the
+  avatar keeps a single **Bagikan** button (alongside **Bagikan** triggers on
+  the active `#KalimatHariIni` card and each `.penalis-archive-card` footer)
+  that opens the Canvas share-card modal (`src/share-card/author-archive.ts`),
+  which also includes a secondary copy-to-clipboard action. `assets/js/author-archive.js`
+  stays focused on direct profile URL copy, the bio collapse toggle, and stale
+  quote expiry. Owner-only actions (**Edit Profil**, **Tulis Karya**, and
+  **#KalimatHariIni**, gated by `can_write()`) sit below the bio.
+- **Locale-independent Indonesian dates & clean excerpts:** The joined date uses
   `Penalis_Datetime::format_indonesian_month_year_gmt()` (`Desember 2025`) so it
   stays Indonesian even when WordPress's Site Language is English, while article
-  cards use `d/m/Y` (`31/12/2026`).
+  cards use `d/m/Y` (`31/12/2026`) and `Penalis_Article_Share::clean_excerpt()`
+  so `<br>` and block breaks inside poetry render as spaces instead of gluing
+  lines together.
 - **Bio limit & legacy collapsible display:** `Penalis_Policy::normalize_bio()`
   collapses consecutive blank lines to a single newline and `Penalis_Policy::MAX_BIO`
   enforces a `250`-character cap on profile updates without deleting existing
@@ -1064,12 +1089,57 @@ auto-created `/kalimat-hari-ini/` showcase (`[penalis_kalimat_hari_ini]`).
   dashboard). On `/kalimat-hari-ini/`, the signed-in writer's own card receives
   the `.penalis-quote-card--self` subtle highlight and shine sweep (without the
   `"You"` badge reserved for `/author/`).
-- **Centralized Senator moderation:** The public `/kalimat-hari-ini/` page stays
-  strictly read/copy-only (no moderation nonce or delete button). Senators
-  (administrators and editors) moderate active quotes from **Dashboard Senator**
-  (`/dashboard/?view=quotes`, `QuotesModeration.tsx` with search, sort, and
-  load-more pagination) or `wp-admin` (**Penalis → Kalimat Hari Ini**,
-  `Penalis_Daily_Quotes_Admin`).
+- **Centralized Senator moderation with required reason:** The public
+  `/kalimat-hari-ini/` page stays strictly read/share-only (no moderation nonce
+  or delete button; every quote card carries a single unified **Bagikan** button
+  opening the Share Card modal with an in-modal **Salin kutipan** action).
+  Senators (administrators and editors) moderate active quotes from **Dashboard
+  Senator** (`/dashboard/?view=quotes`, `QuotesModeration.tsx` with search,
+  sort, and load-more pagination) or `wp-admin` (**Penalis → Kalimat Hari Ini**,
+  `Penalis_Daily_Quotes_Admin`). Both entry points require a sanitized plain-text
+  removal reason (up to 300 characters, aided by 4 quick-reason presets) and
+  call `Penalis_Daily_Quotes::moderate_delete()`, which records a dashboard-only
+  `quote_removed` notification (`Penalis_Editorial_Notifications::notify_quote_removed()`)
+  without sending email.
+
+### 7.20 Shareable Social Cards (`Penalis_Article_Share`, `src/lib/shareCard.ts`)
+Writers, readers, and Senators can generate ready-to-post PNG cards for
+Instagram Story (`9:16`, 1080×1920) and Feed (`1:1`, 1080×1080) entirely in the
+browser with zero server-side image processing or external services.
+- **Pure Canvas 2D engine (`src/lib/shareCard.ts`):** Renders three card types
+  (`profile`, `quote`, `article`) across three editorial themes (**Kertas**,
+  **Senja**, **Malam**) with official Penalis brand assets (`assets/images/logo.png`
+  and `assets/images/icon.png` served same-origin via `Penalis_Dashboard::brand_assets()`),
+  Canvas-drawn Verified and Senator badges, CORS-safe avatar/cover image loading
+  with monogram/typographic fallbacks, and dynamic font inheritance
+  (`resolveThemeFontFamily()` inspects the active page's computed `font-family`,
+  preloads weights via `document.fonts`, and falls back to `Plus Jakarta Sans`).
+  Inside the modal, users can share the PNG directly via Web Share API Level 2
+  (`navigator.canShare({ files })`), download it (`Unduh PNG`), or copy the
+  underlying link/quote (**Salin tautan profil**, **Salin kutipan**, **Salin
+  tautan karya**).
+- **Single renderer, two lightweight wrappers:** React surfaces (`/dashboard/`
+  and `/kalimat-hari-ini/`) render `<ShareCardModal>` (`src/components/ShareCardModal.tsx`
+  + `src/styles/share-card.css`). Public PHP-rendered surfaces
+  (`/author/<username>/` and single posts) load the standalone vanilla-TS Vite
+  entry (`src/share-card/author-archive.ts`) so visitors never download React
+  just to share a card; each trigger references an embedded
+  `<script type="application/json">` payload printed once per article/profile.
+- **Single-post integration (`Penalis_Article_Share`):** Provides both the
+  `[penalis_share_article]` shortcode (optional `id` and `label` attributes) and
+  an automatic share callout bar on published single posts (`is_singular('post')`).
+  When the Atlas theme (`th90_opt`) is active, the auto-bar hooks
+  `th90_article_elements_below` at priority `5` so it renders below reaction
+  plugins (`posts-like-dislike`) and `.single-tags` (above the author box and
+  comments); on other themes it appends late on `the_content` (priority `999`).
+  If `[penalis_share_article]` is placed manually in a post or template, or if
+  the `penalis_auto_append_article_share` filter returns `false`, the auto-bar
+  skips automatically so it never renders twice.
+- **Shared poetry-safe excerpt helper:** `Penalis_Article_Share::clean_excerpt()`
+  replaces `<br>` and block-closing tags with spaces before calling
+  `wp_strip_all_tags()`, preventing consecutive poetry lines from concatenating
+  without spaces. It is reused across single-post payloads,
+  `templates/author-archive.php`, and `Penalis_Rest_Api::prepare_article_summary()`.
 
 
 

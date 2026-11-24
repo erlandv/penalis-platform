@@ -53,14 +53,14 @@ reports a staff role.
 
 | Route | Method | Handler | Purpose |
 | --- | --- | --- | --- |
-| `/account` | `GET` | `get_account` | Return account status, resolved dashboard `role` (`administrator`, `editor`, `writer`, `pending`, `suspended`), capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), `instagram`, article counts by editorial state (plus total published `counts.views`), `unreadNotifications` count, and `notificationPreferences` (per-action `dashboard`/`email` opt-outs) |
+| `/account` | `GET` | `get_account` | Return account status, resolved dashboard `role` (`administrator`, `editor`, `writer`, `pending`, `suspended`), capability flags (`isAdministrator`, `isReviewer`, `canWrite`, `canView`), badge/profile metadata (`isVerified`, `isSenator`, `joinedLabel`, `instagram`), article counts by editorial state (plus total published `counts.views`), `unreadNotifications` count, and `notificationPreferences` (per-action `dashboard`/`email` opt-outs) |
 | `/account/profile` | `POST` | `update_profile` | Update `first_name`, `last_name`, `display_name_mode`, custom `display_name`, `description`, and optional `instagram` |
 | `/account/password` | `POST` | `update_password` | Change own password (requires `current_password`, `new_password` >= 12 chars) |
 | `/account/username` | `POST` | `change_username` | Re-authenticated `user_login` change inside a MySQL advisory lock; records 301 redirect and ends sessions |
 | `/account/email` | `POST` | `request_email_change` | Re-authenticated request to change email; emails a six-digit code to the new address |
 | `/account/avatar` | `POST` | `set_avatar` | Upload a profile photo (`multipart/form-data` field `file`, JPEG/PNG/GIF/WebP, minimum 100×100px, max 5 MB) into `uploads/penalis-avatars/u{id}-{token}.jpg` and immediately delete the superseded standalone file (rate-limited per account) |
 | `/account/avatar` | `DELETE` | `remove_avatar` | Remove the current user's profile photo (deletes the standalone file inside `penalis-avatars/`; legacy Media Library attachments are only detached) |
-| `/notifications` | `GET` | `list_notifications` | Return the signed-in user's bounded editorial notifications (up to 50) and `unreadCount`. Each item carries `articleId`, `articleTitle`, `feedback`, `targetView`, `targetUrl`, and `reviewUrl`; `targetUrl` adds `penalis_focus=feedback` when the entry has revision notes |
+| `/notifications` | `GET` | `list_notifications` | Return the signed-in user's bounded editorial and moderation notifications (up to 50) and `unreadCount`. Each item carries `articleId`, `articleTitle`, `feedback`, `targetView`, `targetUrl`, and `reviewUrl`; `targetUrl` adds `penalis_focus=feedback` when an editorial entry has revision notes. Dashboard-only `quote_removed` notices carry `articleId: 0`, `targetView: "overview"`, `feedback` (the Senator's removal reason), and `targetUrl` pointing to `#kalimat-hari-ini` |
 | `/notifications/read` | `POST` | `mark_notifications_read` | Mark all of the signed-in user's notifications as read |
 | `/notifications/(?P<id>[a-zA-Z0-9_\-]+)/read` | `POST` | `mark_notifications_read` | Mark a single notification as read |
 | `/notifications/preferences` | `POST` | `save_notification_preferences` | Save `{ dashboard, email }` opt-out matrices keyed by editorial action; omitted actions stay enabled. Returns the normalized `preferences` and a message |
@@ -75,7 +75,7 @@ administrators and editors) without writer status can also read them.
 
 | Route | Method | Handler | Access & Behavior |
 | --- | --- | --- | --- |
-| `/articles` | `GET` | `list_articles` | Paginated list of the current writer's articles (`status`: `all`, `draft`, `pending_review`, `changes_requested`, `rejected`, `published`); includes per-article `views` (`0` for unpublished articles) and author-wide `counts.views` via Post Views Counter |
+| `/articles` | `GET` | `list_articles` | Paginated list of the current writer's articles (`status`: `all`, `draft`, `pending_review`, `changes_requested`, `rejected`, `published`); includes per-article `views` (`0` for unpublished articles), `coverUrl` (same-origin `large` featured image), `category`, `publishedLabel`, poetry-safe `excerpt`, and author-wide `counts.views` via Post Views Counter |
 | `/articles/(?P<id>\d+)` | `GET` | `get_article` | Single article with editorial metadata, author identity (`authorName`, `authorLogin`), featured `thumbnail` URL, and lifetime `views` (`0` when unpublished); readable only by the article owner or a reviewer (`edit_others_posts`, i.e. administrator or editor) (`404` otherwise) |
 | `/articles/(?P<id>\d+)/review` | `GET` | `get_article_review` | Editorial state, capability flags (`canEdit`, `canSubmit`, `canResubmit`), active feedback, review cycle, and bounded review history |
 | `/articles/(?P<id>\d+)/decision` | `POST` | `decide_article` | Reviewer-only (`edit_others_posts`): `action` (`approve`, `request_changes`, `reject`), `feedback`, and `expected_cycle`. Runs `Penalis_Editorial_Workflow::apply()`, so the per-article lock, the stale-cycle guard and the feedback requirement are the same as in wp-admin. Returns the new review payload and a `message` |
@@ -90,7 +90,7 @@ administrators and editors) without writer status can also read them.
 | `/quotes/me` | `GET` | `handle_my_quote` | Active-writer only: return the writer's active `#KalimatHariIni` (or `null`), rolling 24-hour `quota` (`used`, `limit`, `remaining`, `resetAt`), `maxLength` (`200`), `maxLines` (`3`), `ttlSeconds` (`86400`), `canPublish`, and `publicUrl` |
 | `/quotes` | `POST` | `handle_publish_quote` | Active-writer only: publish a new `#KalimatHariIni` (`text`, max 200 chars, max 3 lines, 24h TTL) inside a per-user advisory lock. Returns `201` with updated writer state, `409 penalis_quote_already_active` if a quote is still live, `422 penalis_validation_error` on invalid input, or `429 penalis_quote_limit_reached` once 3 publishes occurred in the rolling 24-hour window |
 | `/quotes/me` | `DELETE` | `handle_delete_my_quote` | Active-writer only: delete the writer's active `#KalimatHariIni` immediately without restoring the rolling 24-hour publish quota |
-| `/quotes/(?P<user_id>\d+)` | `DELETE` | `handle_moderate_delete_quote` | Reviewer-only (`edit_others_posts`): remove a writer's active `#KalimatHariIni` from the Dashboard Senator moderation console (`/dashboard/?view=quotes`); returns `{ deleted: true, authorId }` |
+| `/quotes/(?P<user_id>\d+)` | `DELETE` | `handle_moderate_delete_quote` | Reviewer-only (`edit_others_posts`): remove a writer's active `#KalimatHariIni` from the Dashboard Senator moderation console (`/dashboard/?view=quotes`). Requires `reason` (plain text, 1–300 chars; returns `422 penalis_validation_error` if empty/invalid or `404 penalis_quote_not_found` if already inactive). Records a dashboard-only `quote_removed` notification for the writer (no email) and returns `{ deleted: true, authorId, reason }` |
 
 > **Note on Review Actions:** Reviewer decisions are exposed twice, on purpose.
 > The dashboard queue (`POST /articles/{id}/decision`) and the wp-admin screen
@@ -138,6 +138,8 @@ before the Vite module executes. The TypeScript contract lives in
 | `homeUrl` | `string` | Public site home URL |
 | `authorsUrl` | `string` | Public contributors directory URL (`Penalis_Author_Archive::directory_url()`) |
 | `dailyQuotesUrl` | `string` | Public `#KalimatHariIni` showcase URL (`Penalis_Daily_Quotes::page_url()`) |
+| `brandLogoUrl` | `string` | Same-origin URL of `assets/images/logo.png` (`Penalis_Dashboard::brand_assets()`, used by Canvas share cards) |
+| `brandIconUrl` | `string` | Same-origin URL of `assets/images/icon.png` (`Penalis_Dashboard::brand_assets()`, used as Canvas watermark) |
 | `adminUrl` | `string` | Link to `admin.php?page=penalis-writers` (populated only for users with `list_users`) |
 | `reviewUrl` | `string` | Link to `admin.php?page=penalis-review` (populated for users with `edit_others_posts`) |
 | `siteName` | `string` | WordPress blog name |

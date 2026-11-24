@@ -88,6 +88,8 @@ export interface DashboardBootstrap {
    * timezone; this only lets the UI explain which timezone the site uses.
    */
   siteTimezone?: SiteTimezone;
+  brandLogoUrl?: string;
+  brandIconUrl?: string;
   user: BootstrapUser | null;
 }
 
@@ -205,6 +207,9 @@ export interface Account {
   isAdministrator: boolean;
   /** Whether this account may review submissions (administrator or editor). */
   isReviewer: boolean;
+  isVerified?: boolean;
+  isSenator?: boolean;
+  joinedLabel?: string;
   canWrite: boolean;
   /** Whether the dashboard API admits this account at all (client mirror of `require_logged_in()`). */
   canView: boolean;
@@ -234,10 +239,13 @@ export interface ArticleSummary {
   reviewedAt: string;
   date: string;
   modified: string;
+  publishedLabel?: string;
+  category?: string;
   link: string;
   views: number;
   editUrl: string;
   thumbnail: string;
+  coverUrl?: string;
 }
 
 export interface ArticleList {

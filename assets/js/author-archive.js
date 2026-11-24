@@ -1,8 +1,8 @@
 /**
  * Penalis Platform — Public Author Archive Interactions
  *
- * Handles native Web Share API with clipboard fallback on the Share button and
- * direct copy-to-clipboard on the profile URL button.
+ * Handles direct copy-to-clipboard on the profile URL button, bio collapse
+ * toggle, and client-side expiry hiding for cached #KalimatHariIni cards.
  */
 ( function () {
 	'use strict';
@@ -60,35 +60,6 @@
 			}
 			button.classList.remove( 'is-copied' );
 		}, 2200 );
-	}
-
-	function initShareButton() {
-		var shareButtons = document.querySelectorAll( '[data-penalis-share]' );
-		for ( var i = 0; i < shareButtons.length; i++ ) {
-			shareButtons[ i ].addEventListener( 'click', function () {
-				var btn = this;
-				var url = btn.getAttribute( 'data-share-url' ) || window.location.href;
-				var title = btn.getAttribute( 'data-share-title' ) || document.title;
-				var text = btn.getAttribute( 'data-share-text' ) || '';
-				var labelEl = btn.querySelector( '[data-penalis-share-label]' );
-
-				if ( typeof navigator.share === 'function' ) {
-					navigator.share( { title: title, text: text, url: url } ).catch( function ( err ) {
-						if ( err && err.name === 'AbortError' ) {
-							return;
-						}
-						copyText( url ).then( function () {
-							announceCopied( btn, labelEl );
-						} ).catch( function () {} );
-					} );
-					return;
-				}
-
-				copyText( url ).then( function () {
-					announceCopied( btn, labelEl );
-				} ).catch( function () {} );
-			} );
-		}
 	}
 
 	function initCopyUrlButton() {
@@ -149,27 +120,10 @@
 		var expiresAt = expiresRaw ? parseInt( expiresRaw, 10 ) : 0;
 		if ( expiresAt > 0 && Math.floor( Date.now() / 1000 ) >= expiresAt ) {
 			quoteCard.parentNode.removeChild( quoteCard );
-			return;
-		}
-
-		var copyBtn = quoteCard.querySelector( '[data-penalis-copy-quote]' );
-		if ( copyBtn ) {
-			copyBtn.addEventListener( 'click', function () {
-				var btn = this;
-				var text = btn.getAttribute( 'data-copy-text' ) || '';
-				var labelEl = btn.querySelector( '[data-penalis-copy-quote-label]' );
-				if ( ! text ) {
-					return;
-				}
-				copyText( text ).then( function () {
-					announceCopied( btn, labelEl );
-				} ).catch( function () {} );
-			} );
 		}
 	}
 
 	function init() {
-		initShareButton();
 		initCopyUrlButton();
 		initBioToggle();
 		initDailyQuote();

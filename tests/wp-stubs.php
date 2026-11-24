@@ -1455,10 +1455,31 @@ if ( ! function_exists( 'get_post' ) ) {
 	 * @param int $post_id Post ID.
 	 * @return WP_Post|null
 	 */
-	function get_post( $post_id ) {
+	function get_post( $post_id = null ) {
+		if ( null === $post_id ) {
+			return isset( $GLOBALS['post'] ) && $GLOBALS['post'] instanceof WP_Post
+				? $GLOBALS['post']
+				: null;
+		}
+
 		return isset( $GLOBALS['penalis_test_posts'][ (int) $post_id ] )
 			? $GLOBALS['penalis_test_posts'][ (int) $post_id ]
 			: null;
+	}
+}
+
+if ( ! function_exists( 'get_the_category' ) ) {
+	/**
+	 * Post categories stub.
+	 *
+	 * @param int|false $post_id Post ID.
+	 * @return array<int,WP_Term>
+	 */
+	function get_the_category( $post_id = false ) {
+		$id = false === $post_id ? get_the_ID() : (int) $post_id;
+		return isset( $GLOBALS['penalis_test_post_categories'][ $id ] ) && is_array( $GLOBALS['penalis_test_post_categories'][ $id ] )
+			? $GLOBALS['penalis_test_post_categories'][ $id ]
+			: array();
 	}
 }
 
@@ -2568,5 +2589,145 @@ if ( ! function_exists( 'wp_get_image_editor' ) ) {
 		$editor                               = new Penalis_Test_Image_Editor( $path );
 		$GLOBALS['penalis_test_last_editor']  = $editor;
 		return $editor;
+	}
+}
+
+if ( ! function_exists( 'wp_json_encode' ) ) {
+	/**
+	 * JSON encode stub.
+	 *
+	 * @param mixed $data  Value to encode.
+	 * @param int   $flags JSON flags.
+	 * @return string|false
+	 */
+	function wp_json_encode( $data, $flags = 0 ) {
+		return json_encode( $data, (int) $flags );
+	}
+}
+
+if ( ! function_exists( 'shortcode_atts' ) ) {
+	/**
+	 * Merge user attributes with known defaults.
+	 *
+	 * @param array<string,mixed> $pairs Default attributes.
+	 * @param array<string,mixed> $atts  User attributes.
+	 * @return array<string,mixed>
+	 */
+	function shortcode_atts( $pairs, $atts ) {
+		$atts = (array) $atts;
+		$out  = array();
+		foreach ( $pairs as $name => $default ) {
+			$out[ $name ] = array_key_exists( $name, $atts ) ? $atts[ $name ] : $default;
+		}
+		return $out;
+	}
+}
+
+if ( ! function_exists( 'get_the_ID' ) ) {
+	/**
+	 * Current loop post ID stub.
+	 *
+	 * @return int
+	 */
+	function get_the_ID() {
+		return isset( $GLOBALS['penalis_test_current_post_id'] ) ? (int) $GLOBALS['penalis_test_current_post_id'] : 0;
+	}
+}
+
+if ( ! function_exists( 'is_singular' ) ) {
+	/**
+	 * Singular post check stub.
+	 *
+	 * @param string $post_types Post type.
+	 * @return bool
+	 */
+	function is_singular( $post_types = '' ) {
+		$current = isset( $GLOBALS['penalis_test_is_singular'] ) ? (string) $GLOBALS['penalis_test_is_singular'] : '';
+		return '' === $post_types ? '' !== $current : $current === (string) $post_types;
+	}
+}
+
+if ( ! function_exists( 'in_the_loop' ) ) {
+	/**
+	 * Loop state stub.
+	 *
+	 * @return bool
+	 */
+	function in_the_loop() {
+		return ! empty( $GLOBALS['penalis_test_in_the_loop'] );
+	}
+}
+
+if ( ! function_exists( 'is_main_query' ) ) {
+	/**
+	 * Main query check stub.
+	 *
+	 * @return bool
+	 */
+	function is_main_query() {
+		return ! empty( $GLOBALS['penalis_test_is_main_query'] );
+	}
+}
+
+if ( ! function_exists( 'is_feed' ) ) {
+	/**
+	 * Feed check stub.
+	 *
+	 * @return bool
+	 */
+	function is_feed() {
+		return ! empty( $GLOBALS['penalis_test_is_feed'] );
+	}
+}
+
+if ( ! function_exists( 'wp_enqueue_style' ) ) {
+	/**
+	 * Enqueue style stub.
+	 *
+	 * @param string $handle Handle.
+	 * @return void
+	 */
+	function wp_enqueue_style( $handle ) {
+		$GLOBALS['penalis_test_enqueued_styles'][] = (string) $handle;
+	}
+}
+
+if ( ! function_exists( 'wp_enqueue_script' ) ) {
+	/**
+	 * Enqueue script stub.
+	 *
+	 * @param string $handle Handle.
+	 * @return void
+	 */
+	function wp_enqueue_script( $handle ) {
+		$GLOBALS['penalis_test_enqueued_scripts'][] = (string) $handle;
+	}
+}
+
+if ( ! function_exists( 'has_shortcode' ) ) {
+	/**
+	 * Minimal shortcode presence check stub.
+	 *
+	 * @param string $content Content.
+	 * @param string $tag     Shortcode tag.
+	 * @return bool
+	 */
+	function has_shortcode( $content, $tag ) {
+		return false !== strpos( (string) $content, '[' . (string) $tag );
+	}
+}
+
+if ( ! function_exists( 'wp_localize_script' ) ) {
+	/**
+	 * Localize script stub.
+	 *
+	 * @param string              $handle      Handle.
+	 * @param string              $object_name JS object name.
+	 * @param array<string,mixed> $l10n        Data.
+	 * @return bool
+	 */
+	function wp_localize_script( $handle, $object_name, $l10n ) {
+		$GLOBALS['penalis_test_localized'][ (string) $handle ][ (string) $object_name ] = $l10n;
+		return true;
 	}
 }

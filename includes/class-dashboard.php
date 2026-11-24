@@ -438,6 +438,8 @@ final class Penalis_Dashboard {
 				'reviewUrl'      => current_user_can( 'edit_others_posts' ) ? esc_url_raw( admin_url( 'admin.php?page=' . Penalis_Editorial_Admin::PAGE_SLUG ) ) : '',
 				'siteName'       => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
 				'siteTimezone'   => Penalis_Datetime::site_timezone_payload(),
+				'brandLogoUrl'   => self::brand_assets()['logoUrl'],
+				'brandIconUrl'   => self::brand_assets()['iconUrl'],
 				'isLoggedIn'     => $user_id > 0,
 				'registration'   => Penalis_Registration::is_registration_enabled(),
 				'turnstile'      => $user_id > 0 ? array( 'enabled' => false ) : Penalis_Turnstile::frontend_config(),
@@ -496,6 +498,21 @@ final class Penalis_Dashboard {
 		 * @param string $url Base URL pointing to the build/ directory.
 		 */
 		return (string) apply_filters( 'penalis_dashboard_asset_base_url', $url );
+	}
+
+	/**
+	 * Same-origin URLs for the bundled Penalis brand wordmark and square icon.
+	 *
+	 * Used by the client-side Canvas share card generator so PNG exports never
+	 * taint the canvas on CDN-rewritten installs.
+	 *
+	 * @return array{logoUrl:string,iconUrl:string}
+	 */
+	public static function brand_assets() {
+		return array(
+			'logoUrl' => esc_url_raw( self::ensure_same_origin_url( PENALIS_PLATFORM_URL . 'assets/images/logo.png' ) ),
+			'iconUrl' => esc_url_raw( self::ensure_same_origin_url( PENALIS_PLATFORM_URL . 'assets/images/icon.png' ) ),
+		);
 	}
 
 	/**

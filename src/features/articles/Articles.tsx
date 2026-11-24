@@ -5,7 +5,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { ApiError, articlesApi, isStaleEditorialError } from '../../lib/api';
+import { getBootstrap } from '../../lib/bootstrap';
 import type {
+  Account,
   AccountCounts,
   ArticleList,
   ArticleSummary,
@@ -15,6 +17,7 @@ import type {
 import { editorialStateLabel, formatDate, formatNumber, truncate } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { ShareCardModal } from '../../components/ShareCardModal';
 import { useToast } from '../../components/toastContext';
 import {
   EmptyState,
@@ -70,9 +73,11 @@ function editorialFooterHint(state: EditorialState): string {
 }
 
 export function Articles({
+  account,
   onEdit,
   onCreate,
 }: {
+  account: Account;
   onEdit: (id: number, focus?: EditorFocus) => void;
   onCreate: () => void;
 }) {
@@ -84,6 +89,7 @@ export function Articles({
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
   const [pending, setPending] = useState<PendingAction>(null);
+  const [shareArticle, setShareArticle] = useState<ArticleSummary | null>(null);
   const showToast = useToast();
 
   const load = useCallback(async () => {
@@ -319,16 +325,27 @@ export function Articles({
                     </button>
 
                     {article.editorialState === 'published' && article.link ? (
-                      <a
-                        className="penalis-button penalis-button--ghost"
-                        href={article.link}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        aria-label="Lihat karya terbit"
-                      >
-                        <Icon name="externalLink" />
-                        <span>Lihat karya terbit</span>
-                      </a>
+                      <>
+                        <button
+                          type="button"
+                          className="penalis-button penalis-button--soft"
+                          onClick={() => setShareArticle(article)}
+                          aria-label={`Bagikan “${titleText}”`}
+                        >
+                          <Icon name="share" />
+                          <span>Bagikan</span>
+                        </button>
+                        <a
+                          className="penalis-button penalis-button--ghost"
+                          href={article.link}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          aria-label="Lihat karya terbit"
+                        >
+                          <Icon name="externalLink" />
+                          <span>Lihat karya terbit</span>
+                        </a>
+                      </>
                     ) : null}
 
                     {article.canSubmit ? (
@@ -440,6 +457,32 @@ export function Articles({
           busy={busyId === pending.article.id}
           onConfirm={() => void runEditorialSubmit(pending.article.id, 'resubmit')}
           onCancel={() => setPending(null)}
+        />
+      ) : null}
+
+      {shareArticle && shareArticle.link ? (
+        <ShareCardModal
+          payload={{
+            kind: 'article',
+            id: shareArticle.id,
+            title: shareArticle.title || 'Tanpa judul',
+            excerpt: shareArticle.excerpt,
+            category: shareArticle.category,
+            coverUrl: shareArticle.coverUrl || shareArticle.thumbnail,
+            articleUrl: shareArticle.link,
+            publishedLabel: shareArticle.publishedLabel || formatDate(shareArticle.date),
+            displayName: account.displayName,
+            username: account.username,
+            avatarUrl: account.avatarUrl,
+            isVerified: account.isVerified ?? (account.canWrite && account.emailVerified),
+            isSenator: Boolean(account.isSenator),
+          }}
+          brand={{
+            logoUrl: getBootstrap().brandLogoUrl,
+            iconUrl: getBootstrap().brandIconUrl,
+          }}
+          onClose={() => setShareArticle(null)}
+          onNotify={(message, tone) => showToast(message, tone)}
         />
       ) : null}
     </div>
