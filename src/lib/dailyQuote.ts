@@ -8,6 +8,14 @@
 
 export const DAILY_QUOTE_MAX_LENGTH = 200;
 export const DAILY_QUOTE_MAX_LINES = 3;
+export const DAILY_QUOTE_REASON_MAX_LENGTH = 300;
+
+export const DAILY_QUOTE_REMOVAL_PRESETS = [
+  'Spam atau promosi tidak relevan',
+  'Mengandung SARA atau ujaran kebencian',
+  'Mengandung kata kasar atau tidak pantas',
+  'Tidak sesuai norma komunitas Penalis',
+] as const;
 
 /**
  * Normalize a #KalimatHariIni string the same way the server does:
@@ -57,6 +65,31 @@ export function validateDailyQuoteInput(value: string): string {
 
   if (countCodePoints(normalized) > DAILY_QUOTE_MAX_LENGTH) {
     return `#KalimatHariIni maksimal ${DAILY_QUOTE_MAX_LENGTH} karakter.`;
+  }
+
+  return '';
+}
+
+/**
+ * Normalize a Senator takedown reason for #KalimatHariIni.
+ */
+export function normalizeRemovalReason(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Validate a Senator takedown reason on the client for instant feedback.
+ * The server remains authoritative.
+ */
+export function validateRemovalReason(value: string): string {
+  const normalized = normalizeRemovalReason(value);
+
+  if (normalized === '') {
+    return 'Alasan penghapusan wajib diisi agar penulis mengetahui penyebabnya.';
+  }
+
+  if (countCodePoints(normalized) > DAILY_QUOTE_REASON_MAX_LENGTH) {
+    return `Alasan penghapusan maksimal ${DAILY_QUOTE_REASON_MAX_LENGTH} karakter.`;
   }
 
   return '';

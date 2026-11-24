@@ -10,10 +10,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError, quotesApi } from '../../lib/api';
 import { getBootstrap } from '../../lib/bootstrap';
-import { formatQuoteRelativeTime, formatQuoteRemainingTime } from '../../lib/dailyQuote';
+import {
+  countCodePoints,
+  DAILY_QUOTE_REASON_MAX_LENGTH,
+  DAILY_QUOTE_REMOVAL_PRESETS,
+  formatQuoteRelativeTime,
+  formatQuoteRemainingTime,
+  normalizeRemovalReason,
+  validateRemovalReason,
+} from '../../lib/dailyQuote';
 import { formatDateTime, formatNumber } from '../../lib/format';
 import type { DailyQuoteModerationItem } from '../../lib/types';
-import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { Dialog } from '../../components/Dialog';
 import { Icon, SenatorBadgeIcon, VerifiedBadgeIcon } from '../../components/icons';
 import { useToast } from '../../components/toastContext';
 import { EmptyState, ErrorBanner, PageHeading, Panel, Spinner, StatusBadge } from '../../components/ui';
@@ -38,9 +46,34 @@ export function QuotesModeration() {
   const [error, setError] = useState('');
 
   const [pendingDelete, setPendingDelete] = useState<DailyQuoteModerationItem | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [reasonError, setReasonError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   const requestRef = useRef(0);
+  const reasonInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const openDeleteDialog = (item: DailyQuoteModerationItem) => {
+    setPendingDelete(item);
+    setDeleteReason('');
+    setReasonError('');
+  };
+
+  const closeDeleteDialog = useCallback(() => {
+    if (deleting) {
+      return;
+    }
+    setPendingDelete(null);
+    setDeleteReason('');
+    setReasonError('');
+  }, [deleting]);
+
+  const pendingAuthorId = pendingDelete?.authorId ?? null;
+  useEffect(() => {
+    if (pendingAuthorId !== null) {
+      reasonInputRef.current?.focus();
+    }
+  }, [pendingAuthorId]);
 
   // Debounce search input so typing does not fire a request on every keystroke.
   useEffect(() => {
@@ -124,30 +157,49 @@ export function QuotesModeration() {
       return;
     }
 
+    const validationError = validateRemovalReason(deleteReason);
+    if (validationError) {
+      setReasonError(validationError);
+      reasonInputRef.current?.focus();
+      return;
+    }
+
+    const normalizedReason = normalizeRemovalReason(deleteReason);
+    setReasonError('');
     setDeleting(true);
     try {
       const target = pendingDelete;
-      await quotesApi.moderateDelete(target.authorId);
+      await quotesApi.moderateDelete(target.authorId, normalizedReason);
       setItems((prev) => prev.filter((item) => item.authorId !== target.authorId));
       setTotal((prev) => Math.max(0, prev - 1));
       setTotalAll((prev) => Math.max(0, prev - 1));
       setPendingDelete(null);
-      showToast(`#KalimatHariIni milik ${target.displayName} dihapus.`);
+      setDeleteReason('');
+      setReasonError('');
+      showToast(`#KalimatHariIni milik ${target.displayName} di-takedown dan notifikasi dikirim ke penulis.`);
     } catch (caught: unknown) {
-      showToast(
-        caught instanceof ApiError ? caught.message : '#KalimatHariIni tidak dapat dihapus.',
-        'danger',
-      );
+      if (caught instanceof ApiError && caught.fields?.reason) {
+        setReasonError(caught.fields.reason);
+        reasonInputRef.current?.focus();
+      } else {
+        showToast(
+          caught instanceof ApiError ? caught.message : '#KalimatHariIni tidak dapat di-takedown.',
+          'danger',
+        );
+      }
     } finally {
       setDeleting(false);
     }
   };
 
+  const normalizedReason = normalizeRemovalReason(deleteReason);
+  const reasonLength = countCodePoints(normalizedReason);
+
   return (
     <div className="penalis-stack">
       <PageHeading
         title="Kalimat Hari Ini"
-        description="Pantau #KalimatHariIni yang sedang tayang dalam 24 jam terakhir dan hapus kalimat yang melanggar norma komunitas."
+        description="Pantau #KalimatHariIni yang sedang tayang dalam 24 jam terakhir dan takedown kalimat yang melanggar norma komunitas."
         action={
           <div className="penalis-quotes-mod__header-actions">
             {publicUrl ? (
@@ -167,7 +219,7 @@ export function QuotesModeration() {
               onClick={() => void load(1, false)}
               disabled={loading || loadingMore}
             >
-              Muat ulang
+              Refresh
             </button>
           </div>
         }
@@ -295,10 +347,10 @@ export function QuotesModeration() {
                     <button
                       type="button"
                       className="penalis-button penalis-button--danger"
-                      onClick={() => setPendingDelete(item)}
+                      onClick={() => openDeleteDialog(item)}
                     >
                       <Icon name="trash" />
-                      <span>Hapus</span>
+                      <span>Takedown</span>
                     </button>
                   </div>
                 </li>
@@ -322,23 +374,112 @@ export function QuotesModeration() {
       </Panel>
 
       {pendingDelete ? (
-        <ConfirmDialog
-          title="Hapus #KalimatHariIni ini?"
-          description={
-            <>
+        <Dialog label="Takedown #KalimatHariIni ini?" onClose={closeDeleteDialog}>
+          <div className="penalis-modal__content penalis-modal__content--confirm penalis-quotes-mod__confirm-dialog">
+            <div className="penalis-modal__header">
+              <h3>Takedown #KalimatHariIni ini?</h3>
+            </div>
+
+            <div className="penalis-confirm__body">
               <p>
                 Kalimat milik <strong>{pendingDelete.displayName}</strong> (@{pendingDelete.username}) akan
-                langsung diturunkan dari halaman profil penulis dan halaman publik #KalimatHariIni.
+                langsung di-takedown dari halaman profil penulis dan halaman publik. Penulis akan menerima
+                notifikasi di dashboard beserta alasan takedown di bawah ini.
               </p>
               <div className="penalis-quotes-mod__confirm-preview">{pendingDelete.text}</div>
-            </>
-          }
-          confirmLabel="Ya, hapus kalimat"
-          tone="danger"
-          busy={deleting}
-          onConfirm={() => void handleConfirmDelete()}
-          onCancel={() => setPendingDelete(null)}
-        />
+
+              <div className="penalis-quotes-mod__reason-field">
+                <div className="penalis-quotes-mod__reason-head">
+                  <label htmlFor="penalis-quotes-mod-reason" className="penalis-quotes-mod__reason-label">
+                    Alasan takedown <span className="penalis-quotes-mod__required" aria-hidden="true">*</span>
+                  </label>
+                  <span
+                    className={`penalis-quotes-mod__reason-count ${
+                      reasonLength > DAILY_QUOTE_REASON_MAX_LENGTH ? 'is-over' : ''
+                    }`}
+                  >
+                    {reasonLength}/{DAILY_QUOTE_REASON_MAX_LENGTH}
+                  </span>
+                </div>
+
+                <div className="penalis-quotes-mod__presets" role="group" aria-label="Pilihan alasan cepat">
+                  {DAILY_QUOTE_REMOVAL_PRESETS.map((preset) => {
+                    const isActive = normalizedReason === preset;
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        className={`penalis-quotes-mod__preset ${isActive ? 'is-active' : ''}`}
+                        aria-pressed={isActive}
+                        disabled={deleting}
+                        onClick={() => {
+                          setDeleteReason(preset);
+                          setReasonError('');
+                          reasonInputRef.current?.focus();
+                        }}
+                      >
+                        {preset}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <textarea
+                  ref={reasonInputRef}
+                  id="penalis-quotes-mod-reason"
+                  name="quotes_removal_reason"
+                  className={`penalis-quotes-mod__reason-input ${reasonError ? 'is-invalid' : ''}`}
+                  rows={3}
+                  maxLength={DAILY_QUOTE_REASON_MAX_LENGTH}
+                  placeholder="Pilih alasan cepat di atas atau tulis alasan spesifik untuk penulis…"
+                  value={deleteReason}
+                  disabled={deleting}
+                  required
+                  aria-invalid={reasonError ? 'true' : undefined}
+                  aria-describedby={
+                    reasonError
+                      ? 'penalis-quotes-mod-reason-hint penalis-quotes-mod-reason-error'
+                      : 'penalis-quotes-mod-reason-hint'
+                  }
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setDeleteReason(nextValue);
+                    if (reasonError && validateRemovalReason(nextValue) === '') {
+                      setReasonError('');
+                    }
+                  }}
+                />
+                <p id="penalis-quotes-mod-reason-hint" className="penalis-quotes-mod__reason-hint">
+                  Alasan ini akan tampil pada notifikasi di dashboard penulis.
+                </p>
+                {reasonError ? (
+                  <p id="penalis-quotes-mod-reason-error" className="penalis-quotes-mod__reason-error" role="alert">
+                    {reasonError}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="penalis-confirm__actions">
+              <button
+                type="button"
+                className="penalis-button penalis-button--ghost"
+                onClick={closeDeleteDialog}
+                disabled={deleting}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                className="penalis-button penalis-button--danger-solid"
+                onClick={() => void handleConfirmDelete()}
+                disabled={deleting}
+              >
+                {deleting ? 'Memproses…' : 'Ya, takedown'}
+              </button>
+            </div>
+          </div>
+        </Dialog>
       ) : null}
     </div>
   );

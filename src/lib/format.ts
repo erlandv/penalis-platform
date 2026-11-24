@@ -204,6 +204,7 @@ export function statusTone(status: string): 'success' | 'warning' | 'danger' | '
     case 'rejected':
     case 'reject':
     case 'suspended':
+    case 'quote_removed':
       return 'danger';
     default:
       return 'neutral';

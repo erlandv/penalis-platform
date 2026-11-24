@@ -604,6 +604,12 @@ final class Penalis_Rest_Api {
 				'methods'             => WP_REST_Server::DELETABLE,
 				'callback'            => array( __CLASS__, 'handle_moderate_delete_quote' ),
 				'permission_callback' => array( __CLASS__, 'require_reviewer' ),
+				'args'                => array(
+					'reason' => array(
+						'type'     => 'string',
+						'required' => false,
+					),
+				),
 			)
 		);
 	}
@@ -2377,27 +2383,14 @@ final class Penalis_Rest_Api {
 	 */
 	public static function handle_moderate_delete_quote( $request ) {
 		$target_user_id = (int) $request->get_param( 'user_id' );
-		$target_user    = get_userdata( $target_user_id );
+		$reason         = (string) $request->get_param( 'reason' );
+		$result         = Penalis_Daily_Quotes::moderate_delete( $target_user_id, $reason );
 
-		if ( ! $target_user instanceof WP_User ) {
-			return new WP_Error(
-				'penalis_not_found',
-				'Penulis tidak ditemukan.',
-				array( 'status' => 404 )
-			);
-		}
-
-		$result = Penalis_Daily_Quotes::delete_for_user( $target_user_id );
 		if ( is_wp_error( $result ) ) {
 			return $result;
 		}
 
-		return rest_ensure_response(
-			array(
-				'deleted'  => true,
-				'authorId' => $target_user_id,
-			)
-		);
+		return rest_ensure_response( $result );
 	}
 
 	/**

@@ -720,9 +720,10 @@ export const quotesApi = {
       retryAuth: true,
     }),
 
-  moderateDelete: (authorId: number) =>
-    request<{ deleted: boolean; authorId: number }>(`/quotes/${authorId}`, {
+  moderateDelete: (authorId: number, reason: string) =>
+    request<{ deleted: boolean; authorId: number; reason: string }>(`/quotes/${authorId}`, {
       method: 'DELETE',
+      body: { reason },
       fallbackMessage: '#KalimatHariIni tidak dapat dihapus.',
       retryAuth: true,
     }),

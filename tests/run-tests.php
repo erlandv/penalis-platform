@@ -6108,6 +6108,55 @@ penalis_same( 2, $penalis_q_quota['used'], 'Timestamps older than 24 hours roll 
 penalis_same( 1, $penalis_q_quota['remaining'], 'One publish slot remains when two occurred within 24 hours.' );
 penalis_same( 0, $penalis_q_quota['reset_at'], 'Reset timestamp is zero while quota remains.' );
 
+penalis_same(
+	'Spam atau promosi tidak relevan',
+	Penalis_Policy::normalize_daily_quote_removal_reason( "  <b>Spam</b>   atau\npromosi\ttidak relevan  " ),
+	'Removal reason normalization strips HTML and collapses whitespace.'
+);
+penalis_assert(
+	'' !== Penalis_Policy::validate_daily_quote_removal_reason( '   ' ),
+	'Empty removal reason is rejected.'
+);
+penalis_same(
+	'',
+	Penalis_Policy::validate_daily_quote_removal_reason( str_repeat( 'a', Penalis_Policy::DAILY_QUOTE_REASON_MAX_LENGTH ) ),
+	'Removal reason at max length is accepted.'
+);
+penalis_assert(
+	'' !== Penalis_Policy::validate_daily_quote_removal_reason( str_repeat( 'a', Penalis_Policy::DAILY_QUOTE_REASON_MAX_LENGTH + 1 ) ),
+	'Removal reason above max length is rejected.'
+);
+penalis_assert(
+	count( Penalis_Policy::daily_quote_removal_presets() ) >= 3,
+	'Quick-reason presets are provided for Senator moderation.'
+);
+penalis_same(
+	'#KalimatHariIni dihapus',
+	Penalis_Editorial_Policy::action_label( Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED ),
+	'quote_removed notification type has an Indonesian label.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::is_valid_action( Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED ),
+	'quote_removed stays outside the article workflow action list.'
+);
+penalis_assert(
+	Penalis_Editorial_Policy::is_valid_notification_type( Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED ),
+	'quote_removed is accepted as a valid dashboard notification type.'
+);
+penalis_assert(
+	! Penalis_Editorial_Policy::is_valid_notification(
+		array(
+			'id'         => 'n_bad_article',
+			'type'       => Penalis_Editorial_Policy::ACTION_APPROVE,
+			'article_id' => 0,
+			'message'    => 'Harus ditolak',
+			'created_at' => $penalis_q_now,
+			'read_at'    => 0,
+		)
+	),
+	'Editorial article notifications still require article_id > 0.'
+);
+
 // Setup active writers and a non-writer for #KalimatHariIni workflow tests.
 $GLOBALS['penalis_test_users'][501]                = new WP_User( 501, array( Penalis_Roles::ROLE ) );
 $GLOBALS['penalis_test_users'][501]->display_name  = 'Erland Ramdhani';
@@ -6195,11 +6244,66 @@ $penalis_archive_profile = Penalis_Author_Archive::get_profile_data( $GLOBALS['p
 penalis_assert( is_array( $penalis_archive_profile['daily_quote'] ), 'Author archive profile includes active #KalimatHariIni.' );
 penalis_same( 'Kutipan aktif di profil', $penalis_archive_profile['daily_quote']['text'], 'Author archive profile carries normalized quote text.' );
 
-$penalis_mod_delete = Penalis_Rest_Api::handle_moderate_delete_quote(
-	new WP_REST_Request( 'DELETE', '/penalis/v1/quotes/502', array( 'user_id' => 502 ) )
+// Senator moderation delete requires a reason, deletes the quote, sends a dashboard-only notification (no email).
+delete_user_meta( 502, Penalis_Editorial_Policy::META_NOTIFICATIONS );
+$GLOBALS['penalis_test_mail'] = array();
+
+$penalis_mod_no_reason = Penalis_Rest_Api::handle_moderate_delete_quote(
+	new WP_REST_Request( 'DELETE', '/penalis/v1/quotes/502', array( 'user_id' => 502, 'reason' => '   ' ) )
 );
-penalis_same( true, $penalis_mod_delete->get_data()['deleted'], 'Senator moderation delete succeeds.' );
+penalis_assert( is_wp_error( $penalis_mod_no_reason ), 'Senator moderation delete refuses empty reason.' );
+penalis_same( 'penalis_validation_error', $penalis_mod_no_reason->get_error_code(), 'Empty reason returns penalis_validation_error.' );
+penalis_assert( is_array( Penalis_Daily_Quotes::get_active_for_user( 502 ) ), 'Quote stays active when takedown reason is missing.' );
+penalis_same( 0, count( Penalis_Editorial_Notifications::get_for_user( 502 ) ), 'No notification is recorded when moderation delete fails.' );
+
+$penalis_mod_delete = Penalis_Rest_Api::handle_moderate_delete_quote(
+	new WP_REST_Request(
+		'DELETE',
+		'/penalis/v1/quotes/502',
+		array(
+			'user_id' => 502,
+			'reason'  => '  Spam atau promosi   tidak relevan  ',
+		)
+	)
+);
+penalis_same( true, $penalis_mod_delete->get_data()['deleted'], 'Senator moderation delete succeeds with a valid reason.' );
+penalis_same( 'Spam atau promosi tidak relevan', $penalis_mod_delete->get_data()['reason'], 'Moderation delete returns the normalized reason.' );
 penalis_same( null, Penalis_Daily_Quotes::get_active_for_user( 502 ), 'Moderated quote is removed.' );
+penalis_same( 0, count( $GLOBALS['penalis_test_mail'] ), 'Quote moderation takedown sends no email.' );
+
+$penalis_q_notifs = Penalis_Editorial_Notifications::get_for_user( 502 );
+penalis_same( 1, count( $penalis_q_notifs ), 'Writer receives one dashboard notification after Senator takedown.' );
+penalis_same( Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED, $penalis_q_notifs[0]['type'], 'Notification type is quote_removed.' );
+penalis_same( '#KalimatHariIni dihapus', $penalis_q_notifs[0]['typeLabel'], 'Notification type label is Indonesian.' );
+penalis_same( 0, $penalis_q_notifs[0]['articleId'], 'Quote takedown notification has articleId 0.' );
+penalis_same( '#KalimatHariIni', $penalis_q_notifs[0]['articleTitle'], 'Quote takedown notification uses #KalimatHariIni title.' );
+penalis_same( 'overview', $penalis_q_notifs[0]['targetView'], 'Quote takedown notification targets overview.' );
+penalis_same(
+	'#KalimatHariIni kamu telah dihapus oleh Senator. Alasan: Spam atau promosi tidak relevan',
+	$penalis_q_notifs[0]['message'],
+	'Quote takedown notification carries the exact general message with reason.'
+);
+penalis_same( 1, Penalis_Editorial_Notifications::count_unread( 502 ), 'Quote takedown notification increments unread count.' );
+Penalis_Editorial_Notifications::mark_read( 502, $penalis_q_notifs[0]['id'] );
+penalis_same( 0, Penalis_Editorial_Notifications::count_unread( 502 ), 'Quote takedown notification can be marked read.' );
+
+// Attempting to moderate an already-removed quote returns 404 without adding a duplicate notification.
+$penalis_mod_again = Penalis_Rest_Api::handle_moderate_delete_quote(
+	new WP_REST_Request(
+		'DELETE',
+		'/penalis/v1/quotes/502',
+		array(
+			'user_id' => 502,
+			'reason'  => 'Spam atau promosi tidak relevan',
+		)
+	)
+);
+penalis_assert( is_wp_error( $penalis_mod_again ), 'Moderating an already-deleted quote returns WP_Error.' );
+penalis_same( 'penalis_quote_not_found', $penalis_mod_again->get_error_code(), 'Missing active quote returns penalis_quote_not_found.' );
+penalis_same( 1, count( Penalis_Editorial_Notifications::get_for_user( 502 ) ), 'Failed duplicate moderation does not append another notification.' );
+
+// Self-deletion never creates a takedown notification.
+delete_user_meta( 501, Penalis_Editorial_Policy::META_NOTIFICATIONS );
 
 // Layer 4 (rest_pre_dispatch) allows active writers to publish and delete their own quote,
 // while still refusing cross-writer moderation routes and pending accounts.
@@ -6251,6 +6355,11 @@ penalis_same(
 	0,
 	Penalis_Daily_Quotes_Admin::active_count(),
 	'active_count() drops to 0 after the remaining active quote is deleted.'
+);
+penalis_same(
+	0,
+	count( Penalis_Editorial_Notifications::get_for_user( 501 ) ),
+	'Self-deleting a quote does not trigger a takedown notification.'
 );
 
 /* -------------------------------------------------------------------------

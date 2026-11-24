@@ -153,6 +153,13 @@ export function Overview({
       void markRead(item.id);
     }
 
+    if (item.articleId <= 0) {
+      if (item.targetView === 'overview') {
+        document.getElementById('kalimat-hari-ini')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
+
     if (staff) {
       // Land on the submission the notification is about, not the bare queue.
       onOpenReviewArticle(item.articleId);

@@ -56,6 +56,8 @@ export function Dialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     lockBodyScroll();
@@ -87,7 +89,7 @@ export function Dialog({
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -124,17 +126,14 @@ export function Dialog({
       document.removeEventListener('keydown', onKeyDown, true);
       previouslyFocused?.focus();
     };
-  }, [onClose]);
+  }, []);
 
-  const onOverlayMouseDown = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      // Only a press that starts on the backdrop itself closes the dialog.
-      if (event.target === event.currentTarget) {
-        onClose();
-      }
-    },
-    [onClose],
-  );
+  const onOverlayMouseDown = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    // Only a press that starts on the backdrop itself closes the dialog.
+    if (event.target === event.currentTarget) {
+      onCloseRef.current();
+    }
+  }, []);
 
   return (
     <div

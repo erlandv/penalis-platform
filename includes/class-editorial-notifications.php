@@ -261,6 +261,56 @@ final class Penalis_Editorial_Notifications {
 	}
 
 	/**
+	 * Record a dashboard-only notification when a Senator removes a writer's
+	 * #KalimatHariIni.
+	 *
+	 * Never sends an email and bypasses article notification preferences so the
+	 * writer always receives moderation transparency in their dashboard.
+	 *
+	 * @param int    $user_id Writer user ID.
+	 * @param string $reason  Normalized takedown reason.
+	 * @return bool True when stored.
+	 */
+	public static function record_quote_removed( $user_id, $reason ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 || ! get_userdata( $user_id ) ) {
+			return false;
+		}
+
+		$clean_reason = Penalis_Policy::normalize_daily_quote_removal_reason( (string) $reason );
+		if ( '' === $clean_reason ) {
+			return false;
+		}
+
+		$entry = array(
+			'id'            => self::generate_id( 0, Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED ),
+			'type'          => Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED,
+			'article_id'    => 0,
+			'article_title' => '#KalimatHariIni',
+			'message'       => sprintf( '#KalimatHariIni kamu telah dihapus oleh Senator. Alasan: %s', $clean_reason ),
+			'feedback'      => $clean_reason,
+			'created_at'    => time(),
+			'read_at'       => 0,
+		);
+
+		if ( ! Penalis_Editorial_Policy::is_valid_notification( $entry ) ) {
+			return false;
+		}
+
+		return true === self::with_user_lock(
+			$user_id,
+			static function () use ( $user_id, $entry ) {
+				$updated = Penalis_Editorial_Policy::append_notification(
+					self::get_raw_for_user( $user_id ),
+					$entry
+				);
+
+				return (bool) update_user_meta( $user_id, Penalis_Editorial_Policy::META_NOTIFICATIONS, $updated );
+			}
+		);
+	}
+
+	/**
 	 * Run a read-modify-write mutation of a recipient's notification list.
 	 *
 	 * The list is stored as one serialized user-meta array, so every mutation
@@ -343,11 +393,31 @@ final class Penalis_Editorial_Notifications {
 			}
 
 			$article_id = (int) $entry['article_id'];
-			$post       = get_post( $article_id );
-			$title      = $post ? self::safe_title( $post ) : ( isset( $entry['article_title'] ) ? self::safe_text( $entry['article_title'] ) : 'Tanpa judul' );
 			$read_at    = max( 0, (int) $entry['read_at'] );
 			$type       = (string) $entry['type'];
 			$feedback   = isset( $entry['feedback'] ) && is_string( $entry['feedback'] ) ? $entry['feedback'] : '';
+
+			if ( Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED === $type ) {
+				$items[] = array(
+					'id'           => (string) $entry['id'],
+					'type'         => $type,
+					'typeLabel'    => Penalis_Editorial_Policy::action_label( $type ),
+					'articleId'    => 0,
+					'articleTitle' => '#KalimatHariIni',
+					'message'      => (string) $entry['message'],
+					'feedback'     => $feedback,
+					'createdAt'    => (int) $entry['created_at'],
+					'readAt'       => $read_at,
+					'isRead'       => $read_at > 0,
+					'targetView'   => 'overview',
+					'targetUrl'    => Penalis_Dashboard::dashboard_url() . '#kalimat-hari-ini',
+					'reviewUrl'    => '',
+				);
+				continue;
+			}
+
+			$post  = get_post( $article_id );
+			$title = $post ? self::safe_title( $post ) : ( isset( $entry['article_title'] ) ? self::safe_text( $entry['article_title'] ) : 'Tanpa judul' );
 
 			$target_args = array(
 				'view' => 'editor',
@@ -493,6 +563,12 @@ final class Penalis_Editorial_Notifications {
 	private static function can_user_read_entry( $user_id, $entry, $can_review ) {
 		if ( ! Penalis_Editorial_Policy::is_valid_notification( $entry ) ) {
 			return false;
+		}
+
+		// User-scoped moderation notices have no backing post and are already
+		// stored exclusively in the recipient's own user meta.
+		if ( Penalis_Editorial_Policy::NOTIFICATION_QUOTE_REMOVED === (string) $entry['type'] ) {
+			return true;
 		}
 
 		$post = get_post( (int) $entry['article_id'] );

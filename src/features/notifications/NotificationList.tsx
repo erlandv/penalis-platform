@@ -53,7 +53,11 @@ export function NotificationList({
                 type="button"
                 className="penalis-notification-item__body penalis-notification-item__body--link"
                 onClick={() => onOpenArticle(item)}
-                aria-label={`Buka karya: ${item.articleTitle || 'Tanpa judul'}`}
+                aria-label={
+                  item.articleId > 0
+                    ? `Buka karya: ${item.articleTitle || 'Tanpa judul'}`
+                    : `${item.typeLabel}: ${item.message}`
+                }
               >
                 <span className="penalis-notification-item__head">
                   <StatusBadge status={item.type} label={item.typeLabel} />

@@ -30,6 +30,14 @@ final class Penalis_Editorial_Policy {
 	public const ACTION_REOPEN          = 'reopen';
 	public const ACTION_APPROVE         = 'approve';
 
+	/**
+	 * Dashboard-only notification type for a Senator #KalimatHariIni takedown.
+	 *
+	 * Kept outside `actions()` so it does not enter the article state machine
+	 * or the opt-out notification preference matrix.
+	 */
+	public const NOTIFICATION_QUOTE_REMOVED = 'quote_removed';
+
 	public const META_STATE          = '_penalis_editorial_state';
 	public const META_FEEDBACK       = '_penalis_review_feedback';
 	public const META_SUBMITTED_AT   = '_penalis_submitted_at';
@@ -92,6 +100,16 @@ final class Penalis_Editorial_Policy {
 	 */
 	public static function is_valid_action( $action ) {
 		return is_string( $action ) && in_array( $action, self::actions(), true );
+	}
+
+	/**
+	 * Check whether a dashboard notification type is supported.
+	 *
+	 * @param mixed $type Notification type.
+	 * @return bool
+	 */
+	public static function is_valid_notification_type( $type ) {
+		return self::is_valid_action( $type ) || self::NOTIFICATION_QUOTE_REMOVED === $type;
 	}
 
 	/**
@@ -519,12 +537,13 @@ final class Penalis_Editorial_Policy {
 	 */
 	public static function action_label( $action ) {
 		$labels = array(
-			self::ACTION_SUBMIT          => 'Di-submit penulis',
-			self::ACTION_RESUBMIT        => 'Di-submit ulang penulis',
-			self::ACTION_REQUEST_CHANGES => 'Diminta revisi',
-			self::ACTION_REJECT          => 'Ditolak',
-			self::ACTION_REOPEN          => 'Dibuka kembali',
-			self::ACTION_APPROVE         => 'Disetujui dan diterbitkan',
+			self::ACTION_SUBMIT              => 'Di-submit penulis',
+			self::ACTION_RESUBMIT            => 'Di-submit ulang penulis',
+			self::ACTION_REQUEST_CHANGES     => 'Diminta revisi',
+			self::ACTION_REJECT              => 'Ditolak',
+			self::ACTION_REOPEN              => 'Dibuka kembali',
+			self::ACTION_APPROVE             => 'Disetujui dan diterbitkan',
+			self::NOTIFICATION_QUOTE_REMOVED => '#KalimatHariIni dihapus',
 		);
 
 		return isset( $labels[ $action ] ) ? $labels[ $action ] : $action;
@@ -640,11 +659,14 @@ final class Penalis_Editorial_Policy {
 			return false;
 		}
 
-		if ( ! self::is_valid_action( $entry['type'] ) ) {
+		if ( ! self::is_valid_notification_type( $entry['type'] ) ) {
 			return false;
 		}
 
-		if ( (int) $entry['article_id'] <= 0 || (int) $entry['created_at'] <= 0 ) {
+		$is_quote_removed = self::NOTIFICATION_QUOTE_REMOVED === $entry['type'];
+		$article_id       = (int) $entry['article_id'];
+
+		if ( ( $is_quote_removed ? 0 !== $article_id : $article_id <= 0 ) || (int) $entry['created_at'] <= 0 ) {
 			return false;
 		}
 

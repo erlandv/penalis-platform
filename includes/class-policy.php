@@ -45,12 +45,13 @@ final class Penalis_Policy {
 	public const AUTHORS_PER_PAGE     = 100;
 	public const AUTHORS_MAX_PER_PAGE = 100;
 
-	public const DAILY_QUOTE_MAX_LENGTH   = 200;
-	public const DAILY_QUOTE_MAX_LINES    = 3;
-	public const DAILY_QUOTE_TTL          = 86400;
-	public const DAILY_QUOTE_DAILY_LIMIT  = 3;
-	public const DAILY_QUOTE_PER_PAGE     = 24;
-	public const DAILY_QUOTE_MAX_PER_PAGE = 50;
+	public const DAILY_QUOTE_MAX_LENGTH        = 200;
+	public const DAILY_QUOTE_MAX_LINES         = 3;
+	public const DAILY_QUOTE_TTL               = 86400;
+	public const DAILY_QUOTE_DAILY_LIMIT       = 3;
+	public const DAILY_QUOTE_PER_PAGE          = 24;
+	public const DAILY_QUOTE_MAX_PER_PAGE      = 50;
+	public const DAILY_QUOTE_REASON_MAX_LENGTH = 300;
 
 	/**
 	 * Multibyte-safe string length with a non-mbstring fallback.
@@ -1137,6 +1138,60 @@ final class Penalis_Policy {
 
 		if ( self::length( $normalized ) > self::DAILY_QUOTE_MAX_LENGTH ) {
 			return sprintf( '#KalimatHariIni maksimal %d karakter.', self::DAILY_QUOTE_MAX_LENGTH );
+		}
+
+		return '';
+	}
+
+	/**
+	 * Quick-reason presets offered to Senators when taking down a #KalimatHariIni.
+	 *
+	 * @return string[]
+	 */
+	public static function daily_quote_removal_presets() {
+		return array(
+			'Spam atau promosi tidak relevan',
+			'Mengandung SARA atau ujaran kebencian',
+			'Mengandung kata kasar atau tidak pantas',
+			'Tidak sesuai norma komunitas Penalis',
+		);
+	}
+
+	/**
+	 * Normalize a Senator's takedown reason for #KalimatHariIni.
+	 *
+	 * Strips markup and collapses whitespace into single spaces so the reason
+	 * renders cleanly inside the dashboard notification banner.
+	 *
+	 * @param string $value Raw reason text.
+	 * @return string
+	 */
+	public static function normalize_daily_quote_removal_reason( $value ) {
+		if ( ! is_string( $value ) ) {
+			return '';
+		}
+
+		$plain = function_exists( 'wp_strip_all_tags' ) ? wp_strip_all_tags( $value ) : strip_tags( $value ); // phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- Fallback for pure policy unit tests without WordPress.
+		$clean = preg_replace( '/\s+/u', ' ', $plain );
+
+		return trim( is_string( $clean ) ? $clean : $plain );
+	}
+
+	/**
+	 * Validate a Senator's takedown reason for #KalimatHariIni.
+	 *
+	 * @param string $value Raw reason text.
+	 * @return string Error message, or empty string when valid.
+	 */
+	public static function validate_daily_quote_removal_reason( $value ) {
+		$normalized = self::normalize_daily_quote_removal_reason( $value );
+
+		if ( '' === $normalized ) {
+			return 'Alasan penghapusan wajib diisi agar penulis mengetahui penyebabnya.';
+		}
+
+		if ( self::length( $normalized ) > self::DAILY_QUOTE_REASON_MAX_LENGTH ) {
+			return sprintf( 'Alasan penghapusan maksimal %d karakter.', self::DAILY_QUOTE_REASON_MAX_LENGTH );
 		}
 
 		return '';

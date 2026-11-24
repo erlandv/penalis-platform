@@ -106,6 +106,7 @@ final class Penalis_Daily_Quotes_Admin {
 
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Verified via check_admin_referer() right below.
 		$user_id = isset( $_POST['user_id'] ) ? (int) $_POST['user_id'] : 0;
+		$reason  = isset( $_POST['reason'] ) ? (string) wp_unslash( $_POST['reason'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized and validated by Penalis_Daily_Quotes::moderate_delete().
 		$search  = isset( $_POST['s'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['s'] ) ) ) : '';
 		$sort    = isset( $_POST['sort'] ) ? sanitize_key( wp_unslash( $_POST['sort'] ) ) : 'newest';
 		$paged   = isset( $_POST['paged'] ) ? max( 1, (int) $_POST['paged'] ) : 1;
@@ -124,16 +125,20 @@ final class Penalis_Daily_Quotes_Admin {
 			$redirect_args['paged'] = $paged;
 		}
 
-		$user = get_userdata( $user_id );
-		if ( ! $user instanceof WP_User ) {
-			$redirect_args['penalis_quote_error'] = 'not_found';
-			wp_safe_redirect( self::page_url( $redirect_args ) );
-			exit;
-		}
-
-		$result = Penalis_Daily_Quotes::delete_for_user( $user_id );
+		$result = Penalis_Daily_Quotes::moderate_delete( $user_id, $reason );
 		if ( is_wp_error( $result ) ) {
-			$redirect_args['penalis_quote_error'] = 'failed';
+			$code = $result->get_error_code();
+			if ( 'penalis_not_found' === $code ) {
+				$redirect_args['penalis_quote_error'] = 'not_found';
+			} elseif ( 'penalis_quote_not_found' === $code ) {
+				$redirect_args['penalis_quote_error'] = 'quote_not_found';
+			} elseif ( 'penalis_validation_error' === $code ) {
+				$normalized_reason                    = Penalis_Policy::normalize_daily_quote_removal_reason( $reason );
+				$redirect_args['penalis_quote_error'] = '' === $normalized_reason ? 'reason_required' : 'reason_too_long';
+			} else {
+				$redirect_args['penalis_quote_error'] = 'failed';
+			}
+
 			wp_safe_redirect( self::page_url( $redirect_args ) );
 			exit;
 		}
@@ -198,7 +203,7 @@ final class Penalis_Daily_Quotes_Admin {
 
 			<?php if ( 'deleted' === $notice ) : ?>
 				<div class="notice notice-success is-dismissible">
-					<p>#KalimatHariIni berhasil dihapus dari profil penulis dan halaman publik.</p>
+					<p>#KalimatHariIni berhasil di-takedown dan notifikasi alasan takedown telah dikirim ke dashboard penulis.</p>
 				</div>
 			<?php endif; ?>
 
@@ -206,10 +211,16 @@ final class Penalis_Daily_Quotes_Admin {
 				<div class="notice notice-error is-dismissible">
 					<p>
 						<?php
+						$error_messages = array(
+							'not_found'       => 'Penulis tidak ditemukan.',
+							'quote_not_found' => '#KalimatHariIni penulis ini sudah tidak aktif atau telah di-takedown.',
+							'reason_required' => 'Alasan takedown wajib diisi agar penulis mengetahui penyebabnya.',
+							'reason_too_long' => sprintf( 'Alasan takedown maksimal %d karakter.', Penalis_Policy::DAILY_QUOTE_REASON_MAX_LENGTH ),
+						);
 						echo esc_html(
-							'not_found' === $error
-								? 'Penulis tidak ditemukan.'
-								: '#KalimatHariIni tidak dapat dihapus. Silakan coba lagi.'
+							isset( $error_messages[ $error ] )
+								? $error_messages[ $error ]
+								: '#KalimatHariIni tidak dapat di-takedown. Silakan coba lagi.'
 						);
 						?>
 					</p>
@@ -219,7 +230,7 @@ final class Penalis_Daily_Quotes_Admin {
 			<p class="penalis-review__intro">
 				Daftar <strong>#KalimatHariIni</strong> yang sedang aktif dalam 24 jam terakhir
 				(<strong><?php echo esc_html( number_format_i18n( $total_all ) ); ?></strong> aktif).
-				Gunakan tombol <strong>Hapus</strong> untuk menurunkan kalimat yang melanggar norma komunitas.
+				Gunakan tombol <strong>Takedown</strong> untuk takedown kalimat yang melanggar norma komunitas.
 			</p>
 
 			<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>" class="penalis-quotes-admin__filters">
@@ -313,6 +324,7 @@ final class Penalis_Daily_Quotes_Admin {
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 									<input type="hidden" name="action" value="penalis_delete_quote_action">
 									<input type="hidden" name="user_id" value="<?php echo esc_attr( (string) $author_id ); ?>">
+									<input type="hidden" name="reason" value="">
 									<input type="hidden" name="s" value="<?php echo esc_attr( $search ); ?>">
 									<input type="hidden" name="sort" value="<?php echo esc_attr( $sort ); ?>">
 									<input type="hidden" name="paged" value="<?php echo esc_attr( (string) $paged ); ?>">
@@ -324,7 +336,7 @@ final class Penalis_Daily_Quotes_Admin {
 										data-penalis-quote-author="<?php echo esc_attr( $display_name . ' (@' . $username . ')' ); ?>"
 										data-penalis-quote-text="<?php echo esc_attr( $quote_text ); ?>"
 									>
-										Hapus
+										Takedown
 									</button>
 								</form>
 							</td>
@@ -370,15 +382,83 @@ final class Penalis_Daily_Quotes_Admin {
 				<?php endif; ?>
 			<?php endif; ?>
 
-			<?php
-			Penalis_Admin::render_confirm_modal(
-				'penalis-quote-confirm',
-				'Hapus #KalimatHariIni ini?',
-				'Kalimat yang akan dihapus:',
-				'penalis-quote-confirm-context-box',
-				'penalis-quote-confirm-context-text'
-			);
-			?>
+			<?php self::render_delete_modal(); ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the confirmation modal with quick-reason chips and required reason field.
+	 *
+	 * @return void
+	 */
+	private static function render_delete_modal() {
+		$presets    = Penalis_Policy::daily_quote_removal_presets();
+		$max_length = Penalis_Policy::DAILY_QUOTE_REASON_MAX_LENGTH;
+		?>
+		<div id="penalis-quote-confirm-modal" class="penalis-confirm-modal" hidden>
+			<div class="penalis-confirm-modal__backdrop" data-penalis-quote-confirm-close></div>
+			<div
+				class="penalis-confirm-modal__dialog penalis-confirm-modal__dialog--wide"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="penalis-quote-confirm-title"
+				aria-describedby="penalis-quote-confirm-desc"
+			>
+				<div class="penalis-confirm-modal__head">
+					<span id="penalis-quote-confirm-badge" class="penalis-badge">Konfirmasi</span>
+					<h4 id="penalis-quote-confirm-title" class="penalis-confirm-modal__title">Takedown #KalimatHariIni ini?</h4>
+				</div>
+				<p id="penalis-quote-confirm-desc" class="penalis-confirm-modal__desc"></p>
+				<div id="penalis-quote-confirm-context-box" class="penalis-confirm-modal__feedback">
+					<span class="penalis-confirm-modal__feedback-label">Kalimat yang akan di-takedown:</span>
+					<div id="penalis-quote-confirm-context-text" class="penalis-confirm-modal__feedback-text"></div>
+				</div>
+				<div class="penalis-confirm-modal__reason">
+					<div class="penalis-confirm-modal__reason-head">
+						<label for="penalis-quote-confirm-reason" class="penalis-confirm-modal__reason-label">
+							Alasan takedown <span class="penalis-confirm-modal__required" aria-hidden="true">*</span>
+						</label>
+						<span id="penalis-quote-confirm-reason-count" class="penalis-confirm-modal__reason-count">
+							0/<?php echo esc_html( (string) $max_length ); ?>
+						</span>
+					</div>
+					<div class="penalis-confirm-modal__presets" role="group" aria-label="Pilihan alasan cepat">
+						<?php foreach ( $presets as $preset ) : ?>
+							<button
+								type="button"
+								class="penalis-confirm-modal__preset"
+								data-penalis-quote-preset="<?php echo esc_attr( $preset ); ?>"
+								aria-pressed="false"
+							>
+								<?php echo esc_html( $preset ); ?>
+							</button>
+						<?php endforeach; ?>
+					</div>
+					<textarea
+						id="penalis-quote-confirm-reason"
+						name="penalis_quote_reason_input"
+						class="penalis-confirm-modal__reason-input"
+						rows="3"
+						maxlength="<?php echo esc_attr( (string) $max_length ); ?>"
+						placeholder="Pilih alasan cepat di atas atau tulis alasan spesifik untuk penulis…"
+						aria-describedby="penalis-quote-confirm-reason-hint penalis-quote-confirm-reason-error"
+						required
+					></textarea>
+					<p id="penalis-quote-confirm-reason-hint" class="penalis-confirm-modal__reason-hint">
+						Alasan ini akan tampil pada notifikasi di dashboard penulis.
+					</p>
+					<p id="penalis-quote-confirm-reason-error" class="penalis-confirm-modal__reason-error" role="alert" hidden></p>
+				</div>
+				<div class="penalis-confirm-modal__actions">
+					<button type="button" id="penalis-quote-confirm-cancel" class="button">
+						Batal
+					</button>
+					<button type="button" id="penalis-quote-confirm-submit" class="button button-primary">
+						Ya, Takedown Kalimat
+					</button>
+				</div>
+			</div>
 		</div>
 		<?php
 	}

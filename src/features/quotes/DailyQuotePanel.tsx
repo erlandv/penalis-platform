@@ -312,7 +312,7 @@ export function DailyQuotePanel({ account }: { account: Account }) {
                       <span>{account.displayName}</span>
                       <VerifiedWriterBadge account={account} size={14} />
                     </span>
-                    <span className="penalis-daily-quote-note__submeta">@{account.username} · Pratinjau</span>
+                    <span className="penalis-daily-quote-note__submeta">@{account.username} · Preview</span>
                   </div>
                 </div>
                 <p className="penalis-daily-quote-note__text">{normalizedDraft}</p>

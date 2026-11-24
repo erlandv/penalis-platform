@@ -3,11 +3,15 @@ import {
   buildQuoteShareText,
   countCodePoints,
   DAILY_QUOTE_MAX_LENGTH,
+  DAILY_QUOTE_REASON_MAX_LENGTH,
+  DAILY_QUOTE_REMOVAL_PRESETS,
   dailyQuoteLineCount,
   formatQuoteRelativeTime,
   formatQuoteRemainingTime,
   normalizeDailyQuote,
+  normalizeRemovalReason,
   validateDailyQuoteInput,
+  validateRemovalReason,
 } from '../lib/dailyQuote';
 import {
   buildQuotesApiUrl,
@@ -104,5 +108,13 @@ describe('dailyQuote shared helpers', () => {
     expect(buildQuoteShareText('Kita gak punya apa-apa selain semangat', 'Erland Ramdhani')).toBe(
       '"Kita gak punya apa-apa selain semangat"\n— Erland Ramdhani (#KalimatHariIni)',
     );
+  });
+
+  it('normalizes and validates Senator takedown reasons', () => {
+    expect(DAILY_QUOTE_REMOVAL_PRESETS.length).toBeGreaterThanOrEqual(3);
+    expect(normalizeRemovalReason('  Spam   atau\npromosi  ')).toBe('Spam atau promosi');
+    expect(validateRemovalReason('   ')).not.toBe('');
+    expect(validateRemovalReason('a'.repeat(DAILY_QUOTE_REASON_MAX_LENGTH))).toBe('');
+    expect(validateRemovalReason('a'.repeat(DAILY_QUOTE_REASON_MAX_LENGTH + 1))).not.toBe('');
   });
 });

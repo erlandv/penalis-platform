@@ -1227,6 +1227,10 @@ body.penalis-modal-open {
 	box-sizing: border-box;
 }
 
+.penalis-confirm-modal__dialog--wide {
+	max-width: 520px;
+}
+
 .penalis-confirm-modal__head {
 	display: flex;
 	flex-direction: column;
@@ -1281,6 +1285,115 @@ body.penalis-modal-open {
 .penalis-confirm-modal__feedback-text.is-empty {
 	color: #646970;
 	font-style: italic;
+}
+
+.penalis-confirm-modal__reason {
+	margin: 0 0 18px;
+}
+
+.penalis-confirm-modal__reason-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.penalis-confirm-modal__reason-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.penalis-confirm-modal__required {
+	color: #b32d2e;
+}
+
+.penalis-confirm-modal__reason-count {
+	font-size: 12px;
+	color: #646970;
+	font-variant-numeric: tabular-nums;
+}
+
+.penalis-confirm-modal__reason-count.is-over {
+	color: #b32d2e;
+	font-weight: 600;
+}
+
+.penalis-confirm-modal__presets {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+.penalis-confirm-modal__preset {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 10px;
+	border: 1px solid #c3c4c7;
+	border-radius: 999px;
+	background: #f6f7f7;
+	color: #2c3338;
+	font-size: 12px;
+	line-height: 1.4;
+	cursor: pointer;
+	transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.penalis-confirm-modal__preset:hover {
+	background: #f0f0f1;
+	border-color: #8c8f94;
+}
+
+.penalis-confirm-modal__preset:focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: 1px;
+}
+
+.penalis-confirm-modal__preset.is-active {
+	background: #fcf0f1;
+	border-color: #b32d2e;
+	color: #8a1f20;
+	font-weight: 600;
+}
+
+.penalis-confirm-modal__reason-input {
+	display: block;
+	width: 100%;
+	min-height: 76px;
+	padding: 8px 10px;
+	border: 1px solid #8c8f94;
+	border-radius: 4px;
+	font-size: 13px;
+	line-height: 1.5;
+	color: #1d2327;
+	resize: vertical;
+	box-sizing: border-box;
+}
+
+.penalis-confirm-modal__reason-input:focus {
+	border-color: #2271b1;
+	box-shadow: 0 0 0 1px #2271b1;
+	outline: none;
+}
+
+.penalis-confirm-modal__reason-input.is-invalid {
+	border-color: #b32d2e;
+	box-shadow: 0 0 0 1px #b32d2e;
+}
+
+.penalis-confirm-modal__reason-hint {
+	margin: 6px 0 0;
+	font-size: 12px;
+	color: #646970;
+}
+
+.penalis-confirm-modal__reason-error {
+	margin: 6px 0 0;
+	font-size: 12.5px;
+	font-weight: 500;
+	color: #b32d2e;
 }
 
 .penalis-confirm-modal__actions {

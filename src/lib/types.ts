@@ -160,7 +160,7 @@ export interface DashboardNotification {
   createdAt: number;
   readAt: number;
   isRead: boolean;
-  targetView: 'editor';
+  targetView: 'editor' | 'overview';
   targetUrl: string;
   reviewUrl: string;
 }

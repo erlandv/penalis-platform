@@ -938,6 +938,104 @@
   overflow-wrap: anywhere;
 }
 
+.penalis-quotes-mod__confirm-dialog {
+  max-width: 520px;
+}
+
+.penalis-quotes-mod__reason-field {
+  margin-top: 1rem;
+}
+
+.penalis-quotes-mod__reason-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.penalis-quotes-mod__reason-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--penalis-text);
+}
+
+.penalis-quotes-mod__required {
+  color: var(--penalis-danger);
+}
+
+.penalis-quotes-mod__reason-count {
+  font-size: 0.78rem;
+  color: var(--penalis-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.penalis-quotes-mod__reason-count.is-over {
+  color: var(--penalis-danger);
+  font-weight: 600;
+}
+
+.penalis-quotes-mod__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+}
+
+.penalis-dashboard-root button.penalis-quotes-mod__preset {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--penalis-border);
+  border-radius: 999px;
+  background: var(--penalis-surface-alt);
+  color: var(--penalis-text-secondary, var(--penalis-text));
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+
+.penalis-dashboard-root button.penalis-quotes-mod__preset:hover:not(:disabled) {
+  border-color: var(--penalis-border-strong, var(--penalis-accent));
+  background: var(--penalis-surface);
+  color: var(--penalis-text);
+}
+
+.penalis-dashboard-root button.penalis-quotes-mod__preset.is-active {
+  border-color: var(--penalis-danger);
+  background: var(--penalis-danger-soft);
+  color: var(--penalis-danger);
+  font-weight: 600;
+}
+
+.penalis-dashboard-root textarea.penalis-quotes-mod__reason-input {
+  width: 100%;
+  min-height: 78px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.penalis-dashboard-root textarea.penalis-quotes-mod__reason-input.is-invalid {
+  border-color: var(--penalis-danger);
+}
+
+.penalis-quotes-mod__reason-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.78rem;
+  color: var(--penalis-muted);
+}
+
+.penalis-quotes-mod__reason-error {
+  margin: 0.4rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--penalis-danger);
+}
+
 @media (max-width: 640px) {
   .penalis-quotes-mod__toolbar {
     width: 100%;

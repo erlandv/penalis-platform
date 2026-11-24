@@ -125,14 +125,16 @@
 
 	var QUOTE_ACTION_CONFIG = {
 		delete_quote: {
-			badge: 'Hapus #KalimatHariIni',
+			badge: 'Takedown #KalimatHariIni',
 			badgeClass: 'penalis-badge penalis-badge--rejected',
-			title: 'Hapus #KalimatHariIni ini?',
-			description: 'Kalimat akan segera diturunkan dari halaman profil penulis dan halaman publik #KalimatHariIni.',
-			confirmLabel: 'Ya, Hapus Kalimat',
+			title: 'Takedown #KalimatHariIni ini?',
+			description: 'Kalimat akan segera di-takedown dari halaman profil penulis dan halaman publik. Penulis akan menerima notifikasi di dashboard beserta alasan takedown di bawah ini.',
+			confirmLabel: 'Ya, Takedown Kalimat',
 			confirmClass: 'button penalis-confirm-modal__btn-reject'
 		}
 	};
+
+	var FOCUSABLE_SELECTOR = 'button:not([disabled]), [href], input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 	function trapModalKeys( modal, cancelBtn, submitBtn, onClose ) {
 		document.addEventListener( 'keydown', function ( event ) {
@@ -144,11 +146,22 @@
 				onClose();
 				return;
 			}
-			if ( event.key === 'Tab' && cancelBtn && submitBtn ) {
-				var first = cancelBtn;
-				var last = submitBtn;
+			if ( event.key === 'Tab' ) {
+				var nodes = modal.querySelectorAll( FOCUSABLE_SELECTOR );
+				var focusables = [];
+				for ( var i = 0; i < nodes.length; i++ ) {
+					if ( nodes[ i ].offsetParent !== null ) {
+						focusables.push( nodes[ i ] );
+					}
+				}
+				var first = focusables.length > 0 ? focusables[ 0 ] : cancelBtn;
+				var last = focusables.length > 0 ? focusables[ focusables.length - 1 ] : submitBtn;
 
-				if ( event.shiftKey && document.activeElement === first ) {
+				if ( ! first || ! last ) {
+					return;
+				}
+
+				if ( event.shiftKey && ( document.activeElement === first || ! modal.contains( document.activeElement ) ) ) {
 					event.preventDefault();
 					last.focus();
 				} else if ( ! event.shiftKey && document.activeElement === last ) {
@@ -205,7 +218,9 @@
 			modal.hidden = false;
 			document.body.classList.add( 'penalis-modal-open' );
 
-			if ( cancelBtn ) {
+			if ( options.initialFocusEl && typeof options.initialFocusEl.focus === 'function' ) {
+				options.initialFocusEl.focus();
+			} else if ( cancelBtn ) {
 				cancelBtn.focus();
 			}
 		}
@@ -235,6 +250,9 @@
 		if ( submitBtn ) {
 			submitBtn.addEventListener( 'click', function () {
 				if ( ! pendingPayload || isSubmitting ) {
+					return;
+				}
+				if ( typeof options.validateConfirm === 'function' && ! options.validateConfirm( pendingPayload ) ) {
 					return;
 				}
 				isSubmitting = true;
@@ -437,17 +455,116 @@
 
 	function initQuoteDeleteConfirmation() {
 		var contextText = document.getElementById( 'penalis-quote-confirm-context-text' );
+		var reasonInput = document.getElementById( 'penalis-quote-confirm-reason' );
+		var reasonCount = document.getElementById( 'penalis-quote-confirm-reason-count' );
+		var reasonError = document.getElementById( 'penalis-quote-confirm-reason-error' );
+		var presetButtons = document.querySelectorAll( '[data-penalis-quote-preset]' );
+		var maxLength = reasonInput && reasonInput.maxLength > 0 ? reasonInput.maxLength : 300;
+
+		function normalizeReason( value ) {
+			return String( value || '' ).replace( /\s+/g, ' ' ).trim();
+		}
+
+		function countChars( value ) {
+			return Array.from ? Array.from( value ).length : value.length;
+		}
+
+		function clearReasonError() {
+			if ( reasonError ) {
+				reasonError.textContent = '';
+				reasonError.hidden = true;
+			}
+			if ( reasonInput ) {
+				reasonInput.classList.remove( 'is-invalid' );
+				reasonInput.removeAttribute( 'aria-invalid' );
+			}
+		}
+
+		function showReasonError( message ) {
+			if ( reasonError ) {
+				reasonError.textContent = message;
+				reasonError.hidden = false;
+			}
+			if ( reasonInput ) {
+				reasonInput.classList.add( 'is-invalid' );
+				reasonInput.setAttribute( 'aria-invalid', 'true' );
+				reasonInput.focus();
+			}
+		}
+
+		function syncReasonState() {
+			var normalized = normalizeReason( reasonInput ? reasonInput.value : '' );
+			var length = countChars( normalized );
+
+			if ( reasonCount ) {
+				reasonCount.textContent = length + '/' + maxLength;
+				reasonCount.classList.toggle( 'is-over', length > maxLength );
+			}
+
+			for ( var j = 0; j < presetButtons.length; j++ ) {
+				var presetValue = presetButtons[ j ].getAttribute( 'data-penalis-quote-preset' ) || '';
+				var isMatch = normalized === presetValue;
+				presetButtons[ j ].classList.toggle( 'is-active', isMatch );
+				presetButtons[ j ].setAttribute( 'aria-pressed', isMatch ? 'true' : 'false' );
+			}
+		}
+
+		if ( reasonInput ) {
+			reasonInput.addEventListener( 'input', function () {
+				syncReasonState();
+				var normalized = normalizeReason( reasonInput.value );
+				if ( normalized !== '' && countChars( normalized ) <= maxLength ) {
+					clearReasonError();
+				}
+			} );
+		}
+
+		for ( var p = 0; p < presetButtons.length; p++ ) {
+			presetButtons[ p ].addEventListener( 'click', function () {
+				var preset = this.getAttribute( 'data-penalis-quote-preset' ) || '';
+				if ( ! reasonInput ) {
+					return;
+				}
+				reasonInput.value = preset;
+				clearReasonError();
+				syncReasonState();
+				reasonInput.focus();
+			} );
+		}
 
 		var controller = createModalController( {
 			prefix: 'penalis-quote-confirm',
+			initialFocusEl: reasonInput,
 			onOpen: function ( config, triggerEl ) {
 				if ( contextText && triggerEl ) {
 					var author = triggerEl.getAttribute( 'data-penalis-quote-author' ) || '';
 					var text = triggerEl.getAttribute( 'data-penalis-quote-text' ) || '';
 					contextText.textContent = author ? author + ' — "' + text + '"' : text;
 				}
+				if ( reasonInput ) {
+					reasonInput.value = '';
+				}
+				clearReasonError();
+				syncReasonState();
+			},
+			validateConfirm: function () {
+				var normalized = normalizeReason( reasonInput ? reasonInput.value : '' );
+				if ( normalized === '' ) {
+					showReasonError( 'Alasan takedown wajib diisi agar penulis mengetahui penyebabnya.' );
+					return false;
+				}
+				if ( countChars( normalized ) > maxLength ) {
+					showReasonError( 'Alasan takedown maksimal ' + maxLength + ' karakter.' );
+					return false;
+				}
+				clearReasonError();
+				return true;
 			},
 			onConfirm: function ( targetForm ) {
+				var hiddenReason = targetForm.querySelector( 'input[name="reason"]' );
+				if ( hiddenReason && reasonInput ) {
+					hiddenReason.value = normalizeReason( reasonInput.value );
+				}
 				targetForm.submit();
 			}
 		} );

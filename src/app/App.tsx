@@ -591,6 +591,16 @@ export function App() {
    * decision is actually made.
    */
   const openNotificationArticle = (item: DashboardNotification) => {
+    if (item.articleId <= 0) {
+      if (item.targetView === 'overview') {
+        navigate('overview');
+        window.setTimeout(() => {
+          document.getElementById('kalimat-hari-ini')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      }
+      return;
+    }
+
     if (isStaffRole(role)) {
       openReviewArticle(item.articleId);
       return;

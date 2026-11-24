@@ -148,4 +148,25 @@ describe('notification query helpers', () => {
     expect(countForNotificationsFilter(items, 'read')).toBe(2);
     expect(countForNotificationsFilter(items, 'all')).toBe(3);
   });
+
+  it('groups non-article quote_removed notifications cleanly under #KalimatHariIni', () => {
+    const items = [
+      notification({
+        id: 'q1',
+        type: 'quote_removed',
+        typeLabel: '#KalimatHariIni dihapus',
+        articleId: 0,
+        articleTitle: '#KalimatHariIni',
+        message: '#KalimatHariIni kamu telah dihapus oleh Senator. Alasan: Spam',
+        targetView: 'overview',
+      }),
+      notification({ id: 'a1', articleId: 7, articleTitle: 'Tujuh' }),
+    ];
+
+    const groups = groupNotificationsByArticle(items);
+
+    expect(groups.map((group) => group.articleId)).toEqual([0, 7]);
+    expect(groups[0]?.articleTitle).toBe('#KalimatHariIni');
+    expect(groups[0]?.items.map((item) => item.id)).toEqual(['q1']);
+  });
 });

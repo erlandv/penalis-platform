@@ -405,6 +405,88 @@ final class Penalis_Daily_Quotes {
 	}
 
 	/**
+	 * Remove a writer's active #KalimatHariIni as a Senator and notify the writer
+	 * in their dashboard with the takedown reason (no email).
+	 *
+	 * @param int      $user_id    Target writer user ID.
+	 * @param string   $raw_reason Required takedown reason supplied by the Senator.
+	 * @param int|null $now        Optional current Unix timestamp.
+	 * @return array{deleted:bool,authorId:int,reason:string}|WP_Error
+	 */
+	public static function moderate_delete( $user_id, $raw_reason, $now = null ) {
+		$user_id = (int) $user_id;
+		$now     = null === $now ? time() : (int) $now;
+		$user    = $user_id > 0 ? get_userdata( $user_id ) : false;
+
+		if ( ! $user instanceof WP_User ) {
+			return new WP_Error(
+				'penalis_not_found',
+				'Penulis tidak ditemukan.',
+				array( 'status' => 404 )
+			);
+		}
+
+		$reason_error = Penalis_Policy::validate_daily_quote_removal_reason( (string) $raw_reason );
+		if ( '' !== $reason_error ) {
+			return new WP_Error(
+				'penalis_validation_error',
+				$reason_error,
+				array(
+					'status' => 422,
+					'fields' => array( 'reason' => $reason_error ),
+				)
+			);
+		}
+
+		$reason   = Penalis_Policy::normalize_daily_quote_removal_reason( (string) $raw_reason );
+		$lock_key = 'penalis_daily_quote_' . $user_id;
+
+		$deleted = Penalis_Account_Status::with_advisory_lock(
+			$lock_key,
+			5,
+			static function () use ( $user_id, $now ) {
+				$record = get_user_meta( $user_id, self::META_QUOTE, true );
+				if ( ! Penalis_Policy::is_daily_quote_active( $record, $now ) ) {
+					return new WP_Error(
+						'penalis_quote_not_found',
+						'#KalimatHariIni penulis ini sudah tidak aktif atau telah dihapus.',
+						array( 'status' => 404 )
+					);
+				}
+
+				delete_user_meta( $user_id, self::META_QUOTE );
+				delete_user_meta( $user_id, self::META_EXPIRES );
+
+				self::invalidate_cache();
+
+				return true;
+			},
+			static function () {
+				return new WP_Error(
+					'penalis_quote_busy',
+					'Permintaan sedang diproses. Silakan coba beberapa saat lagi.',
+					array( 'status' => 409 )
+				);
+			}
+		);
+
+		if ( is_wp_error( $deleted ) ) {
+			return $deleted;
+		}
+
+		// Record the dashboard notification after releasing the daily-quote lock
+		// so the two lock families are never nested and a notification lock
+		// hiccup never rolls back a completed moderation takedown.
+		Penalis_Editorial_Notifications::record_quote_removed( $user_id, $reason );
+
+		return array(
+			'deleted'  => true,
+			'authorId' => $user_id,
+			'reason'   => $reason,
+		);
+	}
+
+	/**
 	 * Query, filter, sort, and paginate active public #KalimatHariIni entries.
 	 *
 	 * @param array<string,mixed> $args Query arguments (search, sort, page, per_page).
