@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.3.0
+Stable tag: 2.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,14 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 2.4.0 =
+* Feature: Add a client-side Canvas 2D **Shareable Social Card** generator (`src/lib/shareCard.ts`, `ShareCardModal.tsx`, and a zero-React vanilla-TS bundle `src/share-card/author-archive.ts` for public pages) supporting **Profile**, **#KalimatHariIni**, and **Published Article** cards in Instagram Story (`9:16`, 1080×1920) and Feed (`1:1`, 1080×1080) formats across three editorial themes (**Kertas**, **Senja**, **Malam**) with dynamic theme font inheritance (`Plus Jakarta Sans` fallback), official Penalis brand assets (`assets/images/logo.png`, `icon.png` via `Penalis_Dashboard::brand_assets()`), Web Share API file sharing, PNG download, and in-modal link/quote copy.
+* Feature: Add **Published Article** sharing (`Penalis_Article_Share`, `assets/css/article-share.css`) with an automatic share callout bar on published single posts (rendered below like/dislike controls and `.single-tags` via `th90_article_elements_below` on Atlas or late on `the_content` on generic themes, with `penalis_auto_append_article_share` opt-out), the `[penalis_share_article]` shortcode (with automatic deduplication), per-card **Bagikan** buttons on `/author/<username>/` (`.penalis-archive-card`) and Dashboard **Daftar Karya**, and a shared poetry-safe excerpt formatter (`Penalis_Article_Share::clean_excerpt()`) that preserves spaces across `<br>` and block boundaries.
+* Feature: Unify sharing across `/author/<username>/`, `/kalimat-hari-ini/`, and `/dashboard/` under a single **Bagikan** trigger, consolidating profile, quote, and article copy-to-clipboard actions inside the Share Card modal.
+* Feature: Require a deletion reason (up to 300 characters, with 4 quick-reason presets) when a Senator removes an active **#KalimatHariIni** from **Dashboard Senator** (`DELETE /penalis/v1/quotes/{user_id}`) or `wp-admin` (**Penalis → Kalimat Hari Ini**), delivering a dashboard-only `quote_removed` notification to the writer (no email, exempt from article opt-out preferences).
+* Feature: Add a **Senator** filter tab with live count to **Penalis → Penulis Penalis**, and add direct clickable links to public author archives (`authorUrl`) across **Penulis Penalis**, **Review Karya Tulis**, and the Dashboard Senator **Review Karya** manuscript reader.
+* Fix: Prevent `Dialog.tsx` from re-running its mount focus-trap effect on parent re-renders (`onCloseRef`), eliminating focus stealing while typing inside modal forms.
+
 = 2.3.0 =
 * Feature: Add **#KalimatHariIni** (`Penalis_Daily_Quotes`, `Penalis_Daily_Quotes_Admin`) — ephemeral 24-hour writer sentences (plain text, up to 200 characters and 3 lines, no stored quote history, rolling quota of 3 publishes per 24 hours serialized via per-user MySQL advisory locks). Includes a social-note composer on the writer dashboard **Ringkasan** (`GET/DELETE /penalis/v1/quotes/me`, `POST /penalis/v1/quotes`), an active social-note card below the profile card on `/author/<username>/` (with client-side `data-expires-at` cache expiry guard and copy-quote action), and an auto-created `/kalimat-hari-ini/` showcase (`[penalis_kalimat_hari_ini]`, `GET /penalis/v1/quotes`, separate Vite bundle) with search, sorting, pagination, copy-quote, and a subtle shine highlight on the signed-in writer's own card.
 * Feature: Add centralized Senator moderation for **#KalimatHariIni** in **Dashboard Senator** (`/dashboard/?view=quotes`, `DELETE /penalis/v1/quotes/{user_id}`, with search, sort, load-more pagination, and confirmation dialogs) and in `wp-admin` (**Penalis → Kalimat Hari Ini**, `?page=penalis-quotes`), keeping the public `/kalimat-hari-ini/` page read-only.
@@ -234,6 +242,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.4.0 =
+Adds client-side Shareable Social Cards (Instagram Story 9:16 and Feed 1:1 PNGs in three themes with dynamic theme font inheritance) for writer profiles, #KalimatHariIni quotes, and published articles (including an auto-appended single-post share bar and the [penalis_share_article] shortcode), unifies all share triggers under a single Bagikan modal with in-modal link/quote copy, requires a moderation reason with dashboard-only writer notifications when Senators remove #KalimatHariIni quotes, and adds a Senator filter tab plus clickable public author profile links across review screens. Upgrade is non-destructive and requires no manual migration.
 
 = 2.3.0 =
 Adds #KalimatHariIni (24-hour writer sentences on author archives and the auto-created /kalimat-hari-ini/ page, with Senator moderation in Dashboard Senator and Penalis → Kalimat Hari Ini), upgrades the writer Media library with upload, delete, and strict usage protection, moves cropped profile photos to standalone 256x256 JPEG storage (keeping legacy avatars working without migration), and refreshes the Daftar Karya article list with counts and a card layout. Upgrading automatically creates the /kalimat-hari-ini/ page if it does not already exist; visit Settings → Permalinks and save once if needed.
