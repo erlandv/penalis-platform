@@ -332,26 +332,15 @@ export function ShareCardModal({
 
             <div className="penalis-share-card-modal__actions">
               {supportsFileShare ? (
-                <>
-                  <button
-                    type="button"
-                    className="penalis-share-card-modal__btn penalis-share-card-modal__btn--primary"
-                    onClick={() => void handleNativeShare()}
-                    disabled={rendering || busy}
-                  >
-                    <ShareSvg />
-                    <span>{busy ? 'Menyiapkan…' : 'Bagikan Gambar'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="penalis-share-card-modal__btn penalis-share-card-modal__btn--ghost"
-                    onClick={() => void handleDownload()}
-                    disabled={rendering || busy}
-                  >
-                    <DownloadSvg />
-                    <span>Unduh PNG</span>
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="penalis-share-card-modal__btn penalis-share-card-modal__btn--primary"
+                  onClick={() => void handleNativeShare()}
+                  disabled={rendering || busy}
+                >
+                  <ShareSvg />
+                  <span>{busy ? 'Menyiapkan…' : 'Bagikan Gambar'}</span>
+                </button>
               ) : (
                 <button
                   type="button"
@@ -364,15 +353,29 @@ export function ShareCardModal({
                 </button>
               )}
 
-              <button
-                type="button"
-                className={`penalis-share-card-modal__btn penalis-share-card-modal__btn--ghost${copied ? ' is-copied' : ''}`}
-                onClick={() => void handleCopyText()}
-                disabled={busy}
-              >
-                <CopySvg />
-                <span>{copied ? copyContent.copiedLabel : copyContent.label}</span>
-              </button>
+              <div className="penalis-share-card-modal__actions-secondary">
+                {supportsFileShare ? (
+                  <button
+                    type="button"
+                    className="penalis-share-card-modal__btn penalis-share-card-modal__btn--ghost"
+                    onClick={() => void handleDownload()}
+                    disabled={rendering || busy}
+                  >
+                    <DownloadSvg />
+                    <span>Unduh PNG</span>
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  className={`penalis-share-card-modal__btn penalis-share-card-modal__btn--ghost${copied ? ' is-copied' : ''}`}
+                  onClick={() => void handleCopyText()}
+                  disabled={busy}
+                >
+                  <CopySvg />
+                  <span>{copied ? copyContent.copiedLabel : copyContent.label}</span>
+                </button>
+              </div>
             </div>
 
             <p className="penalis-share-card-modal__hint">

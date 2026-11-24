@@ -477,6 +477,9 @@ function mountAuthorArchiveCardModal(): void {
     const actions = document.createElement('div');
     actions.className = 'penalis-share-card-modal__actions';
 
+    const secondaryActions = document.createElement('div');
+    secondaryActions.className = 'penalis-share-card-modal__actions-secondary';
+
     if (supportsFileShare) {
       shareBtn = document.createElement('button');
       shareBtn.type = 'button';
@@ -490,7 +493,7 @@ function mountAuthorArchiveCardModal(): void {
       downloadBtn.className = 'penalis-share-card-modal__btn penalis-share-card-modal__btn--ghost';
       downloadBtn.innerHTML = `${DOWNLOAD_ICON}<span>Unduh PNG</span>`;
       downloadBtn.addEventListener('click', () => void handleDownload());
-      actions.appendChild(downloadBtn);
+      secondaryActions.appendChild(downloadBtn);
     } else {
       downloadBtn = document.createElement('button');
       downloadBtn.type = 'button';
@@ -508,7 +511,8 @@ function mountAuthorArchiveCardModal(): void {
     copyBtnLabel.textContent = 'Salin tautan profil';
     copyBtn.appendChild(copyBtnLabel);
     copyBtn.addEventListener('click', () => void handleCopyText());
-    actions.appendChild(copyBtn);
+    secondaryActions.appendChild(copyBtn);
+    actions.appendChild(secondaryActions);
 
     const hint = document.createElement('p');
     hint.className = 'penalis-share-card-modal__hint';

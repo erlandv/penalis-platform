@@ -841,15 +841,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
   background: rgba(15, 23, 42, 0.58);
   backdrop-filter: blur(3px);
+  overscroll-behavior: contain;
 }
 
 .penalis-share-modal .penalis-share-card-modal {
   width: 100%;
   max-width: 780px;
   max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  margin: auto;
   display: flex;
   flex-direction: column;
   background: var(--penalis-surface, #ffffff);
@@ -862,6 +865,7 @@
 }
 
 .penalis-share-modal .penalis-share-card-modal__head {
+  flex-shrink: 0;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -909,12 +913,17 @@
 }
 
 .penalis-share-modal .penalis-share-card-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
   gap: 1.25rem;
   padding: 1.25rem 1.35rem 1.35rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   align-items: center;
+  align-content: start;
 }
 
 .penalis-share-modal .penalis-share-card-modal__stage {
@@ -1061,6 +1070,12 @@
   margin-top: 0.25rem;
 }
 
+.penalis-share-modal .penalis-share-card-modal__actions-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
 .penalis-share-modal button.penalis-share-card-modal__btn {
   margin: 0;
   min-height: 42px;
@@ -1133,22 +1148,94 @@
 }
 
 @media (max-width: 720px) {
+  .penalis-share-modal {
+    align-items: flex-end;
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0 0;
+    overflow: hidden;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal {
+    margin: 0;
+    max-width: 100%;
+    max-height: 92vh;
+    max-height: min(92dvh, calc(100dvh - 0.75rem - env(safe-area-inset-top, 0px)));
+    border-radius: 20px 20px 0 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__head {
+    align-items: center;
+    padding: 0.85rem 1rem 0.75rem;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__title {
+    font-size: 1rem;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__subtitle {
+    display: none;
+  }
+
   .penalis-share-modal .penalis-share-card-modal__body {
     grid-template-columns: 1fr;
-    gap: 1rem;
-    padding: 1rem 1.05rem 1.15rem;
+    align-items: start;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem 1rem;
   }
 
   .penalis-share-modal .penalis-share-card-modal__stage {
-    min-height: 240px;
-    padding: 0.75rem;
+    min-height: 0;
+    padding: 0.65rem;
   }
 
   .penalis-share-modal .penalis-share-card-modal__frame--story {
-    max-width: 195px;
+    max-width: 168px;
+    max-width: min(168px, 24dvh);
   }
 
   .penalis-share-modal .penalis-share-card-modal__frame--feed {
-    max-width: 260px;
+    max-width: 230px;
+    max-width: min(230px, 34dvh);
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__controls {
+    gap: 0.75rem;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__group {
+    gap: 0.35rem;
+  }
+
+  .penalis-share-modal button.penalis-share-card-modal__pill,
+  .penalis-share-modal button.penalis-share-card-modal__theme-btn {
+    padding: 0.38rem 0.72rem;
+    font-size: 0.82rem;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__actions {
+    gap: 0.5rem;
+    margin-top: 0.1rem;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__actions-secondary {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__actions-secondary button.penalis-share-card-modal__btn {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0.52rem 0.65rem;
+    font-size: 0.82rem;
+    text-align: center;
+  }
+
+  .penalis-share-modal .penalis-share-card-modal__hint {
+    font-size: 0.74rem;
+    line-height: 1.38;
   }
 }
