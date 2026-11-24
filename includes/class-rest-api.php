@@ -1381,6 +1381,7 @@ final class Penalis_Rest_Api {
 					'excerpt'       => $post->post_excerpt,
 					'authorName'    => $author ? (string) $author->display_name : '',
 					'authorLogin'   => $author ? (string) $author->user_login : '',
+					'authorUrl'     => $author ? esc_url_raw( get_author_posts_url( $author->ID ) ) : '',
 					'date'          => $post->post_date_gmt,
 					'modified'      => $post->post_modified_gmt,
 					'link'          => 'publish' === $post->post_status ? get_permalink( $post ) : '',

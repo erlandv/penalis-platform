@@ -489,6 +489,13 @@
   margin-top: 0;
 }
 
+.penalis-dashboard-root .penalis-review__author-link {
+  color: var(--penalis-accent-strong);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
 .penalis-review__reader-frame {
   width: 100%;
   min-height: 520px;

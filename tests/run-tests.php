@@ -5914,6 +5914,7 @@ $penalis_reader_data = $penalis_reader_resp->get_data();
 penalis_same( '<p>Bait pertama puisi senja.</p><p>Bait kedua.</p>', $penalis_reader_data['content'], 'The article detail returns the complete content.' );
 penalis_same( 'User 10', $penalis_reader_data['authorName'], 'The article detail includes the author display name.' );
 penalis_same( 'user10', $penalis_reader_data['authorLogin'], 'The article detail includes the author login.' );
+penalis_same( 'https://example.com/author/user10/', $penalis_reader_data['authorUrl'], 'The article detail includes the public author archive URL.' );
 penalis_assert( array_key_exists( 'thumbnail', $penalis_reader_data ), 'The article detail includes the thumbnail field.' );
 penalis_assert( is_array( $penalis_reader_data['categories'] ), 'The article detail includes categories.' );
 penalis_assert( is_array( $penalis_reader_data['tags'] ), 'The article detail includes tags.' );

@@ -291,6 +291,7 @@ export interface Article {
   excerpt: string;
   authorName?: string;
   authorLogin?: string;
+  authorUrl?: string;
   status: string;
   editorialState: EditorialState;
   editorialStateLabel: string;

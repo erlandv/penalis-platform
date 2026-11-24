@@ -18,6 +18,8 @@ final class Penalis_Admin {
 	public const MENU_SLUG = 'penalis-platform';
 	public const PAGE_SLUG = 'penalis-writers';
 
+	private const FILTER_SENATOR = 'senator';
+
 	public const CAP_ACCESS          = 'edit_others_posts';
 	public const CAP_MANAGE_WRITERS  = 'list_users';
 	public const CAP_MANAGE_SETTINGS = 'manage_options';
@@ -701,13 +703,18 @@ final class Penalis_Admin {
 
 		// An unknown filter value would silently fall back to the default query
 		// while leaving no tab highlighted, so normalise it up front.
-		if ( 'legacy' !== $status && ! Penalis_Policy::is_valid_status( $status ) ) {
+		if ( 'legacy' !== $status && self::FILTER_SENATOR !== $status && ! Penalis_Policy::is_valid_status( $status ) ) {
 			$status = '';
 		}
 
 		// The legacy tab lists contributor profiles that predate this plugin.
 		// They have no Penalis metadata, so they are queried by role instead.
-		$is_legacy_view = 'legacy' === $status;
+		$is_legacy_view  = 'legacy' === $status;
+		$is_senator_view = self::FILTER_SENATOR === $status;
+		$senator_filter  = array(
+			'meta_key'   => Penalis_Account_Status::META_SENATOR, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+			'meta_value' => '1', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+		);
 
 		$per_page = 25;
 		$args     = array(
@@ -721,6 +728,8 @@ final class Penalis_Admin {
 		if ( $is_legacy_view ) {
 			$args['role']       = 'contributor';
 			$args['meta_query'] = self::legacy_contributor_meta_query(); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+		} elseif ( $is_senator_view ) {
+			$args += $senator_filter;
 		} elseif ( '' !== $status && Penalis_Policy::is_valid_status( $status ) ) {
 			$args['meta_key']   = Penalis_Account_Status::META_STATUS; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
 			$args['meta_value'] = $status; // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
@@ -749,10 +758,23 @@ final class Penalis_Admin {
 			Penalis_Policy::STATUS_ACTIVE               => 'Aktif',
 			Penalis_Policy::STATUS_PENDING_VERIFICATION => 'Menunggu verifikasi',
 			Penalis_Policy::STATUS_SUSPENDED            => 'Ditangguhkan',
+			self::FILTER_SENATOR                        => 'Senator',
 			'legacy'                                    => 'Akun lama (belum diaktifkan)',
 		);
 
 		$counts = self::status_counts();
+		if ( $is_senator_view && '' === $search ) {
+			$counts[ self::FILTER_SENATOR ] = $total;
+		} else {
+			$senators                       = new WP_User_Query(
+				$senator_filter + array(
+					'fields'      => 'ID',
+					'number'      => 1,
+					'count_total' => true,
+				)
+			);
+			$counts[ self::FILTER_SENATOR ] = (int) $senators->get_total();
+		}
 
 		?>
 		<div class="wrap penalis-writers">
@@ -900,7 +922,15 @@ final class Penalis_Admin {
 										}
 										?>
 										<div>
-											<strong class="penalis-writer__name"><?php echo esc_html( $user->display_name ); ?></strong>
+											<strong class="penalis-writer__name">
+												<a
+													href="<?php echo esc_url( get_author_posts_url( $user_id ) ); ?>"
+													target="_blank"
+													rel="noopener noreferrer"
+												>
+													<?php echo esc_html( $user->display_name ); ?>
+												</a>
+											</strong>
 											<span class="penalis-writer__login"><?php echo esc_html( $user->user_login ); ?></span>
 										</div>
 									</div>
@@ -1030,7 +1060,8 @@ final class Penalis_Admin {
 						'page'   => self::PAGE_SLUG,
 						'status' => $status,
 						's'      => $search,
-					)
+					),
+					static fn( $value ) => '' !== $value
 				),
 				admin_url( 'admin.php' )
 			);
@@ -1226,7 +1257,7 @@ final class Penalis_Admin {
 			<?php if ( ! empty( $context['status'] ) ) : ?>
 				<input type="hidden" name="redirect_status" value="<?php echo esc_attr( (string) $context['status'] ); ?>">
 			<?php endif; ?>
-			<?php if ( ! empty( $context['s'] ) ) : ?>
+			<?php if ( isset( $context['s'] ) && '' !== $context['s'] ) : ?>
 				<input type="hidden" name="redirect_s" value="<?php echo esc_attr( (string) $context['s'] ); ?>">
 			<?php endif; ?>
 			<?php if ( ! empty( $context['paged'] ) && (int) $context['paged'] > 1 ) : ?>
@@ -1453,7 +1484,7 @@ final class Penalis_Admin {
 		if ( in_array( $action, array( 'mark_senator', 'unmark_senator' ), true ) ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce already verified above via check_admin_referer().
 			$redirect_status = isset( $_POST['redirect_status'] ) ? sanitize_key( wp_unslash( $_POST['redirect_status'] ) ) : '';
-			if ( 'legacy' === $redirect_status || Penalis_Policy::is_valid_status( $redirect_status ) ) {
+			if ( 'legacy' === $redirect_status || self::FILTER_SENATOR === $redirect_status || Penalis_Policy::is_valid_status( $redirect_status ) ) {
 				$redirect_args['status'] = $redirect_status;
 			}
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce already verified above via check_admin_referer().
@@ -1463,7 +1494,8 @@ final class Penalis_Admin {
 			}
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Nonce already verified above via check_admin_referer().
 			$redirect_paged = isset( $_POST['redirect_paged'] ) ? (int) $_POST['redirect_paged'] : 0;
-			if ( $redirect_paged > 1 ) {
+			// Removing a result may empty the current page of the Senator list.
+			if ( $redirect_paged > 1 && ! ( self::FILTER_SENATOR === $redirect_status && 'unmark_senator' === $action ) ) {
 				$redirect_args['paged'] = $redirect_paged;
 			}
 		}

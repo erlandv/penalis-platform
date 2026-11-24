@@ -448,7 +448,17 @@ final class Penalis_Editorial_Admin {
 						}
 						?>
 						<span class="penalis-review__author-name">
-							<?php echo esc_html( $author ? $author->display_name : 'Penulis tidak ditemukan' ); ?>
+							<?php if ( $author ) : ?>
+								<a
+									href="<?php echo esc_url( get_author_posts_url( $author->ID ) ); ?>"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									<?php echo esc_html( $author->display_name ); ?>
+								</a>
+							<?php else : ?>
+								Penulis tidak ditemukan
+							<?php endif; ?>
 						</span>
 						<?php if ( $author ) : ?>
 							<span class="penalis-review__author-login">(<?php echo esc_html( $author->user_login ); ?>)</span>

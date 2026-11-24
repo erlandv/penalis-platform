@@ -376,6 +376,7 @@ export function ReviewQueue({
       (activeState ? editorialStateLabel(activeState) : '');
     const activeAuthorName = articleDetail?.authorName ?? readingItem?.authorName;
     const activeAuthorLogin = articleDetail?.authorLogin ?? readingItem?.authorLogin;
+    const authorLabel = activeAuthorName || activeAuthorLogin || 'Penulis tidak diketahui';
     /*
      * `??`, not `||`: cycle 0 is a real value — a first submission that has
      * never been reviewed. `||` would skip it and fall back to the queue row,
@@ -435,7 +436,18 @@ export function ReviewQueue({
 
               <p className="penalis-review__meta">
                 Oleh{' '}
-                <strong>{activeAuthorName || activeAuthorLogin || 'Penulis tidak diketahui'}</strong>
+                {articleDetail?.authorUrl ? (
+                  <a
+                    className="penalis-review__author-link"
+                    href={articleDetail.authorUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {authorLabel}
+                  </a>
+                ) : (
+                  <strong>{authorLabel}</strong>
+                )}
                 {activeAuthorName && activeAuthorLogin && activeAuthorName !== activeAuthorLogin
                   ? ` (@${activeAuthorLogin})`
                   : ''}
