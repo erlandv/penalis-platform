@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.4.0
+Stable tag: 2.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,10 @@ renamed executable files are rejected.
 
 == Changelog ==
 
+= 2.4.1 =
+* Fix: Prevent the Share Card modal (`ShareCardModal`) from overflowing behind mobile browser address bars and toolbars on iOS Safari and Brave by switching height constraints from `100vh` to dynamic viewport height (`100dvh`) with `safe-area-inset` padding and proper flex scroll containment (`flex-shrink: 0` on header, `flex: 1 1 auto; min-height: 0` on scrollable body).
+* Polish: Render the Share Card modal as a compact mobile bottom sheet (`<= 720px`) across `/dashboard/`, `/kalimat-hari-ini/`, `/author/<username>/`, and single posts with viewport-adaptive preview sizing and a two-column secondary actions row (**Unduh PNG** and **Salin**) below **Bagikan Gambar**.
+
 = 2.4.0 =
 * Feature: Add a client-side Canvas 2D **Shareable Social Card** generator (`src/lib/shareCard.ts`, `ShareCardModal.tsx`, and a zero-React vanilla-TS bundle `src/share-card/author-archive.ts` for public pages) supporting **Profile**, **#KalimatHariIni**, and **Published Article** cards in Instagram Story (`9:16`, 1080×1920) and Feed (`1:1`, 1080×1080) formats across three editorial themes (**Kertas**, **Senja**, **Malam**) with dynamic theme font inheritance (`Plus Jakarta Sans` fallback), official Penalis brand assets (`assets/images/logo.png`, `icon.png` via `Penalis_Dashboard::brand_assets()`), Web Share API file sharing, PNG download, and in-modal link/quote copy.
 * Feature: Add **Published Article** sharing (`Penalis_Article_Share`, `assets/css/article-share.css`) with an automatic share callout bar on published single posts (rendered below like/dislike controls and `.single-tags` via `th90_article_elements_below` on Atlas or late on `the_content` on generic themes, with `penalis_auto_append_article_share` opt-out), the `[penalis_share_article]` shortcode (with automatic deduplication), per-card **Bagikan** buttons on `/author/<username>/` (`.penalis-archive-card`) and Dashboard **Daftar Karya**, and a shared poetry-safe excerpt formatter (`Penalis_Article_Share::clean_excerpt()`) that preserves spaces across `<br>` and block boundaries.
@@ -242,6 +246,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.4.1 =
+Fixes Share Card modal clipping behind mobile browser toolbars (iOS Safari and Brave) using dynamic viewport heights (`dvh`), safe-area insets, and a compact mobile bottom-sheet layout across all share surfaces.
 
 = 2.4.0 =
 Adds client-side Shareable Social Cards (Instagram Story 9:16 and Feed 1:1 PNGs in three themes with dynamic theme font inheritance) for writer profiles, #KalimatHariIni quotes, and published articles (including an auto-appended single-post share bar and the [penalis_share_article] shortcode), unifies all share triggers under a single Bagikan modal with in-modal link/quote copy, requires a moderation reason with dashboard-only writer notifications when Senators remove #KalimatHariIni quotes, and adds a Senator filter tab plus clickable public author profile links across review screens. Upgrade is non-destructive and requires no manual migration.
