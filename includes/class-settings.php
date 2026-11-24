@@ -84,6 +84,7 @@ final class Penalis_Settings {
 		add_action( 'admin_post_penalis_save_registration', array( __CLASS__, 'handle_save_registration' ) );
 		add_action( 'admin_post_penalis_save_rate_limits', array( __CLASS__, 'handle_save_rate_limits' ) );
 		add_action( 'admin_post_penalis_reset_rate_limits', array( __CLASS__, 'handle_reset_rate_limits' ) );
+		add_action( 'admin_post_penalis_save_default_thumbnail', array( __CLASS__, 'handle_save_default_thumbnail' ) );
 		add_action( 'admin_post_penalis_save_data', array( __CLASS__, 'handle_save_data' ) );
 	}
 
@@ -126,10 +127,10 @@ final class Penalis_Settings {
 	}
 
 	/**
-	 * Enqueue the media picker for the Foto Profil tab.
+	 * Enqueue the media picker for the Foto Profil and Thumbnail tabs.
 	 *
-	 * The avatar picker is only needed on that one tab, so the media frame and
-	 * its handler never load on the other setting groups.
+	 * The media frame is only loaded on the two image-picker tabs so the other
+	 * setting groups stay lightweight.
 	 *
 	 * @param string $hook Current admin page hook.
 	 * @return void
@@ -139,43 +140,75 @@ final class Penalis_Settings {
 			return;
 		}
 
-		if ( 'avatar' !== self::current_tab() ) {
+		$tab     = self::current_tab();
+		$pickers = array(
+			'avatar'    => array(
+				'handle'  => 'penalis-admin-avatar',
+				'trigger' => '#penalis-default-avatar-choose',
+				'input'   => '#penalis-default-avatar-id',
+				'preview' => '#penalis-default-avatar-preview',
+				'title'   => 'Foto profil bawaan',
+			),
+			'thumbnail' => array(
+				'handle'  => 'penalis-admin-thumbnail',
+				'trigger' => '#penalis-default-thumbnail-choose',
+				'input'   => '#penalis-default-thumbnail-id',
+				'preview' => '#penalis-default-thumbnail-preview',
+				'title'   => 'Thumbnail bawaan karya tulis',
+			),
+		);
+
+		if ( ! isset( $pickers[ $tab ] ) ) {
 			return;
 		}
 
+		$picker = $pickers[ $tab ];
+
 		wp_enqueue_media();
 
-		wp_register_script( 'penalis-admin-avatar', '', array( 'jquery' ), PENALIS_PLATFORM_VERSION, true );
-		wp_enqueue_script( 'penalis-admin-avatar' );
+		wp_register_script( $picker['handle'], '', array( 'jquery' ), PENALIS_PLATFORM_VERSION, true );
+		wp_enqueue_script( $picker['handle'] );
 
-		$script = <<<'JS'
-jQuery( function ( $ ) {
+		$config = wp_json_encode(
+			array(
+				'trigger' => $picker['trigger'],
+				'input'   => $picker['input'],
+				'preview' => $picker['preview'],
+				'title'   => $picker['title'],
+			)
+		);
+
+		$script = sprintf(
+			'jQuery( function ( $ ) {
+	var cfg = %s;
 	var frame;
 
-	$( '#penalis-default-avatar-choose' ).on( 'click', function ( event ) {
+	$( cfg.trigger ).on( "click", function ( event ) {
 		event.preventDefault();
 
 		if ( ! frame ) {
 			frame = wp.media( {
-				title: 'Foto profil bawaan',
-				button: { text: 'Gunakan gambar ini' },
-				library: { type: 'image' },
+				title: cfg.title,
+				button: { text: "Gunakan gambar ini" },
+				library: { type: "image" },
 				multiple: false
 			} );
 
-			frame.on( 'select', function () {
-				var attachment = frame.state().get( 'selection' ).first().toJSON();
-				$( '#penalis-default-avatar-id' ).val( attachment.id );
-				$( '#penalis-default-avatar-preview' ).attr( 'src', attachment.url ).show();
+			frame.on( "select", function () {
+				var attachment = frame.state().get( "selection" ).first().toJSON();
+				var url = ( attachment.sizes && attachment.sizes.medium && attachment.sizes.medium.url ) ? attachment.sizes.medium.url : attachment.url;
+				$( cfg.input ).val( attachment.id );
+				$( cfg.preview ).attr( "src", url ).show();
 			} );
 		}
 
 		frame.open();
 	} );
-} );
-JS;
+} );',
+			$config
+		);
 
-		wp_add_inline_script( 'penalis-admin-avatar', $script );
+		wp_add_inline_script( $picker['handle'], $script );
 	}
 
 	/**
@@ -216,6 +249,11 @@ JS;
 				'label'  => 'Foto Profil',
 				'title'  => 'Foto Profil Bawaan',
 				'render' => array( __CLASS__, 'render_avatar_tab' ),
+			),
+			'thumbnail'    => array(
+				'label'  => 'Thumbnail',
+				'title'  => 'Thumbnail Bawaan Karya',
+				'render' => array( __CLASS__, 'render_thumbnail_tab' ),
 			),
 			'email'        => array(
 				'label'  => 'Email',
@@ -351,6 +389,17 @@ JS;
 	}
 
 	/**
+	 * Audit entry for the most recent default featured image change.
+	 *
+	 * @return array<string,mixed> Empty when never changed.
+	 */
+	public static function default_thumbnail_audit() {
+		$audit = get_option( Penalis_Default_Thumbnail::OPTION_AUDIT, array() );
+
+		return is_array( $audit ) && isset( $audit['time'] ) ? $audit : array();
+	}
+
+	/**
 	 * Resolve the tab to render from the `tab` query argument.
 	 *
 	 * @return string Registered tab slug.
@@ -428,6 +477,8 @@ JS;
 			'reset_single'      => 'Template email telah dikembalikan ke teks bawaan.',
 			'reset_all'         => 'Semua template email telah dikembalikan ke teks bawaan.',
 			'avatar_saved'      => 'Foto profil bawaan telah diperbarui.',
+			'thumbnail_saved'   => 'Thumbnail bawaan karya tulis telah diperbarui.',
+			'thumbnail_cleared' => 'Thumbnail bawaan karya tulis telah dihapus.',
 			'rate_limits_reset' => 'Batas percobaan dikembalikan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.',
 		);
 
@@ -444,9 +495,10 @@ JS;
 	 */
 	public static function error_for( $key ) {
 		$errors = array(
-			'avatar_invalid' => 'Pilih gambar yang valid untuk foto profil bawaan.',
-			'data_confirm'   => 'Ketik HAPUS pada kolom konfirmasi untuk mengaktifkan penghapusan data.',
-			'proxy_invalid'  => 'Sebagian entri proxy tidak valid dan diabaikan. Gunakan format alamat IP (mis. 203.0.113.10) atau CIDR (mis. 10.0.0.0/8).',
+			'avatar_invalid'    => 'Pilih gambar yang valid untuk foto profil bawaan.',
+			'thumbnail_invalid' => 'Pilih gambar yang valid untuk thumbnail bawaan karya tulis.',
+			'data_confirm'      => 'Ketik HAPUS pada kolom konfirmasi untuk mengaktifkan penghapusan data.',
+			'proxy_invalid'     => 'Sebagian entri proxy tidak valid dan diabaikan. Gunakan format alamat IP (mis. 203.0.113.10) atau CIDR (mis. 10.0.0.0/8).',
 		);
 
 		$key = sanitize_key( (string) $key );
@@ -976,6 +1028,68 @@ JS;
 	}
 
 	/**
+	 * Render the Thumbnail tab.
+	 *
+	 * @return void
+	 */
+	public static function render_thumbnail_tab() {
+		$configured_id = Penalis_Default_Thumbnail::get_configured_id();
+		$active_id     = Penalis_Default_Thumbnail::get_id();
+		$missing_media = $configured_id > 0 && $active_id <= 0;
+		$thumbnail_url = $active_id > 0 ? (string) wp_get_attachment_image_url( $active_id, 'medium' ) : '';
+		$audit         = self::default_thumbnail_audit();
+		$audit_verb    = isset( $audit['state'] ) && '0' === (string) $audit['state'] ? 'Dihapus' : 'Diperbarui';
+		$audit_line    = trim( self::audit_sentence( $audit, $audit_verb ) );
+		?>
+		<div class="penalis-settings__panel">
+			<h2>Thumbnail bawaan karya tulis</h2>
+			<p class="description">
+				Dipakai otomatis sebagai featured image untuk karya tulis (<code>post</code>) yang sudah
+				terbit tetapi belum memiliki thumbnail, seperti karya lama sebelum Penalis Platform aktif.
+				Karya baru yang masih berupa draft, revisi, atau menunggu review tetap wajib menggunakan
+				thumbnail pilihan penulis sendiri.
+			</p>
+
+			<?php if ( $missing_media ) : ?>
+				<div class="notice notice-warning inline">
+					<p>
+						<strong>Gambar thumbnail bawaan sebelumnya tidak lagi ditemukan di Media Library.</strong>
+						Pilih gambar baru atau hapus pengaturan ini agar kembali bersih.
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="penalis_save_default_thumbnail" />
+				<?php wp_nonce_field( 'penalis_save_default_thumbnail' ); ?>
+				<input type="hidden" name="penalis_default_thumbnail_id" id="penalis-default-thumbnail-id" value="<?php echo esc_attr( (string) $active_id ); ?>" />
+
+				<div class="penalis-settings__thumbnail">
+					<img
+						id="penalis-default-thumbnail-preview"
+						class="penalis-settings__thumbnail-preview"
+						src="<?php echo esc_url( $thumbnail_url ); ?>"
+						alt=""
+						<?php echo '' === $thumbnail_url ? 'style="display:none;"' : ''; ?>
+					/>
+					<div class="penalis-settings__avatar-controls">
+						<button type="button" class="button" id="penalis-default-thumbnail-choose">Pilih gambar</button>
+						<button type="submit" class="button button-primary">Simpan</button>
+						<?php if ( $configured_id > 0 ) : ?>
+							<button type="submit" class="button penalis-button--danger" name="penalis_clear_default_thumbnail" value="1">Hapus thumbnail bawaan</button>
+						<?php endif; ?>
+					</div>
+				</div>
+			</form>
+
+			<?php if ( '' !== $audit_line ) : ?>
+				<p class="penalis-settings__note"><?php echo esc_html( $audit_line ); ?></p>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render the Data tab.
 	 *
 	 * @return void
@@ -1374,6 +1488,36 @@ JS;
 		}
 
 		self::redirect_to_tab( 'rate-limit', 'rate_limits_reset' );
+	}
+
+	/**
+	 * Handle the default featured image submission.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_default_thumbnail() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_save_default_thumbnail' );
+
+		$clear         = isset( $_POST['penalis_clear_default_thumbnail'] );
+		$attachment_id = isset( $_POST['penalis_default_thumbnail_id'] ) ? absint( wp_unslash( $_POST['penalis_default_thumbnail_id'] ) ) : 0;
+
+		if ( $clear ) {
+			delete_option( Penalis_Default_Thumbnail::OPTION_ID );
+			self::record_audit( Penalis_Default_Thumbnail::OPTION_AUDIT, '0' );
+			self::redirect_to_tab( 'thumbnail', 'thumbnail_cleared' );
+		}
+
+		if ( $attachment_id <= 0 || ! wp_attachment_is_image( $attachment_id ) ) {
+			self::redirect_to_tab( 'thumbnail', '', array( 'penalis_error' => 'thumbnail_invalid' ) );
+		}
+
+		update_option( Penalis_Default_Thumbnail::OPTION_ID, $attachment_id, false );
+		self::record_audit( Penalis_Default_Thumbnail::OPTION_AUDIT, (string) $attachment_id );
+		self::redirect_to_tab( 'thumbnail', 'thumbnail_saved' );
 	}
 
 	/**

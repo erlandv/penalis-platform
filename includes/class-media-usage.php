@@ -150,11 +150,12 @@ final class Penalis_Media_Usage {
 			return self::empty_summary();
 		}
 
-		$default_avatar = (int) get_option( 'avatar_default_wp_user_avatar', 0 ) === $attachment_id;
-		$legacy_avatar  = self::is_used_as_legacy_avatar( $attachment_id );
-		$posts          = self::find_referencing_posts_sitewide( $attachment_id );
+		$default_avatar    = (int) get_option( 'avatar_default_wp_user_avatar', 0 ) === $attachment_id;
+		$default_thumbnail = (int) get_option( Penalis_Default_Thumbnail::OPTION_ID, 0 ) === $attachment_id;
+		$legacy_avatar     = self::is_used_as_legacy_avatar( $attachment_id );
+		$posts             = self::find_referencing_posts_sitewide( $attachment_id );
 
-		return self::build_summary( $posts, $legacy_avatar, $default_avatar, $viewer_user_id );
+		return self::build_summary( $posts, $legacy_avatar, $default_avatar, $default_thumbnail, $viewer_user_id );
 	}
 
 	/**
@@ -197,10 +198,11 @@ final class Penalis_Media_Usage {
 			return $summaries;
 		}
 
-		$default_avatar_id = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
-		$legacy_avatar_map = self::batch_legacy_avatar_ids( $ids );
-		$thumbnail_map     = self::batch_thumbnail_posts( $ids );
-		$writer_posts      = self::fetch_active_posts_for_author( $user_id );
+		$default_avatar_id    = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
+		$default_thumbnail_id = (int) get_option( Penalis_Default_Thumbnail::OPTION_ID, 0 );
+		$legacy_avatar_map    = self::batch_legacy_avatar_ids( $ids );
+		$thumbnail_map        = self::batch_thumbnail_posts( $ids );
+		$writer_posts         = self::fetch_active_posts_for_author( $user_id );
 
 		foreach ( $ids as $id ) {
 			$posts = isset( $thumbnail_map[ $id ] ) ? $thumbnail_map[ $id ] : array();
@@ -225,6 +227,7 @@ final class Penalis_Media_Usage {
 				$posts,
 				! empty( $legacy_avatar_map[ $id ] ),
 				$default_avatar_id === $id,
+				$default_thumbnail_id === $id,
 				$user_id
 			);
 		}
@@ -250,13 +253,14 @@ final class Penalis_Media_Usage {
 	/**
 	 * Build a normalized, privacy-safe usage summary.
 	 *
-	 * @param array<int,array{id:int,title:string,status:string,author:int}> $posts          Referencing posts keyed by ID.
-	 * @param bool                                                           $legacy_avatar  Whether used as a legacy user avatar.
-	 * @param bool                                                           $default_avatar Whether used as the site default avatar.
-	 * @param int                                                            $viewer_user_id Viewer ID (0 omits titles).
+	 * @param array<int,array{id:int,title:string,status:string,author:int}> $posts             Referencing posts keyed by ID.
+	 * @param bool                                                           $legacy_avatar     Whether used as a legacy user avatar.
+	 * @param bool                                                           $default_avatar    Whether used as the site default avatar.
+	 * @param bool                                                           $default_thumbnail Whether used as the site default featured image.
+	 * @param int                                                            $viewer_user_id    Viewer ID (0 omits titles).
 	 * @return array{inUse:bool,canDelete:bool,reason:string,usageCount:int,usedIn:array<int,array{id:int,title:string,status:string}>}
 	 */
-	private static function build_summary( $posts, $legacy_avatar, $default_avatar, $viewer_user_id ) {
+	private static function build_summary( $posts, $legacy_avatar, $default_avatar, $default_thumbnail, $viewer_user_id ) {
 		$own_posts   = array();
 		$other_posts = 0;
 
@@ -273,7 +277,7 @@ final class Penalis_Media_Usage {
 		}
 
 		$total_posts = count( $own_posts ) + $other_posts;
-		$in_use      = $total_posts > 0 || $legacy_avatar || $default_avatar;
+		$in_use      = $total_posts > 0 || $legacy_avatar || $default_avatar || $default_thumbnail;
 
 		if ( ! $in_use ) {
 			return self::empty_summary();
@@ -294,6 +298,8 @@ final class Penalis_Media_Usage {
 			$reason = 'Gambar ini sedang digunakan pada konten di situs dan tidak dapat dihapus.';
 		} elseif ( $default_avatar ) {
 			$reason = 'Gambar ini sedang dipakai sebagai foto profil bawaan situs.';
+		} elseif ( $default_thumbnail ) {
+			$reason = 'Gambar ini sedang dipakai sebagai thumbnail bawaan karya tulis.';
 		} else {
 			$reason = 'Gambar ini sedang dipakai sebagai foto profil dan tidak dapat dihapus.';
 		}

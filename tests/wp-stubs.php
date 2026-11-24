@@ -2008,6 +2008,17 @@ if ( ! function_exists( 'get_permalink' ) ) {
 	}
 }
 
+if ( ! function_exists( 'is_admin' ) ) {
+	/**
+	 * Whether the stub request is a wp-admin screen.
+	 *
+	 * @return bool
+	 */
+	function is_admin() {
+		return ! empty( $GLOBALS['penalis_test_is_admin'] );
+	}
+}
+
 if ( ! function_exists( 'get_post_thumbnail_id' ) ) {
 	/**
 	 * Thumbnail ID stub.

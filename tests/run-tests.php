@@ -37,6 +37,7 @@ require_once __DIR__ . '/../includes/class-editorial-admin.php';
 require_once __DIR__ . '/../includes/class-access-control.php';
 require_once __DIR__ . '/../includes/class-rest-api.php';
 require_once __DIR__ . '/../includes/class-avatar.php';
+require_once __DIR__ . '/../includes/class-default-thumbnail.php';
 require_once __DIR__ . '/../includes/class-media-usage.php';
 require_once __DIR__ . '/../includes/class-dashboard.php';
 require_once __DIR__ . '/../includes/class-rate-limiter.php';
@@ -5106,9 +5107,9 @@ penalis_same( array(), Penalis_Settings::audit(), 'The audit trail is empty unti
 $penalis_settings_tabs = Penalis_Settings::tabs();
 
 penalis_same(
-	array( 'captcha', 'registration', 'rate-limit', 'avatar', 'email', 'data' ),
+	array( 'captcha', 'registration', 'rate-limit', 'avatar', 'thumbnail', 'email', 'data' ),
 	array_keys( $penalis_settings_tabs ),
-	'The settings screen exposes Keamanan, Pendaftaran, Foto Profil, Email, and Data tabs in that order.'
+	'The settings screen exposes Keamanan, Pendaftaran, Batas Percobaan, Foto Profil, Thumbnail, Email, and Data tabs in that order.'
 );
 
 foreach ( $penalis_settings_tabs as $penalis_tab_slug => $penalis_tab_meta ) {
@@ -5134,8 +5135,11 @@ penalis_same( 'Pengaturan berhasil disimpan.', Penalis_Settings::message_for( 's
 penalis_same( 'Template email telah dikembalikan ke teks bawaan.', Penalis_Settings::message_for( 'reset_single' ), 'The shell reports a single template reset.' );
 penalis_same( 'Semua template email telah dikembalikan ke teks bawaan.', Penalis_Settings::message_for( 'reset_all' ), 'The shell reports a full template reset.' );
 penalis_same( 'Foto profil bawaan telah diperbarui.', Penalis_Settings::message_for( 'avatar_saved' ), 'The shell reports a saved default avatar.' );
+penalis_same( 'Thumbnail bawaan karya tulis telah diperbarui.', Penalis_Settings::message_for( 'thumbnail_saved' ), 'The shell reports a saved default featured image.' );
+penalis_same( 'Thumbnail bawaan karya tulis telah dihapus.', Penalis_Settings::message_for( 'thumbnail_cleared' ), 'The shell reports a cleared default featured image.' );
 penalis_same( 'Permintaan telah diselesaikan.', Penalis_Settings::message_for( 'unknown_key' ), 'An unknown message key falls back to a neutral notice.' );
 penalis_same( 'Pilih gambar yang valid untuk foto profil bawaan.', Penalis_Settings::error_for( 'avatar_invalid' ), 'The shell explains an invalid avatar selection.' );
+penalis_same( 'Pilih gambar yang valid untuk thumbnail bawaan karya tulis.', Penalis_Settings::error_for( 'thumbnail_invalid' ), 'The shell explains an invalid default featured image selection.' );
 penalis_same(
 	'Terjadi kesalahan saat memproses pengaturan. Silakan coba lagi.',
 	Penalis_Settings::error_for( 'unknown_key' ),
@@ -6463,6 +6467,118 @@ unset(
 	$GLOBALS['penalis_test_current_post_id'],
 	$GLOBALS['post']
 );
+
+/* -------------------------------------------------------------------------
+ * Default featured image provider (Penalis_Default_Thumbnail)
+ * ---------------------------------------------------------------------- */
+
+delete_option( Penalis_Default_Thumbnail::OPTION_ID );
+$GLOBALS['penalis_test_is_admin'] = false;
+
+$penalis_dfi_img                 = new WP_Post();
+$penalis_dfi_img->ID             = 980;
+$penalis_dfi_img->post_author    = 1;
+$penalis_dfi_img->post_type      = 'attachment';
+$penalis_dfi_img->post_status    = 'inherit';
+$penalis_dfi_img->post_mime_type = 'image/jpeg';
+$GLOBALS['penalis_test_posts'][980] = $penalis_dfi_img;
+
+$penalis_dfi_pdf                 = new WP_Post();
+$penalis_dfi_pdf->ID             = 981;
+$penalis_dfi_pdf->post_author    = 1;
+$penalis_dfi_pdf->post_type      = 'attachment';
+$penalis_dfi_pdf->post_status    = 'inherit';
+$penalis_dfi_pdf->post_mime_type = 'application/pdf';
+$GLOBALS['penalis_test_posts'][981] = $penalis_dfi_pdf;
+
+$penalis_dfi_pub_no_thumb              = new WP_Post();
+$penalis_dfi_pub_no_thumb->ID          = 982;
+$penalis_dfi_pub_no_thumb->post_author = 501;
+$penalis_dfi_pub_no_thumb->post_type   = 'post';
+$penalis_dfi_pub_no_thumb->post_status = 'publish';
+$GLOBALS['penalis_test_posts'][982]    = $penalis_dfi_pub_no_thumb;
+
+$penalis_dfi_pub_with_thumb              = new WP_Post();
+$penalis_dfi_pub_with_thumb->ID          = 983;
+$penalis_dfi_pub_with_thumb->post_author = 501;
+$penalis_dfi_pub_with_thumb->post_type   = 'post';
+$penalis_dfi_pub_with_thumb->post_status = 'publish';
+$penalis_dfi_pub_with_thumb->meta        = array( '_thumbnail_id' => array( '777' ) );
+$GLOBALS['penalis_test_posts'][983]      = $penalis_dfi_pub_with_thumb;
+
+$penalis_dfi_draft              = new WP_Post();
+$penalis_dfi_draft->ID          = 984;
+$penalis_dfi_draft->post_author = 501;
+$penalis_dfi_draft->post_type   = 'post';
+$penalis_dfi_draft->post_status = 'draft';
+$GLOBALS['penalis_test_posts'][984] = $penalis_dfi_draft;
+
+$penalis_dfi_pending              = new WP_Post();
+$penalis_dfi_pending->ID          = 985;
+$penalis_dfi_pending->post_author = 501;
+$penalis_dfi_pending->post_type   = 'post';
+$penalis_dfi_pending->post_status = 'pending';
+$GLOBALS['penalis_test_posts'][985] = $penalis_dfi_pending;
+
+$penalis_dfi_page              = new WP_Post();
+$penalis_dfi_page->ID          = 986;
+$penalis_dfi_page->post_author = 1;
+$penalis_dfi_page->post_type   = 'page';
+$penalis_dfi_page->post_status = 'publish';
+$GLOBALS['penalis_test_posts'][986] = $penalis_dfi_page;
+
+// When unset, provider returns 0 and leaves filters untouched.
+penalis_same( 0, Penalis_Default_Thumbnail::get_id(), 'Default featured image ID is 0 when option is unset.' );
+penalis_same( 0, Penalis_Default_Thumbnail::filter_post_thumbnail_id( 0, $penalis_dfi_pub_no_thumb ), 'filter_post_thumbnail_id() returns 0 when no default image is configured.' );
+penalis_same( null, Penalis_Default_Thumbnail::filter_post_metadata( null, 982, '_thumbnail_id', true ), 'filter_post_metadata() returns null when no default image is configured.' );
+
+// Non-image or missing attachment resolves safely to 0 while preserving configured ID for settings warning.
+update_option( Penalis_Default_Thumbnail::OPTION_ID, 981 );
+penalis_same( 981, Penalis_Default_Thumbnail::get_configured_id(), 'get_configured_id() reports the stored option ID.' );
+penalis_same( 0, Penalis_Default_Thumbnail::get_id(), 'get_id() ignores non-image attachments.' );
+
+update_option( Penalis_Default_Thumbnail::OPTION_ID, 999999 );
+penalis_same( 0, Penalis_Default_Thumbnail::get_id(), 'get_id() ignores deleted or nonexistent attachment IDs.' );
+
+// Valid image configured: applies strictly to published `post` records without explicit thumbnail.
+update_option( Penalis_Default_Thumbnail::OPTION_ID, 980 );
+penalis_same( 980, Penalis_Default_Thumbnail::get_id(), 'get_id() returns the configured image attachment ID.' );
+
+penalis_same( 980, Penalis_Default_Thumbnail::filter_post_thumbnail_id( 0, $penalis_dfi_pub_no_thumb ), 'Published post without thumbnail receives default featured image ID.' );
+penalis_same( array( '980' ), Penalis_Default_Thumbnail::filter_post_metadata( null, 982, '_thumbnail_id', true ), 'filter_post_metadata() returns single-element array for published post without thumbnail.' );
+penalis_same( null, Penalis_Default_Thumbnail::filter_post_metadata( null, 982, '_other_meta', true ), 'filter_post_metadata() ignores non-_thumbnail_id meta keys.' );
+penalis_same( array( '555' ), Penalis_Default_Thumbnail::filter_post_metadata( array( '555' ), 982, '_thumbnail_id', true ), 'filter_post_metadata() respects existing non-null short-circuit values.' );
+
+// Published post with an explicit thumbnail keeps its own thumbnail.
+penalis_same( 777, Penalis_Default_Thumbnail::filter_post_thumbnail_id( 777, $penalis_dfi_pub_with_thumb ), 'Published post with explicit thumbnail keeps its own ID.' );
+penalis_same( null, Penalis_Default_Thumbnail::filter_post_metadata( null, 983, '_thumbnail_id', true ), 'filter_post_metadata() does not override an explicit _thumbnail_id.' );
+
+// Drafts, pending reviews, and pages NEVER receive the fallback.
+penalis_same( 0, Penalis_Default_Thumbnail::filter_post_thumbnail_id( 0, $penalis_dfi_draft ), 'Draft posts never receive the default featured image.' );
+penalis_same( null, Penalis_Default_Thumbnail::filter_post_metadata( null, 984, '_thumbnail_id', true ), 'filter_post_metadata() never injects fallback into draft posts.' );
+penalis_same( 0, Penalis_Default_Thumbnail::filter_post_thumbnail_id( 0, $penalis_dfi_pending ), 'Pending review posts never receive the default featured image.' );
+penalis_same( null, Penalis_Default_Thumbnail::filter_post_metadata( null, 985, '_thumbnail_id', true ), 'filter_post_metadata() never injects fallback into pending posts.' );
+penalis_same( 0, Penalis_Default_Thumbnail::filter_post_thumbnail_id( 0, $penalis_dfi_page ), 'Published pages never receive the post-only default featured image.' );
+penalis_same( null, Penalis_Default_Thumbnail::filter_post_metadata( null, 986, '_thumbnail_id', true ), 'filter_post_metadata() skips page post type.' );
+
+// Non-AJAX wp-admin screens see the real DB state.
+$GLOBALS['penalis_test_is_admin'] = true;
+penalis_same( 0, Penalis_Default_Thumbnail::filter_post_thumbnail_id( 0, $penalis_dfi_pub_no_thumb ), 'Non-AJAX wp-admin screens do not receive the fallback thumbnail.' );
+penalis_same( null, Penalis_Default_Thumbnail::filter_post_metadata( null, 982, '_thumbnail_id', true ), 'filter_post_metadata() skips non-AJAX wp-admin screens.' );
+$GLOBALS['penalis_test_is_admin'] = false;
+
+// Media usage inspection protects the configured default featured image from deletion.
+$penalis_dfi_usage = Penalis_Media_Usage::inspect( 980 );
+penalis_same( true, $penalis_dfi_usage['inUse'], 'Penalis_Media_Usage::inspect() marks the default featured image as in use.' );
+penalis_same( false, $penalis_dfi_usage['canDelete'], 'Penalis_Media_Usage::inspect() blocks deleting the default featured image.' );
+penalis_assert( false !== strpos( $penalis_dfi_usage['reason'], 'thumbnail bawaan' ), 'Penalis_Media_Usage::inspect() explains that the image is used as default thumbnail.' );
+
+$penalis_dfi_batch = Penalis_Media_Usage::summarize_for_user( array( 980 ), 501 );
+penalis_same( true, $penalis_dfi_batch[980]['inUse'], 'Penalis_Media_Usage::summarize_for_user() marks the default featured image as in use.' );
+penalis_same( false, $penalis_dfi_batch[980]['canDelete'], 'Penalis_Media_Usage::summarize_for_user() blocks deleting the default featured image.' );
+
+delete_option( Penalis_Default_Thumbnail::OPTION_ID );
+unset( $GLOBALS['penalis_test_is_admin'] );
 
 /* -------------------------------------------------------------------------
  * Report

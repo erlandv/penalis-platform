@@ -108,6 +108,9 @@ $penalis_options = array(
 	'penalis_rate_limits',
 	'penalis_trusted_proxies',
 	'penalis_rate_limits_audit',
+	// Site-wide default featured image fallback for published posts.
+	'penalis_default_featured_image_id',
+	'penalis_default_featured_image_audit',
 );
 foreach ( $penalis_options as $penalis_option ) {
 	delete_option( $penalis_option );

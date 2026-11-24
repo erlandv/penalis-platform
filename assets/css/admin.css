@@ -1755,6 +1755,25 @@ body.penalis-modal-open {
 	margin: 0;
 }
 
+.penalis-settings__thumbnail {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 16px;
+	margin-top: 14px;
+}
+
+.penalis-settings__thumbnail-preview {
+	display: block;
+	width: 160px;
+	height: 100px;
+	flex: 0 0 160px;
+	border-radius: 6px;
+	border: 1px solid #dcdcde;
+	object-fit: cover;
+	background: #f0f0f1;
+}
+
 .penalis-settings__link {
 	margin: 12px 0 0;
 }

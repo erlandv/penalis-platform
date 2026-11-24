@@ -293,11 +293,15 @@ export function Editor({
 
       if (article.featuredMedia > 0) {
         setFeaturedMedia(article.featuredMedia);
-        try {
-          const mediaItem = await mediaApi.get(article.featuredMedia);
-          setFeaturedPreview(mediaItem.thumbnail || mediaItem.url);
-        } catch {
-          // A missing preview is not fatal; the ID is still preserved.
+        if (article.thumbnail) {
+          setFeaturedPreview(article.thumbnail);
+        } else {
+          try {
+            const mediaItem = await mediaApi.get(article.featuredMedia);
+            setFeaturedPreview(mediaItem.thumbnail || mediaItem.url);
+          } catch {
+            // A missing preview is not fatal; the ID is still preserved.
+          }
         }
       } else {
         setFeaturedMedia(0);
