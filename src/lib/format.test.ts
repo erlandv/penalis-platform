@@ -5,6 +5,7 @@ import {
   editorialStateLabel,
   formatDate,
   formatDateTime,
+  formatNumericDate,
   formatNumber,
   formatTime,
   getTimeGreeting,
@@ -69,6 +70,19 @@ describe('formatDate', () => {
   it('returns an em dash for empty values', () => {
     expect(formatDate('')).toBe('—');
     expect(formatDate(0)).toBe('—');
+  });
+});
+
+describe('formatNumericDate', () => {
+  it('formats dates as dd/mm/yyyy in the requested timezone', () => {
+    expect(formatNumericDate('2026-10-22T08:00:00Z', { timeZone: 'Asia/Jakarta' })).toBe('22/10/2026');
+    expect(formatNumericDate('2025-12-31T20:00:00Z', { timeZone: 'Asia/Jakarta' })).toBe('01/01/2026');
+    expect(formatNumericDate('2025-12-31T20:00:00Z', { timeZone: 'UTC' })).toBe('31/12/2025');
+  });
+
+  it('returns an empty string for empty or invalid values', () => {
+    expect(formatNumericDate('')).toBe('');
+    expect(formatNumericDate(0)).toBe('');
   });
 });
 

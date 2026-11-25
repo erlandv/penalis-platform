@@ -6408,6 +6408,7 @@ $penalis_article_payload = Penalis_Article_Share::build_article_payload( $penali
 penalis_same( 'Wayang Topeng', $penalis_article_payload['title'], 'build_article_payload() returns decoded article title.' );
 penalis_same( 'Erland Ramdhani', $penalis_article_payload['displayName'], 'build_article_payload() includes author display name.' );
 penalis_same( 'erland', $penalis_article_payload['username'], 'build_article_payload() includes author username.' );
+penalis_same( '22/05/2026', $penalis_article_payload['publishedLabel'], 'build_article_payload() formats publishedLabel as dd/mm/yyyy.' );
 
 $penalis_embed_first  = Penalis_Article_Share::render_embedded_payload( $penalis_poem_post );
 $penalis_embed_second = Penalis_Article_Share::render_embedded_payload( $penalis_poem_post );

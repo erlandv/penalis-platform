@@ -138,7 +138,7 @@ final class Penalis_Article_Share {
 			? html_entity_decode( (string) $category->name, ENT_QUOTES, 'UTF-8' )
 			: '';
 		$published  = '' !== (string) $post->post_date_gmt
-			? Penalis_Datetime::format_gmt( (string) $post->post_date_gmt, 'j M Y' )
+			? Penalis_Datetime::format_gmt( (string) $post->post_date_gmt, 'd/m/Y' )
 			: '';
 		$avatar_url = $author_id > 0 ? (string) Penalis_Avatar::get_url( $author_id ) : '';
 

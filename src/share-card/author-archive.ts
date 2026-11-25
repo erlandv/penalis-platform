@@ -442,7 +442,7 @@ function mountAuthorArchiveCardModal(): void {
       btn.dataset.theme = item.id;
       const swatch = document.createElement('span');
       swatch.className = 'penalis-share-card-modal__swatch';
-      swatch.style.backgroundColor = item.swatch;
+      swatch.style.background = item.swatch;
       swatch.setAttribute('aria-hidden', 'true');
       const label = document.createElement('span');
       label.textContent = item.label;

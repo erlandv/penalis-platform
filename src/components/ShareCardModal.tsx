@@ -308,7 +308,7 @@ export function ShareCardModal({
                     >
                       <span
                         className="penalis-share-card-modal__swatch"
-                        style={{ backgroundColor: item.swatch }}
+                        style={{ background: item.swatch }}
                         aria-hidden="true"
                       />
                       <span>{item.label}</span>

@@ -14,7 +14,13 @@ import type {
   EditorialState,
   EditorFocus,
 } from '../../lib/types';
-import { editorialStateLabel, formatDate, formatNumber, truncate } from '../../lib/format';
+import {
+  editorialStateLabel,
+  formatDate,
+  formatNumericDate,
+  formatNumber,
+  truncate,
+} from '../../lib/format';
 import { Icon } from '../../components/icons';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { ShareCardModal } from '../../components/ShareCardModal';
@@ -479,7 +485,7 @@ export function Articles({
             category: shareArticle.category,
             coverUrl: shareArticle.coverUrl || shareArticle.thumbnail,
             articleUrl: shareArticle.link,
-            publishedLabel: shareArticle.publishedLabel || formatDate(shareArticle.date),
+            publishedLabel: shareArticle.publishedLabel || formatNumericDate(shareArticle.date),
             displayName: account.displayName,
             username: account.username,
             avatarUrl: account.avatarUrl,

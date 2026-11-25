@@ -101,6 +101,33 @@ export function formatDate(value: DateInput, options: FormatOptions = {}): strin
 }
 
 /**
+ * Format a date as `dd/mm/yyyy` (matching public archive cards and share cards).
+ *
+ * Returns an empty string when the input cannot be parsed so callers can omit
+ * the label cleanly.
+ */
+export function formatNumericDate(value: DateInput, options: FormatOptions = {}): string {
+  const date = parseDateValue(value);
+
+  if (!date) {
+    return '';
+  }
+
+  const parts = new Intl.DateTimeFormat(LOCALE, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    ...dateOptions(options),
+  }).formatToParts(date);
+
+  const day = parts.find((part) => part.type === 'day')?.value ?? '';
+  const month = parts.find((part) => part.type === 'month')?.value ?? '';
+  const year = parts.find((part) => part.type === 'year')?.value ?? '';
+
+  return day && month && year ? `${day}/${month}/${year}` : '';
+}
+
+/**
  * Format a date and time plus a short timezone label (`13 Nov 2025, 03.30 WIB`).
  *
  * Used for editorial timestamps (submission, review, review history) and

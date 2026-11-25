@@ -2073,7 +2073,7 @@ final class Penalis_Rest_Api {
 				'date'           => $post->post_date_gmt,
 				'modified'       => $post->post_modified_gmt,
 				'publishedLabel' => 'publish' === $post->post_status && '' !== (string) $post->post_date_gmt
-					? Penalis_Datetime::format_gmt( (string) $post->post_date_gmt, 'j M Y' )
+					? Penalis_Datetime::format_gmt( (string) $post->post_date_gmt, 'd/m/Y' )
 					: '',
 				'category'       => $category instanceof WP_Term
 					? html_entity_decode( (string) $category->name, ENT_QUOTES, 'UTF-8' )
