@@ -30,6 +30,7 @@ delete_metadata( 'user', 0, '_penalis_author_history_reserved', '', true );
 delete_metadata( 'user', 0, '_penalis_notifications', '', true );
 delete_metadata( 'user', 0, '_penalis_is_senator', '', true );
 delete_metadata( 'user', 0, '_penalis_avatar_file', '', true );
+delete_metadata( 'user', 0, '_penalis_legacy_avatar_id', '', true );
 delete_metadata( 'user', 0, '_penalis_daily_quote', '', true );
 delete_metadata( 'user', 0, '_penalis_daily_quote_expires', '', true );
 delete_metadata( 'user', 0, '_penalis_daily_quote_publishes', '', true );
@@ -113,6 +114,9 @@ $penalis_options = array(
 	// Site-wide default featured image fallback for published posts.
 	'penalis_default_featured_image_id',
 	'penalis_default_featured_image_audit',
+	// Penalis-owned backup of default avatar and legacy avatar migration flag.
+	'penalis_default_avatar_id',
+	'penalis_legacy_avatar_migrated',
 );
 foreach ( $penalis_options as $penalis_option ) {
 	delete_option( $penalis_option );

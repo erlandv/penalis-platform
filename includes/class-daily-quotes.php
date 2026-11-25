@@ -659,6 +659,7 @@ final class Penalis_Daily_Quotes {
 			Penalis_Account_Status::META_ACCESS,
 			Penalis_Account_Status::META_SENATOR,
 			Penalis_Avatar::META_FILE,
+			Penalis_Avatar::META_LEGACY_ID,
 			Penalis_Avatar::meta_key(),
 		);
 

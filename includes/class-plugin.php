@@ -72,6 +72,7 @@ final class Penalis_Plugin {
 		Penalis_Author_Archive::init();
 		Penalis_Author_History::init();
 		Penalis_Avatar::register_provider();
+		add_action( 'init', array( 'Penalis_Avatar', 'maybe_migrate_legacy' ), 15 );
 		Penalis_Default_Thumbnail::init();
 
 		if ( is_admin() ) {

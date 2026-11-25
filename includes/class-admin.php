@@ -292,9 +292,11 @@ final class Penalis_Admin {
 		}
 
 		if ( $clear ) {
+			update_option( Penalis_Avatar::OPTION_DEFAULT_AVATAR_ID, '0', false );
 			update_option( 'avatar_default_wp_user_avatar', '' );
 			update_option( 'avatar_default', 'mystery' );
 		} else {
+			update_option( Penalis_Avatar::OPTION_DEFAULT_AVATAR_ID, $avatar, false );
 			update_option( 'avatar_default_wp_user_avatar', $avatar );
 			update_option( 'avatar_default', 'wp_user_avatar' );
 		}

@@ -27,9 +27,31 @@ final class Penalis_Avatar {
 	public const META_FILE = '_penalis_avatar_file';
 
 	/**
-	 * Legacy user meta suffix storing a Media Library attachment ID.
+	 * Penalis-owned backup user meta key storing a legacy Media Library attachment ID.
+	 *
+	 * Mirrors `{prefix}user_avatar` so uninstalling the external One User Avatar
+	 * plugin (whose `uninstall.php` deletes `{prefix}user_avatar`) cannot wipe
+	 * existing contributors' profile photos.
+	 */
+	public const META_LEGACY_ID = '_penalis_legacy_avatar_id';
+
+	/**
+	 * Legacy user meta suffix storing a Media Library attachment ID (One User Avatar).
 	 */
 	public const META_SUFFIX = 'user_avatar';
+
+	/**
+	 * Penalis-owned option storing the site-wide default avatar attachment ID.
+	 *
+	 * Mirrors `avatar_default_wp_user_avatar` so uninstalling One User Avatar
+	 * cannot reset the site-wide default avatar.
+	 */
+	public const OPTION_DEFAULT_AVATAR_ID = 'penalis_default_avatar_id';
+
+	/**
+	 * Flag option indicating the one-time non-destructive legacy avatar backup ran.
+	 */
+	public const OPTION_LEGACY_MIGRATED = 'penalis_legacy_avatar_migrated';
 
 	/**
 	 * Uploads subfolder dedicated to cropped profile photos.
@@ -223,13 +245,203 @@ final class Penalis_Avatar {
 	/**
 	 * Legacy attachment-based avatar ID, if the user still uses one.
 	 *
+	 * Prefers the Penalis-owned `_penalis_legacy_avatar_id` backup over One User
+	 * Avatar's `{prefix}user_avatar` so avatars survive OUA uninstallation.
+	 *
 	 * @param int $user_id User ID.
 	 * @return int
 	 */
 	public static function get_id( $user_id ) {
-		$value = get_user_meta( (int) $user_id, self::meta_key(), true );
+		$user_id   = (int) $user_id;
+		$protected = get_user_meta( $user_id, self::META_LEGACY_ID, true );
 
-		return is_numeric( $value ) ? (int) $value : 0;
+		if ( is_numeric( $protected ) && (int) $protected > 0 ) {
+			return (int) $protected;
+		}
+
+		$legacy = get_user_meta( $user_id, self::meta_key(), true );
+
+		return is_numeric( $legacy ) && (int) $legacy > 0 ? (int) $legacy : 0;
+	}
+
+	/**
+	 * Run the non-destructive legacy avatar backup once automatically.
+	 *
+	 * Guarded by an autoloaded flag option so steady-state requests incur zero
+	 * extra database queries.
+	 *
+	 * @return void
+	 */
+	public static function maybe_migrate_legacy() {
+		if ( '1' === (string) get_option( self::OPTION_LEGACY_MIGRATED, '0' ) ) {
+			return;
+		}
+
+		self::migrate_legacy_avatars();
+	}
+
+	/**
+	 * Copy legacy One User Avatar metadata into Penalis-owned keys without
+	 * deleting or modifying any existing OUA records.
+	 *
+	 * Safe to run repeatedly (idempotent): users who already have a standalone
+	 * `_penalis_avatar_file` or an existing `_penalis_legacy_avatar_id` are left
+	 * untouched. Also mirrors the site-wide default avatar into
+	 * `penalis_default_avatar_id` when not yet stored.
+	 *
+	 * @return array{migrated:int,alreadyProtected:int,defaultBackedUp:bool}
+	 */
+	public static function migrate_legacy_avatars() {
+		global $wpdb;
+
+		$legacy_key        = self::meta_key();
+		$migrated          = 0;
+		$already_protected = 0;
+		$candidates        = array();
+
+		if ( isset( $wpdb ) && is_object( $wpdb ) && method_exists( $wpdb, 'get_results' ) && ! empty( $wpdb->usermeta ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- One-time non-destructive migration scan of legacy avatar meta.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id, meta_value FROM {$wpdb->usermeta} WHERE meta_key = %s",
+					$legacy_key
+				)
+			);
+
+			if ( is_array( $rows ) ) {
+				foreach ( $rows as $row ) {
+					$uid = isset( $row->user_id ) ? (int) $row->user_id : 0;
+					$att = isset( $row->meta_value ) && is_numeric( $row->meta_value ) ? (int) $row->meta_value : 0;
+					if ( $uid > 0 && $att > 0 ) {
+						$candidates[ $uid ] = $att;
+					}
+				}
+			}
+		} else {
+			$users = get_users( array( 'fields' => 'ID' ) );
+			foreach ( $users as $uid ) {
+				$uid = (int) $uid;
+				$att = get_user_meta( $uid, $legacy_key, true );
+				if ( $uid > 0 && is_numeric( $att ) && (int) $att > 0 ) {
+					$candidates[ $uid ] = (int) $att;
+				}
+			}
+		}
+
+		foreach ( $candidates as $uid => $attachment_id ) {
+			if ( '' !== self::get_file( $uid ) ) {
+				++$already_protected;
+				continue;
+			}
+
+			$existing_backup = get_user_meta( $uid, self::META_LEGACY_ID, true );
+			if ( is_numeric( $existing_backup ) && (int) $existing_backup > 0 ) {
+				++$already_protected;
+				continue;
+			}
+
+			update_user_meta( $uid, self::META_LEGACY_ID, $attachment_id );
+			++$migrated;
+		}
+
+		$default_backed_up = false;
+		$stored_default    = get_option( self::OPTION_DEFAULT_AVATAR_ID, '__unset__' );
+		if ( '__unset__' === $stored_default && 'wp_user_avatar' === (string) get_option( 'avatar_default' ) ) {
+			$legacy_default = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
+			if ( $legacy_default > 0 ) {
+				update_option( self::OPTION_DEFAULT_AVATAR_ID, $legacy_default, false );
+				$default_backed_up = true;
+			}
+		}
+
+		update_option( self::OPTION_LEGACY_MIGRATED, '1', true );
+
+		return array(
+			'migrated'         => $migrated,
+			'alreadyProtected' => $already_protected,
+			'defaultBackedUp'  => $default_backed_up,
+		);
+	}
+
+	/**
+	 * Report whether any legacy One User Avatar records still need backup into
+	 * Penalis-owned metadata before OUA is uninstalled.
+	 *
+	 * @return array{protectedUsers:int,pendingUsers:int,legacyUsers:int,defaultProtected:bool,defaultNeedsBackup:bool}
+	 */
+	public static function legacy_migration_status() {
+		global $wpdb;
+
+		$legacy_key      = self::meta_key();
+		$protected_users = 0;
+		$pending_users   = 0;
+		$legacy_map      = array();
+
+		if ( isset( $wpdb ) && is_object( $wpdb ) && method_exists( $wpdb, 'get_results' ) && ! empty( $wpdb->usermeta ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Admin settings diagnostic count.
+			$protected_users = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(DISTINCT user_id) FROM {$wpdb->usermeta} WHERE meta_key = %s AND CAST(meta_value AS UNSIGNED) > 0",
+					self::META_LEGACY_ID
+				)
+			);
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Admin settings diagnostic scan.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT user_id, meta_value FROM {$wpdb->usermeta} WHERE meta_key = %s",
+					$legacy_key
+				)
+			);
+			if ( is_array( $rows ) ) {
+				foreach ( $rows as $row ) {
+					$uid = isset( $row->user_id ) ? (int) $row->user_id : 0;
+					$att = isset( $row->meta_value ) && is_numeric( $row->meta_value ) ? (int) $row->meta_value : 0;
+					if ( $uid > 0 && $att > 0 ) {
+						$legacy_map[ $uid ] = $att;
+					}
+				}
+			}
+		} else {
+			$users = get_users( array( 'fields' => 'ID' ) );
+			foreach ( $users as $uid ) {
+				$uid        = (int) $uid;
+				$protected  = get_user_meta( $uid, self::META_LEGACY_ID, true );
+				$legacy_att = get_user_meta( $uid, $legacy_key, true );
+
+				if ( is_numeric( $protected ) && (int) $protected > 0 ) {
+					++$protected_users;
+				}
+				if ( is_numeric( $legacy_att ) && (int) $legacy_att > 0 ) {
+					$legacy_map[ $uid ] = (int) $legacy_att;
+				}
+			}
+		}
+
+		foreach ( $legacy_map as $uid => $att ) {
+			unset( $att );
+			$has_file   = '' !== self::get_file( $uid );
+			$has_backup = is_numeric( get_user_meta( $uid, self::META_LEGACY_ID, true ) )
+				&& (int) get_user_meta( $uid, self::META_LEGACY_ID, true ) > 0;
+			if ( ! $has_file && ! $has_backup ) {
+				++$pending_users;
+			}
+		}
+
+		$stored_default       = get_option( self::OPTION_DEFAULT_AVATAR_ID, '__unset__' );
+		$legacy_default       = 'wp_user_avatar' === (string) get_option( 'avatar_default' )
+			? (int) get_option( 'avatar_default_wp_user_avatar', 0 )
+			: 0;
+		$default_protected    = '__unset__' !== $stored_default && (int) $stored_default > 0;
+		$default_needs_backup = '__unset__' === $stored_default && $legacy_default > 0;
+
+		return array(
+			'protectedUsers'     => $protected_users,
+			'pendingUsers'       => $pending_users,
+			'legacyUsers'        => count( $legacy_map ),
+			'defaultProtected'   => $default_protected,
+			'defaultNeedsBackup' => $default_needs_backup,
+		);
 	}
 
 	/**
@@ -442,6 +654,7 @@ final class Penalis_Avatar {
 		}
 
 		// Detach any legacy attachment ID without touching the Media Library attachment.
+		delete_user_meta( $user_id, self::META_LEGACY_ID );
 		delete_user_meta( $user_id, self::meta_key() );
 
 		// Immediately remove the superseded derived avatar file so each user keeps one file.
@@ -466,6 +679,7 @@ final class Penalis_Avatar {
 		$previous_file = self::get_file( $user_id );
 
 		delete_user_meta( $user_id, self::META_FILE );
+		delete_user_meta( $user_id, self::META_LEGACY_ID );
 		delete_user_meta( $user_id, self::meta_key() );
 
 		if ( '' !== $previous_file ) {
@@ -633,9 +847,21 @@ final class Penalis_Avatar {
 	/**
 	 * Default photo attachment ID, when the site has selected one.
 	 *
+	 * Prefers Penalis's own `penalis_default_avatar_id` option so uninstalling
+	 * One User Avatar cannot wipe the site default avatar. Falls back to OUA's
+	 * `avatar_default` / `avatar_default_wp_user_avatar` only when the Penalis
+	 * option has never been saved or migrated yet.
+	 *
 	 * @return int
 	 */
 	public static function default_avatar_id() {
+		$stored = get_option( self::OPTION_DEFAULT_AVATAR_ID, '__unset__' );
+
+		if ( '__unset__' !== $stored ) {
+			$attachment_id = (int) $stored;
+			return $attachment_id > 0 && wp_attachment_is_image( $attachment_id ) ? $attachment_id : 0;
+		}
+
 		if ( 'wp_user_avatar' !== (string) get_option( 'avatar_default' ) ) {
 			return 0;
 		}

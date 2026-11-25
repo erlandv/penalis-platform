@@ -84,6 +84,7 @@ final class Penalis_Settings {
 		add_action( 'admin_post_penalis_save_registration', array( __CLASS__, 'handle_save_registration' ) );
 		add_action( 'admin_post_penalis_save_rate_limits', array( __CLASS__, 'handle_save_rate_limits' ) );
 		add_action( 'admin_post_penalis_reset_rate_limits', array( __CLASS__, 'handle_reset_rate_limits' ) );
+		add_action( 'admin_post_penalis_migrate_legacy_avatars', array( __CLASS__, 'handle_migrate_legacy_avatars' ) );
 		add_action( 'admin_post_penalis_save_default_thumbnail', array( __CLASS__, 'handle_save_default_thumbnail' ) );
 		add_action( 'admin_post_penalis_save_data', array( __CLASS__, 'handle_save_data' ) );
 	}
@@ -473,13 +474,14 @@ final class Penalis_Settings {
 	 */
 	public static function message_for( $key ) {
 		$messages = array(
-			'saved'             => 'Pengaturan berhasil disimpan.',
-			'reset_single'      => 'Template email telah dikembalikan ke teks bawaan.',
-			'reset_all'         => 'Semua template email telah dikembalikan ke teks bawaan.',
-			'avatar_saved'      => 'Foto profil bawaan telah diperbarui.',
-			'thumbnail_saved'   => 'Thumbnail bawaan karya tulis telah diperbarui.',
-			'thumbnail_cleared' => 'Thumbnail bawaan karya tulis telah dihapus.',
-			'rate_limits_reset' => 'Batas percobaan dikembalikan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.',
+			'saved'                   => 'Pengaturan berhasil disimpan.',
+			'reset_single'            => 'Template email telah dikembalikan ke teks bawaan.',
+			'reset_all'               => 'Semua template email telah dikembalikan ke teks bawaan.',
+			'avatar_saved'            => 'Foto profil bawaan telah diperbarui.',
+			'legacy_avatars_migrated' => 'Foto profil lama dari One User Avatar telah diamankan ke Penalis Platform.',
+			'thumbnail_saved'         => 'Thumbnail bawaan karya tulis telah diperbarui.',
+			'thumbnail_cleared'       => 'Thumbnail bawaan karya tulis telah dihapus.',
+			'rate_limits_reset'       => 'Batas percobaan dikembalikan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.',
 		);
 
 		$key = sanitize_key( (string) $key );
@@ -997,8 +999,10 @@ final class Penalis_Settings {
 	 * @return void
 	 */
 	public static function render_avatar_tab() {
-		$avatar_id  = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
+		$avatar_id  = Penalis_Avatar::default_avatar_id();
 		$avatar_url = $avatar_id > 0 ? (string) wp_get_attachment_image_url( $avatar_id, 'thumbnail' ) : '';
+		$migration  = Penalis_Avatar::legacy_migration_status();
+		$needs_sync = $migration['pendingUsers'] > 0 || $migration['defaultNeedsBackup'];
 		?>
 		<div class="penalis-settings__panel">
 			<h2>Foto profil bawaan</h2>
@@ -1029,6 +1033,53 @@ final class Penalis_Settings {
 						<?php endif; ?>
 					</div>
 				</div>
+			</form>
+		</div>
+
+		<div class="penalis-settings__panel">
+			<h2>Perlindungan foto profil lama (One User Avatar)</h2>
+			<p class="description">
+				Plugin <strong>One User Avatar</strong> menghapus metadata <code><?php echo esc_html( Penalis_Avatar::meta_key() ); ?></code>
+				secara otomatis ketika di-uninstall dari halaman Plugins. Penalis Platform menyalin referensi
+				foto profil lama tersebut ke metadata internal <code>_penalis_legacy_avatar_id</code> dan
+				<code>penalis_default_avatar_id</code> secara non-destruktif agar foto profil penulis tetap
+				aman saat One User Avatar dihapus.
+			</p>
+
+			<?php if ( $needs_sync ) : ?>
+				<div class="notice notice-warning inline">
+					<p>
+						<strong>Perlu sinkronisasi sebelum menghapus One User Avatar.</strong>
+						<?php if ( $migration['pendingUsers'] > 0 ) : ?>
+							Masih ada <?php echo esc_html( number_format_i18n( $migration['pendingUsers'] ) ); ?> akun dengan foto profil lama yang belum disalin.
+						<?php endif; ?>
+						<?php if ( $migration['defaultNeedsBackup'] ) : ?>
+							Foto profil bawaan lama belum disalin ke pengaturan internal Penalis.
+						<?php endif; ?>
+					</p>
+				</div>
+			<?php else : ?>
+				<div class="notice notice-success inline">
+					<p>
+						<strong>Foto profil lama sudah diamankan.</strong>
+						<?php if ( $migration['protectedUsers'] > 0 ) : ?>
+							<?php echo esc_html( number_format_i18n( $migration['protectedUsers'] ) ); ?> akun tercatat menggunakan salinan pelindung <code>_penalis_legacy_avatar_id</code>.
+						<?php else : ?>
+							Tidak ada metadata foto profil lama yang belum disalin.
+						<?php endif; ?>
+						Plugin One User Avatar aman untuk dihapus.
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="penalis_migrate_legacy_avatars" />
+				<?php wp_nonce_field( 'penalis_migrate_legacy_avatars' ); ?>
+				<p class="submit">
+					<button type="submit" class="button <?php echo $needs_sync ? 'button-primary' : ''; ?>">
+						<?php echo $needs_sync ? 'Amankan foto profil lama sekarang' : 'Sinkronkan ulang foto profil lama'; ?>
+					</button>
+				</p>
 			</form>
 		</div>
 		<?php
@@ -1495,6 +1546,23 @@ final class Penalis_Settings {
 		}
 
 		self::redirect_to_tab( 'rate-limit', 'rate_limits_reset' );
+	}
+
+	/**
+	 * Handle manual re-sync of legacy One User Avatar metadata into Penalis keys.
+	 *
+	 * @return void
+	 */
+	public static function handle_migrate_legacy_avatars() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_migrate_legacy_avatars' );
+
+		Penalis_Avatar::migrate_legacy_avatars();
+
+		self::redirect_to_tab( 'avatar', 'legacy_avatars_migrated' );
 	}
 
 	/**

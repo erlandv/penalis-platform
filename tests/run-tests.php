@@ -6728,6 +6728,83 @@ unset(
 );
 
 /* -------------------------------------------------------------------------
+ * Legacy One User Avatar protection & migration (Penalis_Avatar)
+ * ---------------------------------------------------------------------- */
+
+delete_option( Penalis_Avatar::OPTION_DEFAULT_AVATAR_ID );
+delete_option( Penalis_Avatar::OPTION_LEGACY_MIGRATED );
+
+$penalis_oua_img                 = new WP_Post();
+$penalis_oua_img->ID             = 995;
+$penalis_oua_img->post_author    = 1;
+$penalis_oua_img->post_type      = 'attachment';
+$penalis_oua_img->post_status    = 'inherit';
+$penalis_oua_img->post_mime_type = 'image/jpeg';
+$GLOBALS['penalis_test_posts'][995] = $penalis_oua_img;
+
+$penalis_oua_default                 = new WP_Post();
+$penalis_oua_default->ID             = 996;
+$penalis_oua_default->post_author    = 1;
+$penalis_oua_default->post_type      = 'attachment';
+$penalis_oua_default->post_status    = 'inherit';
+$penalis_oua_default->post_mime_type = 'image/webp';
+$GLOBALS['penalis_test_posts'][996]  = $penalis_oua_default;
+
+$penalis_oua_user                   = new WP_User( 997, array( 'penalis_writer' ) );
+$penalis_oua_user->user_login       = 'penulis_oua';
+$penalis_oua_user->display_name     = 'Penulis OUA';
+$GLOBALS['penalis_test_users'][997] = $penalis_oua_user;
+
+update_user_meta( 997, Penalis_Avatar::meta_key(), 995 );
+update_option( 'avatar_default', 'wp_user_avatar' );
+update_option( 'avatar_default_wp_user_avatar', 996 );
+
+// Before migration, status detects both unmigrated user and default avatar.
+$penalis_oua_before = Penalis_Avatar::legacy_migration_status();
+penalis_assert( $penalis_oua_before['pendingUsers'] >= 1, 'legacy_migration_status() detects unmigrated OUA user avatar.' );
+penalis_same( true, $penalis_oua_before['defaultNeedsBackup'], 'legacy_migration_status() detects unmigrated OUA default avatar.' );
+
+// Running migration copies both into Penalis-owned keys without deleting OUA keys.
+$penalis_oua_result = Penalis_Avatar::migrate_legacy_avatars();
+penalis_assert( $penalis_oua_result['migrated'] >= 1, 'migrate_legacy_avatars() copies OUA user avatar into _penalis_legacy_avatar_id.' );
+penalis_same( true, $penalis_oua_result['defaultBackedUp'], 'migrate_legacy_avatars() mirrors default avatar into penalis_default_avatar_id.' );
+penalis_same( 995, (int) get_user_meta( 997, Penalis_Avatar::META_LEGACY_ID, true ), '_penalis_legacy_avatar_id stores the migrated attachment ID.' );
+penalis_same( 995, (int) get_user_meta( 997, Penalis_Avatar::meta_key(), true ), 'Original OUA user meta is preserved untouched by migration.' );
+penalis_same( '1', (string) get_option( Penalis_Avatar::OPTION_LEGACY_MIGRATED, '0' ), 'Migration flag is set so subsequent requests skip the scan.' );
+
+// Simulate One User Avatar uninstall.php deleting OUA usermeta and resetting OUA options.
+delete_user_meta( 997, Penalis_Avatar::meta_key() );
+delete_option( 'avatar_default_wp_user_avatar' );
+update_option( 'avatar_default', 'mystery' );
+
+penalis_same( 995, Penalis_Avatar::get_id( 997 ), 'User avatar survives One User Avatar uninstallation via _penalis_legacy_avatar_id.' );
+penalis_same( true, Penalis_Avatar::has_avatar( 997 ), 'has_avatar() remains true after OUA uninstall.' );
+penalis_same( 996, Penalis_Avatar::default_avatar_id(), 'Site default avatar survives One User Avatar uninstallation via penalis_default_avatar_id.' );
+
+// Penalis_Media_Usage protects both the backed-up legacy avatar and backed-up default avatar.
+$penalis_oua_usage_user = Penalis_Media_Usage::inspect( 995 );
+penalis_same( true, $penalis_oua_usage_user['inUse'], 'Penalis_Media_Usage protects attachment referenced by _penalis_legacy_avatar_id.' );
+penalis_same( false, $penalis_oua_usage_user['canDelete'], 'Penalis_Media_Usage blocks deleting _penalis_legacy_avatar_id attachment.' );
+
+$penalis_oua_usage_def = Penalis_Media_Usage::inspect( 996 );
+penalis_same( true, $penalis_oua_usage_def['inUse'], 'Penalis_Media_Usage protects attachment referenced by penalis_default_avatar_id.' );
+
+// Explicitly clearing user avatar removes both _penalis_legacy_avatar_id and OUA meta.
+Penalis_Avatar::clear( 997 );
+penalis_same( 0, Penalis_Avatar::get_id( 997 ), 'Penalis_Avatar::clear() detaches _penalis_legacy_avatar_id.' );
+
+// Explicitly clearing site default avatar (stored as "0") returns 0 even if OUA option still exists.
+update_option( 'avatar_default', 'wp_user_avatar' );
+update_option( 'avatar_default_wp_user_avatar', 996 );
+update_option( Penalis_Avatar::OPTION_DEFAULT_AVATAR_ID, '0' );
+penalis_same( 0, Penalis_Avatar::default_avatar_id(), 'Explicitly cleared penalis_default_avatar_id ("0") does not fall back to OUA option.' );
+
+delete_option( Penalis_Avatar::OPTION_DEFAULT_AVATAR_ID );
+delete_option( Penalis_Avatar::OPTION_LEGACY_MIGRATED );
+delete_option( 'avatar_default_wp_user_avatar' );
+unset( $GLOBALS['penalis_test_users'][997], $GLOBALS['penalis_test_posts'][995], $GLOBALS['penalis_test_posts'][996] );
+
+/* -------------------------------------------------------------------------
  * Report
  * ---------------------------------------------------------------------- */
 

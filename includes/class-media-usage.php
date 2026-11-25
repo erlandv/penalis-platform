@@ -150,7 +150,8 @@ final class Penalis_Media_Usage {
 			return self::empty_summary();
 		}
 
-		$default_avatar    = (int) get_option( 'avatar_default_wp_user_avatar', 0 ) === $attachment_id;
+		$default_avatar    = Penalis_Avatar::default_avatar_id() === $attachment_id
+			|| (int) get_option( 'avatar_default_wp_user_avatar', 0 ) === $attachment_id;
 		$default_thumbnail = (int) get_option( Penalis_Default_Thumbnail::OPTION_ID, 0 ) === $attachment_id;
 		$legacy_avatar     = self::is_used_as_legacy_avatar( $attachment_id );
 		$posts             = self::find_referencing_posts_sitewide( $attachment_id );
@@ -198,7 +199,12 @@ final class Penalis_Media_Usage {
 			return $summaries;
 		}
 
-		$default_avatar_id    = (int) get_option( 'avatar_default_wp_user_avatar', 0 );
+		$default_avatar_ids   = array_filter(
+			array(
+				Penalis_Avatar::default_avatar_id(),
+				(int) get_option( 'avatar_default_wp_user_avatar', 0 ),
+			)
+		);
 		$default_thumbnail_id = (int) get_option( Penalis_Default_Thumbnail::OPTION_ID, 0 );
 		$legacy_avatar_map    = self::batch_legacy_avatar_ids( $ids );
 		$thumbnail_map        = self::batch_thumbnail_posts( $ids );
@@ -226,7 +232,7 @@ final class Penalis_Media_Usage {
 			$summaries[ $id ] = self::build_summary(
 				$posts,
 				! empty( $legacy_avatar_map[ $id ] ),
-				$default_avatar_id === $id,
+				in_array( $id, $default_avatar_ids, true ),
 				$default_thumbnail_id === $id,
 				$user_id
 			);
@@ -350,17 +356,19 @@ final class Penalis_Media_Usage {
 	private static function batch_legacy_avatar_ids( $attachment_ids ) {
 		global $wpdb;
 
-		$found    = array();
-		$meta_key = Penalis_Avatar::meta_key();
+		$found       = array();
+		$legacy_key  = Penalis_Avatar::meta_key();
+		$backup_key  = Penalis_Avatar::META_LEGACY_ID;
+		$avatar_keys = array( $legacy_key, $backup_key );
 
 		if ( self::has_wpdb_tables() ) {
 			$placeholders = implode( ',', array_fill( 0, count( $attachment_ids ), '%s' ) );
-			$params       = array_merge( array( $meta_key ), array_map( 'strval', $attachment_ids ) );
+			$params       = array_merge( $avatar_keys, array_map( 'strval', $attachment_ids ) );
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
-					"SELECT DISTINCT meta_value FROM {$wpdb->usermeta} WHERE meta_key = %s AND meta_value IN ({$placeholders})",
+					"SELECT DISTINCT meta_value FROM {$wpdb->usermeta} WHERE meta_key IN (%s, %s) AND meta_value IN ({$placeholders})",
 					$params
 				)
 			);
@@ -382,9 +390,11 @@ final class Penalis_Media_Usage {
 		$id_lookup = array_fill_keys( $attachment_ids, true );
 		$users     = get_users( array( 'fields' => 'ID' ) );
 		foreach ( $users as $uid ) {
-			$avatar_id = (int) get_user_meta( (int) $uid, $meta_key, true );
-			if ( $avatar_id > 0 && isset( $id_lookup[ $avatar_id ] ) ) {
-				$found[ $avatar_id ] = true;
+			foreach ( $avatar_keys as $key ) {
+				$avatar_id = (int) get_user_meta( (int) $uid, $key, true );
+				if ( $avatar_id > 0 && isset( $id_lookup[ $avatar_id ] ) ) {
+					$found[ $avatar_id ] = true;
+				}
 			}
 		}
 
@@ -410,7 +420,7 @@ final class Penalis_Media_Usage {
 				self::ACTIVE_POST_STATUSES
 			);
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT pm.meta_value AS attachment_id, p.ID, p.post_title, p.post_status, p.post_author
@@ -479,7 +489,7 @@ final class Penalis_Media_Usage {
 			$status_placeholders = implode( ',', array_fill( 0, count( self::ACTIVE_POST_STATUSES ), '%s' ) );
 			$params              = array_merge( array( $user_id ), self::ACTIVE_POST_STATUSES );
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT ID, post_title, post_status, post_author, post_content
@@ -562,7 +572,7 @@ final class Penalis_Media_Usage {
 			$like_sql = implode( ' OR ', $like_clauses );
 			$params   = array_merge( self::ACTIVE_POST_STATUSES, $like_params );
 
-			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare,WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber
 			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					"SELECT ID, post_title, post_status, post_author, post_content
