@@ -1,0 +1,63 @@
+version: 2
+updates:
+  # Frontend npm dependencies (grouped to prevent PR spam)
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      tiptap:
+        patterns:
+          - "@tiptap/*"
+      build-and-test:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "vitest"
+      lint-and-types:
+        patterns:
+          - "eslint*"
+          - "@eslint/*"
+          - "typescript*"
+          - "globals"
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # PHP dev tooling (WPCS / PHPCS)
+  - package-ecosystem: "composer"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "chore(deps)"
+
+  # GitHub Actions workflow versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns:
+          - "*"

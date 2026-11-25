@@ -16,6 +16,10 @@ jobs:
     name: Verify, build plugin ZIP, and create GitHub Release
     runs-on: ubuntu-latest
 
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      zip_name: ${{ steps.zip.outputs.ZIP_NAME }}
+
     permissions:
       contents: write  # required to create releases and upload assets
 
@@ -171,3 +175,183 @@ jobs:
           files: ${{ steps.zip.outputs.ZIP_NAME }}
           draft: false
           prerelease: false
+
+      # -----------------------------------------------------------------------
+      # 9. Hand the exact validated ZIP off to the production deploy job
+      # -----------------------------------------------------------------------
+      - name: Upload release ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: penalis-platform-release-zip
+          path: ${{ steps.zip.outputs.ZIP_NAME }}
+          retention-days: 1
+
+  # ---------------------------------------------------------------------------
+  # Production deployment to VPS via atomic symlink swap.
+  #
+  # Runs only after the release job passes every check and publishes the ZIP.
+  # Uses the isolated SSH account and server paths configured in the
+  # `production` GitHub Environment secrets.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to production VPS
+    needs: release
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://penalis.com
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Download release ZIP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: penalis-platform-release-zip
+          path: .
+
+      - name: Configure SSH client
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Upload and atomically deploy release on VPS
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+          ZIP_NAME: ${{ needs.release.outputs.zip_name }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          REMOTE_BASE: ${{ secrets.REMOTE_BASE }}
+          POST_DEPLOY_CMD: ${{ secrets.POST_DEPLOY_CMD }}
+        run: |
+          set -euo pipefail
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid release version format: $VERSION"
+            exit 1
+          fi
+
+          REMOTE_BASE="${REMOTE_BASE%/}"
+          if ! [[ "$REMOTE_BASE" =~ ^/[A-Za-z0-9._/-]+$ ]] || [[ "$REMOTE_BASE" == *".."* ]]; then
+            echo "::error::REMOTE_BASE secret must be a valid non-root absolute path."
+            exit 1
+          fi
+
+          if ! [[ "$POST_DEPLOY_CMD" =~ ^/[A-Za-z0-9._/-]+$ ]] || [[ "$POST_DEPLOY_CMD" == *".."* ]]; then
+            echo "::error::POST_DEPLOY_CMD secret must be a valid absolute executable path."
+            exit 1
+          fi
+
+          [ -f "$ZIP_NAME" ] || { echo "::error::Missing artifact ZIP: $ZIP_NAME"; exit 1; }
+
+          REL_BASE="${REMOTE_BASE}/releases/penalis-platform"
+          REMOTE_ZIP="${REL_BASE}/.incoming-${VERSION}.zip"
+
+          scp -o BatchMode=yes -o StrictHostKeyChecking=yes -P "$SSH_PORT" \
+            "$ZIP_NAME" "${SSH_USER}@${SSH_HOST}:${REMOTE_ZIP}"
+
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -p "$SSH_PORT" \
+            "${SSH_USER}@${SSH_HOST}" \
+            "VERSION=$(printf '%q' "$VERSION") REL_BASE=$(printf '%q' "$REL_BASE") POST_DEPLOY_CMD=$(printf '%q' "$POST_DEPLOY_CMD") bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          INCOMING_ZIP="${REL_BASE}/.incoming-${VERSION}.zip"
+          STAGING_DIR="${REL_BASE}/.staging-${VERSION}"
+          RELEASE_DIR="${REL_BASE}/${VERSION}"
+          CURRENT_LINK="${REL_BASE}/current"
+          KEEP_RELEASES=5
+
+          cleanup_temp() {
+            rm -rf "$STAGING_DIR" "$INCOMING_ZIP" "${REL_BASE}/.current.next"
+          }
+          trap cleanup_temp EXIT
+
+          # 1. Extract and validate archive structure
+          rm -rf "$STAGING_DIR"
+          mkdir -p "$STAGING_DIR"
+          unzip -q "$INCOMING_ZIP" -d "$STAGING_DIR"
+
+          [ -f "${STAGING_DIR}/penalis-platform/penalis-platform.php" ] || {
+            echo "ERROR: penalis-platform.php missing in extracted archive." >&2
+            exit 1
+          }
+          [ -f "${STAGING_DIR}/penalis-platform/build/manifest.json" ] || {
+            echo "ERROR: build/manifest.json missing in extracted archive." >&2
+            exit 1
+          }
+
+          # 2. Place release with clean read permissions for the web server
+          rm -rf "$RELEASE_DIR"
+          mv "${STAGING_DIR}/penalis-platform" "$RELEASE_DIR"
+          find "$RELEASE_DIR" -type d -exec chmod 755 {} +
+          find "$RELEASE_DIR" -type f -exec chmod 644 {} +
+
+          # 3. Record previous target for automatic rollback on failure
+          PREV_TARGET=""
+          if [ -L "$CURRENT_LINK" ]; then
+            PREV_TARGET="$(readlink "$CURRENT_LINK")"
+          fi
+
+          rollback() {
+            echo "Deploy verification failed; attempting rollback..." >&2
+            if [ -n "$PREV_TARGET" ] && [ "$PREV_TARGET" != "$RELEASE_DIR" ] && [ -d "$PREV_TARGET" ]; then
+              ln -s "$PREV_TARGET" "${REL_BASE}/.current.next"
+              mv -Tf "${REL_BASE}/.current.next" "$CURRENT_LINK"
+              sudo "$POST_DEPLOY_CMD" || true
+              echo "Rolled back current symlink to previous release." >&2
+            fi
+          }
+
+          # 4. Atomic symlink swap (plugins/penalis-platform -> releases/.../current -> releases/.../<ver>)
+          ln -s "$RELEASE_DIR" "${REL_BASE}/.current.next"
+          mv -Tf "${REL_BASE}/.current.next" "$CURRENT_LINK"
+
+          # 5. Reload PHP-FPM (OPcache/realpath_cache) and flush WordPress caches
+          if ! sudo "$POST_DEPLOY_CMD"; then
+            rollback
+            exit 1
+          fi
+
+          # 6. Live HTTP smoke check (auto-rollback if site or dashboard fails)
+          HOME_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 https://penalis.com/ || echo '000')"
+          DASH_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 https://penalis.com/dashboard/ || echo '000')"
+          echo "Health check: / => ${HOME_CODE}, /dashboard/ => ${DASH_CODE}"
+
+          if [ "$HOME_CODE" != "200" ] || [ "$DASH_CODE" != "200" ]; then
+            rollback
+            exit 1
+          fi
+
+          # 7. Retain the newest releases and prune older directories safely
+          ACTIVE_NAME="$(basename "$(readlink "$CURRENT_LINK")")"
+          mapfile -t OLD_RELEASES < <(
+            find "$REL_BASE" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -printf '%T@ %f\n' \
+              | sort -rn \
+              | awk '{print $2}' \
+              | tail -n +"$((KEEP_RELEASES + 1))"
+          )
+          for dir in "${OLD_RELEASES[@]}"; do
+            if [ "$dir" != "$ACTIVE_NAME" ]; then
+              rm -rf "${REL_BASE:?}/${dir}"
+              echo "Pruned old release: ${dir}"
+            fi
+          done
+
+          echo "Deployed penalis-platform v${VERSION} successfully."
+          REMOTE
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -rf "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"

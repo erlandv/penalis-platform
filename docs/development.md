@@ -220,6 +220,17 @@ option against `PENALIS_PLATFORM_VERSION` to run non-destructive upgrades.
      directories (`src/`, `tests/`, `docs/`, `vendor/`, `node_modules/`,
      `.github/`) leaked into the archive.
   5. Publishes a GitHub Release with the `.zip` asset attached.
+  6. Runs the `deploy` job (`environment: production`) to upload the validated
+     ZIP to the production VPS using the isolated SSH account and secret server
+     paths (`REMOTE_BASE`, `POST_DEPLOY_CMD`), extract it under
+     `<REMOTE_BASE>/releases/penalis-platform/<version>/`, atomically swap the
+     `current` symlink, run `POST_DEPLOY_CMD` (PHP-FPM reload + WordPress cache
+     flush), verify HTTP `200` on `/` and `/dashboard/` (with automatic
+     rollback on failure), and prune releases beyond the 5 newest.
+- **`.github/dependabot.yml`** monitors `npm` (weekly, grouped by `@tiptap/*`,
+  build/test, lint/types, and minor/patch), `composer` (monthly), and
+  `github-actions` (monthly), opening pull requests against `main` so
+  `ci.yml` verifies every dependency update automatically.
 
 ---
 
