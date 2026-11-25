@@ -526,6 +526,12 @@ final class Penalis_Access_Control {
 				}
 			}
 
+			// Public published-post reactions remain usable even while signed in
+			// as a pending or active writer.
+			if ( ! $is_always_allowed && 'POST' === $method && 1 === preg_match( '#^/penalis/v1/posts/\d+/reaction$#', $route ) ) {
+				$is_always_allowed = true;
+			}
+
 			if ( ! $is_always_allowed && ! Penalis_Account_Status::can_write( $user->ID ) ) {
 				return new WP_Error(
 					'penalis_account_inactive',
@@ -558,6 +564,10 @@ final class Penalis_Access_Control {
 			}
 
 			if ( ! $allowed && 'POST' === $method && 1 === preg_match( '#^/penalis/v1/articles/\d+/(submit|resubmit)$#', $route ) ) {
+				$allowed = true;
+			}
+
+			if ( ! $allowed && 'POST' === $method && 1 === preg_match( '#^/penalis/v1/posts/\d+/reaction$#', $route ) ) {
 				$allowed = true;
 			}
 

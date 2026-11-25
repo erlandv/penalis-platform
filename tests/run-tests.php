@@ -61,6 +61,7 @@ require_once __DIR__ . '/../includes/class-revisions.php';
 require_once __DIR__ . '/../includes/class-authors.php';
 require_once __DIR__ . '/../includes/class-daily-quotes.php';
 require_once __DIR__ . '/../includes/class-daily-quotes-admin.php';
+require_once __DIR__ . '/../includes/class-reactions.php';
 require_once __DIR__ . '/../includes/class-article-share.php';
 require_once __DIR__ . '/../includes/class-author-archive.php';
 
@@ -5799,7 +5800,7 @@ $_SERVER = $penalis_original_server;
 $penalis_defaults = Penalis_Rate_Limiter::defaults();
 penalis_same( 5, $penalis_defaults['registration_ip']['limit'], 'Registration allows five attempts by default.' );
 penalis_same( HOUR_IN_SECONDS, $penalis_defaults['registration_ip']['window'], 'Default windows are one hour.' );
-penalis_same( 14, count( $penalis_defaults ), 'Every throttled action has a rule.' );
+penalis_same( 15, count( $penalis_defaults ), 'Every throttled action has a rule.' );
 
 $GLOBALS['penalis_test_options']['penalis_rate_limits'] = array(
 	'registration_ip' => array(
@@ -6579,6 +6580,152 @@ penalis_same( false, $penalis_dfi_batch[980]['canDelete'], 'Penalis_Media_Usage:
 
 delete_option( Penalis_Default_Thumbnail::OPTION_ID );
 unset( $GLOBALS['penalis_test_is_admin'] );
+
+/* -------------------------------------------------------------------------
+ * Post reactions (Penalis_Reactions) & legacy PLD compatibility
+ * ---------------------------------------------------------------------- */
+
+Penalis_Reactions::reset_state();
+
+$penalis_react_post              = new WP_Post();
+$penalis_react_post->ID          = 990;
+$penalis_react_post->post_author = 501;
+$penalis_react_post->post_type   = 'post';
+$penalis_react_post->post_status = 'publish';
+$penalis_react_post->post_title  = 'Senja di Stasiun';
+$penalis_react_post->meta        = array(
+	Penalis_Reactions::LEGACY_META_LIKE    => array( '14' ),
+	Penalis_Reactions::LEGACY_META_DISLIKE => array( '2' ),
+);
+$GLOBALS['penalis_test_posts'][990] = $penalis_react_post;
+
+$penalis_react_draft              = new WP_Post();
+$penalis_react_draft->ID          = 991;
+$penalis_react_draft->post_author = 501;
+$penalis_react_draft->post_type   = 'post';
+$penalis_react_draft->post_status = 'draft';
+$GLOBALS['penalis_test_posts'][991] = $penalis_react_draft;
+
+$penalis_react_page              = new WP_Post();
+$penalis_react_page->ID          = 992;
+$penalis_react_page->post_author = 1;
+$penalis_react_page->post_type   = 'page';
+$penalis_react_page->post_status = 'publish';
+$GLOBALS['penalis_test_posts'][992] = $penalis_react_page;
+
+// Legacy PLD counts are read transparently before any Penalis reaction has occurred.
+penalis_same(
+	array(
+		'like'    => 14,
+		'dislike' => 2,
+	),
+	Penalis_Reactions::get_counts( 990 ),
+	'get_counts() falls back to legacy pld_like_count and pld_dislike_count meta.'
+);
+
+// Pure transition rules: initial click, undo, and direct switch.
+penalis_same(
+	array(
+		'next'         => 'like',
+		'likeDelta'    => 1,
+		'dislikeDelta' => 0,
+	),
+	Penalis_Reactions::compute_transition( '', 'like' ),
+	'Clicking like with no existing reaction increments like by 1.'
+);
+penalis_same(
+	array(
+		'next'         => '',
+		'likeDelta'    => -1,
+		'dislikeDelta' => 0,
+	),
+	Penalis_Reactions::compute_transition( 'like', 'like' ),
+	'Clicking like again undoes the like.'
+);
+penalis_same(
+	array(
+		'next'         => 'dislike',
+		'likeDelta'    => -1,
+		'dislikeDelta' => 1,
+	),
+	Penalis_Reactions::compute_transition( 'like', 'dislike' ),
+	'Clicking dislike while liked switches directly from like to dislike.'
+);
+
+// Cookie precedence: penalis_react_{id} wins over legacy pld_{id}, including explicit "none".
+penalis_same( 'like', Penalis_Reactions::read_cookie_reaction( 990, array( 'pld_990' => 'like' ) ), 'Legacy PLD cookie is recognized.' );
+penalis_same( 'dislike', Penalis_Reactions::read_cookie_reaction( 990, array( 'pld_990' => 'like', 'penalis_react_990' => 'dislike' ) ), 'Penalis reaction cookie overrides legacy PLD cookie.' );
+penalis_same( '', Penalis_Reactions::read_cookie_reaction( 990, array( 'pld_990' => 'like', 'penalis_react_990' => 'none' ) ), 'Explicit "none" Penalis cookie suppresses stale legacy PLD cookie.' );
+
+// Applying a reaction carries forward legacy counts, supports switch & undo, and leaves legacy meta untouched.
+$penalis_r1 = Penalis_Reactions::apply_reaction( 990, 'like', '' );
+penalis_same( 15, $penalis_r1['like'], 'First Penalis like increments from legacy PLD count (14 -> 15).' );
+penalis_same( 2, $penalis_r1['dislike'], 'Dislike count carries forward from legacy PLD count (2).' );
+penalis_same( 'like', $penalis_r1['reaction'], 'Result records active reaction "like".' );
+penalis_same( '14', get_post_meta( 990, Penalis_Reactions::LEGACY_META_LIKE, true ), 'Legacy pld_like_count meta is never modified or deleted.' );
+
+$penalis_r2 = Penalis_Reactions::apply_reaction( 990, 'dislike', 'like' );
+penalis_same( 14, $penalis_r2['like'], 'Switching from like to dislike decrements like back to 14.' );
+penalis_same( 3, $penalis_r2['dislike'], 'Switching from like to dislike increments dislike to 3.' );
+penalis_same( 'dislike', $penalis_r2['reaction'], 'Result records active reaction "dislike".' );
+
+$penalis_r3 = Penalis_Reactions::apply_reaction( 990, 'dislike', 'dislike' );
+penalis_same( 14, $penalis_r3['like'], 'Undoing dislike leaves like count unchanged.' );
+penalis_same( 2, $penalis_r3['dislike'], 'Undoing dislike decrements dislike back to 2.' );
+penalis_same( '', $penalis_r3['reaction'], 'Result records empty active reaction after undo.' );
+
+// Undoing the final legacy like back to 0 does not fall back to legacy PLD count again.
+$penalis_zero_post              = new WP_Post();
+$penalis_zero_post->ID          = 993;
+$penalis_zero_post->post_author = 501;
+$penalis_zero_post->post_type   = 'post';
+$penalis_zero_post->post_status = 'publish';
+$penalis_zero_post->meta        = array(
+	Penalis_Reactions::LEGACY_META_LIKE => array( '1' ),
+);
+$GLOBALS['penalis_test_posts'][993] = $penalis_zero_post;
+$penalis_zero_res                   = Penalis_Reactions::apply_reaction( 993, 'like', 'like' );
+penalis_same( 0, $penalis_zero_res['like'], 'Undoing the last legacy like brings count to 0.' );
+penalis_same( 0, Penalis_Reactions::get_counts( 993 )['like'], 'Stored 0 in _penalis_like_count does not fall back to legacy pld_like_count.' );
+
+// Unpublished posts, pages, and invalid reaction types are refused.
+$penalis_err_draft = Penalis_Reactions::apply_reaction( 991, 'like', '' );
+penalis_assert( is_wp_error( $penalis_err_draft ) && 'penalis_not_found' === $penalis_err_draft->get_error_code(), 'Draft posts cannot receive reactions.' );
+
+$penalis_err_page = Penalis_Reactions::apply_reaction( 992, 'like', '' );
+penalis_assert( is_wp_error( $penalis_err_page ) && 'penalis_not_found' === $penalis_err_page->get_error_code(), 'Pages cannot receive post reactions.' );
+
+$penalis_err_type = Penalis_Reactions::apply_reaction( 990, 'love', '' );
+penalis_assert( is_wp_error( $penalis_err_type ) && 'penalis_invalid_reaction' === $penalis_err_type->get_error_code(), 'Unknown reaction types are rejected.' );
+
+// Controls and unified share bar render cache-safe HTML with counts and endpoint.
+$penalis_controls_html = Penalis_Reactions::render_controls( $penalis_react_post, 'bar' );
+penalis_assert( false !== strpos( $penalis_controls_html, 'data-penalis-reactions' ), 'render_controls() renders reactions container.' );
+penalis_assert( false !== strpos( $penalis_controls_html, 'data-reaction="like"' ), 'render_controls() renders like button.' );
+penalis_assert( false !== strpos( $penalis_controls_html, 'data-reaction="dislike"' ), 'render_controls() renders dislike button.' );
+penalis_assert( false !== strpos( $penalis_controls_html, 'aria-pressed="false"' ), 'render_controls() keeps server HTML cache-safe without visitor active state.' );
+penalis_same( '', Penalis_Reactions::render_shortcode( array( 'id' => 991 ) ), '[penalis_reactions] renders nothing for drafts.' );
+
+Penalis_Article_Share::reset_state();
+$GLOBALS['penalis_test_is_singular']     = 'post';
+$GLOBALS['penalis_test_in_the_loop']     = true;
+$GLOBALS['penalis_test_is_main_query']   = true;
+$GLOBALS['penalis_test_is_feed']         = false;
+$GLOBALS['penalis_test_current_post_id'] = 990;
+$GLOBALS['post']                         = $penalis_react_post;
+$penalis_unified_bar                     = Penalis_Article_Share::append_single_post_bar( '<p>Isi karya</p>' );
+penalis_assert( false !== strpos( $penalis_unified_bar, 'penalis-article-share-bar__actions' ), 'Unified article bar wraps reactions and share button together.' );
+penalis_assert( false !== strpos( $penalis_unified_bar, 'data-penalis-reactions' ), 'Unified article bar includes like/dislike controls.' );
+penalis_assert( false !== strpos( $penalis_unified_bar, 'data-penalis-open-card="article"' ), 'Unified article bar retains the Bagikan button.' );
+
+unset(
+	$GLOBALS['penalis_test_is_singular'],
+	$GLOBALS['penalis_test_in_the_loop'],
+	$GLOBALS['penalis_test_is_main_query'],
+	$GLOBALS['penalis_test_is_feed'],
+	$GLOBALS['penalis_test_current_post_id'],
+	$GLOBALS['post']
+);
 
 /* -------------------------------------------------------------------------
  * Report

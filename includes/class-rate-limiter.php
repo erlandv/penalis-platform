@@ -130,6 +130,12 @@ final class Penalis_Rate_Limiter {
 				'limit'       => 60,
 				'window'      => 60,
 			),
+			'post_reaction_ip'        => array(
+				'label'       => 'Reaksi karya tulis (Suka / Tidak suka)',
+				'description' => 'Klik reaksi Suka atau Tidak suka pada karya tulis dari satu alamat IP.',
+				'limit'       => 60,
+				'window'      => 60,
+			),
 		);
 	}
 

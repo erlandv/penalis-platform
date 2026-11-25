@@ -2742,3 +2742,27 @@ if ( ! function_exists( 'wp_localize_script' ) ) {
 		return true;
 	}
 }
+
+if ( ! function_exists( 'rest_url' ) ) {
+	/**
+	 * Minimal REST URL stub.
+	 *
+	 * @param string $path Optional route path.
+	 * @return string
+	 */
+	function rest_url( $path = '' ) {
+		return 'https://example.com/wp-json/' . ltrim( (string) $path, '/' );
+	}
+}
+
+if ( ! function_exists( 'shortcode_exists' ) ) {
+	/**
+	 * Minimal shortcode existence stub.
+	 *
+	 * @param string $tag Shortcode tag.
+	 * @return bool
+	 */
+	function shortcode_exists( $tag ) {
+		return ! empty( $GLOBALS['penalis_test_shortcodes'][ (string) $tag ] );
+	}
+}

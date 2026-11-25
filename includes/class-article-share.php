@@ -385,8 +385,13 @@ final class Penalis_Article_Share {
 		self::$bar_rendered[ $post_id ] = true;
 		self::enqueue_assets();
 
+		$reactions_html = class_exists( 'Penalis_Reactions' )
+			? Penalis_Reactions::render_controls( $post, 'bar' )
+			: '';
+
 		return sprintf(
-			'<aside class="penalis-article-share-bar" aria-label="Bagikan karya tulis"><div class="penalis-article-share-bar__copy"><strong class="penalis-article-share-bar__title">Suka karya tulis ini?</strong><p class="penalis-article-share-bar__desc">Bagikan sebagai gambar siap unggah untuk Instagram Story, Feed, atau salin tautannya.</p></div><button type="button" class="penalis-article-share-btn penalis-article-share-btn--primary" data-penalis-open-card="article" data-penalis-article-id="%1$d" aria-label="%2$s">%3$s<span>Bagikan</span></button>%4$s</aside>',
+			'<aside class="penalis-article-share-bar" aria-label="Reaksi dan bagikan karya tulis"><div class="penalis-article-share-bar__copy"><strong class="penalis-article-share-bar__title">Suka karya tulis ini?</strong><p class="penalis-article-share-bar__desc">Beri apresiasi untuk penulis atau bagikan sebagai gambar siap unggah ke media sosial.</p></div><div class="penalis-article-share-bar__actions">%1$s<button type="button" class="penalis-article-share-btn penalis-article-share-btn--primary" data-penalis-open-card="article" data-penalis-article-id="%2$d" aria-label="%3$s">%4$s<span>Bagikan</span></button></div>%5$s</aside>',
+			$reactions_html,
 			$post_id,
 			esc_attr( sprintf( 'Bagikan karya tulis: %s', (string) $post->post_title ) ),
 			self::share_icon_svg( 16 ),

@@ -72,6 +72,8 @@ $penalis_post_meta_keys = array(
 	'_penalis_reviewed_by',
 	'_penalis_review_cycle',
 	'_penalis_review_history',
+	'_penalis_like_count',
+	'_penalis_dislike_count',
 );
 foreach ( $penalis_post_meta_keys as $penalis_post_meta_key ) {
 	delete_metadata( 'post', 0, $penalis_post_meta_key, '', true );

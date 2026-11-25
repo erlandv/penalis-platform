@@ -978,7 +978,14 @@ final class Penalis_Settings {
 			<?php wp_nonce_field( 'penalis_reset_rate_limits' ); ?>
 			<button type="submit" class="button">Kembalikan ke Default</button>
 			<span class="description">
-				Mengembalikan 12 batas percobaan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.
+				<?php
+				echo esc_html(
+					sprintf(
+						'Mengembalikan %d batas percobaan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.',
+						count( Penalis_Rate_Limiter::actions() )
+					)
+				);
+				?>
 			</span>
 		</form>
 		<?php
