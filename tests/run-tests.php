@@ -63,6 +63,7 @@ require_once __DIR__ . '/../includes/class-daily-quotes.php';
 require_once __DIR__ . '/../includes/class-daily-quotes-admin.php';
 require_once __DIR__ . '/../includes/class-reactions.php';
 require_once __DIR__ . '/../includes/class-views.php';
+require_once __DIR__ . '/../includes/class-toc.php';
 require_once __DIR__ . '/../includes/class-article-share.php';
 require_once __DIR__ . '/../includes/class-author-archive.php';
 
@@ -5109,9 +5110,9 @@ penalis_same( array(), Penalis_Settings::audit(), 'The audit trail is empty unti
 $penalis_settings_tabs = Penalis_Settings::tabs();
 
 penalis_same(
-	array( 'captcha', 'registration', 'rate-limit', 'avatar', 'thumbnail', 'views', 'email', 'data' ),
+	array( 'captcha', 'registration', 'rate-limit', 'avatar', 'thumbnail', 'views', 'toc', 'email', 'data' ),
 	array_keys( $penalis_settings_tabs ),
-	'The settings screen exposes Keamanan, Pendaftaran, Batas Percobaan, Foto Profil, Thumbnail, Views, Email, and Data tabs in that order.'
+	'The settings screen exposes Keamanan, Pendaftaran, Batas Percobaan, Foto Profil, Thumbnail, Views, Table of Contents, Email, and Data tabs in that order.'
 );
 
 foreach ( $penalis_settings_tabs as $penalis_tab_slug => $penalis_tab_meta ) {
@@ -7079,6 +7080,118 @@ unset(
 	$GLOBALS['penalis_test_users'][871],
 	$GLOBALS['penalis_test_users'][872]
 );
+
+/* -------------------------------------------------------------------------
+ * Built-in Table of Contents (Penalis_Toc)
+ * ---------------------------------------------------------------------- */
+
+delete_option( Penalis_Toc::OPTION_SETTINGS );
+Penalis_Toc::reset_state();
+
+$penalis_toc_defaults = Penalis_Toc::get_settings();
+penalis_same( true, $penalis_toc_defaults['enabled'], 'TOC auto-insert is enabled by default.' );
+penalis_same( 'Table of Contents', $penalis_toc_defaults['title'], 'TOC default box title is Table of Contents.' );
+penalis_same( 4, $penalis_toc_defaults['min_headings'], 'TOC default minimum headings is 4.' );
+penalis_same( array( 2, 3 ), $penalis_toc_defaults['levels'], 'TOC scans H2 and H3 by default.' );
+penalis_same( 'top', $penalis_toc_defaults['position'], 'TOC inserts at top of content by default.' );
+penalis_same( true, $penalis_toc_defaults['default_collapsed'], 'TOC is collapsed by default.' );
+penalis_same( true, $penalis_toc_defaults['smooth_scroll'], 'TOC smooth scroll is enabled by default.' );
+
+$penalis_toc_sanitized = Penalis_Toc::sanitize_settings(
+	array(
+		'enabled'           => false,
+		'title'             => '   ',
+		'min_headings'      => 99,
+		'levels'            => array( 1, 4, 2, 4, 6 ),
+		'position'          => 'invalid',
+		'default_collapsed' => false,
+		'smooth_scroll'     => false,
+	)
+);
+penalis_same( false, $penalis_toc_sanitized['enabled'], 'sanitize_settings() preserves false enabled flag.' );
+penalis_same( 'Table of Contents', $penalis_toc_sanitized['title'], 'Empty TOC title falls back to default.' );
+penalis_same( 20, $penalis_toc_sanitized['min_headings'], 'TOC minimum headings clamps at 20.' );
+penalis_same( array( 2, 4 ), $penalis_toc_sanitized['levels'], 'TOC levels filters to allowed H2-H4 and sorts uniquely.' );
+penalis_same( 'top', $penalis_toc_sanitized['position'], 'Invalid TOC position falls back to top.' );
+penalis_same( false, $penalis_toc_sanitized['default_collapsed'], 'sanitize_settings() allows expanded default.' );
+
+// Slugify headings into lowercase unique anchors.
+$penalis_toc_ids = array();
+penalis_same( 'pendahuluan-awal', Penalis_Toc::slugify_heading( 'Pendahuluan Awal!', $penalis_toc_ids ), 'slugify_heading() builds lowercase hyphenated slugs.' );
+penalis_same( 'pendahuluan-awal-2', Penalis_Toc::slugify_heading( 'Pendahuluan Awal', $penalis_toc_ids ), 'slugify_heading() deduplicates repeated headings with -2.' );
+penalis_same( 'bagian', Penalis_Toc::slugify_heading( '!!!', $penalis_toc_ids ), 'slugify_heading() falls back to bagian when no alphanumerics exist.' );
+
+// Content below min_headings stays untouched.
+$penalis_short_article = '<p>Pembuka</p><h2>Satu</h2><p>Isi</p><h2>Dua</h2>';
+$penalis_short_res     = Penalis_Toc::process_content( $penalis_short_article );
+penalis_same( false, $penalis_short_res['rendered'], 'Articles below min_headings do not render a TOC.' );
+penalis_same( $penalis_short_article, $penalis_short_res['content'], 'Articles below min_headings are returned untouched.' );
+
+// Content meeting min_headings renders collapsed TOC with nested numbering and lowercase anchors.
+$penalis_long_article = '<p>Pengantar cerita.</p>'
+	. '<h2 class="wp-block-heading">Bagian Pertama</h2><p>Isi 1.</p>'
+	. '<h3>Sub Bagian A</h3><p>Isi 1a.</p>'
+	. '<h4>Diabaikan</h4><p>Level 4 dilewati default.</p>'
+	. '<h3 id="custom-anchor">Sub Bagian B</h3><p>Isi 1b.</p>'
+	. '<h2>Bagian Pertama</h2><p>Penutup.</p>';
+
+$penalis_long_res = Penalis_Toc::process_content( $penalis_long_article );
+penalis_same( true, $penalis_long_res['rendered'], 'Articles with >= 4 matching headings render a TOC.' );
+penalis_same( 4, count( $penalis_long_res['headings'] ), 'Default levels H2/H3 skip H4.' );
+penalis_same( 'bagian-pertama', $penalis_long_res['headings'][0]['id'], 'First H2 gets lowercase slug anchor.' );
+penalis_same( '1.', $penalis_long_res['headings'][0]['number'], 'First H2 numbered 1.' );
+penalis_same( '1.1.', $penalis_long_res['headings'][1]['number'], 'First H3 numbered 1.1.' );
+penalis_same( 'custom-anchor', $penalis_long_res['headings'][2]['id'], 'Existing heading id attribute is preserved.' );
+penalis_same( '1.2.', $penalis_long_res['headings'][2]['number'], 'Second H3 numbered 1.2.' );
+penalis_same( 'bagian-pertama-2', $penalis_long_res['headings'][3]['id'], 'Duplicate heading gets -2 suffix.' );
+penalis_same( '2.', $penalis_long_res['headings'][3]['number'], 'Second H2 numbered 2.' );
+penalis_assert( 0 === strpos( $penalis_long_res['content'], '<nav class="penalis-toc is-collapsed"' ), 'Top position prepends collapsed TOC box.' );
+penalis_assert( false !== strpos( $penalis_long_res['content'], 'aria-expanded="false"' ), 'Collapsed TOC sets aria-expanded="false".' );
+penalis_assert( false !== strpos( $penalis_long_res['content'], 'Tampilkan' ), 'Collapsed TOC renders Tampilkan toggle label.' );
+penalis_assert( false !== strpos( $penalis_long_res['content'], 'class="wp-block-heading penalis-toc-heading"' ), 'Heading class merges cleanly with existing classes.' );
+
+// Expanded default + before_first_heading position.
+$penalis_expanded_res = Penalis_Toc::process_content(
+	$penalis_long_article,
+	array(
+		'title'             => 'Daftar Isi',
+		'position'          => 'before_first_heading',
+		'default_collapsed' => false,
+	)
+);
+penalis_assert( 0 === strpos( $penalis_expanded_res['content'], '<p>Pengantar cerita.</p><nav class="penalis-toc is-expanded"' ), 'before_first_heading inserts TOC right before the first matched heading.' );
+penalis_assert( false !== strpos( $penalis_expanded_res['content'], 'aria-expanded="true"' ), 'Expanded TOC sets aria-expanded="true".' );
+penalis_assert( false !== strpos( $penalis_expanded_res['content'], 'Sembunyikan' ), 'Expanded TOC renders Sembunyikan toggle label.' );
+penalis_assert( false !== strpos( $penalis_expanded_res['content'], '>Daftar Isi<' ), 'Custom TOC title is rendered.' );
+
+// Shortcode placeholder placement.
+$penalis_sc_article = '<p>Atas</p>' . Penalis_Toc::render_shortcode() . '<h2>Satu</h2><h2>Dua</h2>';
+$penalis_sc_res     = Penalis_Toc::process_content(
+	$penalis_sc_article,
+	array(
+		'min_headings'    => 1,
+		'has_placeholder' => true,
+	)
+);
+penalis_same( true, $penalis_sc_res['rendered'], 'Shortcode placeholder renders TOC even below auto min_headings.' );
+penalis_assert( 0 === strpos( $penalis_sc_res['content'], '<p>Atas</p><nav class="penalis-toc' ), 'Shortcode placeholder places TOC at exact shortcode location.' );
+
+// Per-post override & legacy _lwptoc_settings fallback.
+update_post_meta( 980, Penalis_Toc::LEGACY_META_KEY, array( 'enabled' => false, 'processHeadings' => true ) );
+penalis_same( true, Penalis_Toc::is_post_disabled( 980 ), 'Legacy _lwptoc_settings enabled=false disables TOC for that post.' );
+update_post_meta( 980, Penalis_Toc::META_DISABLED, '0' );
+penalis_same( false, Penalis_Toc::is_post_disabled( 980 ), 'Explicit _penalis_toc_disabled=0 overrides legacy disabled flag.' );
+update_post_meta( 980, Penalis_Toc::META_DISABLED, '1' );
+penalis_same( true, Penalis_Toc::is_post_disabled( 980 ), 'Explicit _penalis_toc_disabled=1 disables TOC.' );
+delete_post_meta( 980, Penalis_Toc::META_DISABLED );
+delete_post_meta( 980, Penalis_Toc::LEGACY_META_KEY );
+
+// Rank Math TOC SEO integration.
+$penalis_rm_plugins = Penalis_Toc::register_rank_math_toc( array() );
+penalis_assert( ! empty( $penalis_rm_plugins ), 'Enabled TOC registers Penalis Platform with Rank Math TOC filter.' );
+update_option( Penalis_Toc::OPTION_SETTINGS, array( 'enabled' => false ), false );
+penalis_same( array(), Penalis_Toc::register_rank_math_toc( array() ), 'Disabled TOC does not register with Rank Math TOC filter.' );
+delete_option( Penalis_Toc::OPTION_SETTINGS );
 
 /* -------------------------------------------------------------------------
  * Report

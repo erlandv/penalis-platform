@@ -75,6 +75,7 @@ $penalis_post_meta_keys = array(
 	'_penalis_review_history',
 	'_penalis_like_count',
 	'_penalis_dislike_count',
+	'_penalis_toc_disabled',
 );
 foreach ( $penalis_post_meta_keys as $penalis_post_meta_key ) {
 	delete_metadata( 'post', 0, $penalis_post_meta_key, '', true );
@@ -123,6 +124,9 @@ $penalis_options = array(
 	'penalis_views_dedup_minutes',
 	'penalis_views_exclude_staff',
 	'penalis_views_audit',
+	// Built-in Table of Contents settings.
+	'penalis_toc_settings',
+	'penalis_toc_audit',
 );
 foreach ( $penalis_options as $penalis_option ) {
 	delete_option( $penalis_option );

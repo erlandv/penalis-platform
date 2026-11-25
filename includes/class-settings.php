@@ -88,6 +88,7 @@ final class Penalis_Settings {
 		add_action( 'admin_post_penalis_save_default_thumbnail', array( __CLASS__, 'handle_save_default_thumbnail' ) );
 		add_action( 'admin_post_penalis_save_views', array( __CLASS__, 'handle_save_views' ) );
 		add_action( 'admin_post_penalis_migrate_pvc_views', array( __CLASS__, 'handle_migrate_pvc_views' ) );
+		add_action( 'admin_post_penalis_save_toc', array( __CLASS__, 'handle_save_toc' ) );
 		add_action( 'admin_post_penalis_save_data', array( __CLASS__, 'handle_save_data' ) );
 	}
 
@@ -262,6 +263,11 @@ final class Penalis_Settings {
 				'label'  => 'Views',
 				'title'  => 'Penghitung Views',
 				'render' => array( __CLASS__, 'render_views_tab' ),
+			),
+			'toc'          => array(
+				'label'  => 'Table of Contents',
+				'title'  => 'Table of Contents',
+				'render' => array( __CLASS__, 'render_toc_tab' ),
 			),
 			'email'        => array(
 				'label'  => 'Email',
@@ -490,6 +496,7 @@ final class Penalis_Settings {
 			'thumbnail_cleared'       => 'Thumbnail bawaan karya tulis telah dihapus.',
 			'views_saved'             => 'Pengaturan penghitung views berhasil disimpan.',
 			'views_migrated'          => 'Data total views dari Post Views Counter telah disinkronkan ke Penalis Platform.',
+			'toc_saved'               => 'Pengaturan Table of Contents berhasil disimpan.',
 			'rate_limits_reset'       => 'Batas percobaan dikembalikan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.',
 		);
 
@@ -1300,6 +1307,207 @@ final class Penalis_Settings {
 	}
 
 	/**
+	 * Render the Table of Contents tab.
+	 *
+	 * @return void
+	 */
+	public static function render_toc_tab() {
+		$settings   = Penalis_Toc::get_settings();
+		$status     = Penalis_Toc::migration_status();
+		$audit      = get_option( Penalis_Toc::OPTION_AUDIT, array() );
+		$audit_line = is_array( $audit ) && isset( $audit['time'] )
+			? trim( self::audit_sentence( $audit, 'Diperbarui' ) )
+			: '';
+		?>
+		<div class="penalis-settings__panel">
+			<h2>Table of Contents artikel</h2>
+			<p class="description">
+				Membuat daftar isi otomatis pada karya tulis (<code>post</code>) panjang berdasarkan heading
+				artikel, lengkap dengan anchor slug huruf kecil (<code>#judul-bagian</code>), tombol
+				tampilkan/sembunyikan, serta integrasi cek SEO Table of Contents di Rank Math.
+			</p>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="penalis_save_toc" />
+				<?php wp_nonce_field( 'penalis_save_toc' ); ?>
+
+				<table class="form-table" role="presentation">
+					<tbody>
+						<tr>
+							<th scope="row">Auto-insert</th>
+							<td>
+								<label for="penalis-toc-enabled">
+									<input
+										type="checkbox"
+										id="penalis-toc-enabled"
+										name="penalis_toc_enabled"
+										value="1"
+										<?php checked( $settings['enabled'] ); ?>
+									/>
+									Aktifkan Table of Contents otomatis pada artikel (<code>post</code>)
+								</label>
+								<p class="description">
+									Dapat dinonaktifkan per artikel melalui sidebar editor WordPress. Kamu juga bisa
+									menempatkan manual dengan shortcode <code>[penalis_toc]</code>.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
+								<label for="penalis-toc-title">Judul kotak</label>
+							</th>
+							<td>
+								<input
+									type="text"
+									id="penalis-toc-title"
+									name="penalis_toc_title"
+									value="<?php echo esc_attr( $settings['title'] ); ?>"
+									maxlength="80"
+									class="regular-text"
+								/>
+								<p class="description">
+									Bawaan: <code><?php echo esc_html( Penalis_Toc::DEFAULT_TITLE ); ?></code>. Jika
+									dikosongkan, akan kembali ke judul bawaan.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
+								<label for="penalis-toc-min-headings">Minimal jumlah heading</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="penalis-toc-min-headings"
+									name="penalis_toc_min_headings"
+									value="<?php echo esc_attr( (string) $settings['min_headings'] ); ?>"
+									min="1"
+									max="20"
+									step="1"
+									class="small-text"
+								/>
+								<span>heading</span>
+								<p class="description">
+									Table of Contents otomatis hanya tampil jika artikel memiliki minimal sejumlah
+									heading yang cocok (bawaan: <?php echo esc_html( (string) Penalis_Toc::DEFAULT_MIN_HEADINGS ); ?>).
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">Level heading yang dipindai</th>
+							<td>
+								<fieldset>
+									<legend class="screen-reader-text">Level heading yang dipindai</legend>
+									<?php foreach ( Penalis_Toc::ALLOWED_LEVELS as $level ) : ?>
+										<label style="display:inline-block;margin-right:16px;">
+											<input
+												type="checkbox"
+												name="penalis_toc_levels[]"
+												value="<?php echo esc_attr( (string) $level ); ?>"
+												<?php checked( in_array( $level, $settings['levels'], true ) ); ?>
+											/>
+											<?php echo esc_html( 'H' . $level ); ?>
+										</label>
+									<?php endforeach; ?>
+								</fieldset>
+								<p class="description">
+									Pilih minimal satu level heading (bawaan: <code>H2</code> dan <code>H3</code>).
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">
+								<label for="penalis-toc-position">Posisi otomatis</label>
+							</th>
+							<td>
+								<select id="penalis-toc-position" name="penalis_toc_position">
+									<option value="top" <?php selected( $settings['position'], 'top' ); ?>>
+										Di paling atas konten artikel
+									</option>
+									<option value="before_first_heading" <?php selected( $settings['position'], 'before_first_heading' ); ?>>
+										Tepat sebelum heading pertama
+									</option>
+								</select>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">Tampilan bawaan</th>
+							<td>
+								<label for="penalis-toc-default-collapsed">
+									<input
+										type="checkbox"
+										id="penalis-toc-default-collapsed"
+										name="penalis_toc_default_collapsed"
+										value="1"
+										<?php checked( $settings['default_collapsed'] ); ?>
+									/>
+									Tutup secara bawaan (<em>collapsed</em>) dengan tombol <strong>Tampilkan</strong>
+								</label>
+								<p class="description">
+									Hapus centang jika ingin daftar isi langsung terbuka saat pembaca membuka artikel.
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">Smooth scroll</th>
+							<td>
+								<label for="penalis-toc-smooth-scroll">
+									<input
+										type="checkbox"
+										id="penalis-toc-smooth-scroll"
+										name="penalis_toc_smooth_scroll"
+										value="1"
+										<?php checked( $settings['smooth_scroll'] ); ?>
+									/>
+									Aktifkan <em>smooth scroll</em> saat pembaca mengklik item daftar isi
+								</label>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<p class="submit">
+					<button type="submit" class="button button-primary">Simpan pengaturan</button>
+				</p>
+			</form>
+
+			<?php if ( '' !== $audit_line ) : ?>
+				<p class="penalis-settings__note"><?php echo esc_html( $audit_line ); ?></p>
+			<?php endif; ?>
+		</div>
+
+		<div class="penalis-settings__panel">
+			<h2>Status transisi LuckyWP Table of Contents</h2>
+			<?php if ( $status['lwptocActive'] ) : ?>
+				<div class="notice notice-info inline">
+					<p>
+						<strong>Plugin LuckyWP Table of Contents masih aktif.</strong> Selama plugin tersebut
+						aktif, Table of Contents bawaan Penalis Platform tidak disisipkan agar tidak muncul ganda.
+						Begitu LuckyWP Table of Contents dinonaktifkan atau dihapus, Penalis Platform akan
+						langsung mengambil alih secara otomatis.
+					</p>
+				</div>
+			<?php else : ?>
+				<div class="notice notice-success inline">
+					<p>
+						<strong>Penalis Platform aktif menangani Table of Contents</strong> dan terdaftar pada
+						pengecekan SEO Table of Contents di Rank Math.
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( $status['legacyOverrideCount'] > 0 ) : ?>
+				<p class="description">
+					Ditemukan <strong><?php echo esc_html( number_format_i18n( $status['legacyOverrideCount'] ) ); ?></strong>
+					artikel dengan pengaturan lama <code><?php echo esc_html( Penalis_Toc::LEGACY_META_KEY ); ?></code>
+					dari LuckyWP Table of Contents; status nonaktif per artikel tersebut otomatis tetap dihormati.
+				</p>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render the Data tab.
 	 *
 	 * @return void
@@ -1789,6 +1997,43 @@ final class Penalis_Settings {
 		}
 
 		self::redirect_to_tab( 'views', 'views_migrated' );
+	}
+
+	/**
+	 * Handle the Table of Contents settings submission.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_toc() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_save_toc' );
+
+		$raw_levels = isset( $_POST['penalis_toc_levels'] ) && is_array( $_POST['penalis_toc_levels'] )
+			? array_map( 'absint', wp_unslash( $_POST['penalis_toc_levels'] ) )
+			: array();
+
+		$settings = Penalis_Toc::sanitize_settings(
+			array(
+				'enabled'           => isset( $_POST['penalis_toc_enabled'] ),
+				'title'             => isset( $_POST['penalis_toc_title'] ) ? wp_unslash( $_POST['penalis_toc_title'] ) : Penalis_Toc::DEFAULT_TITLE, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in Penalis_Toc::sanitize_settings().
+				'min_headings'      => isset( $_POST['penalis_toc_min_headings'] ) ? wp_unslash( $_POST['penalis_toc_min_headings'] ) : Penalis_Toc::DEFAULT_MIN_HEADINGS, // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in Penalis_Toc::sanitize_settings().
+				'levels'            => $raw_levels,
+				'position'          => isset( $_POST['penalis_toc_position'] ) ? wp_unslash( $_POST['penalis_toc_position'] ) : 'top', // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized in Penalis_Toc::sanitize_settings().
+				'default_collapsed' => isset( $_POST['penalis_toc_default_collapsed'] ),
+				'smooth_scroll'     => isset( $_POST['penalis_toc_smooth_scroll'] ),
+			)
+		);
+
+		update_option( Penalis_Toc::OPTION_SETTINGS, $settings, false );
+		self::record_audit(
+			Penalis_Toc::OPTION_AUDIT,
+			( $settings['enabled'] ? '1' : '0' ) . ':' . $settings['min_headings'] . ':' . ( $settings['default_collapsed'] ? 'collapsed' : 'expanded' )
+		);
+
+		self::redirect_to_tab( 'toc', 'toc_saved' );
 	}
 
 	/**

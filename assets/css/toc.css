@@ -1,0 +1,194 @@
+/* ==========================================================================
+   Penalis Platform — Built-in Article Table of Contents
+   ========================================================================== */
+
+.penalis-toc {
+  margin: 0 0 1.75rem;
+  border: 1px solid #e9ecef;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1b1f24;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.penalis-toc__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1.15rem;
+  background: #faf9fc;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+}
+
+.penalis-toc.is-expanded .penalis-toc__header {
+  border-bottom-color: #eceef2;
+}
+
+.penalis-toc__heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.penalis-toc__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #7c3aed;
+  flex-shrink: 0;
+}
+
+.penalis-toc__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #1b1f24;
+}
+
+button.penalis-toc__toggle {
+  margin: 0;
+  min-height: 0;
+  height: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.72rem;
+  border: 1px solid #dcd7ea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #5b21b6;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+button.penalis-toc__toggle:hover {
+  background: #f5f3ff;
+  border-color: #c4b5fd;
+  color: #5b21b6;
+}
+
+button.penalis-toc__toggle:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+}
+
+.penalis-toc__chevron {
+  transition: transform 0.18s ease;
+}
+
+.penalis-toc.is-expanded .penalis-toc__chevron {
+  transform: rotate(180deg);
+}
+
+.penalis-toc__body {
+  padding: 0.85rem 1.15rem 1rem;
+}
+
+.penalis-toc__body[hidden] {
+  display: none;
+}
+
+.penalis-toc__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.penalis-toc__item {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.penalis-toc__item--depth-1 {
+  padding-left: 1.15rem;
+}
+
+.penalis-toc__item--depth-2 {
+  padding-left: 2.3rem;
+}
+
+a.penalis-toc__link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.28rem 0.45rem;
+  margin-left: -0.45rem;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+a.penalis-toc__link:hover {
+  background: #f5f3ff;
+  color: #6d28d9;
+  text-decoration: none;
+}
+
+a.penalis-toc__link:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+}
+
+.penalis-toc__num {
+  color: #7c3aed;
+  font-weight: 600;
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.penalis-toc__text {
+  min-width: 0;
+}
+
+/* Keep anchored headings clear of sticky site navigation bars. */
+.penalis-toc-heading {
+  scroll-margin-top: 96px;
+}
+
+@media (max-width: 640px) {
+  .penalis-toc__header {
+    padding: 0.78rem 0.95rem;
+  }
+
+  .penalis-toc__body {
+    padding: 0.75rem 0.95rem 0.9rem;
+  }
+
+  .penalis-toc__item--depth-1 {
+    padding-left: 0.95rem;
+  }
+
+  .penalis-toc__item--depth-2 {
+    padding-left: 1.9rem;
+  }
+
+  a.penalis-toc__link {
+    font-size: 0.875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .penalis-toc__header,
+  button.penalis-toc__toggle,
+  .penalis-toc__chevron,
+  a.penalis-toc__link {
+    transition: none;
+  }
+}
