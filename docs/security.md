@@ -180,6 +180,24 @@ unauthorized publishing:
     `brandIconUrl`, avatars, featured covers) are normalized to same-origin URLs
     via `Penalis_Dashboard::ensure_same_origin_url()` so Canvas 2D export never
     taints or leaks cross-origin credentials.
+- **Post Reactions & Views Abuse Controls (`Penalis_Reactions`, `Penalis_Views`):**
+  - Public endpoints (`POST /penalis/v1/posts/{id}/reaction` and
+    `POST /penalis/v1/posts/{id}/view`) strictly require a published `post`
+    record (`404 penalis_not_found` for drafts, pending reviews, or other post
+    types) and enforce proxy-aware per-IP rate limits (`post_reaction_ip`,
+    `post_view_ip`).
+  - Reaction mutations run inside a per-post MySQL advisory lock so concurrent
+    toggles cannot drift counts below zero. View beacons reject empty/bot User
+    Agents and browser prefetch/prerender probes (`Sec-Purpose`, `Purpose`,
+    `X-Purpose`, `X-Moz`) and optionally exclude logged-in staff visits.
+  - Manual count overrides (REST `PUT/PATCH`, Block Editor sidebar, Classic
+    Editor meta box, and `/wp-admin/edit.php` Quick Edit) require
+    `manage_options` (administrators only) plus nonce verification.
+- **Table of Contents (`Penalis_Toc`):**
+  - All extracted heading labels and generated lowercase anchor IDs are escaped
+    with `esc_html()` / `esc_attr()` when rendered, and the per-post
+    `_penalis_toc_disabled` meta key is registered with an `edit_post`
+    `auth_callback` and strict `'1'`/`'0'`/`''` sanitization.
 
 ---
 
@@ -293,6 +311,9 @@ Transient-based rate limits (`Penalis_Rate_Limiter`):
 | Email change confirm | Per IP | 10 / hour |
 | Username change | Per IP / Per user | 5 / hour per IP, 3 / hour per user |
 | Tag creation | Per user | 30 / hour |
+| Media deletion | Per user | 60 / hour |
+| Post reactions (Like / Dislike) | Per IP | 60 / hour |
+| Post view beacon | Per IP | 120 / hour |
 
 Every value above is a **default**. An administrator can change the attempts and
 the window per action at **Pengaturan → Batas Percobaan**

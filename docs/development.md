@@ -97,9 +97,16 @@ composer check           # Run composer lint + php tests/run-tests.php
   `Penalis_Daily_Quotes_Admin`), shareable article cards (`Penalis_Article_Share`:
   `clean_excerpt()`, payload serialization, `[penalis_share_article]` shortcode,
   single-post auto-bar deduplication, and `penalis_auto_append_article_share`
-  opt-out filter), `Penalis_Dashboard::brand_assets()`, and
-  timezone-aware / Indonesian date formatting (`Penalis_Datetime` with IANA and
-  fixed-offset site timezones, including Jakarta and year rollover).
+  opt-out filter), `Penalis_Dashboard::brand_assets()`, built-in default
+  featured image (`Penalis_Default_Thumbnail`), legacy One User Avatar backup &
+  fallback resolution (`Penalis_Avatar`), built-in post reactions & admin
+  overrides (`Penalis_Reactions`), built-in post views counter, PVC migration,
+  Atlas `pvc_get_post_views()` / `posts_clauses` bridge, and admin overrides
+  (`Penalis_Views`), built-in Table of Contents parsing, lowercase slug anchors,
+  hierarchical numbering, shortcode, legacy `_lwptoc_settings` fallback, and
+  Rank Math registration (`Penalis_Toc`), and timezone-aware / Indonesian date
+  formatting (`Penalis_Datetime` with IANA and fixed-offset site timezones,
+  including Jakarta and year rollover).
 
 ### 3.2 Frontend Unit Tests (`src/lib/*.test.ts`, `src/authors/*.test.ts`, `src/quotes/*.test.ts`)
 - Runs via Vitest in the `node` environment.
@@ -107,10 +114,11 @@ composer check           # Run composer lint + php tests/run-tests.php
   including `validatePasswordPair()` (`validation.test.ts`), deeplink parsing and
   token shape checks (`deeplink.test.ts`), verification code normalization,
   countdown formatting, and `toActiveChallenge()` (`otp.test.ts`), HTML
-  normalization (`html.test.ts`), formatting (`format.test.ts`), public display
-  name derivation (`profile.test.ts`), image crop math (`crop.test.ts`),
-  Canvas share-card formats, themes, dynamic font resolution, text wrapping,
-  filenames, and copy-to-clipboard metadata (`shareCard.test.ts`),
+  normalization (`html.test.ts`), formatting including `formatNumericDate()`
+  (`format.test.ts`), public display name derivation (`profile.test.ts`), image
+  crop math (`crop.test.ts`), Canvas share-card formats, themes, dynamic font
+  resolution, `buildProfileCardStats()`, text wrapping, filenames, and
+  copy-to-clipboard metadata (`shareCard.test.ts`),
   lazy-chunk retry/preload helpers (`lazyWithRetry.test.ts`), public authors
   URL query state (`src/authors/query.test.ts`), public `#KalimatHariIni` URL
   query state and client-side quote normalization/time formatting
@@ -172,6 +180,8 @@ enforced by helpers rather than by ad-hoc `date()` calls.
     ISO strings with `Z`/numeric offsets, and offset-less WordPress GMT strings
     (treated as UTC). Explicit offsets are preserved.
   - `formatDate()` — calendar day only (`13 Nov 2025`).
+  - `formatNumericDate()` — compact numeric calendar day (`22/10/2026`), matching
+    public author archive cards and Article Share Cards.
   - `formatDateTime()` — calendar day, hours, minutes, and a short timezone
     label (`13 Nov 2025, 03.30 WIB`). Use this for editorial timestamps
     (submission, review, review history) and notifications.
@@ -224,10 +234,14 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
      **Review Karya Tulis**, **Karya Terhapus**, **Kalimat Hari Ini**,
      **Penulis Penalis**, **Log Email**, and **Pengaturan** (administrators
      only).
-   - Open **Penalis → Pengaturan** and confirm the three tabs render:
-     `Keamanan`, `Foto Profil` (media picker opens), and `Email` (template
-     editor with its group tabs). The retired
-     `?page=penalis-email-settings` URL must redirect to the Email tab.
+   - Open **Penalis → Pengaturan** and confirm all nine tabs render in order:
+     `Keamanan`, `Pendaftaran`, `Batas Percobaan`, `Foto Profil` (media picker
+     and legacy One User Avatar backup status), `Thumbnail` (default featured
+     image picker), `Views` (dedup/staff settings and PVC migration status),
+     `Table of Contents` (TOC configuration and LuckyWP TOC transition status),
+     `Email` (template editor with its group tabs), and `Data` (opt-in uninstall
+     guard). The retired `?page=penalis-email-settings` URL must redirect to the
+     Email tab.
    - Open **Penalis → Pengaturan → Keamanan**, switch the dashboard CAPTCHA to
      `Nonaktif sementara`, then confirm: the `/dashboard/` auth forms render no
      Turnstile widget and still submit; `wp-login.php` still shows the widget
@@ -300,10 +314,12 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
     - Open `/author/<username>/` (with any Elementor author archive display
       condition removed) and confirm the profile card, unified **Bagikan**
       trigger (opening the Share Card modal), copyable profile URL,
-      `Bergabung <Bulan> <Tahun>` in Indonesian, owner-only `Edit Profil` /
-      `Tulis Karya` / `#KalimatHariIni` buttons below the bio, 3-column works
-      grid with `dd/mm/yyyy` dates, spaced poetry excerpts, per-card **Bagikan**
-      trigger, and WordPress pagination on desktop and mobile viewports.
+      `Bergabung <Bulan> <Tahun>` in Indonesian, 3-stat strip (**Karya Terbit**,
+      **Total Views**, **Total Likes** — single row on mobile `<= 640px`),
+      owner-only `Edit Profil` / `Tulis Karya` / `#KalimatHariIni` buttons below
+      the bio, 3-column works grid with `dd/mm/yyyy` dates, view and like counts,
+      spaced poetry excerpts, per-card **Bagikan** trigger, and WordPress
+      pagination on desktop and mobile viewports.
 11. **`#KalimatHariIni` (Writer, Public Showcase & Senator Moderation)**
     - Confirm activation/upgrade creates `/kalimat-hari-ini/` containing
       `[penalis_kalimat_hari_ini]`.
@@ -329,13 +345,42 @@ Use this checklist to verify a deployment on a staging or local WordPress site:
       `/dashboard/` (Profile, active `#KalimatHariIni`, and published works in
       **Daftar Karya**), and a published single post.
     - Verify Story (`9:16`, 1080×1920) and Feed (`1:1`, 1080×1080) format
-      switches, all three themes (**Kertas**, **Senja**, **Malam**), theme font
-      inheritance, official Penalis logo/watermark rendering, PNG download
-      (**Unduh PNG**), Web Share API file sharing where supported, and the
-      in-modal copy button (**Salin tautan profil**, **Salin kutipan**, **Salin
-      tautan karya**).
-    - On a published single post, confirm the auto-appended share callout bar
-      renders below like/dislike controls and post tags (not above them). Place
-      `[penalis_share_article]` manually inside a post and verify the auto-bar
-      does not render a duplicate.
+      switches, all three themes (**Kertas**, **Senja**, **Malam**), visible
+      Penalis corner watermark across all themes, theme font inheritance,
+      **Total Likes** on Profile cards, `dd/mm/yyyy` dates on Article cards, PNG
+      download (**Unduh PNG**), Web Share API file sharing where supported, and
+      the in-modal copy button (**Salin tautan profil**, **Salin kutipan**,
+      **Salin tautan karya**).
+    - On a published single post, confirm the auto-appended bottom bar renders
+      the built-in **Like / Dislike** controls alongside **Bagikan** below post
+      tags. Place `[penalis_share_article]` manually inside a post and verify
+      the auto-bar does not render a duplicate.
+13. **Built-in Post Reactions (`Penalis_Reactions`)**
+    - Click **Like**, reload to confirm cookie persistence, click again to undo,
+      and test direct switching between **Like** and **Dislike**.
+    - Verify like counts match across the single post, `/author/<username>/`
+      (**Total Likes** + per-card likes), `/dashboard/` (**Ringkasan**, **Daftar
+      Karya**, published **Editor**), and Profile Share Cards.
+    - As an administrator, verify manual Like/Dislike overrides work in Block
+      Editor, Classic Editor, and `/wp-admin/edit.php` Quick Edit.
+14. **Built-in Post Views Counter (`Penalis_Views`) & PVC Migration**
+    - Open **Penalis → Pengaturan → Views**, run **Sinkronkan dari Post Views
+      Counter**, deactivate/delete Post Views Counter, and confirm existing view
+      counts and Atlas theme `Most Viewed` ordering remain intact.
+    - Visit a published post in an incognito browser to confirm the JS beacon
+      increments views once per dedup window and skips logged-in staff visits
+      when staff exclusion is enabled.
+    - As an administrator, verify manual Views overrides work in Block Editor,
+      Classic Editor, and `/wp-admin/edit.php` Quick Edit (plus sortable `Views`
+      column).
+15. **Built-in Table of Contents (`Penalis_Toc`), Default Thumbnail & Avatar Backup**
+    - Open **Penalis → Pengaturan → Table of Contents**, verify settings save,
+      deactivate/delete LuckyWP Table of Contents, and confirm long posts (>= 4
+      `H2`/`H3` headings) render the collapsed **Table of Contents** card with
+      `Tampilkan / Sembunyikan` toggle, lowercase `#judul-bagian` anchors,
+      smooth scroll, and per-post editor disable override (including legacy
+      `_lwptoc_settings` posts).
+    - Verify **Penalis → Pengaturan → Thumbnail** applies the fallback featured
+      image to published posts without a thumbnail, and **Penalis → Pengaturan →
+      Foto Profil** reports legacy One User Avatar backup status.
 

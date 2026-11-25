@@ -19,11 +19,16 @@ WordPress (PHP)                               Browser (React SPA)
   emails, rate limits, access guards
 ```
 
-- **No separate backend server, no custom database tables, and no parallel
-  authentication store.** Authentication relies on standard WordPress cookies
-  and the `wp_rest` nonce passed in `X-WP-Nonce`.
+- **No separate backend server and no parallel authentication store.**
+  Authentication relies on standard WordPress cookies and the `wp_rest` nonce
+  passed in `X-WP-Nonce`. All workflow, account, editorial, reaction, and TOC
+  state lives in native WordPress metadata/options; the only custom database
+  table is `{prefix}penalis_post_views` (`Penalis_Views`), a single two-column
+  (`post_id`, `views`) table enabling indexed `Most Viewed` queries and Atlas
+  theme compatibility.
 - **Articles are native WordPress `post` records.** `post_content` stores plain
-  HTML produced by TipTap, featured images use standard post thumbnails, and
+  HTML produced by TipTap, featured images use standard post thumbnails (with an
+  optional site-wide fallback via `Penalis_Default_Thumbnail`), and
   categories/tags use native taxonomies. The active WordPress theme renders
   published articles, while public author archives (`/author/<username>/`) are
   rendered through the bundled `templates/author-archive.php` template
@@ -34,9 +39,11 @@ WordPress (PHP)                               Browser (React SPA)
   the public `#KalimatHariIni` showcase via `[penalis_kalimat_hari_ini]` on the
   auto-created `/kalimat-hari-ini/` page (`templates/daily-quotes.php`),
   author archives via `templates/author-archive.php`, and published single-post
-  share controls via `Penalis_Article_Share` (`[penalis_share_article]` or the
-  auto-appended share callout). Each surface enqueues its scripts and styles
-  only on its matching requests, never site-wide.
+  engagement/reading utilities via `Penalis_Article_Share` + `Penalis_Reactions`
+  (unified Like/Dislike + Share bar, `[penalis_share_article]`), `Penalis_Views`
+  (lightweight JS view beacon), and `Penalis_Toc` (enqueued only on posts that
+  render a Table of Contents). Each surface enqueues its scripts and styles only
+  on its matching requests, never site-wide.
 
 ---
 
@@ -61,6 +68,7 @@ penalis-platform/
 │   ├── class-revisions.php               Revision limit for drafts so autosave cannot grow the history without bound
 │   ├── class-editorial-admin.php         Penalis → Review Karya Tulis and Karya Terhapus admin screens
 │   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen, shared modal & asset helpers
+│   ├── class-settings.php                Penalis → Pengaturan centralized tabbed settings screen (9 tabs)
 │   ├── class-analytics.php               Eight-week submission/review trend metrics for the Ringkasan screen
 │   ├── class-email-settings.php          Penalis → Pengaturan Email customizable transactional email registry & admin console
 │   ├── class-email-log.php               Capped delivery log for transactional email; never stores one-time secrets
@@ -73,26 +81,41 @@ penalis-platform/
 │   ├── class-email-change.php            Verified email address change flow
 │   ├── class-username-change.php         Re-authenticated login rename with advisory lock
 │   ├── class-author-history.php          Historical author slug reservation and 301 redirects
-│   ├── class-avatar.php                  Standalone avatar storage (`penalis-avatars/`) and built-in avatar provider
+│   ├── class-avatar.php                  Standalone avatar storage (`penalis-avatars/`), built-in provider, and One User Avatar legacy backup
+│   ├── class-default-thumbnail.php       Built-in site-wide default featured image fallback for published posts
 │   ├── class-media-usage.php             Strict media usage inspection protecting referenced attachments from writer deletion
 │   ├── class-datetime.php                Site timezone-aware date/time formatting and Indonesian month-year helpers
 │   ├── class-dashboard.php               Dashboard page, shortcode, template, shared Vite manifest/module loader & SPA mount helper
 │   ├── class-authors.php                 Public authors directory ([penalis_authors]), verified & Senator badges, and post badge integration
 │   ├── class-daily-quotes.php            #KalimatHariIni 24-hour writer quotes storage, rolling 3x/24h quota, public showcase ([penalis_kalimat_hari_ini])
 │   ├── class-daily-quotes-admin.php      Penalis → Kalimat Hari Ini wp-admin moderation console
-│   ├── class-article-share.php           Published-article share bar, [penalis_share_article] shortcode, clean_excerpt(), and embedded JSON payloads
+│   ├── class-reactions.php               Built-in post Like/Dislike reactions (REST, cookies, legacy PLD fallback, admin overrides)
+│   ├── class-views.php                   Built-in post views counter (`{prefix}penalis_post_views`, JS beacon, PVC migration, Atlas `posts_clauses`, admin overrides)
+│   ├── pvc-compat.php                    Pluggable `pvc_get_post_views()` compatibility bridge for Atlas theme when PVC is absent
+│   ├── pvc-compat-class.php              Minimal `Post_Views_Counter` class shim for Atlas theme `class_exists()` checks when PVC is absent
+│   ├── class-toc.php                     Built-in collapsible Table of Contents (`H2`–`H4`, lowercase `#judul-bagian` anchors, `[penalis_toc]`, Rank Math SEO filter, editor override)
+│   ├── class-article-share.php           Published-article reactions + share bar, [penalis_share_article] shortcode, clean_excerpt(), and embedded JSON payloads
 │   ├── class-author-archive.php          Public author archive template routing, profile data, and scoped assets
 │   ├── class-emails.php                  Centralized template-driven transactional email dispatcher and failure tracking
 │   ├── class-email-template.php          Branded responsive HTML email layout and Markdown renderer
 │   ├── class-rate-limiter.php            Transient-based per-IP and per-account rate limiting, configurable limits, proxy-aware client IP
 │   └── class-turnstile.php               Optional Cloudflare Turnstile adapter via Simple Cloudflare Turnstile
 ├── assets/
-│   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email)
+│   ├── css/admin.css                     WordPress admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email, Pengaturan)
 │   ├── css/author-archive.css            Public author archive stylesheet (.penalis-author-archive-root)
-│   ├── css/article-share.css             Public single-post share bar & [penalis_share_article] stylesheet
+│   ├── css/article-share.css             Public single-post reactions + share bar & [penalis_share_article] stylesheet
+│   ├── css/toc.css                       Public single-post Table of Contents stylesheet (.penalis-toc)
 │   ├── images/                           Official brand assets (logo.png, icon.png) embedded in Canvas share cards
 │   ├── js/admin-review.js                Shared modal controller (createModalController) and inline validation for wp-admin actions
-│   └── js/author-archive.js              Profile URL copy-to-clipboard, bio collapse toggle, and stale quote expiry guard for author archives
+│   ├── js/admin-reactions-editor.js      Administrator Block Editor sidebar panel for Like/Dislike count overrides
+│   ├── js/admin-reactions-quick-edit.js  Administrator Posts Quick Edit hydration for Like/Dislike overrides
+│   ├── js/admin-views-editor.js          Administrator Block Editor sidebar panel for Views count override
+│   ├── js/admin-views-quick-edit.js      Administrator Posts Quick Edit hydration for Views override
+│   ├── js/editor-toc.js                  Block Editor sidebar toggle for per-post Table of Contents disable override
+│   ├── js/author-archive.js              Profile URL copy-to-clipboard, bio collapse toggle, and stale quote expiry guard for author archives
+│   ├── js/post-reactions.js              Public single-post Like/Dislike interaction controller
+│   ├── js/post-views.js                  Cache-safe public single-post view beacon
+│   └── js/toc.js                         Public single-post Table of Contents collapse toggle & smooth scroll
 ├── templates/
 │   ├── dashboard.php                     Minimal theme-compatible wrapper for [penalis_dashboard]
 │   ├── authors.php                       Minimal theme-compatible wrapper for [penalis_authors]
@@ -131,11 +154,15 @@ On `plugins_loaded`, `Penalis_Plugin::run()` initializes components in order:
 7. `Penalis_Dashboard::init()`
 8. `Penalis_Authors::init()`
 9. `Penalis_Daily_Quotes::init()`
-10. `Penalis_Article_Share::init()`
-11. `Penalis_Author_Archive::init()`
-12. `Penalis_Author_History::init()`
-13. `Penalis_Avatar::register_provider()`
-14. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, `Penalis_Daily_Quotes_Admin::init()`, `Penalis_Email_Settings::init()`, `Penalis_Email_Log_Admin::init()`, and `Penalis_Settings::init()` (when `is_admin()`)
+10. `Penalis_Reactions::init()`
+11. `Penalis_Views::init()`
+12. `Penalis_Toc::init()`
+13. `Penalis_Article_Share::init()`
+14. `Penalis_Author_Archive::init()`
+15. `Penalis_Author_History::init()`
+16. `Penalis_Avatar::register_provider()` (plus `Penalis_Avatar::maybe_migrate_legacy` on `init` priority 15)
+17. `Penalis_Default_Thumbnail::init()`
+18. `Penalis_Admin::init()`, `Penalis_Editorial_Admin::init()`, `Penalis_Daily_Quotes_Admin::init()`, `Penalis_Email_Settings::init()`, `Penalis_Email_Log_Admin::init()`, and `Penalis_Settings::init()` (when `is_admin()`)
 
 ### Optional Third-Party Integrations
 
@@ -146,6 +173,15 @@ On `plugins_loaded`, `Penalis_Plugin::run()` initializes components in order:
   (`LoginForm`, `RegistrationForm`, `ActivateForm`, `ForgotForm`) and
   `ResetPasswordPage` (`Reset`). All calls are guarded with `function_exists()`
   so Penalis Platform degrades gracefully when the plugin is absent or inactive.
+- **Rank Math SEO (`Penalis_Toc`):** Registers `Penalis Platform` on the
+  `rank_math/researches/toc_plugins` filter whenever built-in Table of Contents
+  is enabled so Rank Math's "Table of Contents" SEO check remains satisfied
+  without LuckyWP Table of Contents.
+- **Atlas Theme Compatibility (`Penalis_Views`):** Loads
+  `includes/pvc-compat-class.php` and `includes/pvc-compat.php` (guarded by
+  `class_exists()` / `function_exists()`) and filters `posts_clauses` for
+  `orderby=post_views` so the Atlas theme's view badges and `Most Viewed`
+  queries work seamlessly after Post Views Counter is deactivated or deleted.
 
 ---
 
@@ -404,9 +440,29 @@ editors.
    - **Keamanan** (`captcha`, `Penalis_Settings::render_captcha_tab()`) holds the
      dashboard CAPTCHA switch (`penalis_dashboard_captcha_enabled`) and a
      read-only summary of the Simple Cloudflare Turnstile configuration.
+   - **Pendaftaran** (`registration`, `Penalis_Settings::render_registration_tab()`)
+     toggles public writer signups (`penalis_registration_enabled`) without
+     affecting existing accounts or legacy activation.
+   - **Batas Percobaan** (`rate-limit`, `Penalis_Settings::render_rate_limit_tab()`)
+     configures per-action rate limits (`penalis_rate_limits`) and trusted
+     reverse-proxy IPs/CIDRs (`penalis_trusted_proxies`).
    - **Foto Profil** (`avatar`, `Penalis_Settings::render_avatar_tab()`) sets the
-     site-wide default profile photo through the WordPress media picker; saving
-     is handled by `Penalis_Admin::save_default_avatar()`.
+     site-wide default profile photo through the WordPress media picker (saved
+     to both `penalis_default_avatar_id` and `avatar_default_wp_user_avatar`),
+     and displays legacy One User Avatar backup status with a manual re-sync
+     button.
+   - **Thumbnail** (`thumbnail`, `Penalis_Settings::render_thumbnail_tab()`) sets
+     the site-wide default featured image fallback (`penalis_default_featured_image_id`)
+     for published posts without a thumbnail.
+   - **Views** (`views`, `Penalis_Settings::render_views_tab()`) configures the
+     built-in post views counter (cookie deduplication window `0–1440` minutes,
+     staff visit exclusion) and displays Post Views Counter migration status
+     with a manual non-destructive re-sync button.
+   - **Table of Contents** (`toc`, `Penalis_Settings::render_toc_tab()`)
+     configures auto-insert, box title (`Table of Contents` default), minimum
+     heading count (`4`), heading levels (`H2`–`H4`), insert position (`top` or
+     `before_first_heading`), default collapsed/expanded state, smooth scroll,
+     and LuckyWP Table of Contents transition status.
    - **Email** (`email`, `Penalis_Email_Settings::render_tab()`) manages all 15
      transactional emails, accessible only to administrators:
      - Categorized tabbed navigation (`Semua Email`, `Verifikasi & Aktivasi`,
@@ -418,6 +474,9 @@ editors.
        `{kode_otp}` and `{link_reset_password}`) cannot be lost.
      - Single-template and all-template "Kembalikan ke Bawaan Plugin" reset
        actions.
+   - **Data** (`data`, `Penalis_Settings::render_data_tab()`) controls the
+     opt-in destructive uninstall flag (`penalis_remove_data_on_uninstall`)
+     guarded by typed `HAPUS` confirmation.
    - The retired `?page=penalis-email-settings` URL redirects to
      `?page=penalis-settings&tab=email` on `admin_init`, so bookmarks and old
      notices keep working.
@@ -429,7 +488,19 @@ editors.
 
 ## 6. Data Storage Reference
 
-No custom database tables are created.
+All workflow, account, editorial, reaction, and TOC data uses native WordPress
+metadata and options. One lightweight custom table is created for lifetime post
+views so `Most Viewed` queries remain indexed.
+
+### 6.0 Custom Table (`{prefix}penalis_post_views`)
+
+Created and migrated lazily by `Penalis_Views::ensure_table()` (and on
+activation). Removed only on opt-in destructive uninstall (`uninstall.php`).
+
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `post_id` | `BIGINT(20) UNSIGNED PRIMARY KEY` | WordPress `post` ID |
+| `views` | `BIGINT(20) UNSIGNED NOT NULL DEFAULT 0` | Lifetime total view count (indexed via `KEY views_post (views, post_id)`) |
 
 ### 6.1 User Meta
 
@@ -455,6 +526,7 @@ No custom database tables are created.
 | `_penalis_last_email_failed_context` | Context identifier of most recent mail failure |
 | `_penalis_notifications` | Bounded array of editorial notifications (max 50) |
 | `_penalis_avatar_file` | Standalone cropped profile photo basename inside `uploads/penalis-avatars/` (`u{id}-{12-hex}.jpg`) |
+| `_penalis_legacy_avatar_id` | Penalis-owned protected backup of legacy `{prefix}user_avatar` attachment ID so uninstalling One User Avatar never loses profile photos |
 | `{prefix}user_avatar` | Legacy profile photo attachment ID (read-only fallback for existing accounts) |
 | `_penalis_daily_quote` | Active `#KalimatHariIni` record (`text`, `created_at`, `expires_at`) — no quote history is stored |
 | `_penalis_daily_quote_expires` | Unix timestamp (`expires_at`) indexed for active-quote `WP_User_Query` / `get_users()` lookups |
@@ -472,6 +544,9 @@ No custom database tables are created.
 | `_penalis_reviewed_by` | User ID of the reviewer (administrator or editor) |
 | `_penalis_review_cycle` | Integer counter incremented on each submission round |
 | `_penalis_review_history` | Bounded array of submission and review events (max 50) |
+| `_penalis_like_count` | Built-in post Like count (`Penalis_Reactions`); falls back read-only to legacy `pld_like_count` when unset |
+| `_penalis_dislike_count` | Built-in post Dislike count (`Penalis_Reactions`); falls back read-only to legacy `pld_dislike_count` when unset |
+| `_penalis_toc_disabled` | Per-post Table of Contents override (`'1'` disabled, `'0'` enabled); falls back read-only to legacy `_lwptoc_settings['enabled'] === false` when unset |
 
 ### 6.3 Options & Transients
 
@@ -489,7 +564,21 @@ No custom database tables are created.
 | `penalis_remove_data_audit` | Option | Last uninstall opt-in change: `state`, `user_id`, `user_login`, `time` |
 | `penalis_dashboard_captcha_enabled` | Option | Dashboard-only CAPTCHA switch (`1`/`0`, default `1`). Never mirrors `cfturnstile_login`/`_register`/`_reset` |
 | `penalis_dashboard_captcha_audit` | Option | Last CAPTCHA switch change: `state`, `user_id`, `user_login`, `time` |
-| `avatar_default_wp_user_avatar` | Option | Site-wide default profile photo attachment ID configured on **Pengaturan → Foto Profil** |
+| `penalis_rate_limits` | Option | Custom per-action rate-limit overrides configured on **Pengaturan → Batas Percobaan** |
+| `penalis_trusted_proxies` | Option | Trusted reverse-proxy IPs/CIDRs for proxy-aware client IP resolution |
+| `penalis_rate_limits_audit` | Option | Last rate-limit change with actor, timestamp, and only the changed values |
+| `penalis_default_avatar_id` | Option | Penalis-owned site-wide default profile photo attachment ID (protected against One User Avatar uninstall) |
+| `penalis_legacy_avatar_migrated` | Option | One-time migration flag (`1`) confirming legacy One User Avatar backup completed |
+| `avatar_default_wp_user_avatar` | Option | Legacy mirrored default profile photo attachment ID (kept in sync when saved on **Pengaturan → Foto Profil**) |
+| `penalis_default_featured_image_id` | Option | Site-wide default featured image attachment ID for published posts (`Penalis_Default_Thumbnail`) |
+| `penalis_default_featured_image_audit` | Option | Last default thumbnail change (`state`, `user_id`, `user_login`, `time`) |
+| `penalis_views_schema_version` | Option | Installed schema version for `{prefix}penalis_post_views` |
+| `penalis_views_pvc_migrated` | Option | Flag (`1`) confirming initial non-destructive Post Views Counter migration completed |
+| `penalis_views_dedup_minutes` | Option | Cookie deduplication window for view beacons (`0–1440` min, default `30`) |
+| `penalis_views_exclude_staff` | Option | Exclude logged-in Administrator/Editor visits from view counts (`1`/`0`, default `1`) |
+| `penalis_views_audit` | Option | Last views settings change (`state`, `user_id`, `user_login`, `time`) |
+| `penalis_toc_settings` | Option | Serialized Table of Contents settings (`enabled`, `title`, `min_headings`, `levels`, `position`, `default_collapsed`, `smooth_scroll`) |
+| `penalis_toc_audit` | Option | Last Table of Contents settings change (`state`, `user_id`, `user_login`, `time`) |
 | `penalis_pending_review_count` | Transient | Cached count of `pending_review` article submissions |
 | `penalis_daily_quotes_v1` | Transient | Short-lived (120s) cached list of active `#KalimatHariIni` entries, filtered by `expiresAt > now` on every read |
 | `penalis_activation_notice` | Transient | Short-lived post-activation admin notice flag |
@@ -543,10 +632,15 @@ WordPress Media Library attachments. The stored basename is kept in user meta
 `_penalis_avatar_file`, and `Penalis_Avatar` registers `pre_get_avatar_data` as
 the built-in provider. Replacing or removing an avatar immediately removes the
 superseded derived file inside `penalis-avatars/` so storage stays at one file
-per user. Existing accounts that still reference a Media Library attachment in
-`{prefix}user_avatar` continue to resolve that attachment as a read-only
-fallback without migration, and those legacy attachments are never deleted when
-the writer replaces or removes their photo.
+per user. Because the third-party *One User Avatar* plugin deletes
+`{prefix}user_avatar` and resets `avatar_default` in its `uninstall.php`,
+`Penalis_Avatar::maybe_migrate_legacy()` automatically copies existing
+`{prefix}user_avatar` attachment IDs into `_penalis_legacy_avatar_id` and
+`avatar_default_wp_user_avatar` into `penalis_default_avatar_id` (also exposed
+with a status check and manual re-sync button on **Pengaturan → Foto Profil**).
+Resolution checks `_penalis_avatar_file` → `_penalis_legacy_avatar_id` →
+`{prefix}user_avatar` → `penalis_default_avatar_id`, and legacy Media Library
+attachments are never deleted when a writer replaces or removes their photo.
 
 ### 7.4 Hardcoded Indonesian UI Copy
 Penalis is an Indonesian literary community. User-facing copy in the dashboard,
@@ -602,30 +696,43 @@ Transactional emails can be adjusted by non-technical administrators via
   (site content) and `penalis_email_log` (recipients' addresses) live in
   `uninstall.php`, so "remove data" means all of it.
 
-### 7.6 Post Views Counter Integration
-Penalis Platform integrates with the [Post Views Counter](https://wordpress.org/plugins/post-views-counter/)
-plugin to surface article view statistics inside the `/dashboard/` React SPA
-(`Overview.tsx`, `Articles.tsx`, and `Editor.tsx`), the public contributors
-directory (`[penalis_authors]` / `AuthorsDirectory.tsx`), and public author
-archives (`Penalis_Author_Archive`).
-- **Per-Article Views:** `Penalis_Rest_Api::get_post_views()` and
-  `Penalis_Author_Archive::get_post_views()` read lifetime totals via
-  `pvc_get_post_views( $post_id )` for published posts
-  (`post_status === 'publish'`). Unpublished articles (`draft`,
-  `pending_review`, `changes_requested`, `rejected`) always return `0` so
-  internal admin previews or stray database rows never leak into writer stats.
-- **Author Total Views:** `Penalis_Rest_Api::author_total_views()`,
-  `Penalis_Authors::get_author_views_map()`, and
-  `Penalis_Author_Archive::get_author_total_views()` fetch the IDs of all
-  published posts owned by the writer(s) and pass the `int[]` array to
-  `pvc_get_post_views( $post_ids )`, computing total views in an aggregate SQL
-  query (`WHERE id IN (...) AND type = 4 AND period = 'total'`) cached in the
-  `pvc-get_post_views` object-cache group (and in the public authors directory
-  transient).
-- **Graceful Degradation:** Every call is guarded by
-  `function_exists( 'pvc_get_post_views' )`. When Post Views Counter is
-  deactivated or absent, dashboard/directory counts fall back to `0` and
-  `Penalis_Author_Archive` returns `null` so view labels are omitted cleanly.
+### 7.6 Built-in Post Views Counter (`Penalis_Views`) & Atlas Compatibility
+Penalis Platform replaces the external *Post Views Counter* (PVC) plugin
+natively with `Penalis_Views` (`includes/class-views.php`), serving lifetime
+view statistics across `/dashboard/` (`Overview.tsx`, `Articles.tsx`,
+`Editor.tsx`), `[penalis_authors]` (`AuthorsDirectory.tsx`), `/author/<username>/`
+(`Penalis_Author_Archive`), and the Atlas WordPress theme.
+- **Dedicated Indexed Table:** Lifetime totals live in
+  `{prefix}penalis_post_views` (`post_id BIGINT UNSIGNED PRIMARY KEY`,
+  `views BIGINT UNSIGNED NOT NULL DEFAULT 0`, `KEY views_post (views, post_id)`).
+  Unpublished articles always report `0` on public/writer surfaces so admin
+  previews never leak into writer stats.
+- **Non-Destructive Migration from PVC:** On activation/upgrade (and on demand
+  from **Penalis → Pengaturan → Views**), `Penalis_Views::migrate_from_pvc()`
+  copies lifetime totals (`type = 4 AND period = 'total'`) from
+  `{prefix}post_views` using `GREATEST(views, VALUES(views))` so existing counts
+  are never lowered and PVC's table is never modified. While PVC is still
+  active, `Penalis_Views` defers live counting so views are never double-counted.
+- **Cache-Safe Beacon & Bot Filtering:** `assets/js/post-views.js` sends a
+  lightweight `POST /penalis/v1/posts/{id}/view` beacon on published single
+  posts so counts stay accurate behind full-page caches. The server filters
+  known bots/crawlers and browser prefetch/prerender probes (`Sec-Purpose`,
+  `Purpose`, `X-Purpose`, `X-Moz`), optionally excludes logged-in staff
+  (`penalis_views_exclude_staff`, default `1`), enforces a configurable
+  per-post cookie deduplication window (`penalis_views_dedup_minutes`, default
+  `30`, range `0–1440`), and rate-limits per IP (`post_view_ip`).
+- **Atlas Theme Compatibility Bridge:** When PVC is inactive/deleted,
+  `includes/pvc-compat-class.php` provides a minimal `Post_Views_Counter` class
+  stub and `includes/pvc-compat.php` provides the pluggable
+  `pvc_get_post_views( $post_id )` function (accepting an int or `int[]`), while
+  `Penalis_Views::filter_posts_clauses()` translates `WP_Query`
+  `orderby => 'post_views'` into a `LEFT JOIN` against
+  `{prefix}penalis_post_views` so Atlas theme view labels and `Most Viewed`
+  widgets continue working untouched.
+- **Administrator Overrides:** Administrators (`manage_options`) can manually
+  adjust any post's view count in the Block Editor (`PluginPostStatusInfo`,
+  `assets/js/admin-views-editor.js`), Classic Editor meta box, or `/wp-admin/edit.php`
+  Quick Edit + sortable `Views` column (`assets/js/admin-views-quick-edit.js`).
 
 ### 7.7 Frontend CSS Architecture
 The dashboard and authors directory use plain CSS with shared custom
@@ -654,10 +761,11 @@ properties; there is no preprocessor, utility framework, or CSS-in-JS layer.
   directly by `Penalis_Admin` on `wp-admin` screens,
   `assets/css/author-archive.css` is loaded directly by `Penalis_Author_Archive`
   on author archive requests (matching the light neutral scale of
-  `.penalis-authors-root`), and `assets/css/article-share.css` is loaded
-  directly by `Penalis_Article_Share` on single posts and wherever
-  `[penalis_share_article]` renders. None of them is part of the Vite build; do
-  not inline those rules in PHP.
+  `.penalis-authors-root`), `assets/css/article-share.css` is loaded directly
+  by `Penalis_Article_Share` (and `Penalis_Reactions`) on single posts and
+  wherever `[penalis_share_article]` renders, and `assets/css/toc.css` is loaded
+  directly by `Penalis_Toc` only on posts that render a Table of Contents. None
+  of them is part of the Vite build; do not inline those rules in PHP.
 - **Fixed brand glyph:** the verified badge SVG uses a literal Twitter blue
   (`#1d9bf0`) in `base.css` rather than a token, because it is a fixed brand
   mark that must not be recoloured by a theme override.
@@ -713,9 +821,10 @@ the curation screens slowly mixed account work with configuration.
   `Penalis_Settings::render_avatar_tab()`. Handlers keep their own
   `admin_post_*` actions and redirect back with `penalis_message` /
   `penalis_error`, so a tab never renders its own notices.
-- **Tab order encodes risk:** Keamanan, Pendaftaran, Foto Profil, Email, then
-  Data. Destructive configuration is last so it is never one stray click away
-  from the screens an administrator uses daily.
+- **Tab order encodes risk:** Keamanan, Pendaftaran, Batas Percobaan, Foto
+  Profil, Thumbnail, Views, Table of Contents, Email, then Data. Destructive
+  configuration is last so it is never one stray click away from the screens an
+  administrator uses daily.
 - **Every switch is audited:** the CAPTCHA switch, the registration switch, and
   the uninstall opt-in each write their own `*_audit` option (`state`,
   `user_id`, `user_login`, `time`) through one `record_audit()` helper. When a
@@ -1045,10 +1154,13 @@ and footer rather than a React SPA or an Elementor Theme Builder template.
   stays focused on direct profile URL copy, the bio collapse toggle, and stale
   quote expiry. Owner-only actions (**Edit Profil**, **Tulis Karya**, and
   **#KalimatHariIni**, gated by `can_write()`) sit below the bio.
-- **Locale-independent Indonesian dates & clean excerpts:** The joined date uses
-  `Penalis_Datetime::format_indonesian_month_year_gmt()` (`Desember 2025`) so it
-  stays Indonesian even when WordPress's Site Language is English, while article
-  cards use `d/m/Y` (`31/12/2026`) and `Penalis_Article_Share::clean_excerpt()`
+- **Locale-independent Indonesian dates, stats strip & clean excerpts:** The
+  joined date uses `Penalis_Datetime::format_indonesian_month_year_gmt()`
+  (`Desember 2025`) so it stays Indonesian even when WordPress's Site Language
+  is English. The profile stats strip displays **Karya Terbit**, **Total
+  Views**, and **Total Likes** (switching to a stacked 3-column single-row grid
+  on mobile viewports `<= 640px`), while article cards use `d/m/Y` (`31/12/2026`),
+  show per-card views and likes, and use `Penalis_Article_Share::clean_excerpt()`
   so `<br>` and block breaks inside poetry render as spaces instead of gluing
   lines together.
 - **Bio limit & legacy collapsible display:** `Penalis_Policy::normalize_bio()`
@@ -1107,14 +1219,17 @@ Writers, readers, and Senators can generate ready-to-post PNG cards for
 Instagram Story (`9:16`, 1080×1920) and Feed (`1:1`, 1080×1080) entirely in the
 browser with zero server-side image processing or external services.
 - **Pure Canvas 2D engine (`src/lib/shareCard.ts`):** Renders three card types
-  (`profile`, `quote`, `article`) across three editorial themes (**Kertas**,
-  **Senja**, **Malam**) with official Penalis brand assets (`assets/images/logo.png`
-  and `assets/images/icon.png` served same-origin via `Penalis_Dashboard::brand_assets()`),
-  Canvas-drawn Verified and Senator badges, CORS-safe avatar/cover image loading
-  with monogram/typographic fallbacks, and dynamic font inheritance
-  (`resolveThemeFontFamily()` inspects the active page's computed `font-family`,
-  preloads weights via `document.fonts`, and falls back to `Plus Jakarta Sans`).
-  Inside the modal, users can share the PNG directly via Web Share API Level 2
+  (`profile` with `Karya Terbit`, `Total Views`, and `Total Likes` via
+  `buildProfileCardStats()`, `quote`, and `article` with `dd/mm/yyyy` publish
+  dates) across three editorial themes (**Kertas**, **Senja** golden-hour
+  editorial palette, **Malam**) with official Penalis brand assets
+  (`assets/images/logo.png` and `assets/images/icon.png` served same-origin via
+  `Penalis_Dashboard::brand_assets()`), Canvas-drawn Verified and Senator
+  badges, CORS-safe avatar/cover image loading with monogram/typographic
+  fallbacks, and dynamic font inheritance (`resolveThemeFontFamily()` inspects
+  the active page's computed `font-family`, preloads weights via
+  `document.fonts`, and falls back to `Plus Jakarta Sans`). Inside the modal,
+  users can share the PNG directly via Web Share API Level 2
   (`navigator.canShare({ files })`), download it (`Unduh PNG`), or copy the
   underlying link/quote (**Salin tautan profil**, **Salin kutipan**, **Salin
   tautan karya**).
@@ -1125,21 +1240,73 @@ browser with zero server-side image processing or external services.
   entry (`src/share-card/author-archive.ts`) so visitors never download React
   just to share a card; each trigger references an embedded
   `<script type="application/json">` payload printed once per article/profile.
-- **Single-post integration (`Penalis_Article_Share`):** Provides both the
-  `[penalis_share_article]` shortcode (optional `id` and `label` attributes) and
-  an automatic share callout bar on published single posts (`is_singular('post')`).
-  When the Atlas theme (`th90_opt`) is active, the auto-bar hooks
-  `th90_article_elements_below` at priority `5` so it renders below reaction
-  plugins (`posts-like-dislike`) and `.single-tags` (above the author box and
-  comments); on other themes it appends late on `the_content` (priority `999`).
-  If `[penalis_share_article]` is placed manually in a post or template, or if
-  the `penalis_auto_append_article_share` filter returns `false`, the auto-bar
-  skips automatically so it never renders twice.
+- **Single-post integration (`Penalis_Article_Share` + `Penalis_Reactions`):**
+  Provides both the `[penalis_share_article]` shortcode (optional `id` and
+  `label` attributes) and an automatic bottom action bar on published single
+  posts (`is_singular('post')`) that combines built-in **Like / Dislike**
+  controls (`Penalis_Reactions`) with the **Bagikan** trigger. When the Atlas
+  theme (`th90_opt`) is active, the auto-bar hooks `th90_article_elements_below`
+  at priority `5` (below `.single-tags`, above the author box and comments); on
+  other themes it appends late on `the_content` (priority `999`). If
+  `[penalis_share_article]` is placed manually in a post or template, or if the
+  `penalis_auto_append_article_share` filter returns `false`, the auto-bar skips
+  automatically so it never renders twice.
 - **Shared poetry-safe excerpt helper:** `Penalis_Article_Share::clean_excerpt()`
   replaces `<br>` and block-closing tags with spaces before calling
   `wp_strip_all_tags()`, preventing consecutive poetry lines from concatenating
   without spaces. It is reused across single-post payloads,
   `templates/author-archive.php`, and `Penalis_Rest_Api::prepare_article_summary()`.
+
+### 7.21 Built-in Post Reactions (`Penalis_Reactions`)
+Replaces the external *Posts Like Dislike* (PLD) plugin natively inside Penalis
+Platform:
+- **Cookie-based toggle & direct switching:** Visitors can click **Like** or
+  **Dislike** on published posts (`POST /penalis/v1/posts/{id}/reaction`),
+  supporting undo (clicking the active button again) and direct switching
+  (`like` ↔ `dislike`) inside a per-post MySQL advisory lock
+  (`Penalis_Account_Status::with_advisory_lock()`). Existing PLD voter cookies
+  (`pld_{post_id}`) are respected seamlessly.
+- **Non-destructive PLD fallback:** Counts are written to `_penalis_like_count`
+  and `_penalis_dislike_count` and fall back read-only to `pld_like_count` /
+  `pld_dislike_count` when unset, so deactivating or deleting PLD preserves all
+  historical counts without a separate migration job.
+- **Surfaced everywhere:** Per-post and author-total likes appear in
+  `/dashboard/` (**Ringkasan**, **Daftar Karya**, published **Editor** header),
+  `/author/<username>/` (**Total Likes** header stat and per-card `{n} likes`),
+  and **Profile Share Cards**.
+- **Administrator overrides:** Administrators (`manage_options`) can override
+  Like/Dislike counts in the Block Editor (`assets/js/admin-reactions-editor.js`),
+  Classic Editor meta box, or `/wp-admin/edit.php` Quick Edit + `Likes` column
+  (`assets/js/admin-reactions-quick-edit.js`).
+
+### 7.22 Built-in Table of Contents (`Penalis_Toc`)
+Replaces the unmaintained *LuckyWP Table of Contents* plugin natively inside
+Penalis Platform:
+- **Targeted regex heading parser:** `Penalis_Toc::process_content()` parses
+  configured heading tags (`H2`–`H4`, default `H2` & `H3`) without running
+  `DOMDocument` over the whole document (preventing HTML5/Gutenberg/Elementor
+  markup corruption), injects unique lowercase hyphenated anchors
+  (`#judul-bagian`, preserving existing `id` attributes and adding
+  `penalis-toc-heading` for sticky-header `scroll-margin-top`), and computes
+  hierarchical decimal numbering (`1.`, `1.1.`, `2.`).
+- **Configurable defaults & coexistence:** Defaults to title `Table of Contents`,
+  minimum `4` headings, `top` insertion, collapsed state (`Tampilkan` /
+  `Sembunyikan`), and smooth scroll — all editable in **Penalis → Pengaturan →
+  Table of Contents**. Automatically yields while LuckyWP Table of Contents is
+  active so duplicate TOCs never render.
+- **Shortcodes, per-post override & Rank Math:** Supports `[penalis_toc]` (plus
+  `[lwptoc]` fallback when LuckyWP TOC is inactive), per-post disable toggle in
+  Block Editor (`assets/js/editor-toc.js` → `_penalis_toc_disabled`) and Classic
+  Editor with read-only fallback to legacy `_lwptoc_settings`, and registers on
+  Rank Math's `rank_math/researches/toc_plugins` filter.
+
+### 7.23 Built-in Default Featured Image (`Penalis_Default_Thumbnail`)
+Replaces the external *Default Featured Image* plugin natively for published
+`post` records: configures one site-wide fallback attachment ID
+(`penalis_default_featured_image_id`) on **Penalis → Pengaturan → Thumbnail**,
+filters `get_post_metadata` for `_thumbnail_id` on published posts without a
+featured image (never mutating post meta or affecting drafts/pages/attachments),
+and protects the chosen attachment from writer deletion in `Penalis_Media_Usage`.
 
 
 

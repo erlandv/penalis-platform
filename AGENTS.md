@@ -12,7 +12,8 @@ file are English. User-facing copy in the dashboard, admin screens, and emails
 is Indonesian, hardcoded** (except for familiar technical terms and digital
 publishing phrases that are retained in English, such as *login*, *logout*,
 *dashboard*, *password*, *link*, *featured image*, *publish*, *draft*,
-*review*, *submit*, *read-only*, *upload*, *download*, *views*, etc.). Penalis is an
+*review*, *submit*, *read-only*, *upload*, *download*, *views*, *likes*,
+*Like/Dislike*, *Table of Contents*, etc.). Penalis is an
 Indonesian community; the writers read Indonesian, the developers read English.
 The one deliberate exception is the **Simple Cloudflare Turnstile plugin status**
 card on **Penalis → Pengaturan → Keamanan** (heading, description, row labels,
@@ -90,10 +91,39 @@ register -> verify email -> active writer -> write draft in /dashboard/ -> submi
   email).
 - Visitors, writers, and Senators can generate client-side Canvas 2D
   **Shareable Social Cards** (Instagram Story `9:16` and Feed `1:1` PNGs in
-  three themes, plus in-modal link/quote copy) from a single unified **Bagikan**
-  trigger for writer profiles, active `#KalimatHariIni` quotes, and published
-  articles (via the single-post auto-bar, `[penalis_share_article]` shortcode,
-  author archive work cards, and Dashboard **Daftar Karya**).
+  three themes — **Kertas**, **Senja**, **Malam** — plus in-modal link/quote
+  copy) from a single unified **Bagikan** trigger for writer profiles (with
+  `Karya Terbit`, `Total Views`, and `Total Likes`), active `#KalimatHariIni`
+  quotes, and published articles (`dd/mm/yyyy` date format; via the single-post
+  auto-bar, `[penalis_share_article]` shortcode, author archive work cards, and
+  Dashboard **Daftar Karya**).
+- Built-in article engagement and reading utilities replace five external
+  plugins natively inside `penalis-platform`:
+  - **Post Reactions (`Penalis_Reactions`)** replaces *Posts Like Dislike* with
+    cookie-based Like/Dislike buttons integrated into the single-post bar,
+    non-destructive fallback to `pld_like_count` / `pld_dislike_count`, like
+    counts across `/dashboard/`, `/author/<username>/`, and Profile Share Cards,
+    and administrator-only manual overrides in Block Editor, Classic Editor, and
+    Quick Edit.
+  - **Post Views Counter (`Penalis_Views`)** replaces *Post Views Counter* with
+    a lightweight `{prefix}penalis_post_views` table, non-destructive `GREATEST`
+    migration from `{prefix}post_views`, cache-safe JS beacon with bot/prefetch
+    filtering, configurable cookie deduplication (`0–1440` min, default `30`),
+    optional staff exclusion, administrator overrides in Block Editor / Classic
+    Editor / Quick Edit, and an Atlas theme compatibility bridge
+    (`includes/pvc-compat.php`, `includes/pvc-compat-class.php`, and
+    `orderby=post_views` `posts_clauses`).
+  - **Table of Contents (`Penalis_Toc`)** replaces *LuckyWP Table of Contents*
+    with an auto-inserted collapsible editorial TOC on long posts (default
+    title `Table of Contents`, default collapsed, lowercase `#judul-bagian`
+    anchors, `H2`–`H4` levels, per-post editor override preserving legacy
+    `_lwptoc_settings`, `[penalis_toc]` / `[lwptoc]` shortcode support, and
+    Rank Math SEO TOC registration).
+  - **Default Featured Image (`Penalis_Default_Thumbnail`)** replaces *Default
+    Featured Image* for published `post` records, and **Legacy Avatar Backup
+    (`Penalis_Avatar`)** automatically copies `{prefix}user_avatar` and
+    `avatar_default_wp_user_avatar` into Penalis-owned storage so removing *One
+    User Avatar* never loses profile photos.
 - Staff — administrators and editors, called **Senator** in user-facing copy —
   may also open `/dashboard/` in a curation mode: the REST account guard accepts
   `edit_others_posts`, the shell renders **Dashboard Senator** with a role chip,
@@ -195,13 +225,20 @@ Invariants that must never be broken:
 ```text
 penalis-platform.php        Plugin header, constants, Penalis_ autoloader, activation hooks
 uninstall.php               Opt-in cleanup only
-includes/                   PHP classes (Penalis_ prefix, one concern per file)
+includes/                   PHP classes (Penalis_ prefix, one concern per file) + PVC compat shims (pvc-compat.php, pvc-compat-class.php)
 assets/css/admin.css          Shared wp-admin stylesheet (Ringkasan, Review Karya Tulis, Penulis Penalis, Pengaturan Email, Pengaturan)
 assets/css/author-archive.css Public author archive stylesheet (.penalis-author-archive-root)
-assets/css/article-share.css  Public single-post share bar & [penalis_share_article] stylesheet
+assets/css/article-share.css  Public single-post reactions + share bar & [penalis_share_article] stylesheet
+assets/css/toc.css            Public single-post Table of Contents stylesheet (.penalis-toc)
 assets/images/                Official brand assets (logo.png, icon.png) embedded in Canvas share cards
 assets/js/admin-review.js     Confirmation modals (createModalController) and inline validation for wp-admin actions
+assets/js/admin-reactions-*.js Administrator Block Editor & Quick Edit Like/Dislike override scripts
+assets/js/admin-views-*.js    Administrator Block Editor & Quick Edit Views override scripts
+assets/js/editor-toc.js       Block Editor sidebar per-post Table of Contents disable toggle
 assets/js/author-archive.js   Profile URL copy-to-clipboard, bio collapse toggle, and stale quote expiry guard for author archives
+assets/js/post-reactions.js   Public single-post Like/Dislike interaction controller
+assets/js/post-views.js       Cache-safe public single-post view beacon
+assets/js/toc.js              Public single-post Table of Contents collapse toggle & smooth scroll
 templates/dashboard.php       Minimal theme wrapper for [penalis_dashboard]
 templates/authors.php         Minimal theme wrapper for [penalis_authors]
 templates/daily-quotes.php    Minimal theme wrapper for [penalis_kalimat_hari_ini]
@@ -220,8 +257,13 @@ readme.txt                  WordPress plugin readme and changelog
   Terhapus** (`penalis-trashed`), **Kalimat Hari Ini** (`penalis-quotes`),
   **Penulis Penalis** (`penalis-writers`), **Log Email** (`penalis-email-log`),
   and **Pengaturan** (`penalis-settings`, administrators only). **Pengaturan** holds one tab per
-  setting group — `Keamanan` (dashboard CAPTCHA), `Foto Profil` (site-wide
-  default avatar), and `Email` (transactional templates). Every new site-wide
+  setting group — `Keamanan` (dashboard CAPTCHA), `Pendaftaran` (public
+  registration toggle), `Batas Percobaan` (rate limits & trusted proxies),
+  `Foto Profil` (site-wide default avatar & legacy One User Avatar backup),
+  `Thumbnail` (default featured image for published posts), `Views` (post views
+  counter settings & PVC migration), `Table of Contents` (auto-TOC settings &
+  LuckyWP TOC transition status), `Email` (transactional templates), and `Data`
+  (opt-in uninstall cleanup). Every new site-wide
   setting belongs there as a tab registered in `Penalis_Settings::tabs()`, never
   bolted onto a curation screen. All admin styles live in
   `assets/css/admin.css` and confirmation dialog logic in
@@ -245,7 +287,9 @@ readme.txt                  WordPress plugin readme and changelog
   single posts. `assets/css/admin.css` stays a standalone wp-admin stylesheet
   with its own shared pill/avatar primitives, `assets/css/author-archive.css` +
   `assets/js/author-archive.js` are enqueued directly by `Penalis_Author_Archive`,
-  and `assets/css/article-share.css` is enqueued directly by `Penalis_Article_Share`.
+  `assets/css/article-share.css` is enqueued directly by `Penalis_Article_Share`
+  (and `Penalis_Reactions`), and `assets/css/toc.css` + `assets/js/toc.js` are
+  enqueued by `Penalis_Toc` only on articles that render a Table of Contents.
 - **Shared PHP helpers (reuse instead of duplicating):**
   - **Vite & SPA mounting (`Penalis_Dashboard`):** `enqueue_vite_entry()`,
     `ensure_same_origin_url()`, `format_module_script_tag()`,
@@ -260,8 +304,9 @@ readme.txt                  WordPress plugin readme and changelog
   - **MySQL advisory locks (`Penalis_Account_Status`):** Use
     `Penalis_Account_Status::with_advisory_lock()` (used by `Penalis_Otp`,
     `Penalis_Username_Change`, `Penalis_Editorial_Workflow`,
-    `Penalis_Editorial_Notifications`, and `Penalis_Daily_Quotes`) so `GET_LOCK`
-    and `RELEASE_LOCK` stay paired in a `try / finally` block.
+    `Penalis_Editorial_Notifications`, `Penalis_Daily_Quotes`, and
+    `Penalis_Reactions`) so `GET_LOCK` and `RELEASE_LOCK` stay paired in a
+    `try / finally` block.
   - **Editorial queries & counts (`Penalis_Editorial_Workflow`):** Use
     `state_query_clauses()` and `count_matching_posts()` in both REST and
     `wp-admin` list/count queries.

@@ -7,8 +7,9 @@ and public contributor directory & author profile experiences for the
 [Penalis](https://penalis.com) literary community.
 
 Penalis Platform runs entirely inside WordPress using native users, roles,
-capabilities, posts, media, metadata, and the WordPress REST API — with no
-separate backend server, no custom database tables, and no parallel
+capabilities, posts, media, metadata, the WordPress REST API, and a single
+lightweight `{prefix}penalis_post_views` table for lifetime view counts and
+`Most Viewed` sorting — with no separate backend server and no parallel
 authentication store.
 
 ---
@@ -52,27 +53,52 @@ authentication store.
   dashboard-only writer notification without sending email.
 - **Public Authors Directory (`[penalis_authors]`)** — Dedicated React directory
   with live search, **Semua / Verified / Senator** filter chips, views/posts/A–Z
-  sorting (with Post Views Counter integration), an inline SVG badge legend, and
+  sorting (powered by built-in `Penalis_Views`), an inline SVG badge legend, and
   a subtle visual highlight on the signed-in author's own card.
 - **Public Author Archive (`/author/<username>/`) & Badges** — Server-rendered,
   SEO-friendly author profile template (`templates/author-archive.php`, with
   theme override and opt-out filter) featuring avatar, verified and Senator star
   badges (`[penalis_verified_badge]`, `[penalis_senator_badge]`), copyable
-  profile URL, Indonesian joined date, contribution and view totals, unified
-  **Bagikan** triggers (profile, active `#KalimatHariIni`, and each published
-  work card), owner-only quick actions (**Edit Profil**, **Tulis Karya**, and
-  **#KalimatHariIni**), an active **#KalimatHariIni** social-note card with
-  client-side expiry guard, and a paginated works grid with poetry-safe excerpts.
+  profile URL, Indonesian joined date, contribution/view/like totals (`Karya
+  Terbit`, `Total Views`, `Total Likes`, with a single-row 3-column mobile
+  layout), unified **Bagikan** triggers (profile, active `#KalimatHariIni`, and
+  each published work card), owner-only quick actions (**Edit Profil**, **Tulis
+  Karya**, and **#KalimatHariIni**), an active **#KalimatHariIni** social-note
+  card with client-side expiry guard, and a paginated works grid with
+  poetry-safe excerpts, view counts, and like counts.
 - **Shareable Social Cards (`Bagikan`, `[penalis_share_article]`)** — Pure
   client-side Canvas 2D PNG card generator for Instagram Story (`9:16`,
   1080×1920) and Feed (`1:1`, 1080×1080) in three editorial themes (**Kertas**,
   **Senja**, **Malam**) with dynamic theme font inheritance, official Penalis
   branding, Web Share API file sharing + PNG download, and a secondary copy
-  action inside the modal. Supports **Profile** cards, **#KalimatHariIni**
-  cards, and **Published Article** cards across `/dashboard/`,
-  `/kalimat-hari-ini/`, `/author/<username>/`, an auto-appended single-post
-  share bar (placed below like/dislike controls and tags), and the
-  `[penalis_share_article]` shortcode.
+  action inside the modal. Supports **Profile** cards (including `Karya Terbit`,
+  `Total Views`, and `Total Likes`), **#KalimatHariIni** cards, and **Published
+  Article** cards (`dd/mm/yyyy` publish dates) across `/dashboard/`,
+  `/kalimat-hari-ini/`, `/author/<username>/`, an integrated single-post
+  reactions + share bar, and the `[penalis_share_article]` shortcode.
+- **Built-in Article Engagement & Reading Utilities** — Replaces five external
+  WordPress plugins natively inside Penalis Platform:
+  - **Post Reactions (`Penalis_Reactions`)** — Cookie-based **Like / Dislike**
+    buttons (with undo & direct switching) integrated into the single-post bar,
+    non-destructive `pld_like_count` / `pld_dislike_count` fallback, like counts
+    in `/dashboard/` and `/author/<username>/`, and administrator overrides in
+    Block Editor, Classic Editor, and Quick Edit.
+  - **Post Views Counter (`Penalis_Views`)** — Lightweight
+    `{prefix}penalis_post_views` table with non-destructive migration from Post
+    Views Counter, cache-safe JS view beacon with bot/prefetch filtering,
+    configurable cookie deduplication & staff exclusion, administrator overrides
+    in Block Editor / Classic Editor / Quick Edit, and full Atlas theme
+    compatibility (`pvc_get_post_views()`, `Post_Views_Counter`, and
+    `orderby=post_views`).
+  - **Table of Contents (`Penalis_Toc`)** — Auto-inserted collapsible editorial
+    Table of Contents for long posts with lowercase `#judul-bagian` anchors,
+    customizable title/min headings/levels/position/default state, per-post
+    editor disable toggle (preserving legacy `_lwptoc_settings`), `[penalis_toc]`
+    shortcode support, and Rank Math SEO TOC registration.
+  - **Default Featured Image & Legacy Avatar Protection** — Site-wide fallback
+    featured image for published posts (`Penalis_Default_Thumbnail`) plus
+    automatic non-destructive backup of One User Avatar metadata
+    (`Penalis_Avatar`).
 - **Unified WordPress Admin Console (`Penalis`)** — Centralized `wp-admin` menu
   with **Ringkasan** (overview counters and 8-week editorial analytics),
   **Review Karya Tulis** & **Karya Terhapus**, **Kalimat Hari Ini** (active
@@ -80,7 +106,8 @@ authentication store.
   **Senator Penalis** marking for active writers and legacy contributors), **Log
   Email** (transactional delivery log, preview, and resend), and tabbed
   **Pengaturan** (**Keamanan**, **Pendaftaran**, **Batas Percobaan**, **Foto
-  Profil**, **Email**, and **Data**).
+  Profil**, **Thumbnail**, **Views**, **Table of Contents**, **Email**, and
+  **Data**).
 
 ---
 
