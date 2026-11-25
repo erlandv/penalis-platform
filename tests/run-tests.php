@@ -6687,6 +6687,39 @@ $GLOBALS['penalis_test_posts'][993] = $penalis_zero_post;
 $penalis_zero_res                   = Penalis_Reactions::apply_reaction( 993, 'like', 'like' );
 penalis_same( 0, $penalis_zero_res['like'], 'Undoing the last legacy like brings count to 0.' );
 penalis_same( 0, Penalis_Reactions::get_counts( 993 )['like'], 'Stored 0 in _penalis_like_count does not fall back to legacy pld_like_count.' );
+penalis_same( 14, Penalis_Author_Archive::get_post_likes( 990 ), 'Penalis_Author_Archive::get_post_likes() returns published post like count.' );
+
+// Author total likes sums published posts across Penalis-native and legacy PLD meta, ignoring drafts.
+$penalis_author_like_draft              = new WP_Post();
+$penalis_author_like_draft->ID          = 994;
+$penalis_author_like_draft->post_author = 888;
+$penalis_author_like_draft->post_type   = 'post';
+$penalis_author_like_draft->post_status = 'draft';
+$penalis_author_like_draft->meta        = array( Penalis_Reactions::LEGACY_META_LIKE => array( '99' ) );
+$GLOBALS['penalis_test_posts'][994]     = $penalis_author_like_draft;
+
+$penalis_author_like_pub_a              = new WP_Post();
+$penalis_author_like_pub_a->ID          = 998;
+$penalis_author_like_pub_a->post_author = 888;
+$penalis_author_like_pub_a->post_type   = 'post';
+$penalis_author_like_pub_a->post_status = 'publish';
+$penalis_author_like_pub_a->meta        = array( Penalis_Reactions::LEGACY_META_LIKE => array( '7' ) );
+$GLOBALS['penalis_test_posts'][998]     = $penalis_author_like_pub_a;
+
+$penalis_author_like_pub_b              = new WP_Post();
+$penalis_author_like_pub_b->ID          = 999;
+$penalis_author_like_pub_b->post_author = 888;
+$penalis_author_like_pub_b->post_type   = 'post';
+$penalis_author_like_pub_b->post_status = 'publish';
+$penalis_author_like_pub_b->meta        = array(
+	Penalis_Reactions::META_LIKE        => array( '5' ),
+	Penalis_Reactions::LEGACY_META_LIKE => array( '99' ),
+);
+$GLOBALS['penalis_test_posts'][999]     = $penalis_author_like_pub_b;
+
+penalis_same( 12, Penalis_Reactions::get_author_total_likes( 888 ), 'get_author_total_likes() sums published likes (7 legacy + 5 native) and ignores drafts and superseded legacy meta.' );
+penalis_same( 12, Penalis_Author_Archive::get_author_total_likes( 888 ), 'Penalis_Author_Archive::get_author_total_likes() delegates cleanly to Penalis_Reactions.' );
+unset( $GLOBALS['penalis_test_posts'][994], $GLOBALS['penalis_test_posts'][998], $GLOBALS['penalis_test_posts'][999] );
 
 // Unpublished posts, pages, and invalid reaction types are refused.
 $penalis_err_draft = Penalis_Reactions::apply_reaction( 991, 'like', '' );

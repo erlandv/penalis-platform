@@ -101,6 +101,7 @@ export interface AccountCounts {
   changes_requested?: number;
   rejected?: number;
   views?: number;
+  likes?: number;
 }
 
 export type EditorialState =
@@ -243,6 +244,7 @@ export interface ArticleSummary {
   category?: string;
   link: string;
   views: number;
+  likes?: number;
   editUrl: string;
   thumbnail: string;
   coverUrl?: string;
@@ -315,6 +317,7 @@ export interface Article {
   modified: string;
   link: string;
   views: number;
+  likes?: number;
   featuredMedia: number;
   thumbnail?: string;
   categories: ArticleTerm[];

@@ -392,9 +392,18 @@ export function Overview({
                       label={article.editorialStateLabel || editorialStateLabel(article.editorialState)}
                     />
                     {article.editorialState === 'published' ? (
-                      <span className="penalis-article-views" aria-label={`${formatNumber(article.views)} views`}>
-                        <Icon name="eye" />
-                        <span>{formatNumber(article.views)} views</span>
+                      <span className="penalis-article-row__stats">
+                        <span className="penalis-article-views" aria-label={`${formatNumber(article.views)} views`}>
+                          <Icon name="eye" />
+                          <span>{formatNumber(article.views)} views</span>
+                        </span>
+                        <span
+                          className="penalis-article-views"
+                          aria-label={`${formatNumber(article.likes ?? 0)} likes`}
+                        >
+                          <Icon name="thumbsUp" />
+                          <span>{formatNumber(article.likes ?? 0)} likes</span>
+                        </span>
                       </span>
                     ) : null}
                     <span>{formatDate(article.modified)}</span>

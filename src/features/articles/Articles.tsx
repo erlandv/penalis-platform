@@ -298,13 +298,22 @@ export function Articles({
                 <div className="penalis-manuscript-card__footer">
                   <div className="penalis-manuscript-card__metrics">
                     {showViews ? (
-                      <span
-                        className="penalis-article-views"
-                        aria-label={`${formatNumber(article.views)} views`}
-                      >
-                        <Icon name="eye" />
-                        <span>{formatNumber(article.views)} views</span>
-                      </span>
+                      <>
+                        <span
+                          className="penalis-article-views"
+                          aria-label={`${formatNumber(article.views)} views`}
+                        >
+                          <Icon name="eye" />
+                          <span>{formatNumber(article.views)} views</span>
+                        </span>
+                        <span
+                          className="penalis-article-views"
+                          aria-label={`${formatNumber(article.likes ?? 0)} likes`}
+                        >
+                          <Icon name="thumbsUp" />
+                          <span>{formatNumber(article.likes ?? 0)} likes</span>
+                        </span>
+                      </>
                     ) : (
                       <span className="penalis-manuscript-card__hint">
                         {editorialFooterHint(article.editorialState)}

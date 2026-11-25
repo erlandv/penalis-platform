@@ -137,6 +137,7 @@ export function Editor({
   const [reviewHistory, setReviewHistory] = useState<ReviewHistoryEntry[]>([]);
   const [link, setLink] = useState('');
   const [views, setViews] = useState(0);
+  const [likes, setLikes] = useState(0);
   const [staleReview, setStaleReview] = useState(false);
 
   const [categories, setCategories] = useState<Term[]>([]);
@@ -285,6 +286,7 @@ export function Editor({
       setReviewHistory(article.reviewHistory ?? []);
       setLink(article.link ?? '');
       setViews(article.views ?? 0);
+      setLikes(article.likes ?? 0);
       const initialCategoryIds = article.categories
         .filter((term) => !isUncategorizedTerm(term))
         .map((term) => term.id);
@@ -1327,10 +1329,16 @@ export function Editor({
                 <dd>{reviewCycle > 0 ? `Cycle ${reviewCycle}` : 'Belum submit'}</dd>
               </div>
               {editorialState === 'published' ? (
-                <div>
-                  <dt>Views</dt>
-                  <dd>{formatNumber(views)}</dd>
-                </div>
+                <>
+                  <div>
+                    <dt>Views</dt>
+                    <dd>{formatNumber(views)}</dd>
+                  </div>
+                  <div>
+                    <dt>Likes</dt>
+                    <dd>{formatNumber(likes)}</dd>
+                  </div>
+                </>
               ) : null}
               {submittedAt ? (
                 <div>

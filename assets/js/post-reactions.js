@@ -168,9 +168,9 @@
 				} );
 
 				if ( nextReaction === 'like' ) {
-					announce( postId, 'Terima kasih telah menyukai karya ini.' );
+					announce( postId, 'Terima kasih telah memberikan like untuk karya ini.' );
 				} else if ( nextReaction === 'dislike' ) {
-					announce( postId, 'Reaksi tidak suka tersimpan.' );
+					announce( postId, 'Dislike tersimpan.' );
 				} else {
 					announce( postId, 'Reaksi dibatalkan.' );
 				}

@@ -298,6 +298,34 @@ final class Penalis_Author_Archive {
 	}
 
 	/**
+	 * Return lifetime likes for a single published post.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return int
+	 */
+	public static function get_post_likes( $post_id ) {
+		if ( ! class_exists( 'Penalis_Reactions' ) ) {
+			return 0;
+		}
+
+		return Penalis_Reactions::get_like_count( (int) $post_id );
+	}
+
+	/**
+	 * Return total lifetime likes across all published posts owned by an author.
+	 *
+	 * @param int $user_id User ID.
+	 * @return int
+	 */
+	public static function get_author_total_likes( $user_id ) {
+		if ( ! class_exists( 'Penalis_Reactions' ) ) {
+			return 0;
+		}
+
+		return Penalis_Reactions::get_author_total_likes( (int) $user_id );
+	}
+
+	/**
 	 * Resolve the primary display category for a post card.
 	 *
 	 * Prefers a non-Uncategorized category when multiple categories are assigned.
@@ -350,6 +378,7 @@ final class Penalis_Author_Archive {
 			'is_senator'           => Penalis_Authors::is_user_senator( $user_id ),
 			'post_count'           => max( 0, $post_count ),
 			'total_views'          => self::get_author_total_views( $user_id ),
+			'total_likes'          => self::get_author_total_likes( $user_id ),
 			'joined_label'         => $joined,
 			'is_owner'             => $is_owner,
 			'can_write'            => $can_write,

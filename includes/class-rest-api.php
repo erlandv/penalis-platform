@@ -1395,6 +1395,7 @@ final class Penalis_Rest_Api {
 					'modified'      => $post->post_modified_gmt,
 					'link'          => 'publish' === $post->post_status ? get_permalink( $post ) : '',
 					'views'         => self::get_post_views( $post ),
+					'likes'         => self::get_post_likes( $post ),
 					'featuredMedia' => (int) get_post_thumbnail_id( $post ),
 					'thumbnail'     => $thumbnail ? (string) $thumbnail : '',
 					'categories'    => $categories,
@@ -2079,6 +2080,7 @@ final class Penalis_Rest_Api {
 					: '',
 				'link'           => 'publish' === $post->post_status ? get_permalink( $post ) : '',
 				'views'          => self::get_post_views( $post ),
+				'likes'          => self::get_post_likes( $post ),
 				'editUrl'        => Penalis_Dashboard::dashboard_url(
 					array(
 						'view' => 'editor',
@@ -2188,6 +2190,7 @@ final class Penalis_Rest_Api {
 			'changes_requested' => 0,
 			'rejected'          => 0,
 			'views'             => 0,
+			'likes'             => 0,
 		);
 
 		$raw_drafts = 0;
@@ -2227,8 +2230,28 @@ final class Penalis_Rest_Api {
 		);
 
 		$counts['views'] = self::author_total_views( (int) $user_id );
+		$counts['likes'] = class_exists( 'Penalis_Reactions' )
+			? Penalis_Reactions::get_author_total_likes( (int) $user_id )
+			: 0;
 
 		return $counts;
+	}
+
+	/**
+	 * Return the like count for a single published post.
+	 *
+	 * Unpublished articles always report 0 likes.
+	 *
+	 * @param WP_Post|int $post Post object or ID.
+	 * @return int
+	 */
+	private static function get_post_likes( $post ) {
+		$post_obj = $post instanceof WP_Post ? $post : get_post( (int) $post );
+		if ( ! $post_obj || 'publish' !== $post_obj->post_status || ! class_exists( 'Penalis_Reactions' ) ) {
+			return 0;
+		}
+
+		return Penalis_Reactions::get_like_count( (int) $post_obj->ID );
 	}
 
 	/**

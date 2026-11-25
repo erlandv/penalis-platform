@@ -175,6 +175,103 @@ final class Penalis_Reactions {
 	}
 
 	/**
+	 * Return the like count for a single post (with legacy PLD fallback).
+	 *
+	 * @param int $post_id Post ID.
+	 * @return int
+	 */
+	public static function get_like_count( $post_id ) {
+		return self::get_counts( (int) $post_id )['like'];
+	}
+
+	/**
+	 * Return the total lifetime likes across all published posts owned by an author.
+	 *
+	 * Uses one indexed postmeta join and resolves Penalis-native `_penalis_like_count`
+	 * ahead of legacy `pld_like_count` per post in PHP so duplicate legacy meta rows
+	 * can never double-count and stored `0` values override legacy counts cleanly.
+	 *
+	 * @param int $user_id Author user ID.
+	 * @return int
+	 */
+	public static function get_author_total_likes( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return 0;
+		}
+
+		global $wpdb;
+
+		if ( isset( $wpdb ) && is_object( $wpdb ) && method_exists( $wpdb, 'get_results' ) && ! empty( $wpdb->posts ) && ! empty( $wpdb->postmeta ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Single indexed aggregate query per author archive/dashboard load.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT pm.post_id, pm.meta_key, pm.meta_value
+					FROM {$wpdb->posts} p
+					INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
+					WHERE p.post_type = 'post'
+						AND p.post_status = 'publish'
+						AND p.post_author = %d
+						AND pm.meta_key IN (%s, %s)
+					ORDER BY pm.meta_id ASC",
+					$user_id,
+					self::META_LIKE,
+					self::LEGACY_META_LIKE
+				)
+			);
+
+			if ( ! is_array( $rows ) || empty( $rows ) ) {
+				return 0;
+			}
+
+			$primary = array();
+			$legacy  = array();
+
+			foreach ( $rows as $row ) {
+				$pid = isset( $row->post_id ) ? (int) $row->post_id : 0;
+				if ( $pid <= 0 ) {
+					continue;
+				}
+				$key = isset( $row->meta_key ) ? (string) $row->meta_key : '';
+				$val = isset( $row->meta_value ) ? max( 0, (int) $row->meta_value ) : 0;
+
+				if ( self::META_LIKE === $key && ! array_key_exists( $pid, $primary ) ) {
+					$primary[ $pid ] = $val;
+				} elseif ( self::LEGACY_META_LIKE === $key && ! array_key_exists( $pid, $legacy ) ) {
+					$legacy[ $pid ] = $val;
+				}
+			}
+
+			$total    = 0;
+			$post_ids = array_unique( array_merge( array_keys( $primary ), array_keys( $legacy ) ) );
+			foreach ( $post_ids as $pid ) {
+				$total += array_key_exists( $pid, $primary ) ? $primary[ $pid ] : $legacy[ $pid ];
+			}
+
+			return $total;
+		}
+
+		// Plain-PHP test stub fallback.
+		$total = 0;
+		$posts = isset( $GLOBALS['penalis_test_posts'] ) && is_array( $GLOBALS['penalis_test_posts'] )
+			? $GLOBALS['penalis_test_posts']
+			: array();
+
+		foreach ( $posts as $post ) {
+			if (
+				$post instanceof WP_Post
+				&& 'post' === $post->post_type
+				&& 'publish' === $post->post_status
+				&& (int) $post->post_author === $user_id
+			) {
+				$total += self::get_like_count( (int) $post->ID );
+			}
+		}
+
+		return $total;
+	}
+
+	/**
 	 * Read a primary reaction counter meta key, falling back to its legacy PLD
 	 * counterpart only when the primary meta key has never been recorded.
 	 *
@@ -538,8 +635,8 @@ final class Penalis_Reactions {
 
 		return sprintf(
 			'<div class="penalis-reactions penalis-reactions--%1$s" data-penalis-reactions data-post-id="%2$d" data-endpoint="%3$s" role="group" aria-label="Reaksi pembaca">'
-			. '<button type="button" class="penalis-reaction-btn penalis-reaction-btn--like" data-reaction="like" aria-pressed="false" aria-label="Suka karya tulis ini" title="Suka">%4$s<span class="penalis-reaction-btn__label">Suka</span><span class="penalis-reaction-btn__count" data-reaction-count="like">%5$s</span></button>'
-			. '<button type="button" class="penalis-reaction-btn penalis-reaction-btn--dislike" data-reaction="dislike" aria-pressed="false" aria-label="Tidak suka karya tulis ini" title="Tidak suka">%6$s<span class="penalis-reaction-btn__count" data-reaction-count="dislike">%7$s</span></button>'
+			. '<button type="button" class="penalis-reaction-btn penalis-reaction-btn--like" data-reaction="like" aria-pressed="false" aria-label="Like karya tulis ini" title="Like">%4$s<span class="penalis-reaction-btn__label">Like</span><span class="penalis-reaction-btn__count" data-reaction-count="like">%5$s</span></button>'
+			. '<button type="button" class="penalis-reaction-btn penalis-reaction-btn--dislike" data-reaction="dislike" aria-pressed="false" aria-label="Dislike karya tulis ini" title="Dislike">%6$s<span class="penalis-reaction-btn__count" data-reaction-count="dislike">%7$s</span></button>'
 			. '<span class="penalis-reactions__status" role="status" aria-live="polite" data-reaction-status></span>'
 			. '</div>',
 			esc_attr( $variant ),

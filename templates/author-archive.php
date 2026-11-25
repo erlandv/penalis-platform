@@ -186,6 +186,10 @@ get_header();
 									<span class="penalis-profile-stat-label">Total Views</span>
 								</div>
 							<?php endif; ?>
+							<div class="penalis-profile-stat">
+								<span class="penalis-profile-stat-value"><?php echo esc_html( Penalis_Author_Archive::format_number( (int) $penalis_data['total_likes'] ) ); ?></span>
+								<span class="penalis-profile-stat-label">Total Likes</span>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -300,6 +304,7 @@ get_header();
 							$penalis_post_obj  = get_post( $penalis_post_id );
 							$penalis_category  = Penalis_Author_Archive::get_primary_category( $penalis_post_id );
 							$penalis_views     = Penalis_Author_Archive::get_post_views( $penalis_post_id );
+							$penalis_likes     = Penalis_Author_Archive::get_post_likes( $penalis_post_id );
 							$penalis_date_text = $penalis_post_obj instanceof WP_Post
 								? Penalis_Datetime::format_gmt( (string) $penalis_post_obj->post_date_gmt, 'd/m/Y' )
 								: get_the_date( 'd/m/Y' );
@@ -353,6 +358,8 @@ get_header();
 												<span aria-hidden="true">·</span>
 												<span><?php echo esc_html( Penalis_Author_Archive::format_number( $penalis_views ) ); ?> views</span>
 											<?php endif; ?>
+											<span aria-hidden="true">·</span>
+											<span><?php echo esc_html( Penalis_Author_Archive::format_number( $penalis_likes ) ); ?> likes</span>
 										</div>
 										<?php if ( $penalis_post_obj instanceof WP_Post ) : ?>
 											<button
