@@ -6721,6 +6721,70 @@ penalis_same( 12, Penalis_Reactions::get_author_total_likes( 888 ), 'get_author_
 penalis_same( 12, Penalis_Author_Archive::get_author_total_likes( 888 ), 'Penalis_Author_Archive::get_author_total_likes() delegates cleanly to Penalis_Reactions.' );
 unset( $GLOBALS['penalis_test_posts'][994], $GLOBALS['penalis_test_posts'][998], $GLOBALS['penalis_test_posts'][999] );
 
+// Admin manual override via set_counts() updates atomically, supports zeroing legacy counts, and refuses non-posts.
+$penalis_override_ok = Penalis_Reactions::set_counts( 990, 225, 4 );
+penalis_same( 225, $penalis_override_ok['like'], 'set_counts() sets explicit like count.' );
+penalis_same( 4, $penalis_override_ok['dislike'], 'set_counts() sets explicit dislike count.' );
+penalis_same(
+	array(
+		'like'    => 225,
+		'dislike' => 4,
+	),
+	Penalis_Reactions::get_counts( 990 ),
+	'get_counts() reflects admin override values.'
+);
+
+$penalis_override_zero = Penalis_Reactions::set_counts( 990, 0, 0 );
+penalis_same( 0, $penalis_override_zero['like'], 'set_counts() allows resetting likes to 0.' );
+penalis_same( 0, Penalis_Reactions::get_counts( 990 )['like'], 'Resetting likes to 0 overrides legacy pld_like_count.' );
+
+$penalis_override_page = Penalis_Reactions::set_counts( 992, 10, 1 );
+penalis_assert( is_wp_error( $penalis_override_page ) && 'penalis_not_found' === $penalis_override_page->get_error_code(), 'set_counts() rejects page post type.' );
+
+// Restore 990 count for subsequent rendering assertions.
+Penalis_Reactions::set_counts( 990, 14, 2 );
+
+// Posts list column and Quick Edit markup render for administrators only.
+$penalis_prev_user                   = $GLOBALS['penalis_test_current_user'] ?? 0;
+$GLOBALS['penalis_test_users'][1]    = new WP_User( 1, array( 'administrator' ) );
+$GLOBALS['penalis_test_current_user'] = 1;
+
+$penalis_admin_cols = Penalis_Reactions::register_posts_column(
+	array(
+		'cb'    => '<input type="checkbox" />',
+		'title' => 'Title',
+		'date'  => 'Date',
+	)
+);
+penalis_assert( isset( $penalis_admin_cols[ Penalis_Reactions::ADMIN_COLUMN_KEY ] ), 'Administrators receive the Likes / Dislikes column on Posts list.' );
+
+ob_start();
+Penalis_Reactions::render_posts_column( Penalis_Reactions::ADMIN_COLUMN_KEY, 990 );
+$penalis_col_html = ob_get_clean();
+penalis_assert( false !== strpos( $penalis_col_html, 'data-penalis-like="14"' ), 'Posts column embeds current like count for Quick Edit hydration.' );
+penalis_assert( false !== strpos( $penalis_col_html, 'data-penalis-dislike="2"' ), 'Posts column embeds current dislike count for Quick Edit hydration.' );
+
+ob_start();
+Penalis_Reactions::render_quick_edit_fields( Penalis_Reactions::ADMIN_COLUMN_KEY, 'post' );
+$penalis_qe_html = ob_get_clean();
+penalis_assert( false !== strpos( $penalis_qe_html, 'name="penalis_reactions_like"' ), 'Quick Edit renders Likes input for administrators.' );
+penalis_assert( false !== strpos( $penalis_qe_html, 'name="penalis_reactions_dislike"' ), 'Quick Edit renders Dislikes input for administrators.' );
+
+ob_start();
+Penalis_Reactions::render_quick_edit_fields( Penalis_Reactions::ADMIN_COLUMN_KEY, 'page' );
+$penalis_qe_page_html = ob_get_clean();
+penalis_same( '', $penalis_qe_page_html, 'Quick Edit omits Likes/Dislikes fields on non-post screens.' );
+
+// Non-administrators do not receive Quick Edit override inputs.
+$GLOBALS['penalis_test_users'][996]  = new WP_User( 996, array( 'editor' ) );
+$GLOBALS['penalis_test_current_user'] = 996;
+ob_start();
+Penalis_Reactions::render_quick_edit_fields( Penalis_Reactions::ADMIN_COLUMN_KEY, 'post' );
+penalis_same( '', ob_get_clean(), 'Quick Edit omits Likes/Dislikes override for non-administrators.' );
+unset( $GLOBALS['penalis_test_users'][996] );
+
+$GLOBALS['penalis_test_current_user'] = $penalis_prev_user;
+
 // Unpublished posts, pages, and invalid reaction types are refused.
 $penalis_err_draft = Penalis_Reactions::apply_reaction( 991, 'like', '' );
 penalis_assert( is_wp_error( $penalis_err_draft ) && 'penalis_not_found' === $penalis_err_draft->get_error_code(), 'Draft posts cannot receive reactions.' );

@@ -32,6 +32,10 @@ final class Penalis_Reactions {
 	public const SHORTCODE            = 'penalis_reactions';
 	public const LEGACY_SHORTCODE     = 'posts_like_dislike';
 	public const SCRIPT_HANDLE        = 'penalis-post-reactions';
+	public const EDITOR_SCRIPT_HANDLE = 'penalis-admin-reactions-editor';
+	public const QUICK_EDIT_HANDLE    = 'penalis-admin-reactions-quick-edit';
+	public const ADMIN_COLUMN_KEY     = 'penalis_reactions';
+	public const META_BOX_NONCE       = 'penalis_save_reactions_meta';
 
 	/**
 	 * Whether reaction assets have been enqueued during this request.
@@ -49,6 +53,27 @@ final class Penalis_Reactions {
 		add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ) );
 		add_shortcode( self::SHORTCODE, array( __CLASS__, 'render_shortcode' ) );
 		add_action( 'init', array( __CLASS__, 'maybe_register_legacy_shortcode' ), 20 );
+
+		if ( is_admin() ) {
+			add_action( 'enqueue_block_editor_assets', array( __CLASS__, 'enqueue_editor_assets' ) );
+			add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_quick_edit_assets' ) );
+			add_action( 'add_meta_boxes_post', array( __CLASS__, 'register_classic_meta_box' ) );
+			add_action( 'save_post_post', array( __CLASS__, 'save_classic_meta_box' ), 10, 2 );
+			add_filter( 'manage_post_posts_columns', array( __CLASS__, 'register_posts_column' ) );
+			add_action( 'manage_post_posts_custom_column', array( __CLASS__, 'render_posts_column' ), 10, 2 );
+			add_action( 'quick_edit_custom_box', array( __CLASS__, 'render_quick_edit_fields' ), 10, 2 );
+		}
+	}
+
+	/**
+	 * Whether the current user may manually override post reaction counts in wp-admin.
+	 *
+	 * Restricted to administrators (`manage_options`).
+	 *
+	 * @return bool
+	 */
+	public static function can_admin_edit() {
+		return current_user_can( 'manage_options' );
 	}
 
 	/**
@@ -104,6 +129,25 @@ final class Penalis_Reactions {
 						),
 						'type' => array(
 							'type'     => 'string',
+							'required' => true,
+						),
+					),
+				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( __CLASS__, 'handle_admin_update_reaction' ),
+					'permission_callback' => array( __CLASS__, 'can_admin_edit' ),
+					'args'                => array(
+						'id'      => array(
+							'type'     => 'integer',
+							'required' => true,
+						),
+						'like'    => array(
+							'type'     => 'integer',
+							'required' => true,
+						),
+						'dislike' => array(
+							'type'     => 'integer',
 							'required' => true,
 						),
 					),
@@ -444,6 +488,345 @@ final class Penalis_Reactions {
 				'Permintaan sedang padat. Silakan coba lagi sebentar.',
 				array( 'status' => 503 )
 			),
+			true
+		);
+	}
+
+	/**
+	 * Atomically set explicit like and dislike counts on a `post` (admin override).
+	 *
+	 * Runs inside the same per-post MySQL advisory lock as public clicks so manual
+	 * corrections cannot race with live visitor reactions.
+	 *
+	 * @param int $post_id Post ID.
+	 * @param int $like    Non-negative like count.
+	 * @param int $dislike Non-negative dislike count.
+	 * @return array{postId:int,like:int,dislike:int}|WP_Error
+	 */
+	public static function set_counts( $post_id, $like, $dislike ) {
+		$post = get_post( (int) $post_id );
+		if ( ! ( $post instanceof WP_Post ) || 'post' !== $post->post_type ) {
+			return new WP_Error(
+				'penalis_not_found',
+				'Karya tulis tidak ditemukan.',
+				array( 'status' => 404 )
+			);
+		}
+
+		$target_id    = (int) $post->ID;
+		$next_like    = max( 0, (int) $like );
+		$next_dislike = max( 0, (int) $dislike );
+
+		return Penalis_Account_Status::with_advisory_lock(
+			'penalis_react_' . $target_id,
+			5,
+			static function () use ( $target_id, $next_like, $next_dislike ) {
+				update_post_meta( $target_id, self::META_LIKE, $next_like );
+				update_post_meta( $target_id, self::META_DISLIKE, $next_dislike );
+
+				return array(
+					'postId'  => $target_id,
+					'like'    => $next_like,
+					'dislike' => $next_dislike,
+				);
+			},
+			new WP_Error(
+				'penalis_busy',
+				'Permintaan sedang padat. Silakan coba lagi sebentar.',
+				array( 'status' => 503 )
+			),
+			true
+		);
+	}
+
+	/**
+	 * Handle `PUT /penalis/v1/posts/{id}/reaction` (administrator override).
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_admin_update_reaction( $request ) {
+		$post_id = (int) $request->get_param( 'id' );
+		$like    = (int) $request->get_param( 'like' );
+		$dislike = (int) $request->get_param( 'dislike' );
+
+		if ( $like < 0 || $dislike < 0 ) {
+			return new WP_Error(
+				'penalis_invalid_reaction_count',
+				'Jumlah Likes dan Dislikes harus bernilai 0 atau lebih.',
+				array( 'status' => 400 )
+			);
+		}
+
+		$outcome = self::set_counts( $post_id, $like, $dislike );
+		if ( is_wp_error( $outcome ) ) {
+			return $outcome;
+		}
+
+		return new WP_REST_Response( $outcome, 200 );
+	}
+
+	/**
+	 * Enqueue Block Editor Post sidebar controls for administrators editing a `post`.
+	 *
+	 * @return void
+	 */
+	public static function enqueue_editor_assets() {
+		if ( ! self::can_admin_edit() ) {
+			return;
+		}
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'post' !== $screen->post_type ) {
+			return;
+		}
+
+		$post_id = isset( $GLOBALS['post'] ) && $GLOBALS['post'] instanceof WP_Post ? (int) $GLOBALS['post']->ID : 0;
+		if ( $post_id <= 0 && isset( $_GET['post'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only post editor context detection.
+			$post_id = absint( wp_unslash( $_GET['post'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only post editor context detection.
+		}
+
+		if ( $post_id <= 0 ) {
+			return;
+		}
+
+		$counts = self::get_counts( $post_id );
+		$css    = Penalis_Admin::resolve_asset_meta( 'assets/css/admin.css' );
+		$js     = Penalis_Admin::resolve_asset_meta( 'assets/js/admin-reactions-editor.js' );
+
+		wp_enqueue_style( 'penalis-admin-styles', $css['url'], array(), $css['version'] );
+		wp_enqueue_script(
+			self::EDITOR_SCRIPT_HANDLE,
+			$js['url'],
+			array( 'wp-element', 'wp-plugins', 'wp-components', 'wp-api-fetch', 'wp-data', 'wp-edit-post' ),
+			$js['version'],
+			true
+		);
+
+		wp_localize_script(
+			self::EDITOR_SCRIPT_HANDLE,
+			'penalisReactionsEditor',
+			array(
+				'postId'   => $post_id,
+				'like'     => $counts['like'],
+				'dislike'  => $counts['dislike'],
+				'canEdit'  => true,
+				'restPath' => '/' . Penalis_Rest_Api::NAMESPACE_V1 . '/posts/' . $post_id . '/reaction',
+			)
+		);
+	}
+
+	/**
+	 * Register a Classic Editor fallback meta box for Likes & Dislikes.
+	 *
+	 * Marked `__back_compat_meta_box => true` so the Block Editor uses the native
+	 * Post sidebar rows (`PluginPostStatusInfo`) without duplicating inputs.
+	 *
+	 * @return void
+	 */
+	public static function register_classic_meta_box() {
+		if ( ! self::can_admin_edit() ) {
+			return;
+		}
+
+		add_meta_box(
+			'penalis-post-reactions',
+			'Likes & Dislikes',
+			array( __CLASS__, 'render_classic_meta_box' ),
+			'post',
+			'side',
+			'default',
+			array(
+				'__back_compat_meta_box' => true,
+			)
+		);
+	}
+
+	/**
+	 * Render the Classic Editor meta box for manual Likes & Dislikes editing.
+	 *
+	 * @param WP_Post $post Post object.
+	 * @return void
+	 */
+	public static function render_classic_meta_box( WP_Post $post ) {
+		$counts = self::get_counts( (int) $post->ID );
+		wp_nonce_field( self::META_BOX_NONCE, 'penalis_reactions_nonce' );
+		?>
+		<div class="penalis-classic-reactions">
+			<input type="hidden" name="penalis_reactions_orig_like" value="<?php echo esc_attr( (string) $counts['like'] ); ?>" />
+			<input type="hidden" name="penalis_reactions_orig_dislike" value="<?php echo esc_attr( (string) $counts['dislike'] ); ?>" />
+			<p class="penalis-classic-reactions__field">
+				<label for="penalis-reactions-like">Likes</label>
+				<input type="number" id="penalis-reactions-like" name="penalis_reactions_like" min="0" step="1" value="<?php echo esc_attr( (string) $counts['like'] ); ?>" class="small-text" />
+			</p>
+			<p class="penalis-classic-reactions__field">
+				<label for="penalis-reactions-dislike">Dislikes</label>
+				<input type="number" id="penalis-reactions-dislike" name="penalis_reactions_dislike" min="0" step="1" value="<?php echo esc_attr( (string) $counts['dislike'] ); ?>" class="small-text" />
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Persist Classic Editor Likes & Dislikes overrides when changed by an admin.
+	 *
+	 * @param int     $post_id Post ID.
+	 * @param WP_Post $post    Post object.
+	 * @return void
+	 */
+	public static function save_classic_meta_box( $post_id, $post ) {
+		if ( ! self::can_admin_edit() || ! ( $post instanceof WP_Post ) || 'post' !== $post->post_type ) {
+			return;
+		}
+
+		if ( ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) || wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+
+		if ( ! isset( $_POST['penalis_reactions_nonce'] ) ) {
+			return;
+		}
+
+		$nonce = sanitize_text_field( wp_unslash( $_POST['penalis_reactions_nonce'] ) );
+		if ( ! wp_verify_nonce( $nonce, self::META_BOX_NONCE ) ) {
+			return;
+		}
+
+		if ( ! isset( $_POST['penalis_reactions_like'], $_POST['penalis_reactions_dislike'] ) ) {
+			return;
+		}
+
+		$new_like     = absint( wp_unslash( $_POST['penalis_reactions_like'] ) );
+		$new_dislike  = absint( wp_unslash( $_POST['penalis_reactions_dislike'] ) );
+		$orig_like    = isset( $_POST['penalis_reactions_orig_like'] ) ? absint( wp_unslash( $_POST['penalis_reactions_orig_like'] ) ) : -1;
+		$orig_dislike = isset( $_POST['penalis_reactions_orig_dislike'] ) ? absint( wp_unslash( $_POST['penalis_reactions_orig_dislike'] ) ) : -1;
+
+		// Skip writing when the administrator left both counters untouched.
+		if ( $new_like === $orig_like && $new_dislike === $orig_dislike ) {
+			return;
+		}
+
+		self::set_counts( (int) $post_id, $new_like, $new_dislike );
+	}
+
+	/**
+	 * Add a Likes / Dislikes column to the wp-admin Posts list table.
+	 *
+	 * @param array<string,string> $columns Existing columns.
+	 * @return array<string,string>
+	 */
+	public static function register_posts_column( $columns ) {
+		if ( ! self::can_admin_edit() || ! is_array( $columns ) ) {
+			return $columns;
+		}
+
+		$updated = array();
+		foreach ( $columns as $key => $label ) {
+			$updated[ $key ] = $label;
+			if ( 'date' === $key ) {
+				$updated[ self::ADMIN_COLUMN_KEY ] = 'Likes / Dislikes';
+			}
+		}
+
+		if ( ! isset( $updated[ self::ADMIN_COLUMN_KEY ] ) ) {
+			$updated[ self::ADMIN_COLUMN_KEY ] = 'Likes / Dislikes';
+		}
+
+		return $updated;
+	}
+
+	/**
+	 * Render Likes & Dislikes counts (plus Quick Edit data attributes) in the Posts column.
+	 *
+	 * @param string $column_name Column key.
+	 * @param int    $post_id     Post ID.
+	 * @return void
+	 */
+	public static function render_posts_column( $column_name, $post_id ) {
+		if ( self::ADMIN_COLUMN_KEY !== $column_name || ! self::can_admin_edit() ) {
+			return;
+		}
+
+		$counts = self::get_counts( (int) $post_id );
+
+		printf(
+			'<span class="penalis-reactions-col" data-penalis-like="%1$d" data-penalis-dislike="%2$d" title="%3$s">'
+			. '<span class="penalis-reactions-col__item penalis-reactions-col__item--like">%4$s<span>%5$s</span></span>'
+			. '<span class="penalis-reactions-col__sep" aria-hidden="true">/</span>'
+			. '<span class="penalis-reactions-col__item penalis-reactions-col__item--dislike">%6$s<span>%7$s</span></span>'
+			. '</span>',
+			(int) $counts['like'],
+			(int) $counts['dislike'],
+			esc_attr( sprintf( '%s likes / %s dislikes', number_format_i18n( $counts['like'] ), number_format_i18n( $counts['dislike'] ) ) ),
+			self::thumb_up_svg( 13 ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static inline SVG.
+			esc_html( number_format_i18n( $counts['like'] ) ),
+			self::thumb_down_svg( 13 ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Static inline SVG.
+			esc_html( number_format_i18n( $counts['dislike'] ) )
+		);
+	}
+
+	/**
+	 * Render administrator-only Likes & Dislikes inputs inside the Posts Quick Edit form.
+	 *
+	 * Submitted through WordPress's standard `inline-save` action and persisted by
+	 * `save_classic_meta_box()` with nonce verification and change detection.
+	 *
+	 * @param string $column_name Column key.
+	 * @param string $post_type   Post type slug.
+	 * @return void
+	 */
+	public static function render_quick_edit_fields( $column_name, $post_type ) {
+		if ( self::ADMIN_COLUMN_KEY !== $column_name || 'post' !== $post_type || ! self::can_admin_edit() ) {
+			return;
+		}
+		?>
+		<fieldset class="inline-edit-col-left penalis-quick-edit-reactions">
+			<div class="inline-edit-col">
+				<?php wp_nonce_field( self::META_BOX_NONCE, 'penalis_reactions_nonce' ); ?>
+				<input type="hidden" name="penalis_reactions_orig_like" value="0" />
+				<input type="hidden" name="penalis_reactions_orig_dislike" value="0" />
+				<label class="inline-edit-group penalis-quick-edit-reactions__row">
+					<span class="title">Likes</span>
+					<span class="input-text-wrap">
+						<input type="number" name="penalis_reactions_like" min="0" step="1" value="0" class="penalis-quick-edit-reactions__input" />
+					</span>
+				</label>
+				<label class="inline-edit-group penalis-quick-edit-reactions__row">
+					<span class="title">Dislikes</span>
+					<span class="input-text-wrap">
+						<input type="number" name="penalis_reactions_dislike" min="0" step="1" value="0" class="penalis-quick-edit-reactions__input" />
+					</span>
+				</label>
+			</div>
+		</fieldset>
+		<?php
+	}
+
+	/**
+	 * Enqueue Quick Edit hydration script and styles on `/wp-admin/edit.php` for posts.
+	 *
+	 * @param string $hook Current admin page hook.
+	 * @return void
+	 */
+	public static function enqueue_quick_edit_assets( $hook ) {
+		if ( 'edit.php' !== $hook || ! self::can_admin_edit() ) {
+			return;
+		}
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'post' !== $screen->post_type ) {
+			return;
+		}
+
+		$css = Penalis_Admin::resolve_asset_meta( 'assets/css/admin.css' );
+		$js  = Penalis_Admin::resolve_asset_meta( 'assets/js/admin-reactions-quick-edit.js' );
+
+		wp_enqueue_style( 'penalis-admin-styles', $css['url'], array(), $css['version'] );
+		wp_enqueue_script(
+			self::QUICK_EDIT_HANDLE,
+			$js['url'],
+			array( 'inline-edit-post' ),
+			$js['version'],
 			true
 		);
 	}

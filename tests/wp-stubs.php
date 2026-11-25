@@ -2766,3 +2766,23 @@ if ( ! function_exists( 'shortcode_exists' ) ) {
 		return ! empty( $GLOBALS['penalis_test_shortcodes'][ (string) $tag ] );
 	}
 }
+
+if ( ! function_exists( 'wp_nonce_field' ) ) {
+	/**
+	 * Minimal nonce field stub.
+	 *
+	 * @param int|string $action  Action name.
+	 * @param string     $name    Field name.
+	 * @param bool       $referer Whether to include referer field.
+	 * @param bool       $display Whether to echo the field.
+	 * @return string
+	 */
+	function wp_nonce_field( $action = -1, $name = '_wpnonce', $referer = true, $display = true ) {
+		unset( $referer );
+		$html = '<input type="hidden" name="' . esc_attr( (string) $name ) . '" value="' . esc_attr( 'nonce_' . (string) $action ) . '" />';
+		if ( $display ) {
+			echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+		return $html;
+	}
+}

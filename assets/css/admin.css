@@ -1778,6 +1778,87 @@ body.penalis-modal-open {
 	margin: 12px 0 0;
 }
 
+/* Post Editor — Likes & Dislikes Admin Override Popover & Classic Meta Box */
+.penalis-editor-reactions-popover {
+	width: 240px;
+	padding: 4px;
+}
+
+.penalis-editor-reactions-popover__help {
+	margin: 8px 0 0;
+	color: #50575e;
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.penalis-editor-reactions-popover__error {
+	margin: 6px 0 0;
+	color: #b32d2e;
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.penalis-editor-reactions-popover__actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.penalis-classic-reactions__field {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 8px 0;
+}
+
+.penalis-classic-reactions__field label {
+	font-weight: 600;
+}
+
+.penalis-classic-reactions__field input {
+	width: 96px;
+}
+
+.column-penalis_reactions {
+	width: 118px;
+}
+
+.penalis-reactions-col {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.penalis-reactions-col__item {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	color: #1d2327;
+	font-weight: 500;
+}
+
+.penalis-reactions-col__item svg {
+	color: #646970;
+	flex: 0 0 auto;
+}
+
+.penalis-reactions-col__sep {
+	color: #a7aaad;
+}
+
+.penalis-quick-edit-reactions__row {
+	display: block;
+	margin-top: 6px;
+}
+
+.penalis-quick-edit-reactions__input {
+	max-width: 140px;
+}
+
 /* ==========================================================================
    6. Shared Table Pagination (.tablenav, .tablenav-pages)
    ========================================================================== */
