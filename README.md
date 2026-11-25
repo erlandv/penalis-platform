@@ -117,7 +117,7 @@ authentication store.
 | --- | --- | --- |
 | WordPress | 6.0+ | Requires pretty permalinks enabled |
 | PHP | 8.2+ | Production runtime |
-| Node.js & npm | Node 20+, npm 9+ | Build-time only (not needed on the WordPress server) |
+| Node.js & npm | Node 22.12+ (`.nvmrc` pins `24`), npm 10+ | Build-time only (not needed on the WordPress server) |
 | Composer | 2.x | Development tooling (PHPCS and test scripts) only |
 
 ---

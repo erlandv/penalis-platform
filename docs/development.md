@@ -11,8 +11,8 @@ building production assets, creating releases, and executing manual QA checks.
 | --- | --- | --- |
 | PHP | 8.2+ | Plugin runtime and unit test runner |
 | WordPress | 6.0+ | Target CMS runtime |
-| Node.js | 20+ (`.nvmrc` pins `20`) | Frontend build & Vitest (build-time only) |
-| npm | 9+ | Frontend package management |
+| Node.js | 22.12+ (`.nvmrc` pins `24`) | Frontend build & Vitest (build-time only) |
+| npm | 10+ | Frontend package management |
 | Composer | 2.x | PHP_CodeSniffer / WPCS (dev-time only) |
 
 Neither Node.js nor Composer is required on the production WordPress server.
