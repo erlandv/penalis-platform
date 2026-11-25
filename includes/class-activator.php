@@ -54,6 +54,7 @@ final class Penalis_Activator {
 
 		self::ensure_dashboard_page();
 		self::ensure_daily_quotes_page();
+		Penalis_Views::ensure_table();
 		flush_rewrite_rules( false );
 
 		set_transient( 'penalis_activation_notice', '1', 60 );

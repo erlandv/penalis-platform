@@ -117,9 +117,23 @@ $penalis_options = array(
 	// Penalis-owned backup of default avatar and legacy avatar migration flag.
 	'penalis_default_avatar_id',
 	'penalis_legacy_avatar_migrated',
+	// Built-in post views counter settings and migration flags.
+	'penalis_views_schema_version',
+	'penalis_views_pvc_migrated',
+	'penalis_views_dedup_minutes',
+	'penalis_views_exclude_staff',
+	'penalis_views_audit',
 );
 foreach ( $penalis_options as $penalis_option ) {
 	delete_option( $penalis_option );
+}
+
+// Drop Penalis-owned post views table when opt-in data removal is enabled.
+global $wpdb;
+if ( isset( $wpdb ) && is_object( $wpdb ) && ! empty( $wpdb->prefix ) ) {
+	$penalis_views_table = $wpdb->prefix . 'penalis_post_views';
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching,WordPress.DB.DirectDatabaseQuery.SchemaChange,WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Opt-in uninstall cleanup of plugin-owned table.
+	$wpdb->query( "DROP TABLE IF EXISTS {$penalis_views_table}" );
 }
 
 // Delete transients used for operational state.

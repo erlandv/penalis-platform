@@ -68,6 +68,7 @@ final class Penalis_Plugin {
 		Penalis_Authors::init();
 		Penalis_Daily_Quotes::init();
 		Penalis_Reactions::init();
+		Penalis_Views::init();
 		Penalis_Article_Share::init();
 		Penalis_Author_Archive::init();
 		Penalis_Author_History::init();

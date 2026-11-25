@@ -2255,10 +2255,9 @@ final class Penalis_Rest_Api {
 	}
 
 	/**
-	 * Return the lifetime view count for a single post via Post Views Counter.
+	 * Return the lifetime view count for a single published post.
 	 *
-	 * Unpublished articles always report 0 views, and the helper degrades to 0
-	 * when the Post Views Counter plugin (`pvc_get_post_views()`) is inactive.
+	 * Unpublished articles always report 0 views.
 	 *
 	 * @param WP_Post|int $post Post or post ID.
 	 * @return int
@@ -2270,20 +2269,19 @@ final class Penalis_Rest_Api {
 			return 0;
 		}
 
-		if ( ! function_exists( 'pvc_get_post_views' ) ) {
-			return 0;
+		if ( class_exists( 'Penalis_Views' ) ) {
+			return Penalis_Views::get_views( (int) $post_obj->ID );
 		}
 
-		return max( 0, (int) pvc_get_post_views( (int) $post_obj->ID ) );
+		if ( function_exists( 'pvc_get_post_views' ) ) {
+			return max( 0, (int) pvc_get_post_views( (int) $post_obj->ID ) );
+		}
+
+		return 0;
 	}
 
 	/**
 	 * Return the total lifetime views across all published posts owned by a user.
-	 *
-	 * Uses a single `pvc_get_post_views( int[] )` aggregate query over the
-	 * writer's published post IDs so the dashboard overview never issues N+1
-	 * queries. Degrades to 0 when Post Views Counter is inactive or the user
-	 * has no published articles.
 	 *
 	 * @param int $user_id User ID.
 	 * @return int
@@ -2291,40 +2289,15 @@ final class Penalis_Rest_Api {
 	private static function author_total_views( $user_id ) {
 		$user_id = (int) $user_id;
 
-		if ( $user_id <= 0 || ! function_exists( 'pvc_get_post_views' ) ) {
+		if ( $user_id <= 0 ) {
 			return 0;
 		}
 
-		$query = new WP_Query(
-			array(
-				'post_type'           => 'post',
-				'post_status'         => array( 'publish' ),
-				'author'              => $user_id,
-				'fields'              => 'ids',
-				'posts_per_page'      => -1,
-				'no_found_rows'       => true,
-				'ignore_sticky_posts' => true,
-			)
-		);
-
-		if ( empty( $query->posts ) || ! is_array( $query->posts ) ) {
-			return 0;
+		if ( class_exists( 'Penalis_Views' ) ) {
+			return Penalis_Views::get_author_total_views( $user_id );
 		}
 
-		$post_ids = array_values(
-			array_filter(
-				array_map( 'intval', $query->posts ),
-				static function ( $post_id ) {
-					return $post_id > 0;
-				}
-			)
-		);
-
-		if ( empty( $post_ids ) ) {
-			return 0;
-		}
-
-		return max( 0, (int) pvc_get_post_views( $post_ids ) );
+		return 0;
 	}
 
 	/**

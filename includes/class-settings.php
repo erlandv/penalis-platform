@@ -86,6 +86,8 @@ final class Penalis_Settings {
 		add_action( 'admin_post_penalis_reset_rate_limits', array( __CLASS__, 'handle_reset_rate_limits' ) );
 		add_action( 'admin_post_penalis_migrate_legacy_avatars', array( __CLASS__, 'handle_migrate_legacy_avatars' ) );
 		add_action( 'admin_post_penalis_save_default_thumbnail', array( __CLASS__, 'handle_save_default_thumbnail' ) );
+		add_action( 'admin_post_penalis_save_views', array( __CLASS__, 'handle_save_views' ) );
+		add_action( 'admin_post_penalis_migrate_pvc_views', array( __CLASS__, 'handle_migrate_pvc_views' ) );
 		add_action( 'admin_post_penalis_save_data', array( __CLASS__, 'handle_save_data' ) );
 	}
 
@@ -255,6 +257,11 @@ final class Penalis_Settings {
 				'label'  => 'Thumbnail',
 				'title'  => 'Thumbnail Bawaan Karya',
 				'render' => array( __CLASS__, 'render_thumbnail_tab' ),
+			),
+			'views'        => array(
+				'label'  => 'Views',
+				'title'  => 'Penghitung Views',
+				'render' => array( __CLASS__, 'render_views_tab' ),
 			),
 			'email'        => array(
 				'label'  => 'Email',
@@ -481,6 +488,8 @@ final class Penalis_Settings {
 			'legacy_avatars_migrated' => 'Foto profil lama dari One User Avatar telah diamankan ke Penalis Platform.',
 			'thumbnail_saved'         => 'Thumbnail bawaan karya tulis telah diperbarui.',
 			'thumbnail_cleared'       => 'Thumbnail bawaan karya tulis telah dihapus.',
+			'views_saved'             => 'Pengaturan penghitung views berhasil disimpan.',
+			'views_migrated'          => 'Data total views dari Post Views Counter telah disinkronkan ke Penalis Platform.',
 			'rate_limits_reset'       => 'Batas percobaan dikembalikan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.',
 		);
 
@@ -1148,6 +1157,149 @@ final class Penalis_Settings {
 	}
 
 	/**
+	 * Render the Views tab.
+	 *
+	 * @return void
+	 */
+	public static function render_views_tab() {
+		$dedup_minutes = Penalis_Views::dedup_minutes();
+		$exclude_staff = Penalis_Views::should_exclude_staff();
+		$status        = Penalis_Views::pvc_migration_status();
+		$audit         = get_option( Penalis_Views::OPTION_AUDIT, array() );
+		$audit_line    = is_array( $audit ) && isset( $audit['time'] )
+			? trim( self::audit_sentence( $audit, 'Diperbarui' ) )
+			: '';
+		?>
+		<div class="penalis-settings__panel">
+			<h2>Penghitung views karya tulis</h2>
+			<p class="description">
+				Menghitung total views setiap karya tulis (<code>post</code>) yang sudah terbit melalui
+				beacon JavaScript ringan agar tetap akurat di balik page cache, menyaring bot/crawler,
+				dan kompatibel dengan tampilan serta urutan <strong>Most Viewed</strong> tema Atlas.
+			</p>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="penalis_save_views" />
+				<?php wp_nonce_field( 'penalis_save_views' ); ?>
+
+				<table class="form-table" role="presentation">
+					<tbody>
+						<tr>
+							<th scope="row">
+								<label for="penalis-views-dedup-minutes">Jeda deduplikasi per pengunjung</label>
+							</th>
+							<td>
+								<input
+									type="number"
+									id="penalis-views-dedup-minutes"
+									name="penalis_views_dedup_minutes"
+									value="<?php echo esc_attr( (string) $dedup_minutes ); ?>"
+									min="0"
+									max="<?php echo esc_attr( (string) Penalis_Views::MAX_DEDUP_MINUTES ); ?>"
+									step="1"
+									class="small-text"
+								/>
+								<span>menit</span>
+								<p class="description">
+									Dalam rentang waktu ini, refresh halaman dari browser yang sama tidak dihitung
+									ulang (berbasis cookie). Isi <code>0</code> untuk menghitung setiap kunjungan
+									non-bot tanpa jeda cookie (maksimal <?php echo esc_html( (string) Penalis_Views::MAX_DEDUP_MINUTES ); ?> menit / 24 jam).
+								</p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row">Kunjungan Senator (Admin &amp; Editor)</th>
+							<td>
+								<label for="penalis-views-exclude-staff">
+									<input
+										type="checkbox"
+										id="penalis-views-exclude-staff"
+										name="penalis_views_exclude_staff"
+										value="1"
+										<?php checked( $exclude_staff ); ?>
+									/>
+									Kecualikan kunjungan Administrator dan Editor yang sedang login
+								</label>
+								<p class="description">
+									Disarankan aktif agar pengecekan artikel oleh pengelola situs tidak menambah
+									angka views.
+								</p>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<p class="submit">
+					<button type="submit" class="button button-primary">Simpan pengaturan</button>
+				</p>
+			</form>
+
+			<?php if ( '' !== $audit_line ) : ?>
+				<p class="penalis-settings__note"><?php echo esc_html( $audit_line ); ?></p>
+			<?php endif; ?>
+		</div>
+
+		<div class="penalis-settings__panel">
+			<h2>Migrasi dari Post Views Counter</h2>
+			<p class="description">
+				Menyalin total views (<code>type = 4, period = 'total'</code>) dari tabel
+				<code><?php echo esc_html( Penalis_Views::pvc_table_name() ); ?></code> ke tabel internal
+				<code><?php echo esc_html( Penalis_Views::table_name() ); ?></code> secara non-destruktif
+				(tidak menghapus tabel PVC dan tidak pernah menurunkan angka yang sudah lebih tinggi).
+			</p>
+
+			<?php if ( $status['pvcPluginActive'] ) : ?>
+				<div class="notice notice-info inline">
+					<p>
+						<strong>Plugin Post Views Counter masih aktif.</strong> Selama masih aktif,
+						penghitungan views tetap ditangani oleh Post Views Counter agar tidak terjadi
+						penghitungan ganda. Klik tombol sinkronkan di bawah tepat sebelum menonaktifkan
+						Post Views Counter agar data terbaru ikut terbawa.
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( $status['pvcTableExists'] && $status['pendingUpdates'] > 0 ) : ?>
+				<div class="notice notice-warning inline">
+					<p>
+						Ada <strong><?php echo esc_html( number_format_i18n( $status['pendingUpdates'] ) ); ?></strong>
+						post dengan angka views lebih tinggi di tabel Post Views Counter yang belum
+						disinkronkan (total <?php echo esc_html( number_format_i18n( $status['pvcTotalPosts'] ) ); ?> post di PVC,
+						<?php echo esc_html( number_format_i18n( $status['penalisTotalPosts'] ) ); ?> post di Penalis).
+					</p>
+				</div>
+			<?php else : ?>
+				<div class="notice notice-success inline">
+					<p>
+						<strong>Data views sudah tersinkron.</strong>
+						Tercatat <?php echo esc_html( number_format_i18n( $status['penalisTotalPosts'] ) ); ?> post
+						di tabel <code><?php echo esc_html( Penalis_Views::table_name() ); ?></code>.
+						<?php if ( $status['pvcPluginActive'] ) : ?>
+							Kamu dapat menonaktifkan plugin Post Views Counter kapan saja.
+						<?php else : ?>
+							Penalis Platform sedang aktif menangani seluruh penghitungan views dan
+							kompatibilitas tema Atlas.
+						<?php endif; ?>
+					</p>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( $status['pvcTableExists'] ) : ?>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<input type="hidden" name="action" value="penalis_migrate_pvc_views" />
+					<?php wp_nonce_field( 'penalis_migrate_pvc_views' ); ?>
+					<p class="submit">
+						<button type="submit" class="button <?php echo $status['pendingUpdates'] > 0 ? 'button-primary' : ''; ?>">
+							Sinkronkan dari Post Views Counter
+						</button>
+					</p>
+				</form>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Render the Data tab.
 	 *
 	 * @return void
@@ -1593,6 +1745,50 @@ final class Penalis_Settings {
 		update_option( Penalis_Default_Thumbnail::OPTION_ID, $attachment_id, false );
 		self::record_audit( Penalis_Default_Thumbnail::OPTION_AUDIT, (string) $attachment_id );
 		self::redirect_to_tab( 'thumbnail', 'thumbnail_saved' );
+	}
+
+	/**
+	 * Handle the Views settings submission.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_views() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_save_views' );
+
+		$raw_minutes = isset( $_POST['penalis_views_dedup_minutes'] ) ? wp_unslash( $_POST['penalis_views_dedup_minutes'] ) : Penalis_Views::DEFAULT_DEDUP_MINUTES; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Normalized by sanitize_dedup_minutes().
+		$minutes     = Penalis_Views::sanitize_dedup_minutes( $raw_minutes );
+		$exclude     = isset( $_POST['penalis_views_exclude_staff'] ) ? '1' : '0';
+
+		update_option( Penalis_Views::OPTION_DEDUP_MINUTES, $minutes, false );
+		update_option( Penalis_Views::OPTION_EXCLUDE_STAFF, $exclude, false );
+		self::record_audit( Penalis_Views::OPTION_AUDIT, $minutes . ':' . $exclude );
+
+		self::redirect_to_tab( 'views', 'views_saved' );
+	}
+
+	/**
+	 * Handle manual sync of lifetime views from Post Views Counter.
+	 *
+	 * @return void
+	 */
+	public static function handle_migrate_pvc_views() {
+		if ( ! self::can_manage() ) {
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan ini.', '', array( 'response' => 403 ) );
+		}
+
+		check_admin_referer( 'penalis_migrate_pvc_views' );
+
+		Penalis_Views::migrate_from_pvc();
+
+		if ( class_exists( 'Penalis_Authors' ) ) {
+			Penalis_Authors::invalidate_cache();
+		}
+
+		self::redirect_to_tab( 'views', 'views_migrated' );
 	}
 
 	/**

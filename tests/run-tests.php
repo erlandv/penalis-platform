@@ -62,6 +62,7 @@ require_once __DIR__ . '/../includes/class-authors.php';
 require_once __DIR__ . '/../includes/class-daily-quotes.php';
 require_once __DIR__ . '/../includes/class-daily-quotes-admin.php';
 require_once __DIR__ . '/../includes/class-reactions.php';
+require_once __DIR__ . '/../includes/class-views.php';
 require_once __DIR__ . '/../includes/class-article-share.php';
 require_once __DIR__ . '/../includes/class-author-archive.php';
 
@@ -5108,9 +5109,9 @@ penalis_same( array(), Penalis_Settings::audit(), 'The audit trail is empty unti
 $penalis_settings_tabs = Penalis_Settings::tabs();
 
 penalis_same(
-	array( 'captcha', 'registration', 'rate-limit', 'avatar', 'thumbnail', 'email', 'data' ),
+	array( 'captcha', 'registration', 'rate-limit', 'avatar', 'thumbnail', 'views', 'email', 'data' ),
 	array_keys( $penalis_settings_tabs ),
-	'The settings screen exposes Keamanan, Pendaftaran, Batas Percobaan, Foto Profil, Thumbnail, Email, and Data tabs in that order.'
+	'The settings screen exposes Keamanan, Pendaftaran, Batas Percobaan, Foto Profil, Thumbnail, Views, Email, and Data tabs in that order.'
 );
 
 foreach ( $penalis_settings_tabs as $penalis_tab_slug => $penalis_tab_meta ) {
@@ -5138,6 +5139,8 @@ penalis_same( 'Semua template email telah dikembalikan ke teks bawaan.', Penalis
 penalis_same( 'Foto profil bawaan telah diperbarui.', Penalis_Settings::message_for( 'avatar_saved' ), 'The shell reports a saved default avatar.' );
 penalis_same( 'Thumbnail bawaan karya tulis telah diperbarui.', Penalis_Settings::message_for( 'thumbnail_saved' ), 'The shell reports a saved default featured image.' );
 penalis_same( 'Thumbnail bawaan karya tulis telah dihapus.', Penalis_Settings::message_for( 'thumbnail_cleared' ), 'The shell reports a cleared default featured image.' );
+penalis_same( 'Pengaturan penghitung views berhasil disimpan.', Penalis_Settings::message_for( 'views_saved' ), 'The shell reports saved views settings.' );
+penalis_same( 'Data total views dari Post Views Counter telah disinkronkan ke Penalis Platform.', Penalis_Settings::message_for( 'views_migrated' ), 'The shell reports synced PVC views.' );
 penalis_same( 'Permintaan telah diselesaikan.', Penalis_Settings::message_for( 'unknown_key' ), 'An unknown message key falls back to a neutral notice.' );
 penalis_same( 'Pilih gambar yang valid untuk foto profil bawaan.', Penalis_Settings::error_for( 'avatar_invalid' ), 'The shell explains an invalid avatar selection.' );
 penalis_same( 'Pilih gambar yang valid untuk thumbnail bawaan karya tulis.', Penalis_Settings::error_for( 'thumbnail_invalid' ), 'The shell explains an invalid default featured image selection.' );
@@ -5800,7 +5803,7 @@ $_SERVER = $penalis_original_server;
 $penalis_defaults = Penalis_Rate_Limiter::defaults();
 penalis_same( 5, $penalis_defaults['registration_ip']['limit'], 'Registration allows five attempts by default.' );
 penalis_same( HOUR_IN_SECONDS, $penalis_defaults['registration_ip']['window'], 'Default windows are one hour.' );
-penalis_same( 15, count( $penalis_defaults ), 'Every throttled action has a rule.' );
+penalis_same( 16, count( $penalis_defaults ), 'Every throttled action has a rule.' );
 
 $GLOBALS['penalis_test_options']['penalis_rate_limits'] = array(
 	'registration_ip' => array(
@@ -6900,6 +6903,181 @@ delete_option( Penalis_Avatar::OPTION_DEFAULT_AVATAR_ID );
 delete_option( Penalis_Avatar::OPTION_LEGACY_MIGRATED );
 delete_option( 'avatar_default_wp_user_avatar' );
 unset( $GLOBALS['penalis_test_users'][997], $GLOBALS['penalis_test_posts'][995], $GLOBALS['penalis_test_posts'][996] );
+
+/* -------------------------------------------------------------------------
+ * Built-in post views counter (Penalis_Views) & Atlas compatibility bridge
+ * ---------------------------------------------------------------------- */
+
+$GLOBALS['penalis_test_post_views'] = array();
+$GLOBALS['penalis_test_pvc_views']  = array(
+	970 => 1065,
+	971 => 420,
+);
+delete_option( Penalis_Views::OPTION_DEDUP_MINUTES );
+delete_option( Penalis_Views::OPTION_EXCLUDE_STAFF );
+delete_option( Penalis_Views::OPTION_MIGRATED );
+
+$penalis_v_pub_a              = new WP_Post();
+$penalis_v_pub_a->ID          = 970;
+$penalis_v_pub_a->post_author = 870;
+$penalis_v_pub_a->post_type   = 'post';
+$penalis_v_pub_a->post_status = 'publish';
+$GLOBALS['penalis_test_posts'][970] = $penalis_v_pub_a;
+
+$penalis_v_pub_b              = new WP_Post();
+$penalis_v_pub_b->ID          = 971;
+$penalis_v_pub_b->post_author = 870;
+$penalis_v_pub_b->post_type   = 'post';
+$penalis_v_pub_b->post_status = 'publish';
+$GLOBALS['penalis_test_posts'][971] = $penalis_v_pub_b;
+
+$penalis_v_draft              = new WP_Post();
+$penalis_v_draft->ID          = 972;
+$penalis_v_draft->post_author = 870;
+$penalis_v_draft->post_type   = 'post';
+$penalis_v_draft->post_status = 'draft';
+$GLOBALS['penalis_test_posts'][972] = $penalis_v_draft;
+
+$penalis_v_page              = new WP_Post();
+$penalis_v_page->ID          = 973;
+$penalis_v_page->post_author = 1;
+$penalis_v_page->post_type   = 'page';
+$penalis_v_page->post_status = 'publish';
+$GLOBALS['penalis_test_posts'][973] = $penalis_v_page;
+
+// Settings defaults and sanitization.
+penalis_same( 30, Penalis_Views::dedup_minutes(), 'Default view dedup window is 30 minutes.' );
+penalis_same( 0, Penalis_Views::sanitize_dedup_minutes( '0' ), '0 minutes is accepted to disable cookie dedup.' );
+penalis_same( 0, Penalis_Views::sanitize_dedup_minutes( -5 ), 'Negative dedup minutes clamp to 0.' );
+penalis_same( 1440, Penalis_Views::sanitize_dedup_minutes( 9999 ), 'Dedup minutes cap at 1440 (24 hours).' );
+penalis_same( 30, Penalis_Views::sanitize_dedup_minutes( 'abc' ), 'Non-numeric dedup input falls back to default 30.' );
+penalis_same( true, Penalis_Views::should_exclude_staff(), 'Logged-in staff exclusion is enabled by default.' );
+
+// Staff exclusion excludes administrators & editors, while counting writers & anonymous visitors.
+$penalis_v_prev_user                 = $GLOBALS['penalis_test_current_user'] ?? 0;
+$GLOBALS['penalis_test_users'][1]    = new WP_User( 1, array( 'administrator' ) );
+$GLOBALS['penalis_test_users'][871]  = new WP_User( 871, array( 'editor' ) );
+$GLOBALS['penalis_test_users'][872]  = new WP_User( 872, array( 'penalis_writer' ) );
+$GLOBALS['penalis_test_current_user'] = 1;
+penalis_same( true, Penalis_Views::is_current_visitor_excluded(), 'Administrator visits are excluded by default.' );
+$GLOBALS['penalis_test_current_user'] = 871;
+penalis_same( true, Penalis_Views::is_current_visitor_excluded(), 'Editor visits are excluded by default.' );
+$GLOBALS['penalis_test_current_user'] = 872;
+penalis_same( false, Penalis_Views::is_current_visitor_excluded(), 'Active writer visits are counted.' );
+$GLOBALS['penalis_test_current_user'] = 0;
+penalis_same( false, Penalis_Views::is_current_visitor_excluded(), 'Anonymous visitor visits are counted.' );
+
+// Bot and prefetch filtering.
+penalis_same( true, Penalis_Views::is_bot_request( '', array() ), 'Empty User-Agent is treated as a bot.' );
+penalis_same( true, Penalis_Views::is_bot_request( 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', array() ), 'Googlebot is filtered out.' );
+penalis_same( true, Penalis_Views::is_bot_request( 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.0)', array() ), 'GPTBot is filtered out.' );
+penalis_same( true, Penalis_Views::is_bot_request( 'curl/8.5.0', array() ), 'curl client is filtered out.' );
+penalis_same( true, Penalis_Views::is_bot_request( 'Mozilla/5.0 (Linux; Android 14)', array( 'HTTP_SEC_PURPOSE' => 'prefetch;prerender' ) ), 'Browser prefetch/prerender probes are filtered out.' );
+penalis_same( false, Penalis_Views::is_bot_request( 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1', array() ), 'Real mobile browser User-Agent is accepted.' );
+
+// Migration from Post Views Counter is non-destructive and never lowers higher Penalis counts.
+$penalis_v_before = Penalis_Views::pvc_migration_status();
+penalis_same( 2, $penalis_v_before['pendingUpdates'], 'pvc_migration_status() reports pending PVC rows.' );
+
+$penalis_v_mig = Penalis_Views::migrate_from_pvc();
+penalis_same( true, $penalis_v_mig['tableFound'], 'migrate_from_pvc() detects PVC table.' );
+penalis_same( 2, $penalis_v_mig['importedRows'], 'migrate_from_pvc() imports all lifetime PVC rows.' );
+penalis_same( 1065, Penalis_Views::get_views( 970 ), 'Migrated view count matches PVC total.' );
+penalis_same( 1485, Penalis_Views::get_author_total_views( 870 ), 'get_author_total_views() sums all published posts for author.' );
+penalis_same( 1485, Penalis_Author_Archive::get_author_total_views( 870 ), 'Penalis_Author_Archive::get_author_total_views() reads Penalis_Views.' );
+
+// Incrementing, re-migrating (GREATEST guard), and admin override.
+penalis_same( 1066, Penalis_Views::increment_views( 970 ), 'increment_views() increments published post by 1.' );
+Penalis_Views::migrate_from_pvc();
+penalis_same( 1066, Penalis_Views::get_views( 970 ), 'Re-running migrate_from_pvc() never lowers a higher Penalis view count.' );
+
+$penalis_v_err_draft = Penalis_Views::increment_views( 972 );
+penalis_assert( is_wp_error( $penalis_v_err_draft ) && 'penalis_not_found' === $penalis_v_err_draft->get_error_code(), 'Draft posts cannot increment public views.' );
+$penalis_v_err_page = Penalis_Views::increment_views( 973 );
+penalis_assert( is_wp_error( $penalis_v_err_page ) && 'penalis_not_found' === $penalis_v_err_page->get_error_code(), 'Pages cannot increment post views.' );
+
+$penalis_v_set = Penalis_Views::set_views( 970, 2000 );
+penalis_same( 2000, $penalis_v_set['views'], 'set_views() updates post views explicitly.' );
+penalis_same( 2000, Penalis_Views::get_views( 970 ), 'get_views() reflects admin override.' );
+$penalis_v_set_page = Penalis_Views::set_views( 973, 50 );
+penalis_assert( is_wp_error( $penalis_v_set_page ) && 'penalis_not_found' === $penalis_v_set_page->get_error_code(), 'set_views() refuses non-post types.' );
+
+// WP_Query `orderby=post_views` clause rewrite for Atlas theme.
+$penalis_v_query = (object) array(
+	'query_vars' => array(
+		'orderby' => 'post_views',
+		'order'   => 'DESC',
+	),
+);
+$penalis_v_clauses = Penalis_Views::filter_posts_clauses(
+	array(
+		'join'    => '',
+		'orderby' => 'wp_posts.post_date DESC',
+	),
+	$penalis_v_query
+);
+penalis_assert( false !== strpos( $penalis_v_clauses['join'], 'penalis_post_views AS penalis_pv' ), 'filter_posts_clauses() joins penalis_post_views for orderby=post_views.' );
+penalis_assert( false !== strpos( $penalis_v_clauses['orderby'], 'COALESCE(penalis_pv.views, 0) DESC' ), 'filter_posts_clauses() orders by COALESCE(penalis_pv.views, 0) DESC.' );
+
+$penalis_v_other_query = (object) array(
+	'query_vars' => array(
+		'orderby' => 'date',
+		'order'   => 'DESC',
+	),
+);
+$penalis_v_untouched = Penalis_Views::filter_posts_clauses(
+	array(
+		'join'    => '',
+		'orderby' => 'wp_posts.post_date DESC',
+	),
+	$penalis_v_other_query
+);
+penalis_same( '', $penalis_v_untouched['join'], 'filter_posts_clauses() leaves non-post_views queries untouched.' );
+
+// Atlas compatibility bridge defines pluggable pvc_get_post_views() and Post_Views_Counter shim.
+require_once __DIR__ . '/../includes/pvc-compat-class.php';
+require_once __DIR__ . '/../includes/pvc-compat.php';
+penalis_assert( class_exists( 'Post_Views_Counter' ) && defined( 'PENALIS_PVC_COMPAT_SHIM' ), 'pvc-compat.php defines minimal Post_Views_Counter shim for Atlas.' );
+penalis_same( false, Penalis_Views::is_pvc_active(), 'is_pvc_active() distinguishes Penalis shim from real Post Views Counter plugin.' );
+penalis_same( 2000, pvc_get_post_views( 970 ), 'Pluggable pvc_get_post_views() returns single post views from Penalis_Views.' );
+penalis_same( 2420, pvc_get_post_views( array( 970, 971 ) ), 'Pluggable pvc_get_post_views() sums array of post IDs from Penalis_Views.' );
+
+// Admin Posts list column and Quick Edit markup for Views (administrators only).
+$GLOBALS['penalis_test_current_user'] = 1;
+$penalis_v_cols                       = Penalis_Views::register_posts_column(
+	array(
+		'title' => 'Title',
+		'date'  => 'Date',
+	)
+);
+penalis_assert( isset( $penalis_v_cols[ Penalis_Views::ADMIN_COLUMN_KEY ] ), 'Administrators receive the Views column on Posts list.' );
+
+ob_start();
+Penalis_Views::render_posts_column( Penalis_Views::ADMIN_COLUMN_KEY, 970 );
+$penalis_v_col_html = ob_get_clean();
+penalis_assert( false !== strpos( $penalis_v_col_html, 'data-penalis-views="2000"' ), 'Views column embeds current count for Quick Edit hydration.' );
+
+ob_start();
+Penalis_Views::render_quick_edit_fields( Penalis_Views::ADMIN_COLUMN_KEY, 'post' );
+$penalis_v_qe_html = ob_get_clean();
+penalis_assert( false !== strpos( $penalis_v_qe_html, 'name="penalis_views_count"' ), 'Quick Edit renders Views input for administrators.' );
+
+$GLOBALS['penalis_test_current_user'] = 871;
+ob_start();
+Penalis_Views::render_quick_edit_fields( Penalis_Views::ADMIN_COLUMN_KEY, 'post' );
+penalis_same( '', ob_get_clean(), 'Quick Edit omits Views override for non-administrators.' );
+
+$GLOBALS['penalis_test_current_user'] = $penalis_v_prev_user;
+unset(
+	$GLOBALS['penalis_test_post_views'],
+	$GLOBALS['penalis_test_pvc_views'],
+	$GLOBALS['penalis_test_posts'][970],
+	$GLOBALS['penalis_test_posts'][971],
+	$GLOBALS['penalis_test_posts'][972],
+	$GLOBALS['penalis_test_posts'][973],
+	$GLOBALS['penalis_test_users'][871],
+	$GLOBALS['penalis_test_users'][872]
+);
 
 /* -------------------------------------------------------------------------
  * Report

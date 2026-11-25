@@ -136,6 +136,12 @@ final class Penalis_Rate_Limiter {
 				'limit'       => 60,
 				'window'      => 60,
 			),
+			'post_view_ip'            => array(
+				'label'       => 'Penghitung views karya tulis',
+				'description' => 'Pencatatan views karya tulis dari satu alamat IP dalam satu jam.',
+				'limit'       => 120,
+				'window'      => 60,
+			),
 		);
 	}
 

@@ -1825,6 +1825,16 @@ body.penalis-modal-open {
 	width: 118px;
 }
 
+.column-penalis_views {
+	width: 84px;
+}
+
+.penalis-views-col {
+	font-variant-numeric: tabular-nums;
+	font-weight: 500;
+	color: #1d2327;
+}
+
 .penalis-reactions-col {
 	display: inline-flex;
 	align-items: center;

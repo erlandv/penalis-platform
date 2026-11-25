@@ -314,58 +314,15 @@ final class Penalis_Authors {
 	/**
 	 * Resolve total lifetime views across published posts for a list of author IDs.
 	 *
-	 * Degrades to an empty map when the Post Views Counter plugin (`pvc_get_post_views()`)
-	 * is inactive.
-	 *
 	 * @param int[] $user_ids Eligible author user IDs.
 	 * @return array<int,int> Map of user ID => total views.
 	 */
 	private static function get_author_views_map( $user_ids ) {
-		if ( empty( $user_ids ) || ! function_exists( 'pvc_get_post_views' ) ) {
+		if ( empty( $user_ids ) || ! class_exists( 'Penalis_Views' ) ) {
 			return array();
 		}
 
-		$allowed_authors = array();
-		foreach ( $user_ids as $uid ) {
-			$uid = (int) $uid;
-			if ( $uid > 0 ) {
-				$allowed_authors[ $uid ] = true;
-			}
-		}
-
-		if ( empty( $allowed_authors ) ) {
-			return array();
-		}
-
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Single read cached via transient.
-		$post_rows = $wpdb->get_results(
-			"SELECT ID, post_author
-			FROM {$wpdb->posts}
-			WHERE post_type = 'post' AND post_status = 'publish'",
-			ARRAY_A
-		);
-
-		if ( empty( $post_rows ) || ! is_array( $post_rows ) ) {
-			return array();
-		}
-
-		$posts_by_author = array();
-		foreach ( $post_rows as $post_row ) {
-			$post_id   = isset( $post_row['ID'] ) ? (int) $post_row['ID'] : 0;
-			$author_id = isset( $post_row['post_author'] ) ? (int) $post_row['post_author'] : 0;
-			if ( $post_id > 0 && isset( $allowed_authors[ $author_id ] ) ) {
-				$posts_by_author[ $author_id ][] = $post_id;
-			}
-		}
-
-		$views_by_user = array();
-		foreach ( $posts_by_author as $author_id => $post_ids ) {
-			$views_by_user[ (int) $author_id ] = max( 0, (int) pvc_get_post_views( $post_ids ) );
-		}
-
-		return $views_by_user;
+		return Penalis_Views::get_authors_views_map( (array) $user_ids );
 	}
 
 	/**

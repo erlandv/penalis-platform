@@ -231,70 +231,45 @@ final class Penalis_Author_Archive {
 	}
 
 	/**
-	 * Return lifetime views for a single published post when Post Views Counter is active.
+	 * Return lifetime views for a single published post.
 	 *
 	 * @param int $post_id Post ID.
-	 * @return int|null Null when Post Views Counter is unavailable.
+	 * @return int|null Null only when no views provider is loaded.
 	 */
 	public static function get_post_views( $post_id ) {
-		if ( ! function_exists( 'pvc_get_post_views' ) ) {
-			return null;
-		}
-
 		$post_id = (int) $post_id;
 		if ( $post_id <= 0 ) {
 			return 0;
 		}
 
-		return max( 0, (int) pvc_get_post_views( $post_id ) );
+		if ( class_exists( 'Penalis_Views' ) ) {
+			return Penalis_Views::get_views( $post_id );
+		}
+
+		if ( function_exists( 'pvc_get_post_views' ) ) {
+			return max( 0, (int) pvc_get_post_views( $post_id ) );
+		}
+
+		return null;
 	}
 
 	/**
 	 * Return total lifetime views across all published posts owned by an author.
 	 *
 	 * @param int $user_id User ID.
-	 * @return int|null Null when Post Views Counter is unavailable.
+	 * @return int|null Null only when no views provider is loaded.
 	 */
 	public static function get_author_total_views( $user_id ) {
-		if ( ! function_exists( 'pvc_get_post_views' ) ) {
-			return null;
-		}
-
 		$user_id = (int) $user_id;
 		if ( $user_id <= 0 ) {
 			return 0;
 		}
 
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Single lightweight ID fetch per archive render.
-		$post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT ID
-				FROM {$wpdb->posts}
-				WHERE post_type = 'post' AND post_status = 'publish' AND post_author = %d",
-				$user_id
-			)
-		);
-
-		if ( empty( $post_ids ) || ! is_array( $post_ids ) ) {
-			return 0;
+		if ( class_exists( 'Penalis_Views' ) ) {
+			return Penalis_Views::get_author_total_views( $user_id );
 		}
 
-		$ids = array_values(
-			array_filter(
-				array_map( 'intval', $post_ids ),
-				static function ( $post_id ) {
-					return $post_id > 0;
-				}
-			)
-		);
-
-		if ( empty( $ids ) ) {
-			return 0;
-		}
-
-		return max( 0, (int) pvc_get_post_views( $ids ) );
+		return null;
 	}
 
 	/**

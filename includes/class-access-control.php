@@ -526,9 +526,9 @@ final class Penalis_Access_Control {
 				}
 			}
 
-			// Public published-post reactions remain usable even while signed in
-			// as a pending or active writer.
-			if ( ! $is_always_allowed && 'POST' === $method && 1 === preg_match( '#^/penalis/v1/posts/\d+/reaction$#', $route ) ) {
+			// Public published-post reactions and view beacons remain usable
+			// even while signed in as a pending or active writer.
+			if ( ! $is_always_allowed && 'POST' === $method && 1 === preg_match( '#^/penalis/v1/posts/\d+/(reaction|view)$#', $route ) ) {
 				$is_always_allowed = true;
 			}
 
@@ -567,7 +567,7 @@ final class Penalis_Access_Control {
 				$allowed = true;
 			}
 
-			if ( ! $allowed && 'POST' === $method && 1 === preg_match( '#^/penalis/v1/posts/\d+/reaction$#', $route ) ) {
+			if ( ! $allowed && 'POST' === $method && 1 === preg_match( '#^/penalis/v1/posts/\d+/(reaction|view)$#', $route ) ) {
 				$allowed = true;
 			}
 
