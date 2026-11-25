@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.4.1
+Stable tag: 2.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -123,6 +123,16 @@ by MIME type and by inspecting the image header (`getimagesize()`), so SVG and
 renamed executable files are rejected.
 
 == Changelog ==
+
+= 2.5.0 =
+* Feature: Add built-in **Post Reactions** (`Penalis_Reactions`, replacing *Posts Like Dislike*) with cookie-based **Like / Dislike** buttons (supporting undo and direct switching under per-post advisory locks) integrated into the single-post bar alongside **Bagikan**, non-destructive read-only fallback to `pld_like_count` / `pld_dislike_count` and legacy `pld_{id}` voter cookies, rate limiting (`post_reaction_ip`), like counts surfaced across `/dashboard/` (**Ringkasan**, **Daftar Karya**, published **Editor**), `/author/<username>/` (**Total Likes** and per-card likes), and administrator-only (`manage_options`) manual count overrides in Block Editor, Classic Editor, and `/wp-admin/edit.php` Quick Edit.
+* Feature: Add built-in **Post Views Counter** (`Penalis_Views`, replacing *Post Views Counter*) backed by a lightweight `{prefix}penalis_post_views` table, automatic non-destructive `GREATEST` migration from `{prefix}post_views` (plus manual sync and status panel in **Penalis → Pengaturan → Views**), cache-safe JS view beacon (`assets/js/post-views.js`) with bot and browser prefetch/prerender filtering, configurable cookie deduplication (`0–1440` minutes, default `30`), optional logged-in staff exclusion, administrator overrides in Block Editor, Classic Editor, and Quick Edit (with sortable `Views` column), and an Atlas theme compatibility bridge (`includes/pvc-compat.php`, `includes/pvc-compat-class.php`, and `orderby=post_views` `posts_clauses`).
+* Feature: Add built-in **Table of Contents** (`Penalis_Toc`, replacing *LuckyWP Table of Contents*) that auto-inserts a collapsible editorial TOC card (`assets/css/toc.css`, `assets/js/toc.js`) on long posts (default title `Table of Contents`, default collapsed, `4+` `H2`/`H3` headings, lowercase `#judul-bagian` anchors, hierarchical decimal numbering, smooth scroll), with a **Penalis → Pengaturan → Table of Contents** tab, `[penalis_toc]` / `[lwptoc]` shortcode support, per-post disable toggle in Block Editor (`assets/js/editor-toc.js`) and Classic Editor preserving legacy `_lwptoc_settings`, automatic coexistence while LuckyWP TOC is active, and Rank Math SEO TOC registration.
+* Feature: Add built-in **Default Featured Image** fallback (`Penalis_Default_Thumbnail`, replacing *Default Featured Image*) for published `post` records, configurable under **Penalis → Pengaturan → Thumbnail** and protected against writer deletion in `Penalis_Media_Usage`.
+* Feature: Add automatic non-destructive backup of legacy *One User Avatar* metadata (`{prefix}user_avatar` → `_penalis_legacy_avatar_id`, `avatar_default_wp_user_avatar` → `penalis_default_avatar_id`) in `Penalis_Avatar` with migration status and manual re-sync under **Penalis → Pengaturan → Foto Profil**, protecting existing writer profile photos when uninstalling One User Avatar.
+* Feature: Include **Total Likes** alongside **Karya Terbit** and **Total Views** on generated **Profile Share Cards** (`buildProfileCardStats()`), format **Article Share Card** dates as `dd/mm/yyyy` (`formatNumericDate()`), refine the **Senja** Share Card theme to a warmer golden-hour palette, and boost Penalis watermark visibility on light themes (**Kertas** and **Senja**).
+* Polish: Switch the public author archive stats strip (`.penalis-profile-stats`) to a compact single-row 3-column grid on mobile viewports (`<= 640px`).
+* Maintenance: Upgrade frontend toolchain to Vite 8.3.8, `@vitejs/plugin-react` 6.3.0, Vitest 5.1.1, TipTap 3.35.0, `@types/react` 18.3.32, and `typescript-eslint` 8.74.0 (zero `npm audit` vulnerabilities), pin `.nvmrc` to Node 24 LTS (`engines.node >= 22.12.0`), add `.github/dependabot.yml`, add an automated atomic VPS production deploy job to `.github/workflows/release.yml`, and refresh developer documentation (`AGENTS.md`, `README.md`, `docs/`).
 
 = 2.4.1 =
 * Fix: Prevent the Share Card modal (`ShareCardModal`) from overflowing behind mobile browser address bars and toolbars on iOS Safari and Brave by switching height constraints from `100vh` to dynamic viewport height (`100dvh`) with `safe-area-inset` padding and proper flex scroll containment (`flex-shrink: 0` on header, `flex: 1 1 auto; min-height: 0` on scrollable body).
@@ -246,6 +256,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.5.0 =
+Replaces five external plugins natively inside Penalis Platform: Default Featured Image (`Penalis_Default_Thumbnail`), One User Avatar backup protection (`Penalis_Avatar`), Posts Like Dislike (`Penalis_Reactions`), Post Views Counter with full Atlas theme compatibility (`Penalis_Views`), and LuckyWP Table of Contents with Rank Math SEO integration (`Penalis_Toc`). Also adds Total Likes to Profile Share Cards, standardizes Article Share Card dates to `dd/mm/yyyy`, refines the Senja card theme and mobile author stats layout, and upgrades the frontend build toolchain to Vite 8 / Vitest 5 / TipTap 3.35. Upgrade is non-destructive: built-in Views, Reactions, and TOC automatically defer while their external counterparts remain active, and legacy avatar and view counts migrate safely before you deactivate or delete the old plugins.
 
 = 2.4.1 =
 Fixes Share Card modal clipping behind mobile browser toolbars (iOS Safari and Brave) using dynamic viewport heights (`dvh`), safe-area insets, and a compact mobile bottom-sheet layout across all share surfaces.
