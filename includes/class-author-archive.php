@@ -139,6 +139,7 @@ final class Penalis_Author_Archive {
 					'bio'         => (string) $data['bio'],
 					'postCount'   => (int) $data['post_count'],
 					'totalViews'  => null === $data['total_views'] ? null : (int) $data['total_views'],
+					'totalLikes'  => null === $data['total_likes'] ? null : (int) $data['total_likes'],
 					'joinedLabel' => (string) $data['joined_label'],
 					'isVerified'  => ! empty( $data['is_verified'] ),
 					'isSenator'   => ! empty( $data['is_senator'] ),

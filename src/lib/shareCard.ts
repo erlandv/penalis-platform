@@ -38,6 +38,7 @@ export interface ProfileShareCardPayload {
   bio?: string;
   postCount: number;
   totalViews?: number | null;
+  totalLikes?: number | null;
   joinedLabel?: string;
   isVerified?: boolean;
   isSenator?: boolean;
@@ -297,6 +298,32 @@ export function formatCardUrlLabel(url: string): string {
 export function formatCardCount(value: number): string {
   const safe = Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
   return new Intl.NumberFormat('id-ID').format(safe);
+}
+
+export interface ProfileCardStat {
+  value: string;
+  label: string;
+}
+
+/**
+ * Build the ordered stat columns displayed on a writer profile share card.
+ */
+export function buildProfileCardStats(
+  payload: Pick<ProfileShareCardPayload, 'postCount' | 'totalViews' | 'totalLikes'>,
+): ProfileCardStat[] {
+  const stats: ProfileCardStat[] = [
+    { value: formatCardCount(payload.postCount), label: 'Karya Terbit' },
+  ];
+
+  if (typeof payload.totalViews === 'number' && Number.isFinite(payload.totalViews)) {
+    stats.push({ value: formatCardCount(payload.totalViews), label: 'Total Views' });
+  }
+
+  if (typeof payload.totalLikes === 'number' && Number.isFinite(payload.totalLikes)) {
+    stats.push({ value: formatCardCount(payload.totalLikes), label: 'Total Likes' });
+  }
+
+  return stats;
 }
 
 /**
@@ -1048,7 +1075,6 @@ function drawProfileCard(
   const handleFontSize = isStory ? 28 : 24;
   const joinedFontSize = isStory ? 24 : 21;
   const hasJoined = Boolean(payload.joinedLabel && payload.joinedLabel.trim() !== '');
-  const hasViews = typeof payload.totalViews === 'number' && Number.isFinite(payload.totalViews);
 
   const bioBlockH = bioLines.length > 0 ? bioLines.length * bioLineHeight + (isStory ? 36 : 24) : 0;
   const joinedBlockH = hasJoined ? (isStory ? 44 : 34) : 0;
@@ -1160,12 +1186,10 @@ function drawProfileCard(
   const urlPillY = cardY + cardH - padBottom - urlPillH;
   const statsY = urlPillY - (isStory ? 38 : 26) - statsBoxH;
 
-  const stats: Array<{ value: string; label: string }> = [
-    { value: formatCardCount(payload.postCount), label: 'Karya Terbit' },
-  ];
-  if (hasViews) {
-    stats.push({ value: formatCardCount(payload.totalViews ?? 0), label: 'Total Views' });
-  }
+  const stats = buildProfileCardStats(payload);
+  const compactStats = stats.length >= 3;
+  const statValueFontSize = compactStats ? (isStory ? 38 : 31) : isStory ? 42 : 34;
+  const statLabelFontSize = compactStats ? (isStory ? 21 : 18) : isStory ? 23 : 20;
 
   ctx.save();
   drawRoundedRectPath(ctx, cardX + padX, statsY, contentW, statsBoxH, 24);
@@ -1176,6 +1200,7 @@ function drawProfileCard(
   ctx.stroke();
 
   const colW = contentW / stats.length;
+  const maxStatTextW = Math.max(80, colW - 28);
   stats.forEach((stat, index) => {
     const colCx = cardX + padX + colW * index + colW / 2;
 
@@ -1189,15 +1214,15 @@ function drawProfileCard(
       ctx.stroke();
     }
 
-    ctx.font = `700 ${isStory ? 42 : 34}px ${fontFamily}`;
+    ctx.font = `700 ${statValueFontSize}px ${fontFamily}`;
     ctx.fillStyle = theme.textPrimary;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(stat.value, colCx, statsY + statsBoxH * 0.38);
+    ctx.fillText(stat.value, colCx, statsY + statsBoxH * 0.38, maxStatTextW);
 
-    ctx.font = `500 ${isStory ? 23 : 20}px ${fontFamily}`;
+    ctx.font = `500 ${statLabelFontSize}px ${fontFamily}`;
     ctx.fillStyle = theme.textMuted;
-    ctx.fillText(stat.label, colCx, statsY + statsBoxH * 0.72);
+    ctx.fillText(stat.label, colCx, statsY + statsBoxH * 0.72, maxStatTextW);
   });
   ctx.restore();
 

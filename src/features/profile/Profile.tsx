@@ -365,6 +365,7 @@ export function Profile({
             bio: account.description,
             postCount: account.counts.publish,
             totalViews: typeof account.counts.views === 'number' ? account.counts.views : null,
+            totalLikes: typeof account.counts.likes === 'number' ? account.counts.likes : null,
             joinedLabel: account.joinedLabel,
             isVerified: account.isVerified ?? (account.canWrite && account.emailVerified),
             isSenator: Boolean(account.isSenator),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildInitials,
+  buildProfileCardStats,
   buildShareCardFilename,
   buildShareCopyContent,
   formatCardCount,
@@ -39,6 +40,35 @@ describe('shareCard pure helpers', () => {
     expect(formatCardCount(0)).toBe('0');
     expect(formatCardCount(-5)).toBe('0');
     expect(formatCardCount(45337)).toBe('45.337');
+  });
+
+  it('builds profile card stats for works, optional views, and optional likes', () => {
+    expect(buildProfileCardStats({ postCount: 22 })).toEqual([
+      { value: '22', label: 'Karya Terbit' },
+    ]);
+
+    expect(
+      buildProfileCardStats({
+        postCount: 22,
+        totalViews: 45692,
+        totalLikes: null,
+      }),
+    ).toEqual([
+      { value: '22', label: 'Karya Terbit' },
+      { value: '45.692', label: 'Total Views' },
+    ]);
+
+    expect(
+      buildProfileCardStats({
+        postCount: 219,
+        totalViews: 556729,
+        totalLikes: 0,
+      }),
+    ).toEqual([
+      { value: '219', label: 'Karya Terbit' },
+      { value: '556.729', label: 'Total Views' },
+      { value: '0', label: 'Total Likes' },
+    ]);
   });
 
   it('extracts uppercase initials for fallback monogram avatars', () => {
