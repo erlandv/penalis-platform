@@ -3412,6 +3412,55 @@ penalis_assert( false !== strpos( $filtered_detail_url, 'post_id=700' ), 'Detail
 penalis_assert( false !== strpos( $filtered_detail_url, 'state=rejected' ), 'Detail URLs carry the state for the back link.' );
 penalis_assert( false !== strpos( $filtered_detail_url, 's=Hujan' ), 'Detail URLs carry the active filters.' );
 
+// Published review tab defaults to publish date (`date DESC`) and displays
+// `post_date` instead of falling back to `post_modified` on admin edits.
+penalis_same( 'date', Penalis_Editorial_Admin::default_orderby_for_state( Penalis_Editorial_Policy::STATE_PUBLISHED ), 'Published review tab defaults to publish-date sort.' );
+penalis_same( 'modified', Penalis_Editorial_Admin::default_orderby_for_state( Penalis_Editorial_Policy::STATE_PENDING_REVIEW ), 'Pending review tab keeps modified sort by default.' );
+
+$pub_default_filters = Penalis_Editorial_Admin::parse_list_filters( array(), Penalis_Editorial_Policy::STATE_PUBLISHED );
+penalis_same( 'date', $pub_default_filters['orderby'], 'Empty filters on the Published tab default to date sort.' );
+
+$pub_default_args = Penalis_Editorial_Admin::query_args( Penalis_Editorial_Policy::STATE_PUBLISHED, 1, 20 );
+penalis_same( 'date', $pub_default_args['orderby'], 'Published review tab queries sort by publish date by default.' );
+penalis_same( 'DESC', $pub_default_args['order'], 'Published review tab queries sort descending by default.' );
+
+$pub_modified_args = Penalis_Editorial_Admin::query_args(
+	Penalis_Editorial_Policy::STATE_PUBLISHED,
+	1,
+	20,
+	array( 'orderby' => 'modified' )
+);
+penalis_same( 'modified', $pub_modified_args['orderby'], 'Reviewers can still explicitly sort the Published tab by last modified.' );
+
+$pub_default_url = Penalis_Editorial_Admin::list_url( Penalis_Editorial_Policy::STATE_PUBLISHED, $pub_default_filters );
+penalis_assert( false === strpos( $pub_default_url, 'orderby=' ), 'Default publish-date sort is omitted from Published tab URLs.' );
+
+$pub_modified_url = Penalis_Editorial_Admin::list_url( Penalis_Editorial_Policy::STATE_PUBLISHED, array( 'orderby' => 'modified' ) );
+penalis_assert( false !== strpos( $pub_modified_url, 'orderby=modified' ), 'Explicit modified sort is preserved on Published tab URLs.' );
+
+penalis_reset();
+$admin_edited_pub                    = penalis_editorial_post( 790, 10, 'publish', Penalis_Editorial_Policy::STATE_PUBLISHED );
+$admin_edited_pub->post_date         = '2022-05-10 14:30:00';
+$admin_edited_pub->post_date_gmt     = '2022-05-10 07:30:00';
+$admin_edited_pub->post_modified     = '2026-11-26 10:03:00';
+$admin_edited_pub->post_modified_gmt = '2026-11-26 03:03:00';
+penalis_same(
+	Penalis_Datetime::format_local( '2022-05-10 14:30:00', 'j M Y H:i' ),
+	Penalis_Editorial_Admin::format_list_date( $admin_edited_pub, Penalis_Editorial_Policy::STATE_PUBLISHED ),
+	'Published review tab formats post_date even when an older published article was modified later in wp-admin.'
+);
+
+$pending_with_submit                    = penalis_editorial_post( 791, 10, 'pending', Penalis_Editorial_Policy::STATE_PENDING_REVIEW );
+$pending_with_submit->post_date         = '2026-11-01 08:00:00';
+$pending_with_submit->post_modified     = '2026-11-26 10:03:00';
+$pending_submit_ts                      = 1795410000;
+update_post_meta( 791, Penalis_Editorial_Policy::META_SUBMITTED_AT, $pending_submit_ts );
+penalis_same(
+	Penalis_Datetime::format( $pending_submit_ts, 'j M Y H:i' ),
+	Penalis_Editorial_Admin::format_list_date( $pending_with_submit, Penalis_Editorial_Policy::STATE_PENDING_REVIEW ),
+	'Pending review tab continues to display the submission timestamp.'
+);
+
 // Published-article takedown is audited and recoverable; drafts stay disposable.
 penalis_reset();
 penalis_editorial_writer( 10 );
