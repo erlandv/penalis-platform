@@ -39,7 +39,10 @@ export function useNotifications({
   const [markingId, setMarkingId] = useState<string | null>(null);
 
   const onUnreadChangeRef = useRef(onUnreadChange);
-  onUnreadChangeRef.current = onUnreadChange;
+
+  useEffect(() => {
+    onUnreadChangeRef.current = onUnreadChange;
+  }, [onUnreadChange]);
 
   const load = useCallback(async () => {
     if (!enabled) {

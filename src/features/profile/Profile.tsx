@@ -148,7 +148,7 @@ export function Profile({
     } catch (caught) {
       const message = caught instanceof ApiError ? caught.message : 'Foto profil kamu tidak dapat diperbarui.';
       setAvatarError(message);
-      throw new Error(message);
+      throw new Error(message, { cause: caught });
     } finally {
       setAvatarBusy(false);
     }

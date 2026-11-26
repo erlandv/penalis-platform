@@ -611,7 +611,9 @@ export function Editor({
     }
   };
 
-  persistRef.current = persistDraft;
+  useEffect(() => {
+    persistRef.current = persistDraft;
+  });
 
   const saveDraft = async () => {
     await persistDraft({ silent: false, validate: true });
@@ -651,7 +653,10 @@ export function Editor({
   };
 
   const retrySaveRef = useRef(retrySave);
-  retrySaveRef.current = retrySave;
+
+  useEffect(() => {
+    retrySaveRef.current = retrySave;
+  });
 
   /**
    * Autosave loop.
@@ -905,28 +910,30 @@ export function Editor({
 
   const runShortcutRef = useRef<(shortcut: EditorShortcut) => void>(() => undefined);
 
-  runShortcutRef.current = (shortcut) => {
-    if (shortcut === 'help') {
-      setShortcutsOpen(true);
-      return;
-    }
-
-    if (!canEdit || saving) {
-      return;
-    }
-
-    if (shortcut === 'save') {
-      // Mirrors the button, which is disabled while there is nothing to write.
-      if (isDirty) {
-        void saveDraft();
+  useEffect(() => {
+    runShortcutRef.current = (shortcut) => {
+      if (shortcut === 'help') {
+        setShortcutsOpen(true);
+        return;
       }
-      return;
-    }
 
-    // Never submit straight from the keyboard: the confirmation dialog is what
-    // explains that the article locks until an administrator decides.
-    requestSubmitConfirm();
-  };
+      if (!canEdit || saving) {
+        return;
+      }
+
+      if (shortcut === 'save') {
+        // Mirrors the button, which is disabled while there is nothing to write.
+        if (isDirty) {
+          void saveDraft();
+        }
+        return;
+      }
+
+      // Never submit straight from the keyboard: the confirmation dialog is what
+      // explains that the article locks until an administrator decides.
+      requestSubmitConfirm();
+    };
+  });
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
