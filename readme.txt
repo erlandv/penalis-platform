@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.5.1
+Stable tag: 2.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -123,6 +123,10 @@ by MIME type and by inspecting the image header (`getimagesize()`), so SVG and
 renamed executable files are rejected.
 
 == Changelog ==
+
+= 2.5.2 =
+* Fix: Anchor the **Terbit** (`state=published`) tab on **Penalis → Review Karya Tulis** (`Penalis_Editorial_Admin`) to publish date (`date DESC`) by default, add a **Tanggal terbit** sort option (while keeping **Terakhir diubah** available on demand), display a **Diterbitkan** column using `$post->post_date` instead of falling back to `$post->post_modified`, and show `Diterbitkan:` in the review detail metadata bar so routine `wp-admin` taxonomy or SEO edits never bump older published articles to the top or show edit timestamps under **Di-submit**.
+* Polish: Only render the `Review Cycle #N` badge on **Penalis → Review Karya Tulis** list rows and detail headers when a post actually has a recorded review cycle (`> 0`), keeping legacy pre-plugin published articles clean.
 
 = 2.5.1 =
 * Fix: Anchor published articles in the writer dashboard (`GET /penalis/v1/articles`, **Daftar Karya**, and **Ringkasan → Karya terbaru**) to their publish date (`post_date_gmt`) instead of `post_modified_gmt`, so routine `wp-admin` taxonomy, tag, or SEO edits on older published posts no longer bump them to the top of the writer's list. Unpublished tabs (`Draft`, `Menunggu review`, `Perlu revisi`, `Ditolak`) remain ordered by last-modified time, while the mixed `Semua` view sorts published posts by publish date and unpublished works by last-modified time via a scoped `posts_orderby` filter.
@@ -261,6 +265,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.5.2 =
+Anchors the Published tab in Penalis → Review Karya Tulis to publish date (`date DESC`) with a Diterbitkan date column and hides synthetic Review Cycle #1 badges on pre-plugin articles. Upgrade is non-destructive and requires no manual migration.
 
 = 2.5.1 =
 Fixes writer dashboard article ordering and date labels so routine wp-admin SEO or taxonomy edits on older published articles never bump them to the top or display a confusing "Diubah" label on read-only published works; also upgrades the dashboard runtime to React 19 and ESLint 10. Upgrade is non-destructive and requires no manual migration.
