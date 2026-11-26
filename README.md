@@ -32,7 +32,7 @@ authentication store.
   can publish a submission, published articles remain read-only to writers, and
   published-post takedowns are audited and recoverable via **Karya Terhapus**.
 - **Dual-Mode React Dashboard (`/dashboard/`)** — Single-page application built
-  with React 18, TypeScript, and Vite that enforces the no-hybrid-account rule:
+  with React 19, TypeScript, and Vite that enforces the no-hybrid-account rule:
   **Dashboard Penulis** provides a lazy-loaded TipTap WYSIWYG editor (with raw
   HTML mode, keyboard shortcuts, and revision caps), a **#KalimatHariIni**
   24-hour quote composer on **Ringkasan**, media library, writer profile &

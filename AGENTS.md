@@ -160,7 +160,7 @@ register -> verify email -> active writer -> write draft in /dashboard/ -> submi
 5. **One job per screen, obvious next action.** Both pending writers in
    `/dashboard/` and administrators in `wp-admin` must always see the current
    state and available actions clearly.
-6. **Boring, legible technology.** WordPress core APIs, React 18, Vite, TipTap,
+6. **Boring, legible technology.** WordPress core APIs, React 19, Vite, TipTap,
    plain CSS with shared design tokens, and externalized admin CSS/JS
    (`assets/`). No exotic dependencies (no Tailwind, CSS Modules, or
    CSS-in-JS).
