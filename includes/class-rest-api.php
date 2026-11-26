@@ -1298,7 +1298,20 @@ final class Penalis_Rest_Api {
 		$per_page = $per_page > 0 ? min( 50, $per_page ) : 10;
 		$status   = (string) $request->get_param( 'status' );
 
-		$query = new WP_Query( self::editorial_query_args( $user_id, $status, $page, $per_page ) );
+		$query_args          = self::editorial_query_args( $user_id, $status, $page, $per_page );
+		$use_effective_order = ! empty( $query_args['penalis_effective_order'] );
+
+		if ( $use_effective_order ) {
+			add_filter( 'posts_orderby', array( __CLASS__, 'filter_effective_article_orderby' ), 10, 2 );
+		}
+
+		try {
+			$query = new WP_Query( $query_args );
+		} finally {
+			if ( $use_effective_order ) {
+				remove_filter( 'posts_orderby', array( __CLASS__, 'filter_effective_article_orderby' ), 10 );
+			}
+		}
 
 		$items = array();
 		foreach ( $query->posts as $post ) {
@@ -1321,6 +1334,12 @@ final class Penalis_Rest_Api {
 	/**
 	 * Build WP_Query arguments for the writer article list by status or editorial state.
 	 *
+	 * Published listings order by publish date so routine wp-admin taxonomy or SEO
+	 * edits never bump older published articles to the top. Mixed-status listings
+	 * (`all`) flag `penalis_effective_order` so published items anchor to
+	 * `post_date_gmt` while unpublished drafts and submissions stay ordered by
+	 * `post_modified_gmt`.
+	 *
 	 * @param int    $user_id  Author ID.
 	 * @param string $filter   Requested status or editorial state filter.
 	 * @param int    $page     Page number.
@@ -1328,19 +1347,47 @@ final class Penalis_Rest_Api {
 	 * @return array<string,mixed>
 	 */
 	public static function editorial_query_args( $user_id, $filter = 'all', $page = 1, $per_page = 10 ) {
-		return array_merge(
-			array(
-				'post_type'           => 'post',
-				'author'              => (int) $user_id,
-				'posts_per_page'      => max( 1, (int) $per_page ),
-				'paged'               => max( 1, (int) $page ),
-				'orderby'             => 'modified',
-				'order'               => 'DESC',
-				'ignore_sticky_posts' => true,
-				'no_found_rows'       => false,
-			),
-			Penalis_Editorial_Workflow::state_query_clauses( (string) $filter )
+		$clauses  = Penalis_Editorial_Workflow::state_query_clauses( (string) $filter );
+		$statuses = isset( $clauses['post_status'] ) ? (array) $clauses['post_status'] : array();
+		$args     = array(
+			'post_type'           => 'post',
+			'author'              => (int) $user_id,
+			'posts_per_page'      => max( 1, (int) $per_page ),
+			'paged'               => max( 1, (int) $page ),
+			'orderby'             => 'modified',
+			'order'               => 'DESC',
+			'ignore_sticky_posts' => true,
+			'no_found_rows'       => false,
 		);
+
+		if ( array( 'publish' ) === $statuses ) {
+			$args['orderby'] = 'date';
+		} elseif ( in_array( 'publish', $statuses, true ) ) {
+			$args['penalis_effective_order'] = true;
+		}
+
+		return array_merge( $args, $clauses );
+	}
+
+	/**
+	 * Order mixed-status writer article lists by publish date for published posts
+	 * and last-modified time for unpublished drafts or submissions.
+	 *
+	 * @param string   $orderby SQL ORDER BY clause.
+	 * @param WP_Query $query   Current query instance.
+	 * @return string
+	 */
+	public static function filter_effective_article_orderby( $orderby, $query ) {
+		if ( ! is_object( $query ) || empty( $query->query_vars['penalis_effective_order'] ) ) {
+			return $orderby;
+		}
+
+		global $wpdb;
+		$posts_table = ( isset( $wpdb ) && is_object( $wpdb ) && isset( $wpdb->posts ) && is_string( $wpdb->posts ) && '' !== $wpdb->posts )
+			? $wpdb->posts
+			: 'wp_posts';
+
+		return "CASE WHEN {$posts_table}.post_status = 'publish' AND {$posts_table}.post_date_gmt <> '0000-00-00 00:00:00' THEN {$posts_table}.post_date_gmt ELSE {$posts_table}.post_modified_gmt END DESC, {$posts_table}.ID DESC";
 	}
 
 	/**

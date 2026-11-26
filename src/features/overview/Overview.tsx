@@ -15,7 +15,7 @@ import type {
   DashboardRole,
   ReviewQueueList,
 } from '../../lib/types';
-import { editorialStateLabel, formatDate, formatNumber, getTimeGreeting } from '../../lib/format';
+import { editorialStateLabel, formatArticleDateLabel, formatNumber, getTimeGreeting } from '../../lib/format';
 import { Icon } from '../../components/icons';
 import {
   EmptyState,
@@ -406,7 +406,7 @@ export function Overview({
                         </span>
                       </span>
                     ) : null}
-                    <span>{formatDate(article.modified)}</span>
+                    <span>{formatArticleDateLabel(article)}</span>
                   </div>
                 </li>
               ))}

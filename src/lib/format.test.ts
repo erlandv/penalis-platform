@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   decodeEntities,
   editorialStateLabel,
+  formatArticleDateLabel,
   formatDate,
   formatDateTime,
   formatNumericDate,
@@ -70,6 +71,112 @@ describe('formatDate', () => {
   it('returns an em dash for empty values', () => {
     expect(formatDate('')).toBe('—');
     expect(formatDate(0)).toBe('—');
+  });
+});
+
+describe('formatArticleDateLabel', () => {
+  const opts = { timeZone: 'Asia/Jakarta' };
+
+  it('uses publish date for published articles even when modified later', () => {
+    expect(
+      formatArticleDateLabel(
+        {
+          editorialState: 'published',
+          date: '2026-08-14 08:00:00',
+          modified: '2026-11-26 10:00:00',
+        },
+        opts,
+      ),
+    ).toBe('Terbit 14 Agu 2026');
+  });
+
+  it('uses modified date for drafts and changes_requested articles', () => {
+    expect(
+      formatArticleDateLabel(
+        {
+          editorialState: 'draft',
+          date: '0000-00-00 00:00:00',
+          modified: '2026-11-26 09:00:00',
+        },
+        opts,
+      ),
+    ).toBe('Diubah 26 Nov 2026');
+
+    expect(
+      formatArticleDateLabel(
+        {
+          editorialState: 'changes_requested',
+          date: '2026-11-20 08:00:00',
+          modified: '2026-11-25 11:00:00',
+        },
+        opts,
+      ),
+    ).toBe('Diubah 25 Nov 2026');
+  });
+
+  it('uses submittedAt for pending_review and falls back to modified when empty', () => {
+    expect(
+      formatArticleDateLabel(
+        {
+          editorialState: 'pending_review',
+          date: '2026-11-20 08:00:00',
+          modified: '2026-11-26 10:00:00',
+          submittedAt: '2026-11-24 07:00:00',
+        },
+        opts,
+      ),
+    ).toBe('Di-submit 24 Nov 2026');
+
+    expect(
+      formatArticleDateLabel(
+        {
+          editorialState: 'pending_review',
+          date: '2026-11-20 08:00:00',
+          modified: '2026-11-25 07:00:00',
+          submittedAt: '',
+        },
+        opts,
+      ),
+    ).toBe('Di-submit 25 Nov 2026');
+  });
+
+  it('uses reviewedAt for rejected articles and falls back to modified when empty', () => {
+    expect(
+      formatArticleDateLabel(
+        {
+          editorialState: 'rejected',
+          date: '2026-11-20 08:00:00',
+          modified: '2026-11-26 10:00:00',
+          reviewedAt: '2026-11-23 07:00:00',
+        },
+        opts,
+      ),
+    ).toBe('Diulas 23 Nov 2026');
+
+    expect(
+      formatArticleDateLabel(
+        {
+          editorialState: 'rejected',
+          date: '2026-11-20 08:00:00',
+          modified: '2026-11-25 07:00:00',
+          reviewedAt: '',
+        },
+        opts,
+      ),
+    ).toBe('Diulas 25 Nov 2026');
+  });
+
+  it('falls back to modified when a published article has a zero WordPress date', () => {
+    expect(
+      formatArticleDateLabel(
+        {
+          editorialState: 'published',
+          date: '0000-00-00 00:00:00',
+          modified: '2026-11-26 09:00:00',
+        },
+        opts,
+      ),
+    ).toBe('Terbit 26 Nov 2026');
   });
 });
 

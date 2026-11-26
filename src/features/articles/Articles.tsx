@@ -16,7 +16,7 @@ import type {
 } from '../../lib/types';
 import {
   editorialStateLabel,
-  formatDate,
+  formatArticleDateLabel,
   formatNumericDate,
   formatNumber,
   truncate,
@@ -258,7 +258,7 @@ export function Articles({
                   </div>
 
                   <span className="penalis-table__date">
-                    Diubah {formatDate(article.modified)}
+                    {formatArticleDateLabel(article)}
                   </span>
                 </div>
 

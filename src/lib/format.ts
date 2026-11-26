@@ -178,6 +178,52 @@ export function formatTime(value: DateInput, options: FormatOptions = {}): strin
   }).format(date);
 }
 
+/** Minimal article fields required to format a contextual dashboard date label. */
+export interface ArticleDateFields {
+  editorialState: string;
+  date: string;
+  modified: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+}
+
+function firstValidDate(...values: Array<DateInput | null | undefined>): DateInput {
+  for (const value of values) {
+    if (value !== null && value !== undefined && parseDateValue(value) !== null) {
+      return value;
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Format a status-aware timestamp label for writer dashboard article lists.
+ *
+ * Published pieces always show their publish date so routine wp-admin taxonomy
+ * or SEO edits never surface a confusing "Diubah …" label on a read-only work.
+ * Unpublished states show the timestamp most relevant to the writer's workflow.
+ */
+export function formatArticleDateLabel(
+  article: ArticleDateFields,
+  options: FormatOptions = {},
+): string {
+  switch (article.editorialState) {
+    case 'published':
+    case 'publish':
+      return `Terbit ${formatDate(firstValidDate(article.date, article.modified), options)}`;
+    case 'pending_review':
+    case 'pending':
+      return `Di-submit ${formatDate(firstValidDate(article.submittedAt, article.modified), options)}`;
+    case 'rejected':
+      return `Diulas ${formatDate(firstValidDate(article.reviewedAt, article.modified), options)}`;
+    case 'changes_requested':
+    case 'draft':
+    default:
+      return `Diubah ${formatDate(firstValidDate(article.modified, article.date), options)}`;
+  }
+}
+
 export function statusLabel(status: string): string {
   const labels: Record<string, string> = {
     publish: 'Terbit',

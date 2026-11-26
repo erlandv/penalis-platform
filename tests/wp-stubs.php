@@ -1137,6 +1137,44 @@ if ( ! function_exists( 'add_filter' ) ) {
 	}
 }
 
+if ( ! function_exists( 'remove_filter' ) ) {
+	/**
+	 * Remove a previously registered test filter callback.
+	 *
+	 * @param string   $hook     Hook name.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Priority.
+	 * @return bool
+	 */
+	function remove_filter( $hook, $callback, $priority = 10 ) {
+		$priority = (int) $priority;
+		if ( empty( $GLOBALS['penalis_test_filters'][ $hook ][ $priority ] ) ) {
+			return false;
+		}
+
+		$removed = false;
+		$kept    = array();
+		foreach ( $GLOBALS['penalis_test_filters'][ $hook ][ $priority ] as $entry ) {
+			if ( ! $removed && $entry[0] === $callback ) {
+				$removed = true;
+				continue;
+			}
+			$kept[] = $entry;
+		}
+
+		if ( empty( $kept ) ) {
+			unset( $GLOBALS['penalis_test_filters'][ $hook ][ $priority ] );
+			if ( empty( $GLOBALS['penalis_test_filters'][ $hook ] ) ) {
+				unset( $GLOBALS['penalis_test_filters'][ $hook ] );
+			}
+		} else {
+			$GLOBALS['penalis_test_filters'][ $hook ][ $priority ] = $kept;
+		}
+
+		return $removed;
+	}
+}
+
 if ( ! function_exists( 'apply_filters' ) ) {
 	/**
 	 * Apply the callbacks registered for a hook.
@@ -2129,6 +2167,8 @@ if ( ! class_exists( 'WP_Query' ) ) {
 	 * Minimal WP_Query stub.
 	 */
 	class WP_Query {
+		/** @var array<string,mixed> */
+		public $query_vars = array();
 		/** @var int */
 		public $found_posts = 0;
 		/** @var array */
@@ -2142,6 +2182,8 @@ if ( ! class_exists( 'WP_Query' ) ) {
 		 * @param array<string,mixed> $args Query arguments.
 		 */
 		public function __construct( $args = array() ) {
+			$this->query_vars = is_array( $args ) ? $args : array();
+
 			$all_posts = isset( $GLOBALS['penalis_test_posts'] ) && is_array( $GLOBALS['penalis_test_posts'] )
 				? $GLOBALS['penalis_test_posts']
 				: array();
@@ -2177,6 +2219,39 @@ if ( ! class_exists( 'WP_Query' ) ) {
 				}
 
 				$matched[] = $post;
+			}
+
+			$effective = ! empty( $args['penalis_effective_order'] );
+			$orderby   = isset( $args['orderby'] ) && is_string( $args['orderby'] ) ? $args['orderby'] : '';
+			$direction = isset( $args['order'] ) && 'ASC' === strtoupper( (string) $args['order'] ) ? 1 : -1;
+
+			if ( $effective ) {
+				usort(
+					$matched,
+					static function ( $a, $b ) {
+						$a_key = ( 'publish' === (string) $a->post_status && '0000-00-00 00:00:00' !== (string) $a->post_date_gmt )
+							? (string) $a->post_date_gmt
+							: (string) $a->post_modified_gmt;
+						$b_key = ( 'publish' === (string) $b->post_status && '0000-00-00 00:00:00' !== (string) $b->post_date_gmt )
+							? (string) $b->post_date_gmt
+							: (string) $b->post_modified_gmt;
+
+						if ( $a_key !== $b_key ) {
+							return strcmp( $b_key, $a_key );
+						}
+
+						return (int) $b->ID <=> (int) $a->ID;
+					}
+				);
+			} elseif ( 'date' === $orderby || 'modified' === $orderby ) {
+				$field = 'date' === $orderby ? 'post_date_gmt' : 'post_modified_gmt';
+				usort(
+					$matched,
+					static function ( $a, $b ) use ( $field, $direction ) {
+						$cmp = strcmp( (string) $a->{$field}, (string) $b->{$field} );
+						return 0 === $cmp ? 0 : ( $cmp * $direction );
+					}
+				);
 			}
 
 			$this->found_posts = count( $matched );

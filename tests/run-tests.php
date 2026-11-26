@@ -3584,24 +3584,102 @@ penalis_same(
 $all_args = Penalis_Rest_Api::editorial_query_args( 10, 'all', 1, 10 );
 penalis_same( array( 'publish', 'draft', 'pending', 'future' ), $all_args['post_status'], 'The all filter includes all dashboard post statuses.' );
 penalis_assert( ! isset( $all_args['meta_query'] ), 'The all filter does not add a meta query.' );
+penalis_same( true, ! empty( $all_args['penalis_effective_order'] ), 'The all filter enables effective publish/modified ordering.' );
 
 $draft_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_DRAFT, 1, 10 );
 penalis_same( array( 'draft' ), $draft_args['post_status'], 'The draft filter queries draft posts.' );
 penalis_same( 'OR', $draft_args['meta_query']['relation'], 'The draft filter matches both legacy drafts without meta and explicit draft state.' );
+penalis_same( 'modified', $draft_args['orderby'], 'The draft filter orders by last modified time.' );
+penalis_assert( empty( $draft_args['penalis_effective_order'] ), 'The draft filter does not set effective ordering.' );
 
 $changes_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, 1, 10 );
 penalis_same( array( 'draft' ), $changes_args['post_status'], 'Requested changes use the draft post status.' );
 penalis_same( Penalis_Editorial_Policy::STATE_CHANGES_REQUESTED, $changes_args['meta_query'][0]['value'], 'Requested changes filter by editorial state meta.' );
+penalis_same( 'modified', $changes_args['orderby'], 'Requested changes order by last modified time.' );
 
 $rejected_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_REJECTED, 1, 10 );
 penalis_same( array( 'draft' ), $rejected_args['post_status'], 'Rejected submissions use the draft post status.' );
 penalis_same( Penalis_Editorial_Policy::STATE_REJECTED, $rejected_args['meta_query'][0]['value'], 'Rejected submissions filter by editorial state meta.' );
+penalis_same( 'modified', $rejected_args['orderby'], 'Rejected submissions order by last modified time.' );
 
 $pending_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_PENDING_REVIEW, 1, 10 );
 penalis_same( array( 'pending' ), $pending_args['post_status'], 'Pending review queries pending posts.' );
+penalis_same( 'modified', $pending_args['orderby'], 'Pending review orders by last modified time.' );
 
 $published_args = Penalis_Rest_Api::editorial_query_args( 10, Penalis_Editorial_Policy::STATE_PUBLISHED, 1, 10 );
 penalis_same( array( 'publish' ), $published_args['post_status'], 'Published queries publish posts.' );
+penalis_same( 'date', $published_args['orderby'], 'Published queries order by publish date, not last modified time.' );
+penalis_assert( empty( $published_args['penalis_effective_order'] ), 'Published queries rely on native date ordering without effective-order SQL.' );
+
+// Effective ORDER BY filter only rewrites queries explicitly marked with
+// `penalis_effective_order` and keeps published posts anchored to post_date_gmt.
+$unrelated_query = new WP_Query( array( 'orderby' => 'modified' ) );
+penalis_same(
+	'wp_posts.post_modified DESC',
+	Penalis_Rest_Api::filter_effective_article_orderby( 'wp_posts.post_modified DESC', $unrelated_query ),
+	'Effective orderby filter leaves unrelated queries untouched.'
+);
+$effective_query = new WP_Query( $all_args );
+$effective_sql   = Penalis_Rest_Api::filter_effective_article_orderby( 'wp_posts.post_modified DESC', $effective_query );
+penalis_assert(
+	false !== strpos( $effective_sql, "CASE WHEN wp_posts.post_status = 'publish' AND wp_posts.post_date_gmt <> '0000-00-00 00:00:00' THEN wp_posts.post_date_gmt ELSE wp_posts.post_modified_gmt END DESC, wp_posts.ID DESC" ),
+	'Effective orderby SQL sorts published posts by post_date_gmt and unpublished posts by post_modified_gmt.'
+);
+
+// End-to-end writer article listing: a wp-admin SEO/tag edit on an older
+// published article must not bump it above newer published articles or active drafts.
+penalis_reset();
+penalis_editorial_writer( 10 );
+$GLOBALS['penalis_test_current_user'] = 10;
+
+$old_published                    = penalis_editorial_post( 801, 10, 'publish', Penalis_Editorial_Policy::STATE_PUBLISHED );
+$old_published->post_title        = 'Karya Lama Dirapikan Admin';
+$old_published->post_date_gmt     = '2026-08-14 08:00:00';
+$old_published->post_modified_gmt = '2026-11-26 10:00:00';
+
+$newer_published                    = penalis_editorial_post( 802, 10, 'publish', Penalis_Editorial_Policy::STATE_PUBLISHED );
+$newer_published->post_title        = 'Karya Baru Terbit';
+$newer_published->post_date_gmt     = '2026-11-20 08:00:00';
+$newer_published->post_modified_gmt = '2026-11-20 08:00:00';
+
+$recent_draft                    = penalis_editorial_post( 803, 10, 'draft', Penalis_Editorial_Policy::STATE_DRAFT );
+$recent_draft->post_title        = 'Draft Hari Ini';
+$recent_draft->post_date_gmt     = '0000-00-00 00:00:00';
+$recent_draft->post_modified_gmt = '2026-11-26 09:00:00';
+
+$all_order_resp = Penalis_Rest_Api::list_articles(
+	new WP_REST_Request( 'GET', '/penalis/v1/articles', array( 'status' => 'all' ) )
+);
+$all_order_ids  = array_map(
+	static function ( $item ) {
+		return $item['id'];
+	},
+	$all_order_resp->get_data()['items']
+);
+penalis_same(
+	array( 803, 802, 801 ),
+	$all_order_ids,
+	'GET /articles?status=all places today\'s draft first, then newer published, keeping an older admin-edited published post anchored to its publish date.'
+);
+penalis_assert(
+	empty( $GLOBALS['penalis_test_filters']['posts_orderby'] ),
+	'GET /articles removes its scoped posts_orderby filter after running WP_Query.'
+);
+
+$pub_order_resp = Penalis_Rest_Api::list_articles(
+	new WP_REST_Request( 'GET', '/penalis/v1/articles', array( 'status' => 'published' ) )
+);
+$pub_order_ids  = array_map(
+	static function ( $item ) {
+		return $item['id'];
+	},
+	$pub_order_resp->get_data()['items']
+);
+penalis_same(
+	array( 802, 801 ),
+	$pub_order_ids,
+	'GET /articles?status=published sorts strictly by publish date even when an older post was modified later in wp-admin.'
+);
 
 // Incomplete drafts (missing title or content) cannot be submitted for review.
 penalis_reset();
