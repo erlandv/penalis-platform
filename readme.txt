@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.5.0
+Stable tag: 2.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -123,6 +123,11 @@ by MIME type and by inspecting the image header (`getimagesize()`), so SVG and
 renamed executable files are rejected.
 
 == Changelog ==
+
+= 2.5.1 =
+* Fix: Anchor published articles in the writer dashboard (`GET /penalis/v1/articles`, **Daftar Karya**, and **Ringkasan → Karya terbaru**) to their publish date (`post_date_gmt`) instead of `post_modified_gmt`, so routine `wp-admin` taxonomy, tag, or SEO edits on older published posts no longer bump them to the top of the writer's list. Unpublished tabs (`Draft`, `Menunggu review`, `Perlu revisi`, `Ditolak`) remain ordered by last-modified time, while the mixed `Semua` view sorts published posts by publish date and unpublished works by last-modified time via a scoped `posts_orderby` filter.
+* Polish: Replace the generic `Diubah …` timestamp across **Daftar Karya** and **Ringkasan → Karya terbaru** with contextual status-aware labels (`formatArticleDateLabel()`): `Terbit <date>` for published articles, `Di-submit <date>` for pending submissions, `Diulas <date>` for rejected submissions, and `Diubah <date>` for drafts and revision requests.
+* Maintenance: Upgrade React and ReactDOM to v19 (`react` 19.3.1, `react-dom` 19.3.1, `@types/react` 19.3.2, `@types/react-dom` 19.3.0), upgrade ESLint to v10 (`eslint` 10.15.0, `@eslint/js` 10.0.1, `eslint-plugin-react-hooks` 7.1.1, `eslint-plugin-react-refresh` 0.5.8, `globals` 17.14.0) with strict `react-hooks/refs` and `preserve-caught-error` fixes, and update GitHub Actions dependencies.
 
 = 2.5.0 =
 * Feature: Add built-in **Post Reactions** (`Penalis_Reactions`, replacing *Posts Like Dislike*) with cookie-based **Like / Dislike** buttons (supporting undo and direct switching under per-post advisory locks) integrated into the single-post bar alongside **Bagikan**, non-destructive read-only fallback to `pld_like_count` / `pld_dislike_count` and legacy `pld_{id}` voter cookies, rate limiting (`post_reaction_ip`), like counts surfaced across `/dashboard/` (**Ringkasan**, **Daftar Karya**, published **Editor**), `/author/<username>/` (**Total Likes** and per-card likes), and administrator-only (`manage_options`) manual count overrides in Block Editor, Classic Editor, and `/wp-admin/edit.php` Quick Edit.
@@ -256,6 +261,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.5.1 =
+Fixes writer dashboard article ordering and date labels so routine wp-admin SEO or taxonomy edits on older published articles never bump them to the top or display a confusing "Diubah" label on read-only published works; also upgrades the dashboard runtime to React 19 and ESLint 10. Upgrade is non-destructive and requires no manual migration.
 
 = 2.5.0 =
 Replaces five external plugins natively inside Penalis Platform: Default Featured Image (`Penalis_Default_Thumbnail`), One User Avatar backup protection (`Penalis_Avatar`), Posts Like Dislike (`Penalis_Reactions`), Post Views Counter with full Atlas theme compatibility (`Penalis_Views`), and LuckyWP Table of Contents with Rank Math SEO integration (`Penalis_Toc`). Also adds Total Likes to Profile Share Cards, standardizes Article Share Card dates to `dd/mm/yyyy`, refines the Senja card theme and mobile author stats layout, and upgrades the frontend build toolchain to Vite 8 / Vitest 5 / TipTap 3.35. Upgrade is non-destructive: built-in Views, Reactions, and TOC automatically defer while their external counterparts remain active, and legacy avatar and view counts migrate safely before you deactivate or delete the old plugins.
