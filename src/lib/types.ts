@@ -59,6 +59,27 @@ export interface TurnstileConfig {
   forms?: Partial<Record<TurnstileFormKey, boolean>>;
 }
 
+export interface DashboardFrontendConfig {
+  termsUrl?: string;
+  privacyUrl?: string;
+  minPassword?: number;
+  maxBio?: number;
+  avatarMaxBytes?: number;
+  avatarOutputSize?: number;
+  avatarMinEdge?: number;
+  allowedImageMimes?: string[];
+  requireThumbnail?: boolean;
+  requireCategory?: boolean;
+  minTags?: number;
+  quoteEnabled?: boolean;
+  quoteMaxLength?: number;
+  quoteMaxLines?: number;
+  quoteTtlHours?: number;
+  quoteDailyLimit?: number;
+  quoteReasonMaxLength?: number;
+  quoteRemovalPresets?: string[];
+}
+
 export interface DashboardBootstrap {
   restUrl: string;
   wpRestUrl: string;
@@ -90,6 +111,8 @@ export interface DashboardBootstrap {
   siteTimezone?: SiteTimezone;
   brandLogoUrl?: string;
   brandIconUrl?: string;
+  /** Server-managed site configuration (URLs, limits, presets). */
+  config?: DashboardFrontendConfig;
   user: BootstrapUser | null;
 }
 

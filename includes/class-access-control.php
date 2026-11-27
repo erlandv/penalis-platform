@@ -997,12 +997,7 @@ final class Penalis_Access_Control {
 			return $mimes;
 		}
 
-		return array(
-			'jpg|jpeg|jpe' => 'image/jpeg',
-			'png'          => 'image/png',
-			'gif'          => 'image/gif',
-			'webp'         => 'image/webp',
-		);
+		return Penalis_Config::allowed_upload_mimes();
 	}
 
 	/**
@@ -1021,11 +1016,11 @@ final class Penalis_Access_Control {
 			return $file;
 		}
 
-		$allowed = array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp' );
+		$allowed = array_values( Penalis_Config::allowed_upload_mimes() );
 		$type    = isset( $file['type'] ) ? (string) $file['type'] : '';
 
 		if ( ! in_array( $type, $allowed, true ) ) {
-			$file['error'] = 'Hanya gambar JPEG, PNG, GIF, dan WebP yang dapat di-upload.';
+			$file['error'] = 'Jenis gambar yang di-upload tidak diizinkan oleh pengaturan situs.';
 			return $file;
 		}
 
@@ -1042,7 +1037,7 @@ final class Penalis_Access_Control {
 			return $file;
 		}
 
-		$allowed_types = array( IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF, IMAGETYPE_WEBP );
+		$allowed_types = Penalis_Config::allowed_imagetypes();
 		if ( ! in_array( (int) $info[2], $allowed_types, true ) ) {
 			$file['error'] = 'Jenis gambar yang di-upload tidak diizinkan.';
 		}

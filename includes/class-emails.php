@@ -34,8 +34,10 @@ final class Penalis_Emails {
 			return false;
 		}
 
-		$user    = get_userdata( (int) $user_id );
-		$minutes = (int) round( Penalis_Policy::OTP_TTL / 60 );
+		$user         = get_userdata( (int) $user_id );
+		$sec          = Penalis_Config::security();
+		$minutes      = (int) $sec['otp_ttl_minutes'];
+		$max_attempts = (int) $sec['otp_max_attempts'];
 
 		return self::send_template(
 			(string) $email,
@@ -43,7 +45,7 @@ final class Penalis_Emails {
 			array(
 				'{kode_otp}'           => (string) $code,
 				'{menit_berlaku}'      => (string) $minutes,
-				'{maksimal_percobaan}' => (string) Penalis_Policy::OTP_MAX_ATTEMPTS,
+				'{maksimal_percobaan}' => (string) $max_attempts,
 				'{nama_penulis}'       => $user ? $user->display_name : 'Penulis',
 				'{email}'              => (string) $email,
 			),

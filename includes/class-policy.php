@@ -564,8 +564,12 @@ final class Penalis_Policy {
 	 * @return string Error message or empty string.
 	 */
 	public static function validate_password( $password ) {
-		if ( ! is_string( $password ) || strlen( $password ) < self::MIN_PASSWORD ) {
-			return 'Password minimal ' . self::MIN_PASSWORD . ' karakter.';
+		$min_password = class_exists( 'Penalis_Config' )
+			? (int) Penalis_Config::account()['min_password']
+			: self::MIN_PASSWORD;
+
+		if ( ! is_string( $password ) || strlen( $password ) < $min_password ) {
+			return 'Password minimal ' . $min_password . ' karakter.';
 		}
 
 		if ( strlen( $password ) > self::MAX_PASSWORD ) {
@@ -748,9 +752,10 @@ final class Penalis_Policy {
 		}
 
 		if ( array_key_exists( 'description', $data ) ) {
+			$max_bio     = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::account()['max_bio'] : self::MAX_BIO;
 			$description = self::normalize_bio( (string) $data['description'] );
-			if ( self::length( $description ) > self::MAX_BIO ) {
-				$errors['description'] = sprintf( 'Bio maksimal %d karakter.', self::MAX_BIO );
+			if ( self::length( $description ) > $max_bio ) {
+				$errors['description'] = sprintf( 'Bio maksimal %d karakter.', $max_bio );
 			}
 		}
 
@@ -794,12 +799,14 @@ final class Penalis_Policy {
 			return 'Avatar harus berupa gambar JPEG, PNG, GIF, atau WebP.';
 		}
 
+		$min_edge = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::account()['avatar_min_edge'] : self::AVATAR_MIN_EDGE;
+
 		if (
 			(int) $width > 0 &&
 			(int) $height > 0 &&
-			( (int) $width < self::AVATAR_MIN_EDGE || (int) $height < self::AVATAR_MIN_EDGE )
+			( (int) $width < $min_edge || (int) $height < $min_edge )
 		) {
-			return 'Pilih gambar minimal 100 x 100 piksel.';
+			return sprintf( 'Pilih gambar minimal %1$d x %1$d piksel.', $min_edge );
 		}
 
 		return '';
@@ -1121,23 +1128,27 @@ final class Penalis_Policy {
 	/**
 	 * Validate a #KalimatHariIni submission.
 	 *
-	 * @param string $value Raw quote text.
+	 * @param string   $value      Raw quote text.
+	 * @param int|null $max_length Optional character cap override.
+	 * @param int|null $max_lines  Optional line cap override.
 	 * @return string Error message, or empty string when valid.
 	 */
-	public static function validate_daily_quote( $value ) {
+	public static function validate_daily_quote( $value, $max_length = null, $max_lines = null ) {
 		$normalized = self::normalize_daily_quote( $value );
+		$max_length = null === $max_length ? self::DAILY_QUOTE_MAX_LENGTH : max( 1, (int) $max_length );
+		$max_lines  = null === $max_lines ? self::DAILY_QUOTE_MAX_LINES : max( 1, (int) $max_lines );
 
 		if ( '' === $normalized ) {
 			return 'Tulis kalimat terlebih dahulu sebelum menerbitkan #KalimatHariIni.';
 		}
 
 		$line_count = substr_count( $normalized, "\n" ) + 1;
-		if ( $line_count > self::DAILY_QUOTE_MAX_LINES ) {
-			return sprintf( '#KalimatHariIni maksimal %d baris agar tetap ringkas dibaca.', self::DAILY_QUOTE_MAX_LINES );
+		if ( $line_count > $max_lines ) {
+			return sprintf( '#KalimatHariIni maksimal %d baris agar tetap ringkas dibaca.', $max_lines );
 		}
 
-		if ( self::length( $normalized ) > self::DAILY_QUOTE_MAX_LENGTH ) {
-			return sprintf( '#KalimatHariIni maksimal %d karakter.', self::DAILY_QUOTE_MAX_LENGTH );
+		if ( self::length( $normalized ) > $max_length ) {
+			return sprintf( '#KalimatHariIni maksimal %d karakter.', $max_length );
 		}
 
 		return '';
@@ -1180,18 +1191,20 @@ final class Penalis_Policy {
 	/**
 	 * Validate a Senator's takedown reason for #KalimatHariIni.
 	 *
-	 * @param string $value Raw reason text.
+	 * @param string   $value      Raw reason text.
+	 * @param int|null $max_length Optional character cap override.
 	 * @return string Error message, or empty string when valid.
 	 */
-	public static function validate_daily_quote_removal_reason( $value ) {
+	public static function validate_daily_quote_removal_reason( $value, $max_length = null ) {
 		$normalized = self::normalize_daily_quote_removal_reason( $value );
+		$max_length = null === $max_length ? self::DAILY_QUOTE_REASON_MAX_LENGTH : max( 1, (int) $max_length );
 
 		if ( '' === $normalized ) {
 			return 'Alasan penghapusan wajib diisi agar penulis mengetahui penyebabnya.';
 		}
 
-		if ( self::length( $normalized ) > self::DAILY_QUOTE_REASON_MAX_LENGTH ) {
-			return sprintf( 'Alasan penghapusan maksimal %d karakter.', self::DAILY_QUOTE_REASON_MAX_LENGTH );
+		if ( self::length( $normalized ) > $max_length ) {
+			return sprintf( 'Alasan penghapusan maksimal %d karakter.', $max_length );
 		}
 
 		return '';
@@ -1221,16 +1234,19 @@ final class Penalis_Policy {
 	 * Compute the rolling 24-hour publish quota for #KalimatHariIni.
 	 *
 	 * Deleting an active quote does not restore this budget: a writer may
-	 * publish at most DAILY_QUOTE_DAILY_LIMIT times within any rolling 24-hour
-	 * window.
+	 * publish at most `$limit` times within any rolling window.
 	 *
 	 * @param mixed    $timestamps Raw stored publish timestamps.
 	 * @param int|null $now        Current Unix timestamp.
+	 * @param int|null $limit      Optional publish cap override.
+	 * @param int|null $window     Optional rolling window override in seconds.
 	 * @return array{timestamps:int[],used:int,limit:int,remaining:int,reset_at:int}
 	 */
-	public static function daily_quote_rate_state( $timestamps, $now = null ) {
+	public static function daily_quote_rate_state( $timestamps, $now = null, $limit = null, $window = null ) {
 		$now    = null === $now ? time() : (int) $now;
-		$cutoff = $now - self::DAILY_QUOTE_TTL;
+		$limit  = null === $limit ? self::DAILY_QUOTE_DAILY_LIMIT : max( 1, (int) $limit );
+		$window = null === $window ? self::DAILY_QUOTE_TTL : max( 3600, (int) $window );
+		$cutoff = $now - $window;
 		$pruned = array();
 
 		if ( is_array( $timestamps ) ) {
@@ -1245,9 +1261,8 @@ final class Penalis_Policy {
 		sort( $pruned, SORT_NUMERIC );
 
 		$used      = count( $pruned );
-		$limit     = self::DAILY_QUOTE_DAILY_LIMIT;
 		$remaining = max( 0, $limit - $used );
-		$reset_at  = ( $used >= $limit && isset( $pruned[0] ) ) ? ( $pruned[0] + self::DAILY_QUOTE_TTL ) : 0;
+		$reset_at  = ( $used >= $limit && isset( $pruned[0] ) ) ? ( $pruned[0] + $window ) : 0;
 
 		return array(
 			'timestamps' => $pruned,

@@ -545,8 +545,9 @@ final class Penalis_Editorial_Notifications {
 			}
 		}
 
-		if ( count( $valid ) > Penalis_Editorial_Policy::NOTIFICATION_LIMIT ) {
-			$valid = array_slice( $valid, -Penalis_Editorial_Policy::NOTIFICATION_LIMIT );
+		$notif_limit = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::performance()['notification_limit'] : Penalis_Editorial_Policy::NOTIFICATION_LIMIT;
+		if ( count( $valid ) > $notif_limit ) {
+			$valid = array_slice( $valid, -$notif_limit );
 		}
 
 		return array_values( $valid );

@@ -157,6 +157,11 @@ final class Penalis_Turnstile {
 
 		if ( ! self::is_dashboard_enabled() ) {
 			$enabled = false;
+		} elseif ( class_exists( 'Penalis_Config' ) ) {
+			$form_overrides = Penalis_Config::security()['turnstile_forms'];
+			if ( isset( $form_overrides[ $context ] ) && ! $form_overrides[ $context ] ) {
+				$enabled = false;
+			}
 		}
 
 		/**

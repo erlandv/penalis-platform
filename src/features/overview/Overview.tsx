@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { articlesApi, ApiError, reviewApi } from '../../lib/api';
+import { getBootstrap } from '../../lib/bootstrap';
 import { canReceiveNotifications, isStaffRole, roleLabel } from '../../lib/permissions';
 import type {
   Account,
@@ -312,7 +313,7 @@ export function Overview({
         </div>
       ) : null}
 
-      {role === 'writer' ? <DailyQuotePanel account={account} /> : null}
+      {role === 'writer' && getBootstrap().config?.quoteEnabled !== false ? <DailyQuotePanel account={account} /> : null}
 
       {canSeeNotifications ? (
         <Panel

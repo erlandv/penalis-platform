@@ -59,8 +59,9 @@ export function Profile({
   // automatic option rather than submitting a selection the server rejects.
   const selectedMode: DisplayNameMode = options.some((option) => option.mode === mode) ? mode : 'auto';
 
+  const maxBio = getBootstrap().config?.maxBio ?? BIO_MAX_LENGTH;
   const bioLength = normalizeBio(description).length;
-  const isBioOverLimit = bioLength > BIO_MAX_LENGTH;
+  const isBioOverLimit = bioLength > maxBio;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -73,7 +74,7 @@ export function Profile({
       fieldErrors.instagram = instagramError;
     }
 
-    const bioError = validateBio(description);
+    const bioError = validateBio(description, maxBio);
     if (bioError !== '') {
       fieldErrors.description = bioError;
     }
@@ -316,13 +317,13 @@ export function Profile({
             value={description}
             onChange={(event) => setDescription(collapseBioNewlines(event.target.value))}
             rows={5}
-            maxLength={isBioOverLimit ? undefined : BIO_MAX_LENGTH}
+            maxLength={isBioOverLimit ? undefined : maxBio}
             aria-invalid={Boolean(errors.description) || isBioOverLimit}
           />
           <FieldHint id="description-hint" className={isBioOverLimit ? 'penalis-field-hint--danger' : undefined}>
-            {bioLength}/{BIO_MAX_LENGTH} karakter
+            {bioLength}/{maxBio} karakter
             {isBioOverLimit
-              ? ` — Bio lama kamu melebihi batas ${BIO_MAX_LENGTH} karakter. Ringkas bio sebelum menyimpan perubahan profil.`
+              ? ` — Bio lama kamu melebihi batas ${maxBio} karakter. Ringkas bio sebelum menyimpan perubahan profil.`
               : ''}
           </FieldHint>
           <FieldError errors={errors} name="description" />

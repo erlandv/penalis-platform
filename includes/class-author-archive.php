@@ -43,7 +43,7 @@ final class Penalis_Author_Archive {
 		 *
 		 * @param bool $use_template Whether to use the bundled author archive template.
 		 */
-		return (bool) apply_filters( 'penalis_use_author_archive_template', true );
+		return (bool) apply_filters( 'penalis_use_author_archive_template', (bool) Penalis_Config::general()['use_author_archive_template'] );
 	}
 
 	/**
@@ -188,14 +188,31 @@ final class Penalis_Author_Archive {
 	 * @return string
 	 */
 	public static function directory_url() {
-		$default = home_url( '/author/' );
+		$general = Penalis_Config::general();
+		$default = '';
 
-		if ( function_exists( 'get_page_by_path' ) ) {
-			$page = get_page_by_path( 'author' );
-			if ( $page instanceof WP_Post && 'publish' === $page->post_status ) {
-				$permalink = get_permalink( $page );
-				if ( is_string( $permalink ) && '' !== $permalink ) {
-					$default = $permalink;
+		if ( (int) $general['authors_page_id'] > 0 && function_exists( 'get_permalink' ) ) {
+			$page_url = get_permalink( (int) $general['authors_page_id'] );
+			if ( is_string( $page_url ) && '' !== $page_url ) {
+				$default = $page_url;
+			}
+		}
+
+		if ( '' === $default && '' !== (string) $general['authors_directory_url'] ) {
+			$custom  = (string) $general['authors_directory_url'];
+			$default = 0 === strpos( $custom, '/' ) ? home_url( $custom ) : $custom;
+		}
+
+		if ( '' === $default ) {
+			$default = home_url( '/author/' );
+
+			if ( function_exists( 'get_page_by_path' ) ) {
+				$page = get_page_by_path( 'author' );
+				if ( $page instanceof WP_Post && 'publish' === $page->post_status ) {
+					$permalink = get_permalink( $page );
+					if ( is_string( $permalink ) && '' !== $permalink ) {
+						$default = $permalink;
+					}
 				}
 			}
 		}
@@ -338,7 +355,8 @@ final class Penalis_Author_Archive {
 		$post_count         = (int) count_user_posts( $user_id, 'post', true );
 		$joined             = Penalis_Datetime::format_indonesian_month_year_gmt( (string) $author->user_registered );
 		$bio                = Penalis_Policy::normalize_bio( (string) get_user_meta( $user_id, 'description', true ) );
-		$is_bio_collapsible = '' !== $bio && ( Penalis_Policy::bio_length( $bio ) > Penalis_Policy::MAX_BIO || substr_count( $bio, "\n" ) >= 3 );
+		$max_bio            = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::account()['max_bio'] : Penalis_Policy::MAX_BIO;
+		$is_bio_collapsible = '' !== $bio && ( Penalis_Policy::bio_length( $bio ) > $max_bio || substr_count( $bio, "\n" ) >= 3 );
 		$daily_quote        = Penalis_Daily_Quotes::get_active_for_user( $user_id );
 
 		return array(

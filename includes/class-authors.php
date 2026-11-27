@@ -87,7 +87,7 @@ final class Penalis_Authors {
 		 *
 		 * @param bool $use_template Whether to use the bundled template.
 		 */
-		if ( ! apply_filters( 'penalis_use_authors_template', true ) ) {
+		if ( ! apply_filters( 'penalis_use_authors_template', (bool) Penalis_Config::general()['use_authors_template'] ) ) {
 			return $template;
 		}
 
@@ -118,7 +118,7 @@ final class Penalis_Authors {
 			array(
 				'restUrl'       => esc_url_raw( rest_url( Penalis_Rest_Api::NAMESPACE_V1 ) ),
 				'siteName'      => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
-				'perPage'       => Penalis_Policy::AUTHORS_PER_PAGE,
+				'perPage'       => (int) Penalis_Config::performance()['authors_per_page'],
 				'currentUserId' => get_current_user_id(),
 			)
 		);
@@ -156,13 +156,14 @@ final class Penalis_Authors {
 	 * @return array<string,mixed>
 	 */
 	public static function query_authors( $args = array() ) {
-		$search   = isset( $args['search'] ) ? trim( sanitize_text_field( (string) $args['search'] ) ) : '';
-		$sort     = Penalis_Policy::normalize_authors_sort( isset( $args['sort'] ) ? $args['sort'] : 'most_posts' );
-		$verified = ! empty( $args['verified'] );
-		$senator  = ! empty( $args['senator'] );
-		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
-		$per_page = isset( $args['per_page'] ) ? (int) $args['per_page'] : Penalis_Policy::AUTHORS_PER_PAGE;
-		$per_page = max( 1, min( Penalis_Policy::AUTHORS_MAX_PER_PAGE, $per_page ) );
+		$search           = isset( $args['search'] ) ? trim( sanitize_text_field( (string) $args['search'] ) ) : '';
+		$sort             = Penalis_Policy::normalize_authors_sort( isset( $args['sort'] ) ? $args['sort'] : 'most_posts' );
+		$verified         = ! empty( $args['verified'] );
+		$senator          = ! empty( $args['senator'] );
+		$page             = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
+		$default_per_page = (int) Penalis_Config::performance()['authors_per_page'];
+		$per_page         = isset( $args['per_page'] ) ? (int) $args['per_page'] : $default_per_page;
+		$per_page         = max( 1, min( Penalis_Policy::AUTHORS_MAX_PER_PAGE, $per_page ) );
 
 		$all_authors = self::get_all_eligible_authors();
 
@@ -240,8 +241,12 @@ final class Penalis_Authors {
 			ARRAY_A
 		);
 
+		$cache_ttl = (int) Penalis_Config::performance()['authors_cache_ttl'];
+
 		if ( empty( $rows ) || ! is_array( $rows ) ) {
-			set_transient( self::CACHE_KEY, array(), self::CACHE_TTL );
+			if ( $cache_ttl > 0 ) {
+				set_transient( self::CACHE_KEY, array(), $cache_ttl );
+			}
 			return array();
 		}
 
@@ -255,7 +260,9 @@ final class Penalis_Authors {
 		}
 
 		if ( empty( $counts_by_user ) ) {
-			set_transient( self::CACHE_KEY, array(), self::CACHE_TTL );
+			if ( $cache_ttl > 0 ) {
+				set_transient( self::CACHE_KEY, array(), $cache_ttl );
+			}
 			return array();
 		}
 
@@ -306,7 +313,9 @@ final class Penalis_Authors {
 			unset( $author_entry );
 		}
 
-		set_transient( self::CACHE_KEY, $authors, self::CACHE_TTL );
+		if ( $cache_ttl > 0 ) {
+			set_transient( self::CACHE_KEY, $authors, $cache_ttl );
+		}
 
 		return $authors;
 	}

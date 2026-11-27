@@ -25,6 +25,7 @@ if ( ! defined( 'PENALIS_PLATFORM_URL' ) ) {
 }
 
 require_once __DIR__ . '/../includes/class-policy.php';
+require_once __DIR__ . '/../includes/class-config.php';
 require_once __DIR__ . '/../includes/class-datetime.php';
 require_once __DIR__ . '/../includes/class-editorial-policy.php';
 require_once __DIR__ . '/../includes/class-roles.php';
@@ -46,6 +47,7 @@ require_once __DIR__ . '/../includes/class-activator.php';
 require_once __DIR__ . '/../includes/class-email-template.php';
 require_once __DIR__ . '/../includes/class-email-settings.php';
 require_once __DIR__ . '/../includes/class-settings.php';
+require_once __DIR__ . '/../includes/class-settings-panels.php';
 require_once __DIR__ . '/../includes/class-emails.php';
 require_once __DIR__ . '/../includes/class-email-log.php';
 require_once __DIR__ . '/../includes/class-email-log-admin.php';
@@ -3461,6 +3463,13 @@ penalis_same(
 	'Pending review tab continues to display the submission timestamp.'
 );
 
+penalis_assert( Penalis_Editorial_Admin::should_show_pending_notice( 'dashboard' ), 'Pending review notice renders on the WordPress Dashboard screen.' );
+penalis_assert( Penalis_Editorial_Admin::should_show_pending_notice( 'edit-post' ), 'Pending review notice renders on the Posts list screen.' );
+penalis_assert( ! Penalis_Editorial_Admin::should_show_pending_notice( 'toplevel_page_penalis-event' ), 'Pending review notice stays hidden on Penalis Event screens.' );
+penalis_assert( ! Penalis_Editorial_Admin::should_show_pending_notice( 'toplevel_page_penalis-platform' ), 'Pending review notice stays hidden on Penalis Platform screens.' );
+penalis_assert( ! Penalis_Editorial_Admin::should_show_pending_notice( 'plugins' ), 'Pending review notice stays hidden on unrelated admin screens like Plugins.' );
+penalis_assert( ! Penalis_Editorial_Admin::should_show_pending_notice( '' ), 'Pending review notice stays hidden when no screen ID is available.' );
+
 // Published-article takedown is audited and recoverable; drafts stay disposable.
 penalis_reset();
 penalis_editorial_writer( 10 );
@@ -5214,8 +5223,8 @@ penalis_same( true, Penalis_Turnstile::verify( '', 'register' ), 'Turnstile veri
 penalis_reset();
 
 penalis_same( 'penalis-settings', Penalis_Settings::PAGE_SLUG, 'The settings screen uses the penalis-settings slug.' );
-penalis_assert( isset( Penalis_Settings::tabs()['captcha'] ), 'The settings screen exposes a Keamanan (CAPTCHA) tab.' );
-penalis_same( 'captcha', (string) array_key_first( Penalis_Settings::tabs() ), 'The CAPTCHA tab is the first and default tab.' );
+penalis_assert( isset( Penalis_Settings::tabs()['security'] ), 'The settings screen exposes a Keamanan & Batas tab.' );
+penalis_same( 'general', (string) array_key_first( Penalis_Settings::tabs() ), 'The Umum & Halaman tab is the first and default tab.' );
 penalis_same( true, Penalis_Settings::is_dashboard_captcha_enabled(), 'Dashboard CAPTCHA is enabled when the option has never been saved.' );
 penalis_same( '1', Penalis_Settings::sanitize_state( '1' ), 'An explicit "1" keeps the switch enabled.' );
 penalis_same( '0', Penalis_Settings::sanitize_state( '0' ), 'An explicit "0" disables the switch.' );
@@ -5237,15 +5246,26 @@ penalis_same( array(), Penalis_Settings::audit(), 'The audit trail is empty unti
 $penalis_settings_tabs = Penalis_Settings::tabs();
 
 penalis_same(
-	array( 'captcha', 'registration', 'rate-limit', 'avatar', 'thumbnail', 'views', 'toc', 'email', 'data' ),
+	array( 'general', 'registration', 'editorial', 'article-display', 'email', 'security', 'data' ),
 	array_keys( $penalis_settings_tabs ),
-	'The settings screen exposes Keamanan, Pendaftaran, Batas Percobaan, Foto Profil, Thumbnail, Views, Table of Contents, Email, and Data tabs in that order.'
+	'The settings screen exposes the 7 grouped tabs in order.'
 );
 
 foreach ( $penalis_settings_tabs as $penalis_tab_slug => $penalis_tab_meta ) {
 	penalis_assert( '' !== (string) $penalis_tab_meta['label'], 'Tab "' . $penalis_tab_slug . '" has a menu label.' );
+	penalis_assert( in_array( $penalis_tab_meta['group'], array( 'main', 'sensitive' ), true ), 'Tab "' . $penalis_tab_slug . '" declares a valid sidebar group.' );
 	penalis_assert( is_callable( $penalis_tab_meta['render'] ), 'Tab "' . $penalis_tab_slug . '" points at a callable renderer.' );
 }
+
+penalis_same( 'sensitive', $penalis_settings_tabs['security']['group'], 'Security tab lives in the sensitive sidebar group.' );
+penalis_same( 'sensitive', $penalis_settings_tabs['data']['group'], 'Data tab lives in the sensitive sidebar group.' );
+penalis_same( 'security', Penalis_Settings::resolve_tab( 'captcha' ), 'Legacy captcha tab alias resolves to security.' );
+penalis_same( 'security', Penalis_Settings::resolve_tab( 'rate-limit' ), 'Legacy rate-limit tab alias resolves to security.' );
+penalis_same( 'registration', Penalis_Settings::resolve_tab( 'avatar' ), 'Legacy avatar tab alias resolves to registration.' );
+penalis_same( 'article-display', Penalis_Settings::resolve_tab( 'thumbnail' ), 'Legacy thumbnail tab alias resolves to Tampilan Artikel.' );
+penalis_same( 'article-display', Penalis_Settings::resolve_tab( 'views' ), 'Legacy views tab alias resolves to article-display.' );
+penalis_same( 'article-display', Penalis_Settings::resolve_tab( 'toc' ), 'Legacy toc tab alias resolves to article-display.' );
+penalis_same( 'general', Penalis_Settings::resolve_tab( 'unknown-tab' ), 'Unknown tab slug falls back to the first tab.' );
 
 penalis_same(
 	Penalis_Settings::url( array( 'tab' => 'email' ) ),
@@ -7319,6 +7339,184 @@ penalis_assert( ! empty( $penalis_rm_plugins ), 'Enabled TOC registers Penalis P
 update_option( Penalis_Toc::OPTION_SETTINGS, array( 'enabled' => false ), false );
 penalis_same( array(), Penalis_Toc::register_rank_math_toc( array() ), 'Disabled TOC does not register with Rank Math TOC filter.' );
 delete_option( Penalis_Toc::OPTION_SETTINGS );
+
+/* -------------------------------------------------------------------------
+ * Centralized configuration store (Penalis_Config — Phase 2 high-priority)
+ * ---------------------------------------------------------------------- */
+
+penalis_reset();
+
+// 1. General & Pages sanitization and defaults.
+$cfg_general_default = Penalis_Config::general();
+penalis_same( '/ketentuan-layanan/', $cfg_general_default['terms_url'], 'General config defaults terms URL.' );
+penalis_same( '/kebijakan-privasi/', $cfg_general_default['privacy_url'], 'General config defaults privacy URL.' );
+penalis_same( true, $cfg_general_default['use_author_archive_template'], 'Author archive template is enabled by default.' );
+
+$cfg_general_clean = Penalis_Config::sanitize_general(
+	array(
+		'terms_url'                   => 'javascript:alert(1)',
+		'privacy_url'                 => '/privasi-baru/',
+		'authors_directory_url'       => '/kontributor/',
+		'use_author_archive_template' => false,
+	)
+);
+penalis_same( '/ketentuan-layanan/', $cfg_general_clean['terms_url'], 'Unsafe javascript: scheme in terms_url falls back to default.' );
+penalis_same( '/privasi-baru/', $cfg_general_clean['privacy_url'], 'Relative site path is accepted for privacy_url.' );
+penalis_same( false, $cfg_general_clean['use_author_archive_template'], 'Bundled template toggle can be disabled.' );
+
+update_option( Penalis_Config::OPTION_GENERAL, $cfg_general_clean, false );
+penalis_same( false, Penalis_Author_Archive::is_enabled(), 'Author archive template toggle drives Penalis_Author_Archive::is_enabled().' );
+penalis_assert( false !== strpos( Penalis_Author_Archive::directory_url(), '/kontributor/' ), 'Configured authors_directory_url drives Penalis_Author_Archive::directory_url().' );
+
+// 2. Email branding sanitization and HTML output.
+$cfg_email_clean = Penalis_Config::sanitize_email_branding(
+	array(
+		'logo_url'      => 'https://penalis.com/logo-baru.png',
+		'contact_email' => 'redaksi@penalis.com',
+		'footer_text'   => 'Kontak kami di {email_kontak}.',
+		'button_color'  => '#123456',
+		'link_color'    => 'not-a-color',
+	)
+);
+penalis_same( '#123456', $cfg_email_clean['button_color'], 'Valid hex color is accepted for email CTA buttons.' );
+penalis_same( Penalis_Config::DEFAULT_LINK_COLOR, $cfg_email_clean['link_color'], 'Invalid hex color falls back to default link color.' );
+update_option( Penalis_Config::OPTION_EMAIL_BRANDING, $cfg_email_clean, false );
+$branded_email_html = Penalis_Email_Template::render( "Halo\n\nhttps://penalis.com/dashboard/" );
+penalis_assert( false !== strpos( $branded_email_html, 'https://penalis.com/logo-baru.png' ), 'Rendered email uses configured logo URL.' );
+penalis_assert( false !== strpos( $branded_email_html, 'background-color:#123456' ), 'Rendered email applies configured button color.' );
+penalis_assert( false !== strpos( $branded_email_html, 'mailto:redaksi@penalis.com' ), 'Rendered email replaces {email_kontak} with configured contact email.' );
+
+// 3. Editorial rules & #KalimatHariIni sanitization and clamping.
+$cfg_editorial = Penalis_Config::sanitize_editorial(
+	array(
+		'require_thumbnail'       => false,
+		'min_tags'                => 99,
+		'draft_revisions'         => 500,
+		'allowed_image_types'     => array( 'jpeg', 'svg', 'webp' ),
+		'quote_enabled'           => false,
+		'quote_max_length'        => 10,
+		'quote_max_lines'         => 12,
+		'quote_ttl_hours'         => 999,
+		'quote_daily_limit'       => 0,
+		'quote_removal_presets'   => "Alasan Satu\n\n  Alasan   Dua  \nAlasan Satu",
+	)
+);
+penalis_same( false, $cfg_editorial['require_thumbnail'], 'Editorial thumbnail requirement can be disabled.' );
+penalis_same( 10, $cfg_editorial['min_tags'], 'min_tags is clamped at upper bound 10.' );
+penalis_same( 100, $cfg_editorial['draft_revisions'], 'draft_revisions is clamped at upper bound 100.' );
+penalis_same( array( 'jpeg', 'webp' ), $cfg_editorial['allowed_image_types'], 'Unsafe upload formats like svg are stripped.' );
+penalis_same( 40, $cfg_editorial['quote_max_length'], 'quote_max_length is clamped at lower bound 40.' );
+penalis_same( 6, $cfg_editorial['quote_max_lines'], 'quote_max_lines is clamped at upper bound 6.' );
+penalis_same( 168, $cfg_editorial['quote_ttl_hours'], 'quote_ttl_hours is clamped at upper bound 168.' );
+penalis_same( 1, $cfg_editorial['quote_daily_limit'], 'quote_daily_limit is clamped at lower bound 1.' );
+penalis_same( array( 'Alasan Satu', 'Alasan Dua' ), $cfg_editorial['quote_removal_presets'], 'Quote removal presets are trimmed, normalized, and deduplicated.' );
+
+update_option( Penalis_Config::OPTION_EDITORIAL, $cfg_editorial, false );
+penalis_editorial_writer( 10 );
+$disabled_quote_res = Penalis_Daily_Quotes::publish( 10, 'Halo dunia.' );
+penalis_assert( is_wp_error( $disabled_quote_res ) && 'penalis_quote_disabled' === $disabled_quote_res->get_error_code(), 'Publishing #KalimatHariIni is blocked when quote_enabled is false.' );
+
+// 4. Article display (Share bar & Reactions modes).
+$cfg_display = Penalis_Config::sanitize_article_display(
+	array(
+		'auto_append_share_bar' => true,
+		'share_bar_title'       => 'Apresiasi Karya Ini',
+		'reactions_mode'        => 'like_only',
+		'reactions_cookie_days' => 9999,
+	)
+);
+penalis_same( 'like_only', $cfg_display['reactions_mode'], 'Reactions mode accepts like_only.' );
+penalis_same( 365, $cfg_display['reactions_cookie_days'], 'Reactions cookie days is clamped to 365.' );
+update_option( Penalis_Config::OPTION_ARTICLE_DISPLAY, $cfg_display, false );
+
+$react_post = penalis_editorial_post( 991, 10, 'publish', Penalis_Editorial_Policy::STATE_PUBLISHED );
+$like_only_html = Penalis_Reactions::render_controls( $react_post, 'bar' );
+penalis_assert( false !== strpos( $like_only_html, 'data-reaction="like"' ), 'like_only mode still renders the Like button.' );
+penalis_assert( false === strpos( $like_only_html, 'data-reaction="dislike"' ), 'like_only mode omits the Dislike button.' );
+$dislike_blocked = Penalis_Reactions::apply_reaction( 991, 'dislike', '' );
+penalis_assert( is_wp_error( $dislike_blocked ) && 'penalis_invalid_reaction' === $dislike_blocked->get_error_code(), 'like_only mode rejects dislike requests server-side.' );
+
+update_option( Penalis_Config::OPTION_ARTICLE_DISPLAY, array( 'reactions_mode' => 'off' ), false );
+penalis_same( '', Penalis_Reactions::render_controls( $react_post, 'bar' ), 'off mode suppresses reaction controls completely.' );
+$off_blocked = Penalis_Reactions::apply_reaction( 991, 'like', '' );
+penalis_assert( is_wp_error( $off_blocked ) && 'penalis_reactions_disabled' === $off_blocked->get_error_code(), 'off mode rejects all reaction requests server-side.' );
+
+// 5. Phase 3: Account policy clamping & enforcement.
+$cfg_account = Penalis_Config::sanitize_account(
+	array(
+		'min_password'          => 3,
+		'max_bio'               => 5000,
+		'avatar_max_mb'         => 50,
+		'avatar_output_size'    => 999,
+		'avatar_output_quality' => 10,
+		'avatar_min_edge'       => 10,
+	)
+);
+penalis_same( 8, $cfg_account['min_password'], 'min_password hard-clamps at lower bound 8.' );
+penalis_same( 1000, $cfg_account['max_bio'], 'max_bio hard-clamps at upper bound 1000.' );
+penalis_same( 10, $cfg_account['avatar_max_mb'], 'avatar_max_mb hard-clamps at upper bound 10.' );
+penalis_same( 512, $cfg_account['avatar_output_size'], 'avatar_output_size hard-clamps at upper bound 512.' );
+penalis_same( 60, $cfg_account['avatar_output_quality'], 'avatar_output_quality hard-clamps at lower bound 60.' );
+penalis_same( 50, $cfg_account['avatar_min_edge'], 'avatar_min_edge hard-clamps at lower bound 50.' );
+
+update_option( Penalis_Config::OPTION_ACCOUNT, array( 'min_password' => 10, 'max_bio' => 120 ), false );
+penalis_same( '', Penalis_Policy::validate_password( '1234567890' ), 'Configured min_password=10 accepts a 10-char password.' );
+penalis_assert( '' !== Penalis_Policy::validate_password( '123456789' ), 'Configured min_password=10 rejects a 9-char password.' );
+$bio_err = Penalis_Policy::validate_profile( array( 'description' => str_repeat( 'a', 121 ) ) );
+penalis_assert( isset( $bio_err['description'] ), 'Configured max_bio=120 enforces the 120-char bio limit.' );
+
+// 6. Phase 3: Security (Turnstile per-form, OTP, CDN override) clamping & runtime wiring.
+$cfg_security = Penalis_Config::sanitize_security(
+	array(
+		'turnstile_forms'  => array( 'login' => true, 'register' => false ),
+		'otp_ttl_minutes'  => 1,
+		'otp_resend_wait'  => 5,
+		'otp_max_attempts' => 99,
+		'otp_max_issues'   => 12,
+		'otp_daily_issues' => 5,
+		'asset_base_url'   => 'https://cdn.penalis.com/build/',
+	)
+);
+penalis_same( true, $cfg_security['turnstile_forms']['login'], 'Turnstile per-form preserves enabled login form.' );
+penalis_same( false, $cfg_security['turnstile_forms']['register'], 'Turnstile per-form allows disabling register form.' );
+penalis_same( 3, $cfg_security['otp_ttl_minutes'], 'otp_ttl_minutes hard-clamps at lower bound 3.' );
+penalis_same( 30, $cfg_security['otp_resend_wait'], 'otp_resend_wait hard-clamps at lower bound 30.' );
+penalis_same( 10, $cfg_security['otp_max_attempts'], 'otp_max_attempts hard-clamps at upper bound 10.' );
+penalis_same( 12, $cfg_security['otp_daily_issues'], 'otp_daily_issues never drops below otp_max_issues.' );
+penalis_same( 'https://cdn.penalis.com/build', $cfg_security['asset_base_url'], 'asset_base_url trims trailing slash.' );
+
+update_option( Penalis_Config::OPTION_SECURITY, $cfg_security, false );
+$otp_resp = Penalis_Otp::response( 'test-id' );
+penalis_same( 180, $otp_resp['expires_in'], 'OTP response reflects configured otp_ttl_minutes (3 min = 180s).' );
+penalis_same( 30, $otp_resp['resend_after'], 'OTP response reflects configured otp_resend_wait.' );
+penalis_same( 10, $otp_resp['max_attempts'], 'OTP response reflects configured otp_max_attempts.' );
+penalis_same( 'https://cdn.penalis.com/build/', Penalis_Dashboard::asset_base_url(), 'Configured asset_base_url overrides dashboard asset base URL.' );
+
+// 7. Phase 3: Performance (cache TTLs, log retention, analytics) clamping & defaults.
+$cfg_perf = Penalis_Config::sanitize_performance(
+	array(
+		'authors_cache_ttl'     => 99999,
+		'authors_per_page'      => 5,
+		'quotes_cache_ttl'      => 0,
+		'email_log_limit'       => 5,
+		'notification_limit'    => 999,
+		'review_history_limit'  => 999,
+		'account_log_limit'     => 5,
+		'analytics_weeks'       => 50,
+		'analytics_top_authors' => 1,
+	)
+);
+penalis_same( 3600, $cfg_perf['authors_cache_ttl'], 'authors_cache_ttl clamps at 3600.' );
+penalis_same( 12, $cfg_perf['authors_per_page'], 'authors_per_page clamps at 12.' );
+penalis_same( 0, $cfg_perf['quotes_cache_ttl'], 'quotes_cache_ttl allows 0 to disable caching.' );
+penalis_same( 20, $cfg_perf['email_log_limit'], 'email_log_limit clamps at 20.' );
+penalis_same( 200, $cfg_perf['notification_limit'], 'notification_limit clamps at 200.' );
+penalis_same( 200, $cfg_perf['review_history_limit'], 'review_history_limit clamps at 200.' );
+penalis_same( 10, $cfg_perf['account_log_limit'], 'account_log_limit clamps at 10.' );
+penalis_same( 26, $cfg_perf['analytics_weeks'], 'analytics_weeks clamps at 26.' );
+penalis_same( 3, $cfg_perf['analytics_top_authors'], 'analytics_top_authors clamps at 3.' );
+penalis_assert( count( Penalis_Config::all_option_names() ) === 14, 'Penalis_Config exports all 7 option groups plus 7 audit keys for uninstall.' );
+penalis_reset();
 
 /* -------------------------------------------------------------------------
  * Report

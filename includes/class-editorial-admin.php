@@ -895,6 +895,20 @@ final class Penalis_Editorial_Admin {
 	}
 
 	/**
+	 * Whether the pending-review admin notice should render on the given screen.
+	 *
+	 * Limited to the WordPress Dashboard (`dashboard`) and the Posts list
+	 * (`edit-post`) so reviewers see pending work at editorial entry points
+	 * without cluttering unrelated plugin or settings screens.
+	 *
+	 * @param string $screen_id Current WordPress admin screen ID.
+	 * @return bool
+	 */
+	public static function should_show_pending_notice( $screen_id ) {
+		return in_array( (string) $screen_id, array( 'dashboard', 'edit-post' ), true );
+	}
+
+	/**
 	 * Show a notice when submissions are waiting for review.
 	 *
 	 * @return void
@@ -907,7 +921,7 @@ final class Penalis_Editorial_Admin {
 		$screen    = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		$screen_id = $screen ? (string) $screen->id : '';
 
-		if ( Penalis_Admin::is_penalis_screen( $screen_id ) ) {
+		if ( ! self::should_show_pending_notice( $screen_id ) ) {
 			return;
 		}
 
@@ -918,7 +932,7 @@ final class Penalis_Editorial_Admin {
 		}
 
 		printf(
-			'<div class="notice notice-info"><p>%s <a href="%s">%s</a></p></div>',
+			'<div class="notice notice-info is-dismissible"><p>%s <a href="%s">%s</a></p></div>',
 			esc_html( sprintf( '%d karya tulis menunggu review.', $count ) ),
 			esc_url( self::list_url() ),
 			'Review karya tulis'

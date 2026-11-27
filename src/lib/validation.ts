@@ -65,11 +65,15 @@ export function passwordMatchStatus(
   return 'idle';
 }
 
-export function validatePasswordPair(password: string, confirmPassword: string): FieldErrors {
+export function validatePasswordPair(
+  password: string,
+  confirmPassword: string,
+  minLength = PASSWORD_MIN_LENGTH,
+): FieldErrors {
   const errors: FieldErrors = {};
 
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    errors.password = `Gunakan minimal ${PASSWORD_MIN_LENGTH} karakter.`;
+  if (password.length < minLength) {
+    errors.password = `Gunakan minimal ${minLength} karakter.`;
   }
 
   if (password !== confirmPassword) {
@@ -176,9 +180,9 @@ export function normalizeBio(value: string): string {
 /**
  * Validate a writer bio against the maximum length after newline normalization.
  */
-export function validateBio(value: string): string {
-  if (normalizeBio(value).length > BIO_MAX_LENGTH) {
-    return `Bio maksimal ${BIO_MAX_LENGTH} karakter.`;
+export function validateBio(value: string, maxLength = BIO_MAX_LENGTH): string {
+  if (normalizeBio(value).length > maxLength) {
+    return `Bio maksimal ${maxLength} karakter.`;
   }
 
   return '';

@@ -27,12 +27,26 @@ final class Penalis_Email_Template {
 	 * @return string
 	 */
 	public static function render( $content, $preheader = '', $footer_context = '' ) {
-		$logo_url       = 'https://penalis.com/wp-content/uploads/2021/01/logo-penalis.png';
-		$body           = self::render_content( (string) $content );
-		$preview        = esc_html( (string) $preheader );
-		$footer_context = '' !== (string) $footer_context ? (string) $footer_context : 'Email ini dikirim otomatis. Kamu menerima email ini karena kamu terdaftar sebagai penulis di platform Penalis. Beberapa isi email mungkin bersifat rahasia, sebaiknya jangan bagikan isi email ini kepada siapapun. Jika ada pertanyaan atau kendala, hubungi admin@penalis.com.';
-		$footer         = self::render_content( $footer_context );
-		$footer         = str_replace( 'admin@penalis.com', '<a href="mailto:admin@penalis.com" style="color:#2873c8;">admin@penalis.com</a>', $footer );
+		$branding      = Penalis_Config::email_branding();
+		$logo_url      = Penalis_Config::resolved_email_logo_url();
+		$contact_email = (string) $branding['contact_email'];
+		$button_color  = (string) $branding['button_color'];
+		$link_color    = (string) $branding['link_color'];
+		$body          = self::render_content( (string) $content, $button_color, $link_color );
+		$preview       = esc_html( (string) $preheader );
+
+		if ( '' !== (string) $footer_context ) {
+			$footer_raw = (string) $footer_context;
+		} else {
+			$footer_raw = str_replace( '{email_kontak}', $contact_email, (string) $branding['footer_text'] );
+		}
+
+		$footer = self::render_content( $footer_raw, $button_color, $link_color );
+		$mailto = '<a href="mailto:' . esc_attr( $contact_email ) . '" style="color:' . esc_attr( $link_color ) . ';">' . esc_html( $contact_email ) . '</a>';
+		$footer = str_replace( esc_html( $contact_email ), $mailto, $footer );
+		if ( 'admin@penalis.com' !== $contact_email ) {
+			$footer = str_replace( 'admin@penalis.com', $mailto, $footer );
+		}
 
 		return '<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>' . $preview . '</title></head>' .
 			'<body style="margin:0;padding:0;background-color:#f5f5f5;">' .
@@ -78,10 +92,12 @@ final class Penalis_Email_Template {
 	/**
 	 * Render escaped paragraphs and safe links.
 	 *
-	 * @param string $content Plain-text body.
+	 * @param string $content      Plain-text body.
+	 * @param string $button_color CTA button hex color.
+	 * @param string $link_color   Inline link hex color.
 	 * @return string
 	 */
-	private static function render_content( $content ) {
+	private static function render_content( $content, $button_color = Penalis_Config::DEFAULT_BUTTON_COLOR, $link_color = Penalis_Config::DEFAULT_LINK_COLOR ) {
 		$paragraphs = preg_split( '/\n\s*\n/', trim( $content ) );
 		$html       = '';
 
@@ -92,7 +108,7 @@ final class Penalis_Email_Template {
 			if ( 1 === count( $lines ) && preg_match( '#\A\[([^\]\r\n]+)\]\((https?://[^\s\)\"\'<>]+)\)\z#i', trim( $lines[0] ), $btn_match ) ) {
 				$label = trim( $btn_match[1] );
 				$url   = esc_url( trim( $btn_match[2] ) );
-				$html .= '<p style="margin:0 0 20px;"><a href="' . $url . '" style="display:inline-block;padding:12px 20px;border-radius:4px;background-color:#5145cd;color:#ffffff;font-weight:700;text-decoration:none;">' . esc_html( $label ) . '</a></p>';
+				$html .= '<p style="margin:0 0 20px;"><a href="' . $url . '" style="display:inline-block;padding:12px 20px;border-radius:4px;background-color:' . esc_attr( $button_color ) . ';color:#ffffff;font-weight:700;text-decoration:none;">' . esc_html( $label ) . '</a></p>';
 				continue;
 			}
 
@@ -100,7 +116,7 @@ final class Penalis_Email_Template {
 			if ( 1 === count( $lines ) && preg_match( '#\Ahttps?://[^\s]+\z#i', trim( $lines[0] ) ) ) {
 				$url   = esc_url( trim( $lines[0] ) );
 				$label = self::get_action_label( $url );
-				$html .= '<p style="margin:0 0 20px;"><a href="' . $url . '" style="display:inline-block;padding:12px 20px;border-radius:4px;background-color:#5145cd;color:#ffffff;font-weight:700;text-decoration:none;">' . esc_html( $label ) . '</a></p>';
+				$html .= '<p style="margin:0 0 20px;"><a href="' . $url . '" style="display:inline-block;padding:12px 20px;border-radius:4px;background-color:' . esc_attr( $button_color ) . ';color:#ffffff;font-weight:700;text-decoration:none;">' . esc_html( $label ) . '</a></p>';
 				continue;
 			}
 
@@ -113,7 +129,7 @@ final class Penalis_Email_Template {
 
 			$escaped_lines = array();
 			foreach ( $lines as $line ) {
-				$escaped_lines[] = self::render_line( $line );
+				$escaped_lines[] = self::render_line( $line, $link_color );
 			}
 
 			$html .= '<p style="margin:0 0 16px;">' . implode( '<br>', $escaped_lines ) . '</p>';
@@ -125,21 +141,22 @@ final class Penalis_Email_Template {
 	/**
 	 * Escape a line while parsing markdown links, bold text, and raw URLs.
 	 *
-	 * @param string $line Plain-text line.
+	 * @param string $line       Plain-text line.
+	 * @param string $link_color Inline link hex color.
 	 * @return string
 	 */
-	private static function render_line( $line ) {
+	private static function render_line( $line, $link_color = Penalis_Config::DEFAULT_LINK_COLOR ) {
 		$tokens = array();
 		$i      = 0;
 
 		// 1. Markdown links: [text](https://url).
 		$line = preg_replace_callback(
 			'#\[([^\]\r\n]+)\]\((https?://[^\s\)\"\'<>]+)\)#i',
-			static function ( $matches ) use ( &$tokens, &$i ) {
+			static function ( $matches ) use ( &$tokens, &$i, $link_color ) {
 				$key            = '###PENALISLINK' . ( $i++ ) . '###';
 				$text           = esc_html( $matches[1] );
 				$url            = esc_url( $matches[2] );
-				$tokens[ $key ] = '<a href="' . $url . '" style="color:#2873c8;text-decoration:underline;">' . $text . '</a>';
+				$tokens[ $key ] = '<a href="' . $url . '" style="color:' . esc_attr( $link_color ) . ';text-decoration:underline;">' . $text . '</a>';
 				return $key;
 			},
 			$line
@@ -160,10 +177,10 @@ final class Penalis_Email_Template {
 		// 3. Raw URLs: https://...
 		$line = preg_replace_callback(
 			'#https?://[^\s<>]+#i',
-			static function ( $matches ) use ( &$tokens, &$i ) {
+			static function ( $matches ) use ( &$tokens, &$i, $link_color ) {
 				$key            = '###PENALISRAW' . ( $i++ ) . '###';
 				$url            = esc_url( $matches[0] );
-				$tokens[ $key ] = '<a href="' . $url . '" style="color:#2873c8;text-decoration:underline;">' . esc_html( $matches[0] ) . '</a>';
+				$tokens[ $key ] = '<a href="' . $url . '" style="color:' . esc_attr( $link_color ) . ';text-decoration:underline;">' . esc_html( $matches[0] ) . '</a>';
 				return $key;
 			},
 			$line

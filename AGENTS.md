@@ -256,16 +256,17 @@ readme.txt                  WordPress plugin readme and changelog
   (`penalis-platform`), **Review Karya Tulis** (`penalis-review`), **Karya
   Terhapus** (`penalis-trashed`), **Kalimat Hari Ini** (`penalis-quotes`),
   **Penulis Penalis** (`penalis-writers`), **Log Email** (`penalis-email-log`),
-  and **Pengaturan** (`penalis-settings`, administrators only). **Pengaturan** holds one tab per
-  setting group — `Keamanan` (dashboard CAPTCHA), `Pendaftaran` (public
-  registration toggle), `Batas Percobaan` (rate limits & trusted proxies),
-  `Foto Profil` (site-wide default avatar & legacy One User Avatar backup),
-  `Thumbnail` (default featured image for published posts), `Views` (post views
-  counter settings & PVC migration), `Table of Contents` (auto-TOC settings &
-  LuckyWP TOC transition status), `Email` (transactional templates), and `Data`
-  (opt-in uninstall cleanup). Every new site-wide
-  setting belongs there as a tab registered in `Penalis_Settings::tabs()`, never
-  bolted onto a curation screen. All admin styles live in
+  and **Pengaturan** (`penalis-settings`, administrators only). **Pengaturan**
+  uses a 2-column vertical sidebar divided into two groups — **Pengaturan
+  Utama** (`Umum & Halaman`, `Akun & Pendaftaran`, `Editorial & Komunitas`,
+  `Tampilan Artikel`, `Email`) and **Sensitif & Sistem** (`Keamanan & Batas`,
+  `Data, Cache & Log`, each carrying a sensitive-settings warning banner and
+  reset-to-default actions), with backward-compatible tab aliases (`captcha`,
+  `rate-limit`, `avatar`, `thumbnail`, `views`, `toc`) and centralized storage
+  in `Penalis_Config` (`includes/class-config.php`) and
+  `Penalis_Settings_Panels` (`includes/class-settings-panels.php`). Every new
+  site-wide setting belongs there as a panel in `Penalis_Settings::tabs()`,
+  never bolted onto a curation screen. All admin styles live in
   `assets/css/admin.css` and confirmation dialog logic in
   `assets/js/admin-review.js` (`createModalController()`) — do not inline large
   CSS or JS blocks inside PHP classes. Use

@@ -525,8 +525,9 @@ final class Penalis_Account_Status {
 			'actor'  => (int) $actor,
 		);
 
-		if ( count( $log ) > self::LOG_LIMIT ) {
-			$log = array_slice( $log, -self::LOG_LIMIT );
+		$log_limit = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::performance()['account_log_limit'] : self::LOG_LIMIT;
+		if ( count( $log ) > $log_limit ) {
+			$log = array_slice( $log, -$log_limit );
 		}
 
 		update_user_meta( (int) $user_id, self::META_LOG, $log );

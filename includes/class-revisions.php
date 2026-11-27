@@ -70,7 +70,8 @@ final class Penalis_Revisions {
 			return $num;
 		}
 
-		$limit = (int) apply_filters( 'penalis_draft_revisions', self::DRAFT_LIMIT );
+		$default = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::editorial()['draft_revisions'] : self::DRAFT_LIMIT;
+		$limit   = (int) apply_filters( 'penalis_draft_revisions', $default );
 
 		// A filter that opts out must not accidentally disable revisions.
 		if ( $limit < 1 ) {

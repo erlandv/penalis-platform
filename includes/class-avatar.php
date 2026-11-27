@@ -106,14 +106,18 @@ final class Penalis_Avatar {
 	 * @return int
 	 */
 	public static function max_file_size() {
+		$configured = class_exists( 'Penalis_Config' )
+			? (int) Penalis_Config::account()['avatar_max_mb'] * 1024 * 1024
+			: self::MAX_FILE_SIZE;
+
 		if ( function_exists( 'wp_max_upload_size' ) ) {
 			$wp_max = (int) wp_max_upload_size();
-			if ( $wp_max > 0 && $wp_max < self::MAX_FILE_SIZE ) {
+			if ( $wp_max > 0 && $wp_max < $configured ) {
 				return $wp_max;
 			}
 		}
 
-		return self::MAX_FILE_SIZE;
+		return $configured;
 	}
 
 	/**
@@ -588,10 +592,14 @@ final class Penalis_Avatar {
 				);
 			}
 
-			// Normalize to a square JPEG capped at OUTPUT_SIZE. Re-encoding through
+			$account_cfg    = class_exists( 'Penalis_Config' ) ? Penalis_Config::account() : array();
+			$output_size    = isset( $account_cfg['avatar_output_size'] ) ? (int) $account_cfg['avatar_output_size'] : self::OUTPUT_SIZE;
+			$output_quality = isset( $account_cfg['avatar_output_quality'] ) ? (int) $account_cfg['avatar_output_quality'] : self::OUTPUT_QUALITY;
+
+			// Normalize to a square JPEG capped at output_size. Re-encoding through
 			// GD/Imagick strips EXIF metadata and any trailing payload.
-			if ( $width !== $height || $width > self::OUTPUT_SIZE || $height > self::OUTPUT_SIZE ) {
-				$target  = min( self::OUTPUT_SIZE, $width, $height );
+			if ( $width !== $height || $width > $output_size || $height > $output_size ) {
+				$target  = min( $output_size, $width, $height );
 				$resized = $editor->resize( $target, $target, true );
 
 				if ( is_wp_error( $resized ) ) {
@@ -603,7 +611,7 @@ final class Penalis_Avatar {
 				}
 			}
 
-			$editor->set_quality( self::OUTPUT_QUALITY );
+			$editor->set_quality( $output_quality );
 			$saved = $editor->save( $dest, 'image/jpeg' );
 		} finally {
 			if ( '' !== $flattened_tmp && is_file( $flattened_tmp ) ) {

@@ -372,13 +372,15 @@ final class Penalis_Article_Share {
 			return '';
 		}
 
+		$display = Penalis_Config::article_display();
+
 		/**
 		 * Filter whether Penalis automatically appends the share bar at the end of single posts.
 		 *
-		 * @param bool    $enabled Default true.
+		 * @param bool    $enabled Default from Penalis_Config::article_display().
 		 * @param WP_Post $post    Current post.
 		 */
-		if ( ! apply_filters( 'penalis_auto_append_article_share', true, $post ) ) {
+		if ( ! apply_filters( 'penalis_auto_append_article_share', (bool) $display['auto_append_share_bar'], $post ) ) {
 			return '';
 		}
 
@@ -390,12 +392,14 @@ final class Penalis_Article_Share {
 			: '';
 
 		return sprintf(
-			'<aside class="penalis-article-share-bar" aria-label="Reaksi dan bagikan karya tulis"><div class="penalis-article-share-bar__copy"><strong class="penalis-article-share-bar__title">Suka karya tulis ini?</strong><p class="penalis-article-share-bar__desc">Beri apresiasi untuk penulis atau bagikan sebagai gambar siap unggah ke media sosial.</p></div><div class="penalis-article-share-bar__actions">%1$s<button type="button" class="penalis-article-share-btn penalis-article-share-btn--primary" data-penalis-open-card="article" data-penalis-article-id="%2$d" aria-label="%3$s">%4$s<span>Bagikan</span></button></div>%5$s</aside>',
+			'<aside class="penalis-article-share-bar" aria-label="Reaksi dan bagikan karya tulis"><div class="penalis-article-share-bar__copy"><strong class="penalis-article-share-bar__title">%6$s</strong><p class="penalis-article-share-bar__desc">%7$s</p></div><div class="penalis-article-share-bar__actions">%1$s<button type="button" class="penalis-article-share-btn penalis-article-share-btn--primary" data-penalis-open-card="article" data-penalis-article-id="%2$d" aria-label="%3$s">%4$s<span>Bagikan</span></button></div>%5$s</aside>',
 			$reactions_html,
 			$post_id,
 			esc_attr( sprintf( 'Bagikan karya tulis: %s', (string) $post->post_title ) ),
 			self::share_icon_svg( 16 ),
-			self::render_embedded_payload( $post )
+			self::render_embedded_payload( $post ),
+			esc_html( (string) $display['share_bar_title'] ),
+			esc_html( (string) $display['share_bar_description'] )
 		);
 	}
 

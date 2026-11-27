@@ -430,8 +430,9 @@ final class Penalis_Editorial_Policy {
 		$history   = is_array( $history ) ? array_values( $history ) : array();
 		$history[] = $entry;
 
-		if ( count( $history ) > self::HISTORY_LIMIT ) {
-			$history = array_slice( $history, -self::HISTORY_LIMIT );
+		$history_limit = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::performance()['review_history_limit'] : self::HISTORY_LIMIT;
+		if ( count( $history ) > $history_limit ) {
+			$history = array_slice( $history, -$history_limit );
 		}
 
 		return $history;
@@ -599,7 +600,8 @@ final class Penalis_Editorial_Policy {
 	 * @return bool
 	 */
 	public static function is_valid_history( $history ) {
-		if ( ! is_array( $history ) || count( $history ) > self::HISTORY_LIMIT ) {
+		$history_limit = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::performance()['review_history_limit'] : self::HISTORY_LIMIT;
+		if ( ! is_array( $history ) || count( $history ) > $history_limit ) {
 			return false;
 		}
 
@@ -700,7 +702,8 @@ final class Penalis_Editorial_Policy {
 	 * @return bool
 	 */
 	public static function is_valid_notifications( $notifications ) {
-		if ( ! is_array( $notifications ) || count( $notifications ) > self::NOTIFICATION_LIMIT ) {
+		$notif_limit = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::performance()['notification_limit'] : self::NOTIFICATION_LIMIT;
+		if ( ! is_array( $notifications ) || count( $notifications ) > $notif_limit ) {
 			return false;
 		}
 
@@ -727,8 +730,9 @@ final class Penalis_Editorial_Policy {
 		$notifications   = is_array( $notifications ) ? array_values( $notifications ) : array();
 		$notifications[] = $entry;
 
-		if ( count( $notifications ) > self::NOTIFICATION_LIMIT ) {
-			$notifications = array_slice( $notifications, -self::NOTIFICATION_LIMIT );
+		$notif_limit = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::performance()['notification_limit'] : self::NOTIFICATION_LIMIT;
+		if ( count( $notifications ) > $notif_limit ) {
+			$notifications = array_slice( $notifications, -$notif_limit );
 		}
 
 		return $notifications;

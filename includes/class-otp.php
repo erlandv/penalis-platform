@@ -92,11 +92,13 @@ final class Penalis_Otp {
 	 * @return array
 	 */
 	public static function response( $id = '' ) {
+		$sec = Penalis_Config::security();
+
 		return array(
 			'challenge_id' => '' !== $id ? $id : Penalis_Policy::generate_token(),
-			'resend_after' => Penalis_Policy::OTP_RESEND_WAIT,
-			'expires_in'   => Penalis_Policy::OTP_TTL,
-			'max_attempts' => Penalis_Policy::OTP_MAX_ATTEMPTS,
+			'resend_after' => (int) $sec['otp_resend_wait'],
+			'expires_in'   => Penalis_Config::otp_ttl_seconds(),
+			'max_attempts' => (int) $sec['otp_max_attempts'],
 			'message'      => 'Jika permintaan memenuhi syarat, kode verifikasi telah dikirim. Masukkan kode enam digit dari email kamu.',
 		);
 	}
@@ -123,7 +125,8 @@ final class Penalis_Otp {
 			return '';
 		}
 
-		if ( (int) $state['expires'] <= time() || (int) $state['attempts'] >= Penalis_Policy::OTP_MAX_ATTEMPTS ) {
+		$max_attempts = (int) Penalis_Config::security()['otp_max_attempts'];
+		if ( (int) $state['expires'] <= time() || (int) $state['attempts'] >= $max_attempts ) {
 			return '';
 		}
 
@@ -245,10 +248,15 @@ final class Penalis_Otp {
 					return self::invalid();
 				}
 
-				$now      = time();
-				$subjects = array(
-					array( 'user:' . $user_id, Penalis_Policy::OTP_MAX_ISSUES ),
-					array( 'email:' . strtolower( $email ), Penalis_Policy::OTP_MAX_ISSUES ),
+				$sec         = Penalis_Config::security();
+				$otp_ttl     = Penalis_Config::otp_ttl_seconds();
+				$resend_wait = (int) $sec['otp_resend_wait'];
+				$max_issues  = (int) $sec['otp_max_issues'];
+				$daily_limit = (int) $sec['otp_daily_issues'];
+				$now         = time();
+				$subjects    = array(
+					array( 'user:' . $user_id, $max_issues ),
+					array( 'email:' . strtolower( $email ), $max_issues ),
 					array( 'ip:' . Penalis_Rate_Limiter::client_ip(), 20 ),
 				);
 
@@ -256,8 +264,8 @@ final class Penalis_Otp {
 					$subjects = array_slice( $subjects, 0, 2 );
 				}
 
-				$subjects[] = array( 'day_user:' . $user_id, Penalis_Policy::OTP_DAILY_ISSUES );
-				$subjects[] = array( 'day_email:' . strtolower( $email ), Penalis_Policy::OTP_DAILY_ISSUES );
+				$subjects[] = array( 'day_user:' . $user_id, $daily_limit );
+				$subjects[] = array( 'day_email:' . strtolower( $email ), $daily_limit );
 				$rows       = array();
 
 				foreach ( $subjects as $subject ) {
@@ -275,7 +283,7 @@ final class Penalis_Otp {
 
 					$is_ip = 0 === strpos( $subject[0], 'ip:' );
 
-					if ( (int) $row['count'] >= $limit || ( ! $is_ip && (int) $row['last'] + Penalis_Policy::OTP_RESEND_WAIT > $now ) ) {
+					if ( (int) $row['count'] >= $limit || ( ! $is_ip && (int) $row['last'] + $resend_wait > $now ) ) {
 						return new WP_Error(
 							'penalis_rate_limited',
 							'Terlalu banyak permintaan kode. Silakan coba lagi nanti.',
@@ -304,7 +312,7 @@ final class Penalis_Otp {
 					'user_id'  => $user_id,
 					'email'    => $email,
 					'source'   => $user->user_email,
-					'expires'  => $now + Penalis_Policy::OTP_TTL,
+					'expires'  => $now + $otp_ttl,
 					'attempts' => 0,
 				);
 
@@ -321,7 +329,7 @@ final class Penalis_Otp {
 				}
 
 				// Indexed locator contains no code; old locators fail the current-ID check.
-				if ( ! set_transient( 'penalis_otp_' . hash( 'sha256', $id ), array( $user_id, $purpose ), Penalis_Policy::OTP_TTL ) ) {
+				if ( ! set_transient( 'penalis_otp_' . hash( 'sha256', $id ), array( $user_id, $purpose ), $otp_ttl ) ) {
 					self::restore( $user_id, $key, $previous );
 					return self::invalid();
 				}
@@ -450,10 +458,11 @@ final class Penalis_Otp {
 					return self::invalid();
 				}
 
+				$max_attempts = (int) Penalis_Config::security()['otp_max_attempts'];
 				if (
 					$state['id'] !== $id
 					|| (int) $state['expires'] <= time()
-					|| (int) $state['attempts'] >= Penalis_Policy::OTP_MAX_ATTEMPTS
+					|| (int) $state['attempts'] >= $max_attempts
 					|| ! $user
 					|| $state['source'] !== $user->user_email
 				) {

@@ -127,6 +127,21 @@ $penalis_options = array(
 	// Built-in Table of Contents settings.
 	'penalis_toc_settings',
 	'penalis_toc_audit',
+	// Centralized Penalis_Config option groups and audit metadata.
+	'penalis_config_general',
+	'penalis_config_email_branding',
+	'penalis_config_editorial',
+	'penalis_config_article_display',
+	'penalis_config_account',
+	'penalis_config_security',
+	'penalis_config_performance',
+	'penalis_config_audit_general',
+	'penalis_config_audit_email_branding',
+	'penalis_config_audit_editorial',
+	'penalis_config_audit_article_display',
+	'penalis_config_audit_account',
+	'penalis_config_audit_security',
+	'penalis_config_audit_performance',
 );
 foreach ( $penalis_options as $penalis_option ) {
 	delete_option( $penalis_option );

@@ -78,6 +78,7 @@ final class Penalis_Settings {
 	 */
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 14 );
+		add_action( 'admin_init', array( __CLASS__, 'redirect_legacy_thumbnail' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'render_captcha_warning' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_scripts' ) );
 		add_action( 'admin_post_penalis_save_captcha', array( __CLASS__, 'handle_save_captcha' ) );
@@ -90,6 +91,7 @@ final class Penalis_Settings {
 		add_action( 'admin_post_penalis_migrate_pvc_views', array( __CLASS__, 'handle_migrate_pvc_views' ) );
 		add_action( 'admin_post_penalis_save_toc', array( __CLASS__, 'handle_save_toc' ) );
 		add_action( 'admin_post_penalis_save_data', array( __CLASS__, 'handle_save_data' ) );
+		Penalis_Settings_Panels::init();
 	}
 
 	/**
@@ -131,10 +133,7 @@ final class Penalis_Settings {
 	}
 
 	/**
-	 * Enqueue the media picker for the Foto Profil and Thumbnail tabs.
-	 *
-	 * The media frame is only loaded on the two image-picker tabs so the other
-	 * setting groups stay lightweight.
+	 * Enqueue the settings controls and load the media frame on image-picker tabs.
 	 *
 	 * @param string $hook Current admin page hook.
 	 * @return void
@@ -144,75 +143,104 @@ final class Penalis_Settings {
 			return;
 		}
 
+		Penalis_Admin::enqueue_stylesheet();
+
+		$asset = Penalis_Admin::resolve_asset_meta( 'assets/js/admin-settings.js' );
+		wp_enqueue_script( 'penalis-admin-settings', $asset['url'], array(), $asset['version'], true );
+
 		$tab     = self::current_tab();
 		$pickers = array(
-			'avatar'    => array(
-				'handle'  => 'penalis-admin-avatar',
-				'trigger' => '#penalis-default-avatar-choose',
-				'input'   => '#penalis-default-avatar-id',
-				'preview' => '#penalis-default-avatar-preview',
-				'title'   => 'Foto profil bawaan',
+			'general'         => array(
+				array(
+					'trigger' => '#penalis-brand-logo-choose',
+					'input'   => '#penalis-brand-logo-id',
+					'preview' => '#penalis-brand-logo-preview',
+					'title'   => 'Logo Share Card',
+				),
+				array(
+					'trigger' => '#penalis-brand-icon-choose',
+					'input'   => '#penalis-brand-icon-id',
+					'preview' => '#penalis-brand-icon-preview',
+					'title'   => 'Ikon Share Card',
+				),
 			),
-			'thumbnail' => array(
-				'handle'  => 'penalis-admin-thumbnail',
-				'trigger' => '#penalis-default-thumbnail-choose',
-				'input'   => '#penalis-default-thumbnail-id',
-				'preview' => '#penalis-default-thumbnail-preview',
-				'title'   => 'Thumbnail bawaan karya tulis',
+			'registration'    => array(
+				array(
+					'trigger' => '#penalis-default-avatar-choose',
+					'input'   => '#penalis-default-avatar-id',
+					'preview' => '#penalis-default-avatar-preview',
+					'title'   => 'Foto profil bawaan',
+				),
+			),
+			'article-display' => array(
+				array(
+					'trigger' => '#penalis-default-thumbnail-choose',
+					'input'   => '#penalis-default-thumbnail-id',
+					'preview' => '#penalis-default-thumbnail-preview',
+					'title'   => 'Thumbnail bawaan karya tulis',
+				),
+			),
+			'email'           => array(
+				array(
+					'trigger'  => '#penalis-email-logo-choose',
+					'input'    => '#penalis-email-logo-id',
+					'urlInput' => '#penalis-email-logo-url',
+					'preview'  => '#penalis-email-logo-preview',
+					'title'    => 'Logo Header Email',
+				),
 			),
 		);
 
-		if ( ! isset( $pickers[ $tab ] ) ) {
+		if ( empty( $pickers[ $tab ] ) ) {
 			return;
 		}
 
-		$picker = $pickers[ $tab ];
-
 		wp_enqueue_media();
 
-		wp_register_script( $picker['handle'], '', array( 'jquery' ), PENALIS_PLATFORM_VERSION, true );
-		wp_enqueue_script( $picker['handle'] );
+		$handle = 'penalis-admin-media-picker';
+		wp_register_script( $handle, '', array( 'jquery' ), PENALIS_PLATFORM_VERSION, true );
+		wp_enqueue_script( $handle );
 
-		$config = wp_json_encode(
-			array(
-				'trigger' => $picker['trigger'],
-				'input'   => $picker['input'],
-				'preview' => $picker['preview'],
-				'title'   => $picker['title'],
-			)
-		);
+		$config = wp_json_encode( $pickers[ $tab ] );
 
 		$script = sprintf(
 			'jQuery( function ( $ ) {
-	var cfg = %s;
-	var frame;
+	var list = %s;
+	$.each( list, function ( _, cfg ) {
+		var frame;
+		$( cfg.trigger ).on( "click", function ( event ) {
+			event.preventDefault();
 
-	$( cfg.trigger ).on( "click", function ( event ) {
-		event.preventDefault();
+			if ( ! frame ) {
+				frame = wp.media( {
+					title: cfg.title,
+					button: { text: "Gunakan gambar ini" },
+					library: { type: "image" },
+					multiple: false
+				} );
 
-		if ( ! frame ) {
-			frame = wp.media( {
-				title: cfg.title,
-				button: { text: "Gunakan gambar ini" },
-				library: { type: "image" },
-				multiple: false
-			} );
+				frame.on( "select", function () {
+					var attachment = frame.state().get( "selection" ).first().toJSON();
+					var url = ( attachment.sizes && attachment.sizes.medium && attachment.sizes.medium.url ) ? attachment.sizes.medium.url : attachment.url;
+					var input = $( cfg.input ).val( attachment.id ).get( 0 );
+					input.dispatchEvent( new Event( "change", { bubbles: true } ) );
+					if ( cfg.urlInput ) {
+						$( cfg.urlInput ).val( attachment.url );
+					}
+					if ( cfg.preview ) {
+						$( cfg.preview ).attr( "src", url ).show();
+					}
+				} );
+			}
 
-			frame.on( "select", function () {
-				var attachment = frame.state().get( "selection" ).first().toJSON();
-				var url = ( attachment.sizes && attachment.sizes.medium && attachment.sizes.medium.url ) ? attachment.sizes.medium.url : attachment.url;
-				$( cfg.input ).val( attachment.id );
-				$( cfg.preview ).attr( "src", url ).show();
-			} );
-		}
-
-		frame.open();
+			frame.open();
+		} );
 	} );
 } );',
 			$config
 		);
 
-		wp_add_inline_script( $picker['handle'], $script );
+		wp_add_inline_script( $handle, $script );
 	}
 
 	/**
@@ -225,59 +253,124 @@ final class Penalis_Settings {
 	}
 
 	/**
-	 * Settings tabs, in display order.
+	 * Legacy tab slugs mapped to their consolidated tab.
 	 *
-	 * Each entry carries the short menu label and the callable that renders the
-	 * tab body. Future setting groups only need an entry here.
+	 * Keeps old bookmarks, admin notices, and email links working cleanly after
+	 * consolidating the settings layout into two vertical sidebar groups.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function tab_aliases() {
+		return array(
+			'captcha'    => 'security',
+			'rate-limit' => 'security',
+			'avatar'     => 'registration',
+			'thumbnail'  => 'article-display',
+			'views'      => 'article-display',
+			'toc'        => 'article-display',
+		);
+	}
+
+	/**
+	 * Send bookmarked thumbnail URLs directly to the image panel.
+	 *
+	 * @return void
+	 */
+	public static function redirect_legacy_thumbnail() {
+		if ( ! self::is_current_screen() || ! self::can_manage() ) {
+			return;
+		}
+
+		$requested = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only redirect source.
+		if ( 'thumbnail' === $requested ) {
+			wp_safe_redirect( self::url( array( 'tab' => 'article-display' ) ) . '#penalis-thumbnail' );
+			exit;
+		}
+	}
+
+	/**
+	 * Resolve a requested tab slug (including retired aliases) to a valid tab.
+	 *
+	 * @param string $requested Raw tab slug.
+	 * @return string Canonical tab slug.
+	 */
+	public static function resolve_tab( $requested ) {
+		$requested = sanitize_key( (string) $requested );
+		$tabs      = self::tabs();
+
+		if ( isset( $tabs[ $requested ] ) ) {
+			return $requested;
+		}
+
+		$aliases = self::tab_aliases();
+		if ( isset( $aliases[ $requested ] ) && isset( $tabs[ $aliases[ $requested ] ] ) ) {
+			return $aliases[ $requested ];
+		}
+
+		$slugs = array_keys( $tabs );
+
+		return (string) reset( $slugs );
+	}
+
+	/**
+	 * Settings tabs, in display order, grouped into Pengaturan Utama (`main`)
+	 * and Sensitif & Sistem (`sensitive`).
+	 *
+	 * Each entry carries the short menu label, sidebar group, and callable that
+	 * renders the tab body.
 	 *
 	 * @return array<string,array<string,mixed>>
 	 */
 	public static function tabs() {
 		return array(
-			'captcha'      => array(
-				'label'  => 'Keamanan',
-				'title'  => 'Keamanan & CAPTCHA',
-				'render' => array( __CLASS__, 'render_captcha_tab' ),
+			'general'         => array(
+				'label'       => 'Umum & Halaman',
+				'description' => 'Atur halaman publik, tautan legal, dan aset Penalis.',
+				'icon'        => 'dashicons-admin-page',
+				'group'       => 'main',
+				'render'      => array( __CLASS__, 'render_general_tab' ),
 			),
-			'registration' => array(
-				'label'  => 'Pendaftaran',
-				'title'  => 'Pendaftaran Penulis',
-				'render' => array( __CLASS__, 'render_registration_tab' ),
+			'registration'    => array(
+				'label'       => 'Akun & Pendaftaran',
+				'description' => 'Kelola pendaftaran penulis dan kebijakan akun serta profil.',
+				'icon'        => 'dashicons-groups',
+				'group'       => 'main',
+				'render'      => array( __CLASS__, 'render_account_tab' ),
 			),
-			'rate-limit'   => array(
-				'label'  => 'Batas Percobaan',
-				'title'  => 'Batas Percobaan & Proxy',
-				'render' => array( __CLASS__, 'render_rate_limit_tab' ),
+			'editorial'       => array(
+				'label'       => 'Editorial & Komunitas',
+				'description' => 'Atur pengiriman karya dan moderasi #KalimatHariIni.',
+				'icon'        => 'dashicons-edit',
+				'group'       => 'main',
+				'render'      => array( __CLASS__, 'render_editorial_tab' ),
 			),
-			'avatar'       => array(
-				'label'  => 'Foto Profil',
-				'title'  => 'Foto Profil Bawaan',
-				'render' => array( __CLASS__, 'render_avatar_tab' ),
+			'article-display' => array(
+				'label'       => 'Tampilan Artikel',
+				'description' => 'Atur komponen artikel, thumbnail bawaan, dan penghitungan views.',
+				'icon'        => 'dashicons-media-document',
+				'group'       => 'main',
+				'render'      => array( __CLASS__, 'render_article_display_tab' ),
 			),
-			'thumbnail'    => array(
-				'label'  => 'Thumbnail',
-				'title'  => 'Thumbnail Bawaan Karya',
-				'render' => array( __CLASS__, 'render_thumbnail_tab' ),
+			'email'           => array(
+				'label'       => 'Email',
+				'description' => 'Kelola identitas email dan pesan otomatis yang dikirim oleh Penalis.',
+				'icon'        => 'dashicons-email-alt',
+				'group'       => 'main',
+				'render'      => array( __CLASS__, 'render_email_tab' ),
 			),
-			'views'        => array(
-				'label'  => 'Views',
-				'title'  => 'Penghitung Views',
-				'render' => array( __CLASS__, 'render_views_tab' ),
+			'security'        => array(
+				'label'       => 'Keamanan & Batas',
+				'description' => 'Kelola CAPTCHA, kode verifikasi, dan batas percobaan.',
+				'icon'        => 'dashicons-shield',
+				'group'       => 'sensitive',
+				'render'      => array( __CLASS__, 'render_security_tab' ),
 			),
-			'toc'          => array(
-				'label'  => 'Table of Contents',
-				'title'  => 'Table of Contents',
-				'render' => array( __CLASS__, 'render_toc_tab' ),
-			),
-			'email'        => array(
-				'label'  => 'Email',
-				'title'  => 'Pengaturan Email',
-				'render' => array( 'Penalis_Email_Settings', 'render_tab' ),
-			),
-			'data'         => array(
-				'label'  => 'Data',
-				'title'  => 'Data & Uninstall',
-				'render' => array( __CLASS__, 'render_data_tab' ),
+			'data'            => array(
+				'label'       => 'Data, Cache & Log',
+				'description' => 'Kelola cache, retensi log, analitik, dan data saat plugin dihapus.',
+				'icon'        => 'dashicons-database',
+				'group'       => 'sensitive',
+				'render'      => array( __CLASS__, 'render_data_system_tab' ),
 			),
 		);
 	}
@@ -419,20 +512,13 @@ final class Penalis_Settings {
 	 * @return string Registered tab slug.
 	 */
 	private static function current_tab() {
-		$tabs      = self::tabs();
 		$requested = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only tab selection.
 
-		if ( isset( $tabs[ $requested ] ) ) {
-			return $requested;
-		}
-
-		$slugs = array_keys( $tabs );
-
-		return (string) reset( $slugs );
+		return self::resolve_tab( $requested );
 	}
 
 	/**
-	 * Render the settings screen.
+	 * Render the settings screen with a 2-column vertical sidebar layout.
 	 *
 	 * @return void
 	 */
@@ -441,39 +527,172 @@ final class Penalis_Settings {
 			wp_die( 'Kamu tidak memiliki izin untuk melihat halaman ini.', '', array( 'response' => 403 ) );
 		}
 
-		$tabs = self::tabs();
-		$tab  = self::current_tab();
+		$tabs   = self::tabs();
+		$tab    = self::current_tab();
+		$groups = array(
+			'main'      => 'Pengaturan Utama',
+			'sensitive' => 'Sensitif & Sistem',
+		);
 		?>
 		<div class="wrap penalis-settings">
-			<h1 class="wp-heading-inline">Pengaturan Penalis</h1>
-			<hr class="wp-header-end">
+			<div class="penalis-settings__header">
+				<h1 class="wp-heading-inline">Pengaturan Penalis</h1>
+				<hr class="wp-header-end">
+			</div>
 
-			<?php self::render_notices(); ?>
+			<div class="penalis-settings__layout">
+				<nav class="penalis-settings__sidebar" aria-label="Kategori pengaturan Penalis">
+					<?php foreach ( $groups as $group => $label ) : ?>
+						<div class="penalis-settings__nav-group">
+							<p class="penalis-settings__nav-heading"><?php echo esc_html( $label ); ?></p>
+							<ul class="penalis-settings__nav-list">
+								<?php foreach ( $tabs as $slug => $meta ) : ?>
+									<?php if ( $group === $meta['group'] ) : ?>
+										<li>
+											<a class="penalis-settings__nav-item" href="<?php echo esc_url( self::url( array( 'tab' => $slug ) ) ); ?>" <?php echo $slug === $tab ? 'aria-current="page"' : ''; ?>>
+												<span class="dashicons <?php echo esc_attr( $meta['icon'] ); ?>" aria-hidden="true"></span>
+												<?php echo esc_html( $meta['label'] ); ?>
+											</a>
+										</li>
+									<?php endif; ?>
+								<?php endforeach; ?>
+							</ul>
+						</div>
+					<?php endforeach; ?>
+				</nav>
 
-			<p class="penalis-intro">
-				Pengaturan Penalis Platform yang berlaku untuk seluruh situs Penalis. Setiap kelompok pengaturan punya
-				tab sendiri, sehingga perubahan dapat ditinjau satu per satu.
-			</p>
+				<form class="penalis-settings__mobile-nav" method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
+					<input type="hidden" name="page" value="<?php echo esc_attr( self::PAGE_SLUG ); ?>">
+					<label for="penalis-settings-category">Kategori pengaturan</label>
+					<div>
+						<select id="penalis-settings-category" name="tab">
+							<?php foreach ( $groups as $group => $label ) : ?>
+								<optgroup label="<?php echo esc_attr( $label ); ?>">
+									<?php foreach ( $tabs as $slug => $meta ) : ?>
+										<?php if ( $group === $meta['group'] ) : ?>
+											<option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $slug, $tab ); ?>><?php echo esc_html( $meta['label'] ); ?></option>
+										<?php endif; ?>
+									<?php endforeach; ?>
+								</optgroup>
+							<?php endforeach; ?>
+						</select>
+						<button type="submit" class="button">Tampilkan</button>
+					</div>
+				</form>
 
-			<nav class="nav-tab-wrapper penalis-settings__tabs" aria-label="Kelompok pengaturan">
-				<?php foreach ( $tabs as $slug => $meta ) : ?>
-					<a
-						href="<?php echo esc_url( self::url( array( 'tab' => $slug ) ) ); ?>"
-						class="nav-tab <?php echo $slug === $tab ? 'nav-tab-active' : ''; ?>"
-						<?php echo $slug === $tab ? 'aria-current="page"' : ''; ?>
-					>
-						<?php echo esc_html( (string) $meta['label'] ); ?>
-					</a>
-				<?php endforeach; ?>
-			</nav>
+				<section class="penalis-settings__content" aria-labelledby="penalis-settings-tab-title">
+					<header class="penalis-settings__tab-header">
+						<h2 id="penalis-settings-tab-title"><?php echo esc_html( $tabs[ $tab ]['label'] ); ?></h2>
+						<p><?php echo esc_html( $tabs[ $tab ]['description'] ); ?></p>
+					</header>
+					<?php self::render_notices(); ?>
 
-			<?php
-			if ( isset( $tabs[ $tab ]['render'] ) && is_callable( $tabs[ $tab ]['render'] ) ) {
-				call_user_func( $tabs[ $tab ]['render'] );
-			}
-			?>
+					<?php
+					if ( isset( $tabs[ $tab ]['render'] ) && is_callable( $tabs[ $tab ]['render'] ) ) {
+						call_user_func( $tabs[ $tab ]['render'] );
+					}
+					?>
+				</section>
+			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Render a shared amber warning banner at the top of sensitive tabs.
+	 *
+	 * @param string $message Warning copy.
+	 * @return void
+	 */
+	private static function render_sensitive_banner( $message ) {
+		?>
+		<div class="penalis-settings__warning penalis-settings__warning--hero" role="note">
+			<p><strong>Perhatian — Pengaturan Sensitif:</strong> <?php echo esc_html( $message ); ?></p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render the Umum & Halaman tab.
+	 *
+	 * @return void
+	 */
+	public static function render_general_tab() {
+		Penalis_Settings_Panels::render_general_panels();
+	}
+
+	/**
+	 * Render the Akun & Pendaftaran consolidated tab.
+	 *
+	 * @return void
+	 */
+	public static function render_account_tab() {
+		self::render_registration_tab();
+		Penalis_Settings_Panels::render_account_policy_panel();
+		self::render_avatar_tab();
+	}
+
+	/**
+	 * Render the Editorial & Komunitas consolidated tab.
+	 *
+	 * @return void
+	 */
+	public static function render_editorial_tab() {
+		Penalis_Settings_Panels::render_editorial_panels();
+		?>
+		<p class="penalis-settings__link">
+			<a href="<?php echo esc_url( self::url( array( 'tab' => 'article-display' ) ) . '#penalis-thumbnail' ); ?>">Atur thumbnail bawaan di Tampilan Artikel</a>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render the Tampilan Artikel consolidated tab.
+	 *
+	 * @return void
+	 */
+	public static function render_article_display_tab() {
+		Penalis_Settings_Panels::render_article_display_panel();
+		self::render_toc_tab();
+		self::render_views_tab();
+		self::render_thumbnail_tab();
+	}
+
+	/**
+	 * Render the Email tab.
+	 *
+	 * @return void
+	 */
+	public static function render_email_tab() {
+		Penalis_Email_Settings::render_tab();
+		Penalis_Settings_Panels::render_email_branding_panel();
+	}
+
+	/**
+	 * Render the Keamanan & Batas consolidated sensitive tab.
+	 *
+	 * @return void
+	 */
+	public static function render_security_tab() {
+		self::render_sensitive_banner(
+			'Pengaturan di tab ini berpengaruh langsung pada keamanan login, proteksi spam/bot, dan batas percobaan. Jika ragu, biarkan nilai bawaan atau gunakan tombol Kembalikan ke Default pada masing-masing bagian.'
+		);
+		self::render_captcha_tab();
+		Penalis_Settings_Panels::render_security_advanced_panels();
+		self::render_rate_limit_tab();
+	}
+
+	/**
+	 * Render the Data, Cache & Log consolidated sensitive tab.
+	 *
+	 * @return void
+	 */
+	public static function render_data_system_tab() {
+		self::render_sensitive_banner(
+			'Pengaturan di tab ini memengaruhi penyimpanan data, cache, retensi log, dan perilaku saat uninstall plugin. Pastikan kamu memahami dampaknya sebelum menyimpan perubahan.'
+		);
+		Penalis_Settings_Panels::render_performance_panel();
+		self::render_data_tab();
 	}
 
 	/**
@@ -498,6 +717,11 @@ final class Penalis_Settings {
 			'views_migrated'          => 'Data total views dari Post Views Counter telah disinkronkan ke Penalis Platform.',
 			'toc_saved'               => 'Pengaturan Table of Contents berhasil disimpan.',
 			'rate_limits_reset'       => 'Batas percobaan dikembalikan ke nilai bawaan. Daftar proxy tepercaya tidak diubah.',
+			'email_branding_saved'    => 'Identitas & tampilan email berhasil disimpan.',
+			'email_branding_reset'    => 'Identitas & tampilan email dikembalikan ke nilai bawaan.',
+			'security_reset'          => 'Pengaturan keamanan & OTP dikembalikan ke nilai bawaan.',
+			'performance_reset'       => 'Pengaturan cache, retensi log & analitik dikembalikan ke nilai bawaan.',
+			'caches_cleared'          => 'Cache direktori kontributor dan #KalimatHariIni telah dibersihkan.',
 		);
 
 		$key = sanitize_key( (string) $key );
@@ -513,10 +737,12 @@ final class Penalis_Settings {
 	 */
 	public static function error_for( $key ) {
 		$errors = array(
-			'avatar_invalid'    => 'Pilih gambar yang valid untuk foto profil bawaan.',
-			'thumbnail_invalid' => 'Pilih gambar yang valid untuk thumbnail bawaan karya tulis.',
-			'data_confirm'      => 'Ketik HAPUS pada kolom konfirmasi untuk mengaktifkan penghapusan data.',
-			'proxy_invalid'     => 'Sebagian entri proxy tidak valid dan diabaikan. Gunakan format alamat IP (mis. 203.0.113.10) atau CIDR (mis. 10.0.0.0/8).',
+			'avatar_invalid'       => 'Pilih gambar yang valid untuk foto profil bawaan.',
+			'thumbnail_invalid'    => 'Pilih gambar yang valid untuk thumbnail bawaan karya tulis.',
+			'data_confirm'         => 'Ketik HAPUS pada kolom konfirmasi untuk mengaktifkan penghapusan data.',
+			'email_templates_busy' => 'Template sedang diperbarui. Coba simpan lagi.',
+			'email_templates_save' => 'Perubahan template email gagal disimpan. Coba lagi.',
+			'proxy_invalid'        => 'Sebagian entri proxy tidak valid dan diabaikan. Gunakan format alamat IP (mis. 203.0.113.10) atau CIDR (mis. 10.0.0.0/8).',
 		);
 
 		$key = sanitize_key( (string) $key );
@@ -525,28 +751,42 @@ final class Penalis_Settings {
 	}
 
 	/**
-	 * Render the save confirmation or the error returned by a settings handler.
+	 * Render the success or error feedback for the selected tab.
 	 *
 	 * @return void
 	 */
 	private static function render_notices() {
-		if ( isset( $_GET['penalis_message'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
-			$message = sanitize_key( wp_unslash( $_GET['penalis_message'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
-
-			printf(
-				'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
-				esc_html( self::message_for( $message ) )
-			);
+		$message = isset( $_GET['penalis_message'] ) ? sanitize_key( wp_unslash( $_GET['penalis_message'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
+		$error   = isset( $_GET['penalis_error'] ) ? sanitize_key( wp_unslash( $_GET['penalis_error'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
+		$section = isset( $_GET['penalis_section'] ) ? sanitize_key( wp_unslash( $_GET['penalis_section'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice target.
+		if ( '' === $message && '' === $error ) {
+			return;
 		}
+		?>
+		<div class="penalis-settings__feedback" data-penalis-feedback="<?php echo esc_attr( $section ); ?>" tabindex="-1">
+			<?php if ( '' !== $message ) : ?>
+				<div class="notice notice-success inline" role="status"><p><?php echo esc_html( self::message_for( $message ) ); ?></p></div>
+			<?php endif; ?>
+			<?php if ( '' !== $error ) : ?>
+				<div class="notice notice-error inline" role="alert"><p><?php echo esc_html( self::error_for( $error ) ); ?></p></div>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
 
-		if ( isset( $_GET['penalis_error'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
-			$error = sanitize_key( wp_unslash( $_GET['penalis_error'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only notice flag.
-
-			printf(
-				'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
-				esc_html( self::error_for( $error ) )
-			);
-		}
+	/**
+	 * Render the primary save action and unsaved-change status for a form.
+	 *
+	 * @param string $label Button text.
+	 * @return void
+	 */
+	public static function render_save_action( $label ) {
+		?>
+		<div class="penalis-settings__actions">
+			<span data-penalis-save-state role="status"></span>
+			<button type="submit" class="button button-primary" name="submit"><?php echo esc_html( $label ); ?></button>
+		</div>
+		<?php
 	}
 
 	/**
@@ -589,8 +829,8 @@ final class Penalis_Settings {
 	public static function render_captcha_tab() {
 		$enabled = self::is_dashboard_captcha_enabled();
 		?>
-		<div class="penalis-settings__panel">
-			<h2>CAPTCHA di dashboard penulis</h2>
+		<div class="penalis-settings__panel" id="penalis-captcha">
+			<h3>CAPTCHA Dashboard Penulis</h3>
 			<p class="description">
 				Mengatur apakah form login, pendaftaran, aktivasi akun, dan reset password di
 				<code>/dashboard/</code> memakai Cloudflare Turnstile. Pengaturan ini hanya berlaku
@@ -647,14 +887,12 @@ final class Penalis_Settings {
 					percobaan per alamat IP, dan verifikasi email OTP.
 				</p>
 
-				<p class="submit">
-					<button type="submit" class="button button-primary">Simpan pengaturan</button>
-				</p>
+				<?php self::render_save_action( 'Simpan CAPTCHA' ); ?>
 			</form>
 		</div>
 
-		<div class="penalis-settings__panel">
-			<h2>Simple Cloudflare Turnstile plugin status</h2>
+		<div class="penalis-settings__panel" id="penalis-turnstile" lang="en">
+			<h3>Simple Cloudflare Turnstile plugin status</h3>
 			<p class="description">
 				This section is informational only. Penalis reads the Turnstile configuration and
 				never changes it, so turning off the dashboard CAPTCHA never weakens other WordPress
@@ -700,22 +938,17 @@ final class Penalis_Settings {
 		$open  = self::is_registration_enabled();
 		$audit = self::registration_audit();
 		?>
-		<div class="penalis-settings__panel">
-			<h2>Pendaftaran penulis baru</h2>
+		<div class="penalis-settings__panel" id="penalis-registration">
+			<header class="penalis-settings__panel-header">
+				<h3>Pendaftaran Penulis Baru</h3>
+				<span class="penalis-status <?php echo $open ? 'penalis-status--active' : 'penalis-status--legacy'; ?>"><?php echo $open ? 'Terbuka' : 'Ditutup sementara'; ?></span>
+			</header>
 			<p class="description">
-				Mengatur apakah pengunjung dapat membuat akun penulis sendiri dari
-				<code>/dashboard/</code>. Menutup pendaftaran tidak mengunci situs: login, akun
-				penulis yang sudah aktif, reset password, dan aktivasi kontributor lama tetap
-				berjalan seperti biasa.
+				Atur apakah pengunjung bisa membuat akun penulis dari dashboard.
 			</p>
 
-			<?php if ( ! $open ) : ?>
-				<div class="notice notice-warning inline">
-					<p>
-						<strong>Pendaftaran sedang ditutup.</strong> Pengunjung baru tidak dapat membuat
-						akun penulis.<?php echo esc_html( self::audit_sentence( $audit, 'Ditutup' ) ); ?>
-					</p>
-				</div>
+			<?php if ( ! $open && ! empty( $audit ) ) : ?>
+				<p class="penalis-settings__note"><?php echo esc_html( trim( self::audit_sentence( $audit, 'Ditutup' ) ) ); ?></p>
 			<?php endif; ?>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -755,21 +988,13 @@ final class Penalis_Settings {
 						<div class="penalis-settings__choice-text">
 							<label for="penalis-registration-closed">Ditutup sementara</label>
 							<p class="description" id="penalis-registration-closed-help">
-								Formulir pendaftaran ditolak di server, termasuk lewat tautan
-								<code>?penalis_register=1</code>. Akun yang sudah ada tidak terpengaruh.
+								Pengunjung baru tidak bisa mendaftar. Login, aktivasi akun lama, dan reset password tetap tersedia.
 							</p>
 						</div>
 					</div>
 				</fieldset>
 
-				<p class="penalis-settings__note">
-					Selama pendaftaran ditutup, alur berikut tetap tersedia: login, aktivasi akun
-					kontributor lama, reset password, dan seluruh pekerjaan penulis yang sudah aktif.
-				</p>
-
-				<p class="submit">
-					<button type="submit" class="button button-primary">Simpan pengaturan</button>
-				</p>
+				<?php self::render_save_action( 'Simpan Pendaftaran' ); ?>
 			</form>
 		</div>
 		<?php
@@ -801,8 +1026,8 @@ final class Penalis_Settings {
 			<input type="hidden" name="action" value="penalis_save_rate_limits" />
 			<?php wp_nonce_field( 'penalis_save_rate_limits' ); ?>
 
-			<div class="penalis-settings__panel">
-				<h2>Batas percobaan</h2>
+			<div class="penalis-settings__panel" id="penalis-rate-limits">
+				<h3>Batas Percobaan</h3>
 				<p class="description">
 					Setiap alur sensitif dibatasi jumlah percobaannya per jendela waktu. Nilai yang lebih
 					kecil lebih aman tetapi lebih mudah mengganggu penulis yang salah memasukkan data;
@@ -937,8 +1162,8 @@ final class Penalis_Settings {
 				<?php endif; ?>
 			</div>
 
-			<div class="penalis-settings__panel">
-				<h2>Alamat IP di balik proxy</h2>
+			<div class="penalis-settings__panel" id="penalis-proxies">
+				<h3>Proxy Tepercaya</h3>
 				<p class="description">
 					Pembatasan di atas bekerja per alamat IP. Bila situs berada di balik reverse proxy atau
 					CDN, alamat yang terlihat oleh server adalah alamat proxy, sehingga semua pengunjung
@@ -977,9 +1202,7 @@ final class Penalis_Settings {
 				</p>
 			</div>
 
-			<p class="submit">
-				<button type="submit" class="button button-primary">Simpan pengaturan</button>
-			</p>
+			<?php self::render_save_action( 'Simpan Batas & Proxy' ); ?>
 		</form>
 
 		<?php
@@ -1020,8 +1243,8 @@ final class Penalis_Settings {
 		$migration  = Penalis_Avatar::legacy_migration_status();
 		$needs_sync = $migration['pendingUsers'] > 0 || $migration['defaultNeedsBackup'];
 		?>
-		<div class="penalis-settings__panel">
-			<h2>Foto profil bawaan</h2>
+		<div class="penalis-settings__panel" id="penalis-avatar">
+			<h3>Foto Profil Bawaan</h3>
 			<p class="description">
 				Dipakai untuk penulis yang belum memilih foto sendiri. Gambar ini disimpan sebagai
 				foto profil bawaan situs, sehingga tampil konsisten di arsip penulis, direktori
@@ -1043,17 +1266,17 @@ final class Penalis_Settings {
 					/>
 					<div class="penalis-settings__avatar-controls">
 						<button type="button" class="button" id="penalis-default-avatar-choose">Pilih gambar</button>
-						<button type="submit" class="button button-primary">Simpan</button>
-						<?php if ( $avatar_id > 0 ) : ?>
-							<button type="submit" class="button penalis-button--danger" name="penalis_clear_default_avatar" value="1">Hapus foto bawaan</button>
-						<?php endif; ?>
 					</div>
 				</div>
+				<?php self::render_save_action( 'Simpan Foto Profil' ); ?>
+				<?php if ( $avatar_id > 0 ) : ?>
+					<button type="submit" class="button penalis-button--danger" name="penalis_clear_default_avatar" value="1">Hapus foto bawaan</button>
+				<?php endif; ?>
 			</form>
 		</div>
 
-		<div class="penalis-settings__panel">
-			<h2>Perlindungan foto profil lama (One User Avatar)</h2>
+		<div class="penalis-settings__panel" id="penalis-legacy-avatars">
+			<h3>Foto Profil Lama (One User Avatar)</h3>
 			<p class="description">
 				Plugin <strong>One User Avatar</strong> menghapus metadata <code><?php echo esc_html( Penalis_Avatar::meta_key() ); ?></code>
 				secara otomatis ketika di-uninstall dari halaman Plugins. Penalis Platform menyalin referensi
@@ -1115,8 +1338,8 @@ final class Penalis_Settings {
 		$audit_verb    = isset( $audit['state'] ) && '0' === (string) $audit['state'] ? 'Dihapus' : 'Diperbarui';
 		$audit_line    = trim( self::audit_sentence( $audit, $audit_verb ) );
 		?>
-		<div class="penalis-settings__panel">
-			<h2>Thumbnail bawaan karya tulis</h2>
+		<div class="penalis-settings__panel" id="penalis-thumbnail">
+			<h3>Thumbnail Bawaan</h3>
 			<p class="description">
 				Dipakai otomatis sebagai featured image untuk karya tulis (<code>post</code>) yang sudah
 				terbit tetapi belum memiliki thumbnail, seperti karya lama sebelum Penalis Platform aktif.
@@ -1148,12 +1371,12 @@ final class Penalis_Settings {
 					/>
 					<div class="penalis-settings__avatar-controls">
 						<button type="button" class="button" id="penalis-default-thumbnail-choose">Pilih gambar</button>
-						<button type="submit" class="button button-primary">Simpan</button>
-						<?php if ( $configured_id > 0 ) : ?>
-							<button type="submit" class="button penalis-button--danger" name="penalis_clear_default_thumbnail" value="1">Hapus thumbnail bawaan</button>
-						<?php endif; ?>
 					</div>
 				</div>
+				<?php self::render_save_action( 'Simpan Thumbnail' ); ?>
+				<?php if ( $configured_id > 0 ) : ?>
+					<button type="submit" class="button penalis-button--danger" name="penalis_clear_default_thumbnail" value="1">Hapus thumbnail bawaan</button>
+				<?php endif; ?>
 			</form>
 
 			<?php if ( '' !== $audit_line ) : ?>
@@ -1177,8 +1400,8 @@ final class Penalis_Settings {
 			? trim( self::audit_sentence( $audit, 'Diperbarui' ) )
 			: '';
 		?>
-		<div class="penalis-settings__panel">
-			<h2>Penghitung views karya tulis</h2>
+		<div class="penalis-settings__panel" id="penalis-views">
+			<h3>Penghitung Views</h3>
 			<p class="description">
 				Menghitung total views setiap karya tulis (<code>post</code>) yang sudah terbit melalui
 				beacon JavaScript ringan agar tetap akurat di balik page cache, menyaring bot/crawler,
@@ -1236,9 +1459,7 @@ final class Penalis_Settings {
 					</tbody>
 				</table>
 
-				<p class="submit">
-					<button type="submit" class="button button-primary">Simpan pengaturan</button>
-				</p>
+				<?php self::render_save_action( 'Simpan Penghitung Views' ); ?>
 			</form>
 
 			<?php if ( '' !== $audit_line ) : ?>
@@ -1246,8 +1467,8 @@ final class Penalis_Settings {
 			<?php endif; ?>
 		</div>
 
-		<div class="penalis-settings__panel">
-			<h2>Migrasi dari Post Views Counter</h2>
+		<div class="penalis-settings__panel" id="penalis-views-migration">
+			<h3>Migrasi dari Post Views Counter</h3>
 			<p class="description">
 				Menyalin total views (<code>type = 4, period = 'total'</code>) dari tabel
 				<code><?php echo esc_html( Penalis_Views::pvc_table_name() ); ?></code> ke tabel internal
@@ -1319,8 +1540,8 @@ final class Penalis_Settings {
 			? trim( self::audit_sentence( $audit, 'Diperbarui' ) )
 			: '';
 		?>
-		<div class="penalis-settings__panel">
-			<h2>Table of Contents artikel</h2>
+		<div class="penalis-settings__panel" id="penalis-toc">
+			<h3>Table of Contents</h3>
 			<p class="description">
 				Membuat daftar isi otomatis pada karya tulis (<code>post</code>) panjang berdasarkan heading
 				artikel, lengkap dengan anchor slug huruf kecil (<code>#judul-bagian</code>), tombol
@@ -1466,9 +1687,7 @@ final class Penalis_Settings {
 					</tbody>
 				</table>
 
-				<p class="submit">
-					<button type="submit" class="button button-primary">Simpan pengaturan</button>
-				</p>
+				<?php self::render_save_action( 'Simpan Table of Contents' ); ?>
 			</form>
 
 			<?php if ( '' !== $audit_line ) : ?>
@@ -1476,8 +1695,8 @@ final class Penalis_Settings {
 			<?php endif; ?>
 		</div>
 
-		<div class="penalis-settings__panel">
-			<h2>Status transisi LuckyWP Table of Contents</h2>
+		<div class="penalis-settings__panel" id="penalis-toc-migration">
+			<h3>Status Transisi LuckyWP Table of Contents</h3>
 			<?php if ( $status['lwptocActive'] ) : ?>
 				<div class="notice notice-info inline">
 					<p>
@@ -1516,8 +1735,8 @@ final class Penalis_Settings {
 		$remove = self::should_remove_data();
 		$audit  = self::remove_data_audit();
 		?>
-		<div class="penalis-settings__panel">
-			<h2>Data saat plugin dihapus</h2>
+		<div class="penalis-settings__panel penalis-settings__panel--danger" id="penalis-uninstall">
+			<h3>Data Saat Plugin Dihapus</h3>
 			<p class="description">
 				Secara bawaan, menghapus plugin Penalis Platform tidak menghapus data apa pun.
 				Pilihan di bawah ini hanya berlaku ketika plugin benar-benar dihapus dari halaman
@@ -1532,6 +1751,25 @@ final class Penalis_Settings {
 					</p>
 				</div>
 			<?php endif; ?>
+
+			<h4>Yang dihapus saat plugin dihapus</h4>
+			<ul class="penalis-settings__list">
+				<li>Status akun dan metadata penulis Penalis pada setiap akun.</li>
+				<li>Metadata editorial pada karya tulis: status review, catatan revisi, dan riwayatnya.</li>
+				<li>Role <code>Penalis Writer</code>.</li>
+				<li>Opsi dan transient milik plugin ini.</li>
+				<li>
+					Halaman <code>/dashboard/</code>, hanya jika halaman itu dibuat oleh plugin ini.
+				</li>
+			</ul>
+
+			<h4>Yang tetap disimpan</h4>
+			<ul class="penalis-settings__list">
+				<li>Akun pengguna beserta alamat email dan password-nya.</li>
+				<li>Karya tulis, termasuk yang sudah terbit, beserta status publish-nya.</li>
+				<li>Media, kategori, tag, dan komentar.</li>
+				<li>Data milik plugin lain.</li>
+			</ul>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="penalis_save_data" />
@@ -1552,13 +1790,12 @@ final class Penalis_Settings {
 						<div class="penalis-settings__choice-text">
 							<label for="penalis-remove-data">Hapus data Penalis saat plugin dihapus</label>
 							<p class="description" id="penalis-remove-data-help">
-								Akun pengguna dan karya tulis tetap disimpan. Rincian data yang dibuang
-								ada di bawah formulir ini.
+								Akun pengguna dan karya tulis tetap disimpan. Rincian data yang dibuang tercantum di atas.
 							</p>
 						</div>
 					</div>
 
-					<div class="penalis-settings__confirm">
+					<div class="penalis-settings__confirm" data-penalis-uninstall-confirm="<?php echo $remove ? 'active' : 'inactive'; ?>">
 						<label for="penalis-remove-data-confirm">
 							Ketik <code>HAPUS</code> untuk mengaktifkan
 						</label>
@@ -1578,29 +1815,8 @@ final class Penalis_Settings {
 					</div>
 				</fieldset>
 
-				<p class="submit">
-					<button type="submit" class="button button-primary">Simpan pengaturan</button>
-				</p>
+				<?php self::render_save_action( 'Simpan Kebijakan Data' ); ?>
 			</form>
-
-			<h3>Yang dihapus saat plugin dihapus</h3>
-			<ul class="penalis-settings__list">
-				<li>Status akun dan metadata penulis Penalis pada setiap akun.</li>
-				<li>Metadata editorial pada karya tulis: status review, catatan revisi, dan riwayatnya.</li>
-				<li>Role <code>Penalis Writer</code>.</li>
-				<li>Opsi dan transient milik plugin ini.</li>
-				<li>
-					Halaman <code>/dashboard/</code>, hanya jika halaman itu dibuat oleh plugin ini.
-				</li>
-			</ul>
-
-			<h3>Yang tetap disimpan</h3>
-			<ul class="penalis-settings__list">
-				<li>Akun pengguna beserta alamat email dan password-nya.</li>
-				<li>Karya tulis, termasuk yang sudah terbit, beserta status publish-nya.</li>
-				<li>Media, kategori, tag, dan komentar.</li>
-				<li>Data milik plugin lain.</li>
-			</ul>
 		</div>
 		<?php
 	}
@@ -1775,7 +1991,7 @@ final class Penalis_Settings {
 			self::record_audit( self::OPTION_CAPTCHA_AUDIT, $state );
 		}
 
-		self::redirect_to_tab( 'captcha' );
+		self::redirect_to_tab( 'security', 'saved', array( 'penalis_section' => 'captcha' ) );
 	}
 
 	/**
@@ -1802,7 +2018,7 @@ final class Penalis_Settings {
 			self::record_audit( self::OPTION_REGISTRATION_AUDIT, $state );
 		}
 
-		self::redirect_to_tab( 'registration' );
+		self::redirect_to_tab( 'registration', 'saved', array( 'penalis_section' => 'registration' ) );
 	}
 
 	/**
@@ -1871,10 +2087,17 @@ final class Penalis_Settings {
 		update_option( Penalis_Rate_Limiter::OPTION_PROXIES, implode( "\n", array_unique( $valid ) ), false );
 
 		if ( $invalid > 0 ) {
-			self::redirect_to_tab( 'rate-limit', '', array( 'penalis_error' => 'proxy_invalid' ) );
+			self::redirect_to_tab(
+				'security',
+				'',
+				array(
+					'penalis_section' => 'proxies',
+					'penalis_error'   => 'proxy_invalid',
+				)
+			);
 		}
 
-		self::redirect_to_tab( 'rate-limit' );
+		self::redirect_to_tab( 'security', 'saved', array( 'penalis_section' => 'rate-limits' ) );
 	}
 
 	/**
@@ -1905,7 +2128,7 @@ final class Penalis_Settings {
 			self::record_rate_audit( 'reset', $changes );
 		}
 
-		self::redirect_to_tab( 'rate-limit', 'rate_limits_reset' );
+		self::redirect_to_tab( 'security', 'rate_limits_reset', array( 'penalis_section' => 'rate-limits' ) );
 	}
 
 	/**
@@ -1922,7 +2145,7 @@ final class Penalis_Settings {
 
 		Penalis_Avatar::migrate_legacy_avatars();
 
-		self::redirect_to_tab( 'avatar', 'legacy_avatars_migrated' );
+		self::redirect_to_tab( 'registration', 'legacy_avatars_migrated', array( 'penalis_section' => 'legacy-avatars' ) );
 	}
 
 	/**
@@ -1943,16 +2166,23 @@ final class Penalis_Settings {
 		if ( $clear ) {
 			delete_option( Penalis_Default_Thumbnail::OPTION_ID );
 			self::record_audit( Penalis_Default_Thumbnail::OPTION_AUDIT, '0' );
-			self::redirect_to_tab( 'thumbnail', 'thumbnail_cleared' );
+			self::redirect_to_tab( 'article-display', 'thumbnail_cleared', array( 'penalis_section' => 'thumbnail' ) );
 		}
 
 		if ( $attachment_id <= 0 || ! wp_attachment_is_image( $attachment_id ) ) {
-			self::redirect_to_tab( 'thumbnail', '', array( 'penalis_error' => 'thumbnail_invalid' ) );
+			self::redirect_to_tab(
+				'article-display',
+				'',
+				array(
+					'penalis_section' => 'thumbnail',
+					'penalis_error'   => 'thumbnail_invalid',
+				)
+			);
 		}
 
 		update_option( Penalis_Default_Thumbnail::OPTION_ID, $attachment_id, false );
 		self::record_audit( Penalis_Default_Thumbnail::OPTION_AUDIT, (string) $attachment_id );
-		self::redirect_to_tab( 'thumbnail', 'thumbnail_saved' );
+		self::redirect_to_tab( 'article-display', 'thumbnail_saved', array( 'penalis_section' => 'thumbnail' ) );
 	}
 
 	/**
@@ -1975,7 +2205,7 @@ final class Penalis_Settings {
 		update_option( Penalis_Views::OPTION_EXCLUDE_STAFF, $exclude, false );
 		self::record_audit( Penalis_Views::OPTION_AUDIT, $minutes . ':' . $exclude );
 
-		self::redirect_to_tab( 'views', 'views_saved' );
+		self::redirect_to_tab( 'article-display', 'views_saved', array( 'penalis_section' => 'views' ) );
 	}
 
 	/**
@@ -1996,7 +2226,7 @@ final class Penalis_Settings {
 			Penalis_Authors::invalidate_cache();
 		}
 
-		self::redirect_to_tab( 'views', 'views_migrated' );
+		self::redirect_to_tab( 'article-display', 'views_migrated', array( 'penalis_section' => 'views-migration' ) );
 	}
 
 	/**
@@ -2033,7 +2263,7 @@ final class Penalis_Settings {
 			( $settings['enabled'] ? '1' : '0' ) . ':' . $settings['min_headings'] . ':' . ( $settings['default_collapsed'] ? 'collapsed' : 'expanded' )
 		);
 
-		self::redirect_to_tab( 'toc', 'toc_saved' );
+		self::redirect_to_tab( 'article-display', 'toc_saved', array( 'penalis_section' => 'toc' ) );
 	}
 
 	/**
@@ -2059,7 +2289,14 @@ final class Penalis_Settings {
 			$confirm = isset( $_POST['penalis_remove_data_confirm'] ) ? sanitize_text_field( wp_unslash( $_POST['penalis_remove_data_confirm'] ) ) : '';
 
 			if ( ! self::is_data_confirmation_valid( $confirm ) ) {
-				self::redirect_to_tab( 'data', '', array( 'penalis_error' => 'data_confirm' ) );
+				self::redirect_to_tab(
+					'data',
+					'',
+					array(
+						'penalis_section' => 'uninstall',
+						'penalis_error'   => 'data_confirm',
+					)
+				);
 			}
 		}
 
@@ -2068,7 +2305,7 @@ final class Penalis_Settings {
 			self::record_audit( self::OPTION_REMOVE_DATA_AUDIT, $state );
 		}
 
-		self::redirect_to_tab( 'data' );
+		self::redirect_to_tab( 'data', 'saved', array( 'penalis_section' => 'uninstall' ) );
 	}
 
 	/**
@@ -2082,6 +2319,18 @@ final class Penalis_Settings {
 	 */
 	public static function is_data_confirmation_valid( $value ) {
 		return 'HAPUS' === strtoupper( trim( (string) $value ) );
+	}
+
+	/**
+	 * Redirect back to a settings tab with feedback (shared with `Penalis_Settings_Panels`).
+	 *
+	 * @param string               $tab     Tab slug.
+	 * @param string               $message Success message key; empty for none.
+	 * @param array<string,string> $args    Extra query arguments.
+	 * @return void
+	 */
+	public static function redirect( $tab, $message = 'saved', array $args = array() ) {
+		self::redirect_to_tab( $tab, $message, $args );
 	}
 
 	/**
@@ -2099,7 +2348,8 @@ final class Penalis_Settings {
 			$query['penalis_message'] = $message;
 		}
 
-		wp_safe_redirect( self::url( $query ) );
+		$section = isset( $query['penalis_section'] ) ? sanitize_key( $query['penalis_section'] ) : '';
+		wp_safe_redirect( self::url( $query ) . ( '' !== $section ? '#penalis-' . $section : '' ) );
 		exit;
 	}
 

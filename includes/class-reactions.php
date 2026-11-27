@@ -453,8 +453,17 @@ final class Penalis_Reactions {
 			);
 		}
 
+		$mode = (string) Penalis_Config::article_display()['reactions_mode'];
+		if ( 'off' === $mode ) {
+			return new WP_Error(
+				'penalis_reactions_disabled',
+				'Fitur reaksi pembaca sedang dinonaktifkan.',
+				array( 'status' => 403 )
+			);
+		}
+
 		$requested = self::normalize_type( $requested );
-		if ( '' === $requested ) {
+		if ( '' === $requested || ( 'like_only' === $mode && self::TYPE_DISLIKE === $requested ) ) {
 			return new WP_Error(
 				'penalis_invalid_reaction',
 				'Jenis reaksi tidak valid.',
@@ -918,11 +927,14 @@ final class Penalis_Reactions {
 		$secure = function_exists( 'is_ssl' ) && is_ssl();
 		$value  = '' !== $reaction ? $reaction : self::COOKIE_NONE;
 
+		$cookie_days = (int) Penalis_Config::article_display()['reactions_cookie_days'];
+		$cookie_ttl  = max( 1, $cookie_days ) * DAY_IN_SECONDS;
+
 		setcookie(
 			self::COOKIE_PREFIX . $post_id,
 			$value,
 			array(
-				'expires'  => time() + self::COOKIE_TTL,
+				'expires'  => time() + $cookie_ttl,
 				'path'     => '/',
 				'secure'   => $secure,
 				'httponly' => false,
@@ -1004,6 +1016,11 @@ final class Penalis_Reactions {
 	 * @return string
 	 */
 	public static function render_controls( WP_Post $post, $variant = 'bar' ) {
+		$mode = (string) Penalis_Config::article_display()['reactions_mode'];
+		if ( 'off' === $mode ) {
+			return '';
+		}
+
 		$post = self::resolve_eligible_post( $post );
 		if ( ! $post ) {
 			return '';
@@ -1011,15 +1028,22 @@ final class Penalis_Reactions {
 
 		self::enqueue_assets();
 
-		$post_id  = (int) $post->ID;
-		$counts   = self::get_counts( $post_id );
-		$endpoint = rest_url( Penalis_Rest_Api::NAMESPACE_V1 . '/posts/' . $post_id . '/reaction' );
-		$variant  = 'inline' === $variant ? 'inline' : 'bar';
+		$post_id      = (int) $post->ID;
+		$counts       = self::get_counts( $post_id );
+		$endpoint     = rest_url( Penalis_Rest_Api::NAMESPACE_V1 . '/posts/' . $post_id . '/reaction' );
+		$variant      = 'inline' === $variant ? 'inline' : 'bar';
+		$dislike_html = 'both' === $mode
+			? sprintf(
+				'<button type="button" class="penalis-reaction-btn penalis-reaction-btn--dislike" data-reaction="dislike" aria-pressed="false" aria-label="Dislike karya tulis ini" title="Dislike">%1$s<span class="penalis-reaction-btn__count" data-reaction-count="dislike">%2$s</span></button>',
+				self::thumb_down_svg( 15 ),
+				esc_html( number_format_i18n( $counts['dislike'] ) )
+			)
+			: '';
 
 		return sprintf(
 			'<div class="penalis-reactions penalis-reactions--%1$s" data-penalis-reactions data-post-id="%2$d" data-endpoint="%3$s" role="group" aria-label="Reaksi pembaca">'
 			. '<button type="button" class="penalis-reaction-btn penalis-reaction-btn--like" data-reaction="like" aria-pressed="false" aria-label="Like karya tulis ini" title="Like">%4$s<span class="penalis-reaction-btn__label">Like</span><span class="penalis-reaction-btn__count" data-reaction-count="like">%5$s</span></button>'
-			. '<button type="button" class="penalis-reaction-btn penalis-reaction-btn--dislike" data-reaction="dislike" aria-pressed="false" aria-label="Dislike karya tulis ini" title="Dislike">%6$s<span class="penalis-reaction-btn__count" data-reaction-count="dislike">%7$s</span></button>'
+			. '%6$s'
 			. '<span class="penalis-reactions__status" role="status" aria-live="polite" data-reaction-status></span>'
 			. '</div>',
 			esc_attr( $variant ),
@@ -1027,8 +1051,7 @@ final class Penalis_Reactions {
 			esc_url( $endpoint ),
 			self::thumb_up_svg( 15 ),
 			esc_html( number_format_i18n( $counts['like'] ) ),
-			self::thumb_down_svg( 15 ),
-			esc_html( number_format_i18n( $counts['dislike'] ) )
+			$dislike_html
 		);
 	}
 

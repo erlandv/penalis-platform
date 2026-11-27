@@ -30,7 +30,13 @@ const PER_PAGE = 12;
 
 export function QuotesModeration() {
   const showToast = useToast();
-  const publicUrl = getBootstrap().dailyQuotesUrl || '';
+  const bootstrap = getBootstrap();
+  const publicUrl = bootstrap.dailyQuotesUrl || '';
+  const reasonMaxLength = bootstrap.config?.quoteReasonMaxLength ?? DAILY_QUOTE_REASON_MAX_LENGTH;
+  const removalPresets =
+    bootstrap.config?.quoteRemovalPresets && bootstrap.config.quoteRemovalPresets.length > 0
+      ? bootstrap.config.quoteRemovalPresets
+      : DAILY_QUOTE_REMOVAL_PRESETS;
 
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -157,7 +163,7 @@ export function QuotesModeration() {
       return;
     }
 
-    const validationError = validateRemovalReason(deleteReason);
+    const validationError = validateRemovalReason(deleteReason, reasonMaxLength);
     if (validationError) {
       setReasonError(validationError);
       reasonInputRef.current?.focus();
@@ -395,15 +401,15 @@ export function QuotesModeration() {
                   </label>
                   <span
                     className={`penalis-quotes-mod__reason-count ${
-                      reasonLength > DAILY_QUOTE_REASON_MAX_LENGTH ? 'is-over' : ''
+                      reasonLength > reasonMaxLength ? 'is-over' : ''
                     }`}
                   >
-                    {reasonLength}/{DAILY_QUOTE_REASON_MAX_LENGTH}
+                    {reasonLength}/{reasonMaxLength}
                   </span>
                 </div>
 
                 <div className="penalis-quotes-mod__presets" role="group" aria-label="Pilihan alasan cepat">
-                  {DAILY_QUOTE_REMOVAL_PRESETS.map((preset) => {
+                  {removalPresets.map((preset) => {
                     const isActive = normalizedReason === preset;
                     return (
                       <button
@@ -430,7 +436,7 @@ export function QuotesModeration() {
                   name="quotes_removal_reason"
                   className={`penalis-quotes-mod__reason-input ${reasonError ? 'is-invalid' : ''}`}
                   rows={3}
-                  maxLength={DAILY_QUOTE_REASON_MAX_LENGTH}
+                  maxLength={reasonMaxLength}
                   placeholder="Pilih alasan cepat di atas atau tulis alasan spesifik untuk penulis…"
                   value={deleteReason}
                   disabled={deleting}
@@ -444,7 +450,7 @@ export function QuotesModeration() {
                   onChange={(event) => {
                     const nextValue = event.target.value;
                     setDeleteReason(nextValue);
-                    if (reasonError && validateRemovalReason(nextValue) === '') {
+                    if (reasonError && validateRemovalReason(nextValue, reasonMaxLength) === '') {
                       setReasonError('');
                     }
                   }}

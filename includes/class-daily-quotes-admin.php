@@ -393,8 +393,9 @@ final class Penalis_Daily_Quotes_Admin {
 	 * @return void
 	 */
 	private static function render_delete_modal() {
-		$presets    = Penalis_Policy::daily_quote_removal_presets();
-		$max_length = Penalis_Policy::DAILY_QUOTE_REASON_MAX_LENGTH;
+		$editorial  = Penalis_Config::editorial();
+		$presets    = (array) $editorial['quote_removal_presets'];
+		$max_length = (int) $editorial['quote_reason_max_length'];
 		?>
 		<div id="penalis-quote-confirm-modal" class="penalis-confirm-modal" hidden>
 			<div class="penalis-confirm-modal__backdrop" data-penalis-quote-confirm-close></div>

@@ -175,8 +175,10 @@ export function Settings({
     setError('');
     setNotice('');
 
-    if (newPassword.length < PASSWORD_MIN_LENGTH) {
-      setError(`Password baru minimal ${PASSWORD_MIN_LENGTH} karakter.`);
+    const minPassword = getBootstrap().config?.minPassword ?? PASSWORD_MIN_LENGTH;
+
+    if (newPassword.length < minPassword) {
+      setError(`Password baru minimal ${minPassword} karakter.`);
       return;
     }
 

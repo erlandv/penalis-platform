@@ -52,19 +52,23 @@ export function dailyQuoteLineCount(normalized: string): number {
  * Validate a #KalimatHariIni draft on the client for instant feedback.
  * The server remains authoritative.
  */
-export function validateDailyQuoteInput(value: string): string {
+export function validateDailyQuoteInput(
+  value: string,
+  maxLength = DAILY_QUOTE_MAX_LENGTH,
+  maxLines = DAILY_QUOTE_MAX_LINES,
+): string {
   const normalized = normalizeDailyQuote(value);
 
   if (normalized === '') {
     return 'Tulis kalimat terlebih dahulu sebelum menerbitkan #KalimatHariIni.';
   }
 
-  if (dailyQuoteLineCount(normalized) > DAILY_QUOTE_MAX_LINES) {
-    return `#KalimatHariIni maksimal ${DAILY_QUOTE_MAX_LINES} baris agar tetap ringkas dibaca.`;
+  if (dailyQuoteLineCount(normalized) > maxLines) {
+    return `#KalimatHariIni maksimal ${maxLines} baris agar tetap ringkas dibaca.`;
   }
 
-  if (countCodePoints(normalized) > DAILY_QUOTE_MAX_LENGTH) {
-    return `#KalimatHariIni maksimal ${DAILY_QUOTE_MAX_LENGTH} karakter.`;
+  if (countCodePoints(normalized) > maxLength) {
+    return `#KalimatHariIni maksimal ${maxLength} karakter.`;
   }
 
   return '';
@@ -81,15 +85,18 @@ export function normalizeRemovalReason(value: string): string {
  * Validate a Senator takedown reason on the client for instant feedback.
  * The server remains authoritative.
  */
-export function validateRemovalReason(value: string): string {
+export function validateRemovalReason(
+  value: string,
+  maxLength = DAILY_QUOTE_REASON_MAX_LENGTH,
+): string {
   const normalized = normalizeRemovalReason(value);
 
   if (normalized === '') {
     return 'Alasan penghapusan wajib diisi agar penulis mengetahui penyebabnya.';
   }
 
-  if (countCodePoints(normalized) > DAILY_QUOTE_REASON_MAX_LENGTH) {
-    return `Alasan penghapusan maksimal ${DAILY_QUOTE_REASON_MAX_LENGTH} karakter.`;
+  if (countCodePoints(normalized) > maxLength) {
+    return `Alasan penghapusan maksimal ${maxLength} karakter.`;
   }
 
   return '';

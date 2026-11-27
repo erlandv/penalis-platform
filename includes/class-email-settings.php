@@ -34,7 +34,6 @@ final class Penalis_Email_Settings {
 		add_action( 'admin_post_penalis_save_email_settings', array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_penalis_reset_email_template', array( __CLASS__, 'handle_reset_single' ) );
 		add_action( 'admin_post_penalis_reset_all_email_settings', array( __CLASS__, 'handle_reset_all' ) );
-		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'admin_scripts' ) );
 	}
 
 	/**
@@ -65,118 +64,6 @@ final class Penalis_Email_Settings {
 
 		wp_safe_redirect( self::tab_url() );
 		exit;
-	}
-
-	/**
-	 * Enqueue the template editor scripts for the Email tab.
-	 *
-	 * @param string $hook Admin page hook.
-	 * @return void
-	 */
-	public static function admin_scripts( $hook ) {
-		if ( ! Penalis_Settings::is_current_screen( $hook ) ) {
-			return;
-		}
-
-		$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only tab selection.
-
-		if ( 'email' !== $tab ) {
-			return;
-		}
-
-		Penalis_Admin::enqueue_stylesheet();
-
-		$script = <<<'JS'
-jQuery( function( $ ) {
-	// Tab navigation
-	$( '.penalis-email-nav__tab' ).on( 'click', function( event ) {
-		event.preventDefault();
-		var target = $( this ).data( 'group' );
-
-		$( '.penalis-email-nav__tab' ).removeClass( 'current' ).removeAttr( 'aria-current' );
-		$( this ).addClass( 'current' ).attr( 'aria-current', 'page' );
-
-		if ( 'all' === target ) {
-			$( '.penalis-email-card' ).show();
-		} else {
-			$( '.penalis-email-card' ).hide();
-			$( '.penalis-email-card[data-group="' + target + '"]' ).show();
-		}
-	} );
-
-	// Insert text at cursor position helper
-	function insertAtCursor( element, text ) {
-		if ( ! element ) return;
-		var start = element.selectionStart;
-		var end   = element.selectionEnd;
-		var val   = element.value;
-
-		element.value = val.substring( 0, start ) + text + val.substring( end );
-		element.selectionStart = element.selectionEnd = start + text.length;
-		element.focus();
-		$( element ).trigger( 'change' );
-	}
-
-	// Wrap selection helper
-	function wrapSelection( element, before, after, defaultText ) {
-		if ( ! element ) return;
-		var start = element.selectionStart;
-		var end   = element.selectionEnd;
-		var val   = element.value;
-		var selected = val.substring( start, end ) || defaultText;
-
-		element.value = val.substring( 0, start ) + before + selected + after + val.substring( end );
-		element.selectionStart = start + before.length;
-		element.selectionEnd   = start + before.length + selected.length;
-		element.focus();
-		$( element ).trigger( 'change' );
-	}
-
-	// Tag chip insertion
-	$( document ).on( 'click', '.penalis-tag-chip', function( event ) {
-		event.preventDefault();
-		var targetId = $( this ).data( 'target' );
-		var tag      = $( this ).data( 'tag' );
-		var textarea = document.getElementById( targetId );
-		insertAtCursor( textarea, tag );
-	} );
-
-	// Toolbar action: bold
-	$( document ).on( 'click', '.penalis-toolbar-bold', function( event ) {
-		event.preventDefault();
-		var targetId = $( this ).data( 'target' );
-		var textarea = document.getElementById( targetId );
-		wrapSelection( textarea, '**', '**', 'teks tebal' );
-	} );
-
-	// Toolbar action: link
-	$( document ).on( 'click', '.penalis-toolbar-link', function( event ) {
-		event.preventDefault();
-		var targetId = $( this ).data( 'target' );
-		var textarea = document.getElementById( targetId );
-		if ( ! textarea ) return;
-
-		var start    = textarea.selectionStart;
-		var end      = textarea.selectionEnd;
-		var selected = textarea.value.substring( start, end );
-
-		var text = prompt( 'Masukkan teks yang akan ditampilkan sebagai link:', selected || 'Teks Link' );
-		if ( null === text || '' === text.trim() ) {
-			return;
-		}
-
-		var url = prompt( 'Masukkan alamat URL (contoh: https://chat.whatsapp.com/...):', 'https://' );
-		if ( null === url || '' === url.trim() || 'https://' === url.trim() ) {
-			return;
-		}
-
-		var markdownLink = '[' + text.trim() + '](' + url.trim() + ')';
-		insertAtCursor( textarea, markdownLink );
-	} );
-} );
-JS;
-
-		wp_add_inline_script( 'jquery', $script );
 	}
 
 	/**
@@ -554,174 +441,125 @@ JS;
 	 */
 	public static function render_tab() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Kamu tidak memiliki izin untuk melihat halaman ini.', 'penalis-platform' ), 403 );
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan email.', '', array( 'response' => 403 ) );
 		}
 
-		$registry   = self::get_registry();
-		$saved_opts = get_option( self::OPTION_NAME, array() );
-		$groups     = array(
-			'all'        => 'Semua Email',
+		$registry = self::get_registry();
+		$selected = isset( $_GET['template'] ) ? sanitize_key( wp_unslash( $_GET['template'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only template selection.
+		$key      = isset( $registry[ $selected ] ) ? $selected : array_key_first( $registry );
+		$meta     = $registry[ $key ];
+		$current  = self::get_template( $key );
+		$saved    = get_option( self::OPTION_NAME, array() );
+		$custom   = is_array( $saved ) && isset( $saved[ $key ] );
+		$groups   = array(
 			'verifikasi' => 'Verifikasi & Aktivasi',
 			'keamanan'   => 'Keamanan Akun',
 			'status'     => 'Status Penulis',
 			'kurasi'     => 'Kurasi Karya Tulis',
 		);
-
 		?>
-		<div class="penalis-email-settings">
-			<p class="penalis-intro">
-				Sesuaikan teks subjek email, body email, dan footer email untuk setiap email transaksional
-				otomatis yang dikirim oleh Penalis. Kamu dapat menyisipkan link menggunakan format Markdown
-				<code>[Teks Link](https://example.com)</code> atau teks bold <code>**teks bold**</code>.
-			</p>
+		<section class="penalis-settings__panel penalis-settings__email" id="penalis-email-templates" aria-labelledby="penalis-email-templates-title">
+			<h3 id="penalis-email-templates-title">Template Email</h3>
+			<p class="description">Ubah subjek, isi, dan footer setiap pesan otomatis.</p>
+			<p class="penalis-settings__link"><a href="#penalis-email-branding">Atur identitas &amp; tampilan email</a></p>
 
-			<ul class="subsubsub penalis-email-nav" style="margin-bottom:20px;">
-				<?php $first = true; ?>
-				<?php foreach ( $groups as $slug => $label ) : ?>
-					<li>
-						<a
-							href="#group-<?php echo esc_attr( $slug ); ?>"
-							class="penalis-email-nav__tab <?php echo $first ? 'current' : ''; ?>"
-							data-group="<?php echo esc_attr( $slug ); ?>"
-							<?php echo $first ? 'aria-current="page"' : ''; ?>
-						>
-							<?php echo esc_html( $label ); ?>
-						</a>
-						<?php
-						if ( 'kurasi' !== $slug ) :
-							?>
-							| <?php endif; ?>
-					</li>
-					<?php $first = false; ?>
-				<?php endforeach; ?>
-			</ul>
+			<form class="penalis-settings__template-picker" method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) . '#penalis-email-templates' ); ?>">
+				<input type="hidden" name="page" value="<?php echo esc_attr( Penalis_Settings::PAGE_SLUG ); ?>">
+				<input type="hidden" name="tab" value="email">
+				<label for="penalis-email-template">Pilih template</label>
+				<div>
+					<select name="template" id="penalis-email-template">
+						<?php foreach ( $groups as $group => $label ) : ?>
+							<optgroup label="<?php echo esc_attr( $label ); ?>">
+								<?php foreach ( $registry as $template_key => $definition ) : ?>
+									<?php if ( $group === $definition['group'] ) : ?>
+										<option value="<?php echo esc_attr( $template_key ); ?>" <?php selected( $template_key, $key ); ?>>
+											<?php echo esc_html( $definition['title'] . ' · ' . ( is_array( $saved ) && isset( $saved[ $template_key ] ) ? 'Kustom' : 'Bawaan' ) ); ?>
+										</option>
+									<?php endif; ?>
+								<?php endforeach; ?>
+							</optgroup>
+						<?php endforeach; ?>
+					</select>
+					<button type="submit" class="button">Tampilkan</button>
+				</div>
+			</form>
 
-			<div class="clear"></div>
+			<div class="penalis-settings__panel-header penalis-settings__template-heading">
+				<h4><?php echo esc_html( $meta['title'] ); ?></h4>
+				<span class="penalis-status <?php echo $custom ? 'penalis-status--active' : 'penalis-status--legacy'; ?>"><?php echo $custom ? 'Kustom' : 'Bawaan'; ?></span>
+			</div>
+			<p class="description"><?php echo esc_html( $meta['description'] ); ?></p>
 
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="penalis_save_email_settings" />
+			<form class="penalis-settings__template-editor" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="penalis_save_email_settings">
+				<input type="hidden" name="email_template" value="<?php echo esc_attr( $key ); ?>">
 				<?php wp_nonce_field( 'penalis_save_email_settings' ); ?>
-
-				<div class="penalis-email-cards">
-					<?php foreach ( $registry as $key => $meta ) : ?>
-						<?php
-						$current   = self::get_template( $key );
-						$is_custom = is_array( $saved_opts ) && isset( $saved_opts[ $key ] );
-						?>
-						<div class="penalis-panel penalis-email-card" data-group="<?php echo esc_attr( $meta['group'] ); ?>" style="margin-bottom:24px;padding:20px;background:#fff;border:1px solid #ccd0d4;border-radius:6px;box-shadow:0 1px 1px rgba(0,0,0,.04);">
-							<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
-								<div>
-									<h2 style="margin:0 0 4px;font-size:16px;">
-										<?php echo esc_html( $meta['title'] ); ?>
-										<?php if ( $is_custom ) : ?>
-											<span class="penalis-badge" style="background:#5145cd;color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:normal;margin-left:6px;">Kustom</span>
-										<?php else : ?>
-											<span class="penalis-badge" style="background:#e0e0e0;color:#555;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:normal;margin-left:6px;">Bawaan</span>
-										<?php endif; ?>
-									</h2>
-									<p class="description" style="margin:0;"><?php echo esc_html( $meta['description'] ); ?></p>
-								</div>
-								<?php if ( $is_custom ) : ?>
-									<button
-										type="submit"
-										formaction="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-										name="penalis_reset_single_key"
-										value="<?php echo esc_attr( $key ); ?>"
-										class="button button-secondary button-small"
-										onclick="return confirm('Kembalikan email ini ke teks bawaan plugin?');"
-									>
-										Reset ke Bawaan
-									</button>
-								<?php endif; ?>
-							</div>
-
-							<div style="margin-bottom:14px;">
-								<label for="subjek-<?php echo esc_attr( $key ); ?>" style="display:block;font-weight:600;margin-bottom:4px;">Subjek Email:</label>
-								<input
-									type="text"
-									id="subjek-<?php echo esc_attr( $key ); ?>"
-									name="templates[<?php echo esc_attr( $key ); ?>][subject]"
-									value="<?php echo esc_attr( $current['subject'] ); ?>"
-									class="regular-text"
-									style="width:100%;max-width:100%;"
-								/>
-							</div>
-
-							<div style="margin-bottom:14px;">
-								<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-									<label for="body-<?php echo esc_attr( $key ); ?>" style="font-weight:600;">Isi Body Email:</label>
-									<div class="penalis-email-toolbar">
-										<button type="button" class="button button-small penalis-toolbar-bold" data-target="body-<?php echo esc_attr( $key ); ?>"><strong>B</strong> Tebal</button>
-										<button type="button" class="button button-small penalis-toolbar-link" data-target="body-<?php echo esc_attr( $key ); ?>">🔗 Sisipkan Link</button>
-									</div>
-								</div>
-								<textarea
-									id="body-<?php echo esc_attr( $key ); ?>"
-									name="templates[<?php echo esc_attr( $key ); ?>][body]"
-									rows="8"
-									class="large-text code"
-									style="font-family:monospace;font-size:13px;line-height:1.5;"
-								><?php echo esc_textarea( $current['body'] ); ?></textarea>
-							</div>
-
-							<div style="margin-bottom:14px;">
-								<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-									<label for="footer-<?php echo esc_attr( $key ); ?>" style="font-weight:600;">Isi Footer Email:</label>
-									<div class="penalis-email-toolbar">
-										<button type="button" class="button button-small penalis-toolbar-bold" data-target="footer-<?php echo esc_attr( $key ); ?>"><strong>B</strong> Tebal</button>
-										<button type="button" class="button button-small penalis-toolbar-link" data-target="footer-<?php echo esc_attr( $key ); ?>">🔗 Sisipkan Link</button>
-									</div>
-								</div>
-								<textarea
-									id="footer-<?php echo esc_attr( $key ); ?>"
-									name="templates[<?php echo esc_attr( $key ); ?>][footer]"
-									rows="3"
-									class="large-text code"
-									style="font-family:monospace;font-size:13px;line-height:1.5;"
-								><?php echo esc_textarea( $current['footer'] ); ?></textarea>
-							</div>
-
-							<div style="background:#f9f9f9;border:1px solid #e5e5e5;padding:10px 14px;border-radius:4px;font-size:12px;">
-								<strong style="display:block;margin-bottom:6px;color:#333;">Tag yang dapat digunakan pada email ini (klik untuk menyisipkan):</strong>
-								<div style="display:flex;flex-wrap:wrap;gap:6px;">
-									<?php foreach ( (array) $meta['tags'] as $tag => $desc ) : ?>
-										<?php if ( is_string( $tag ) ) : ?>
-											<button
-												type="button"
-												class="button button-small penalis-tag-chip"
-												data-target="body-<?php echo esc_attr( $key ); ?>"
-												data-tag="<?php echo esc_attr( $tag ); ?>"
-												title="<?php echo esc_attr( $desc ); ?>"
-												style="border-radius:12px;background:#fff;border-color:#ccc;"
-											>
-												+ <?php echo esc_html( $tag ); ?>
-											</button>
-										<?php endif; ?>
-									<?php endforeach; ?>
-								</div>
-							</div>
-						</div>
-					<?php endforeach; ?>
+				<div class="penalis-settings__email-field">
+					<label for="penalis-template-subject">Subjek email</label>
+					<input id="penalis-template-subject" name="templates[<?php echo esc_attr( $key ); ?>][subject]" value="<?php echo esc_attr( $current['subject'] ); ?>" type="text">
 				</div>
 
-				<p class="submit" style="display:flex;gap:12px;align-items:center;position:sticky;bottom:0;background:#f1f1f1;padding:14px 20px;border-top:1px solid #ccd0d4;box-shadow:0 -2px 6px rgba(0,0,0,.05);margin-left:-20px;margin-right:-20px;z-index:99;">
-					<button type="submit" name="submit" class="button button-primary button-large">
-						Simpan Semua Pengaturan Email
-					</button>
-					<button
-						type="submit"
-						formaction="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"
-						name="penalis_reset_all_action"
-						value="1"
-						class="button button-link-delete"
-						onclick="return confirm('PERINGATAN: Apakah kamu yakin ingin mengembalikan SEMUA template email ke bawaan plugin? Semua perubahan custom akan dihapus.');"
-						style="margin-left:auto;"
-					>
-						Kembalikan Semua ke Bawaan Plugin
-					</button>
-				</p>
+				<?php
+				foreach ( array(
+					'body'   => 'Isi email',
+					'footer' => 'Footer email',
+				) as $field => $label ) :
+					?>
+					<div class="penalis-settings__email-field">
+						<div class="penalis-settings__panel-header">
+							<label for="penalis-template-<?php echo esc_attr( $field ); ?>"><?php echo esc_html( $label ); ?></label>
+							<div class="penalis-settings__email-toolbar" data-email-toolbar hidden>
+								<button type="button" class="button button-small" data-email-format="bold" data-email-target="penalis-template-<?php echo esc_attr( $field ); ?>">Tebal</button>
+								<button type="button" class="button button-small" data-email-format="link" data-email-target="penalis-template-<?php echo esc_attr( $field ); ?>">Sisipkan Link</button>
+							</div>
+						</div>
+						<textarea
+							id="penalis-template-<?php echo esc_attr( $field ); ?>"
+							name="templates[<?php echo esc_attr( $key ); ?>][<?php echo esc_attr( $field ); ?>]"
+							rows="<?php echo 'body' === $field ? '7' : '3'; ?>"
+							class="large-text"
+						><?php echo esc_textarea( $current[ $field ] ); ?></textarea>
+					</div>
+				<?php endforeach; ?>
+
+				<div class="penalis-settings__email-variables">
+					<h5>Variabel Template</h5>
+					<p class="description">Variabel bertanda Wajib harus muncul di isi email. Jika terlewat, Penalis menambahkannya saat disimpan.</p>
+					<ul>
+						<?php foreach ( $meta['tags'] as $tag => $description ) : ?>
+							<li>
+								<button type="button" class="button button-small" data-email-format="variable" data-email-target="penalis-template-body" data-email-variable="<?php echo esc_attr( $tag ); ?>" hidden>
+									<code><?php echo esc_html( $tag ); ?></code><?php echo in_array( $tag, $meta['required_tags'], true ) ? ' · Wajib' : ''; ?>
+								</button>
+								<span data-email-variable-text><code><?php echo esc_html( $tag ); ?></code></span>
+								<span><?php echo esc_html( $description ); ?></span>
+							</li>
+						<?php endforeach; ?>
+					</ul>
+				</div>
+
+				<details class="penalis-settings__disclosure penalis-settings__email-preview" data-email-preview hidden>
+					<summary>Pratinjau teks email</summary>
+					<p class="description">Menggunakan data contoh.</p>
+					<strong data-email-preview-field="subject"></strong>
+					<p data-email-preview-field="body"></p>
+					<p data-email-preview-field="footer"></p>
+				</details>
+				<?php Penalis_Settings::render_save_action( 'Simpan Template' ); ?>
 			</form>
-		</div>
+
+			<div class="penalis-settings__reset">
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<?php wp_nonce_field( 'penalis_save_email_settings' ); ?>
+					<input type="hidden" name="email_template" value="<?php echo esc_attr( $key ); ?>">
+					<?php if ( $custom ) : ?>
+						<button type="submit" class="button" name="action" value="penalis_reset_email_template" data-penalis-confirm="Kembalikan template ini ke teks bawaan?">Reset Template Ini</button>
+					<?php endif; ?>
+					<button type="submit" class="button" name="action" value="penalis_reset_all_email_settings" data-penalis-confirm="Kembalikan semua template ke teks bawaan? Semua isi email kustom akan dihapus.">Reset Semua Template</button>
+				</form>
+			</div>
+		</section>
 		<?php
 	}
 
@@ -732,84 +570,152 @@ JS;
 	 */
 	public static function handle_save() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Kamu tidak memiliki izin untuk melakukan tindakan ini.', 'penalis-platform' ), 403 );
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan email.', '', array( 'response' => 403 ) );
 		}
 
 		check_admin_referer( 'penalis_save_email_settings' );
 
-		// Check if a single reset button was clicked via formaction.
+		// Accept submissions from an older settings screen already open in a browser.
 		if ( ! empty( $_POST['penalis_reset_single_key'] ) ) {
-			$single_key = sanitize_key( wp_unslash( $_POST['penalis_reset_single_key'] ) );
-			self::reset_single( $single_key );
-			wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'reset_single' ) ) );
-			exit;
+			$key = sanitize_key( wp_unslash( $_POST['penalis_reset_single_key'] ) );
+			self::redirect_result( $key, 'reset_single', self::reset_single( $key ) );
 		}
 
-		// Check if reset all was requested.
 		if ( ! empty( $_POST['penalis_reset_all_action'] ) ) {
-			delete_option( self::OPTION_NAME );
-			wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'reset_all' ) ) );
-			exit;
+			self::redirect_result( '', 'reset_all', self::reset_all() );
 		}
 
-		$submitted  = isset( $_POST['templates'] ) && is_array( $_POST['templates'] ) ? (array) wp_unslash( $_POST['templates'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-		$registry   = self::get_registry();
-		$clean_opts = array();
+		$key       = isset( $_POST['email_template'] ) ? sanitize_key( wp_unslash( $_POST['email_template'] ) ) : '';
+		$submitted = isset( $_POST['templates'] ) && is_array( $_POST['templates'] ) ? wp_unslash( $_POST['templates'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Each field is normalized below.
+		$registry  = self::get_registry();
+		if ( '' !== $key && ( ! isset( $registry[ $key ], $submitted[ $key ] ) || ! is_array( $submitted[ $key ] ) ) ) {
+			self::redirect_result( '', '', false );
+		}
 
-		foreach ( $submitted as $key => $values ) {
-			$key = sanitize_key( (string) $key );
-			if ( ! isset( $registry[ $key ] ) || ! is_array( $values ) ) {
+		$clean = array();
+		foreach ( $submitted as $submitted_key => $values ) {
+			$submitted_key = sanitize_key( (string) $submitted_key );
+			if ( ! isset( $registry[ $submitted_key ] ) || ! is_array( $values ) || ( '' !== $key && $submitted_key !== $key ) ) {
 				continue;
 			}
-
-			$meta = $registry[ $key ];
-
-			$subject = isset( $values['subject'] ) ? sanitize_text_field( wp_unslash( $values['subject'] ) ) : '';
-			$body    = isset( $values['body'] ) ? wp_unslash( $values['body'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-			$footer  = isset( $values['footer'] ) ? wp_unslash( $values['footer'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
-
-			// Normalize line breaks.
-			$body   = str_replace( "\r\n", "\n", trim( (string) $body ) );
-			$footer = str_replace( "\r\n", "\n", trim( (string) $footer ) );
-
-			// Check required tags: ensure required placeholders are present.
-			if ( ! empty( $meta['required_tags'] ) ) {
-				foreach ( (array) $meta['required_tags'] as $req_tag ) {
-					if ( false === strpos( $body, $req_tag ) ) {
-						// Auto-append missing critical secret tag as safety net.
-						$body .= "\n\n" . $req_tag;
-					}
-				}
-			}
-
-			// Store only if different from default, or keep clean array.
-			$clean_opts[ $key ] = array(
-				'subject' => $subject,
-				'body'    => $body,
-				'footer'  => $footer,
-			);
+			$clean[ $submitted_key ] = self::normalize_template( $values, $registry[ $submitted_key ] );
 		}
 
-		update_option( self::OPTION_NAME, $clean_opts );
+		$result = self::mutate_templates(
+			static function ( $saved ) use ( $key, $clean, $registry ) {
+				if ( '' === $key ) {
+					return $clean;
+				}
 
-		wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'saved' ) ) );
-		exit;
+				$template = $clean[ $key ];
+				$defaults = $registry[ $key ];
+				if (
+					$template['subject'] === $defaults['default_subject'] &&
+					$template['body'] === $defaults['default_body'] &&
+					$template['footer'] === $defaults['default_footer']
+				) {
+					unset( $saved[ $key ] );
+				} else {
+					$saved[ $key ] = $template;
+				}
+
+				return $saved;
+			}
+		);
+		self::redirect_result( $key, 'saved', $result );
+	}
+
+	/**
+	 * Normalize one submitted template, retaining required delivery placeholders.
+	 *
+	 * @param array<string,mixed> $values Submitted template, already unslashed.
+	 * @param array<string,mixed> $meta   Template definition.
+	 * @return array<string,string>
+	 */
+	private static function normalize_template( array $values, array $meta ) {
+		$subject = isset( $values['subject'] ) && is_string( $values['subject'] ) ? sanitize_text_field( $values['subject'] ) : '';
+		$body    = isset( $values['body'] ) && is_string( $values['body'] ) ? str_replace( "\r\n", "\n", trim( $values['body'] ) ) : '';
+		$footer  = isset( $values['footer'] ) && is_string( $values['footer'] ) ? str_replace( "\r\n", "\n", trim( $values['footer'] ) ) : '';
+
+		foreach ( $meta['required_tags'] as $required_tag ) {
+			if ( false === strpos( $body, $required_tag ) ) {
+				$body = '' === $body ? $required_tag : $body . "\n\n" . $required_tag;
+			}
+		}
+
+		return array(
+			'subject' => $subject,
+			'body'    => $body,
+			'footer'  => $footer,
+		);
+	}
+
+	/**
+	 * Serialize edits and resets to the shared template option.
+	 *
+	 * @param callable $change Takes the current overrides and returns replacements or null to delete the option.
+	 * @return bool|WP_Error
+	 */
+	private static function mutate_templates( $change ) {
+		global $wpdb;
+
+		return Penalis_Account_Status::with_advisory_lock(
+			hash( 'sha256', DB_NAME . ':' . $wpdb->options . ':' . self::OPTION_NAME ),
+			3,
+			static function () use ( $change ) {
+				// Legacy installs may still have this option in the autoloaded cache.
+				wp_cache_delete( 'alloptions', 'options' );
+				wp_cache_delete( 'notoptions', 'options' );
+				wp_cache_delete( self::OPTION_NAME, 'options' );
+
+				$current = get_option( self::OPTION_NAME, false );
+				$next    = $change( is_array( $current ) ? $current : array() );
+				if ( null === $next ) {
+					return false === $current || delete_option( self::OPTION_NAME );
+				}
+				if ( $current === $next || ( false === $current && array() === $next ) ) {
+					return true;
+				}
+				return update_option( self::OPTION_NAME, $next, false );
+			},
+			new WP_Error( 'email_templates_busy' )
+		);
+	}
+
+	/**
+	 * Return to the active template with feedback.
+	 *
+	 * @param string        $key     Template key, if selected.
+	 * @param string        $message Success message key.
+	 * @param bool|WP_Error $result  Result of storing the change.
+	 * @return void
+	 */
+	private static function redirect_result( $key, $message, $result ) {
+		$args = array( 'penalis_section' => 'email-templates' );
+		if ( '' !== $key ) {
+			$args['template'] = $key;
+		}
+		if ( true !== $result ) {
+			$args['penalis_error'] = is_wp_error( $result ) ? $result->get_error_code() : 'email_templates_save';
+			$message               = '';
+		}
+		Penalis_Settings::redirect( 'email', $message, $args );
 	}
 
 	/**
 	 * Reset a single template key to its default state.
 	 *
 	 * @param string $key Template identifier.
-	 * @return void
+	 * @return bool|WP_Error
 	 */
 	public static function reset_single( $key ) {
-		$key   = sanitize_key( $key );
-		$saved = get_option( self::OPTION_NAME, array() );
-
-		if ( is_array( $saved ) && isset( $saved[ $key ] ) ) {
-			unset( $saved[ $key ] );
-			update_option( self::OPTION_NAME, $saved );
-		}
+		$key = sanitize_key( $key );
+		return self::mutate_templates(
+			static function ( $saved ) use ( $key ) {
+				unset( $saved[ $key ] );
+				return $saved;
+			}
+		);
 	}
 
 	/**
@@ -819,27 +725,24 @@ JS;
 	 */
 	public static function handle_reset_single() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Kamu tidak memiliki izin untuk melakukan tindakan ini.', 'penalis-platform' ), 403 );
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan email.', '', array( 'response' => 403 ) );
 		}
 
-		$key = isset( $_POST['penalis_reset_single_key'] ) ? sanitize_key( wp_unslash( $_POST['penalis_reset_single_key'] ) ) : '';
 		check_admin_referer( 'penalis_save_email_settings' );
-
-		if ( '' !== $key ) {
-			self::reset_single( $key );
+		$key = isset( $_POST['email_template'] ) ? sanitize_key( wp_unslash( $_POST['email_template'] ) ) : '';
+		if ( '' === $key && isset( $_POST['penalis_reset_single_key'] ) ) {
+			$key = sanitize_key( wp_unslash( $_POST['penalis_reset_single_key'] ) );
 		}
-
-		wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'reset_single' ) ) );
-		exit;
+		self::redirect_result( $key, 'reset_single', self::reset_single( $key ) );
 	}
 
 	/**
 	 * Reset all email templates to default by deleting the option.
 	 *
-	 * @return void
+	 * @return bool|WP_Error
 	 */
 	public static function reset_all() {
-		delete_option( self::OPTION_NAME );
+		return self::mutate_templates( static fn() => null );
 	}
 
 	/**
@@ -849,13 +752,11 @@ JS;
 	 */
 	public static function handle_reset_all() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Kamu tidak memiliki izin untuk melakukan tindakan ini.', 'penalis-platform' ), 403 );
+			wp_die( 'Kamu tidak memiliki izin untuk mengubah pengaturan email.', '', array( 'response' => 403 ) );
 		}
 
 		check_admin_referer( 'penalis_save_email_settings' );
-		self::reset_all();
-
-		wp_safe_redirect( self::tab_url( array( 'penalis_message' => 'reset_all' ) ) );
-		exit;
+		$key = isset( $_POST['email_template'] ) ? sanitize_key( wp_unslash( $_POST['email_template'] ) ) : '';
+		self::redirect_result( $key, 'reset_all', self::reset_all() );
 	}
 }

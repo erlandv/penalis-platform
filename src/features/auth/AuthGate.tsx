@@ -467,7 +467,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
         <span>
           Telah membaca dan menyetujui{' '}
           <a
-            href="/ketentuan-layanan/"
+            href={getBootstrap().config?.termsUrl || '/ketentuan-layanan/'}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}
@@ -476,7 +476,7 @@ function RegistrationForm({ onChallenge }: { onChallenge: (challenge: Challenge)
           </a>{' '}
           dan{' '}
           <a
-            href="/kebijakan-privasi/"
+            href={getBootstrap().config?.privacyUrl || '/kebijakan-privasi/'}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}

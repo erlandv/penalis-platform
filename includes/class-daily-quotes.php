@@ -136,7 +136,7 @@ final class Penalis_Daily_Quotes {
 		 *
 		 * @param bool $use_template Whether to use the bundled template.
 		 */
-		if ( ! apply_filters( 'penalis_use_daily_quotes_template', true ) ) {
+		if ( ! apply_filters( 'penalis_use_daily_quotes_template', (bool) Penalis_Config::general()['use_daily_quotes_template'] ) ) {
 			return $template;
 		}
 
@@ -246,13 +246,18 @@ final class Penalis_Daily_Quotes {
 	 * @return array<string,mixed>
 	 */
 	public static function get_writer_state( $user_id, $now = null ) {
-		$user_id = (int) $user_id;
-		$now     = null === $now ? time() : (int) $now;
-		$active  = self::get_active_for_user( $user_id, $now );
-		$log     = get_user_meta( $user_id, self::META_PUBLISH_LOG, true );
-		$quota   = Penalis_Policy::daily_quote_rate_state( $log, $now );
+		$user_id   = (int) $user_id;
+		$now       = null === $now ? time() : (int) $now;
+		$editorial = Penalis_Config::editorial();
+		$enabled   = (bool) $editorial['quote_enabled'];
+		$ttl       = Penalis_Config::quote_ttl_seconds();
+		$limit     = (int) $editorial['quote_daily_limit'];
+		$active    = self::get_active_for_user( $user_id, $now );
+		$log       = get_user_meta( $user_id, self::META_PUBLISH_LOG, true );
+		$quota     = Penalis_Policy::daily_quote_rate_state( $log, $now, $limit, $ttl );
 
 		return array(
+			'enabled'    => $enabled,
 			'quote'      => $active,
 			'quota'      => array(
 				'used'      => $quota['used'],
@@ -260,10 +265,10 @@ final class Penalis_Daily_Quotes {
 				'remaining' => $quota['remaining'],
 				'resetAt'   => $quota['reset_at'],
 			),
-			'maxLength'  => Penalis_Policy::DAILY_QUOTE_MAX_LENGTH,
-			'maxLines'   => Penalis_Policy::DAILY_QUOTE_MAX_LINES,
-			'ttlSeconds' => Penalis_Policy::DAILY_QUOTE_TTL,
-			'canPublish' => null === $active && $quota['remaining'] > 0,
+			'maxLength'  => (int) $editorial['quote_max_length'],
+			'maxLines'   => (int) $editorial['quote_max_lines'],
+			'ttlSeconds' => $ttl,
+			'canPublish' => $enabled && null === $active && $quota['remaining'] > 0,
 			'publicUrl'  => esc_url_raw( self::page_url() ),
 		);
 	}
@@ -272,7 +277,7 @@ final class Penalis_Daily_Quotes {
 	 * Publish a new #KalimatHariIni for an active writer.
 	 *
 	 * Serialized under a per-user advisory lock so rapid concurrent requests
-	 * cannot bypass the active-quote guard or the 3 publishes / 24 hours quota.
+	 * cannot bypass the active-quote guard or the rolling publish quota.
 	 *
 	 * @param int      $user_id  User ID.
 	 * @param string   $raw_text Raw quote text submitted by the writer.
@@ -280,8 +285,17 @@ final class Penalis_Daily_Quotes {
 	 * @return array<string,mixed>|WP_Error Updated writer state or WP_Error.
 	 */
 	public static function publish( $user_id, $raw_text, $now = null ) {
-		$user_id = (int) $user_id;
-		$now     = null === $now ? time() : (int) $now;
+		$user_id   = (int) $user_id;
+		$now       = null === $now ? time() : (int) $now;
+		$editorial = Penalis_Config::editorial();
+
+		if ( empty( $editorial['quote_enabled'] ) ) {
+			return new WP_Error(
+				'penalis_quote_disabled',
+				'Fitur #KalimatHariIni sedang dinonaktifkan oleh administrator.',
+				array( 'status' => 403 )
+			);
+		}
 
 		if ( $user_id <= 0 || ! Penalis_Account_Status::can_write( $user_id ) ) {
 			return new WP_Error(
@@ -291,7 +305,11 @@ final class Penalis_Daily_Quotes {
 			);
 		}
 
-		$validation_error = Penalis_Policy::validate_daily_quote( $raw_text );
+		$validation_error = Penalis_Policy::validate_daily_quote(
+			$raw_text,
+			(int) $editorial['quote_max_length'],
+			(int) $editorial['quote_max_lines']
+		);
 		if ( '' !== $validation_error ) {
 			return new WP_Error(
 				'penalis_validation_error',
@@ -305,11 +323,13 @@ final class Penalis_Daily_Quotes {
 
 		$normalized = Penalis_Policy::normalize_daily_quote( $raw_text );
 		$lock_key   = 'penalis_daily_quote_' . $user_id;
+		$ttl        = Penalis_Config::quote_ttl_seconds();
+		$limit      = (int) $editorial['quote_daily_limit'];
 
 		return Penalis_Account_Status::with_advisory_lock(
 			$lock_key,
 			5,
-			static function () use ( $user_id, $normalized, $now ) {
+			static function () use ( $user_id, $normalized, $now, $ttl, $limit ) {
 				if ( null !== self::get_active_for_user( $user_id, $now ) ) {
 					return new WP_Error(
 						'penalis_quote_already_active',
@@ -319,14 +339,14 @@ final class Penalis_Daily_Quotes {
 				}
 
 				$log   = get_user_meta( $user_id, self::META_PUBLISH_LOG, true );
-				$quota = Penalis_Policy::daily_quote_rate_state( $log, $now );
+				$quota = Penalis_Policy::daily_quote_rate_state( $log, $now, $limit, $ttl );
 
 				if ( $quota['remaining'] <= 0 ) {
 					return new WP_Error(
 						'penalis_quote_limit_reached',
 						sprintf(
-							'Kamu sudah mencapai batas %d kali menerbitkan #KalimatHariIni dalam 24 jam. Coba lagi nanti setelah kuota tersedia.',
-							Penalis_Policy::DAILY_QUOTE_DAILY_LIMIT
+							'Kamu sudah mencapai batas %d kali menerbitkan #KalimatHariIni. Coba lagi nanti setelah kuota tersedia.',
+							$limit
 						),
 						array(
 							'status'  => 429,
@@ -335,7 +355,7 @@ final class Penalis_Daily_Quotes {
 					);
 				}
 
-				$expires_at = $now + Penalis_Policy::DAILY_QUOTE_TTL;
+				$expires_at = $now + $ttl;
 				$record     = array(
 					'text'       => $normalized,
 					'created_at' => $now,
@@ -430,7 +450,8 @@ final class Penalis_Daily_Quotes {
 			);
 		}
 
-		$reason_error = Penalis_Policy::validate_daily_quote_removal_reason( (string) $raw_reason );
+		$reason_max   = (int) Penalis_Config::editorial()['quote_reason_max_length'];
+		$reason_error = Penalis_Policy::validate_daily_quote_removal_reason( (string) $raw_reason, $reason_max );
 		if ( '' !== $reason_error ) {
 			return new WP_Error(
 				'penalis_validation_error',
@@ -498,12 +519,13 @@ final class Penalis_Daily_Quotes {
 	 * @return array<string,mixed>
 	 */
 	public static function query_quotes( $args = array(), $now = null ) {
-		$now      = null === $now ? time() : (int) $now;
-		$search   = isset( $args['search'] ) ? trim( sanitize_text_field( (string) $args['search'] ) ) : '';
-		$sort     = Penalis_Policy::normalize_daily_quotes_sort( isset( $args['sort'] ) ? $args['sort'] : 'newest' );
-		$page     = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
-		$per_page = isset( $args['per_page'] ) ? (int) $args['per_page'] : Penalis_Policy::DAILY_QUOTE_PER_PAGE;
-		$per_page = max( 1, min( Penalis_Policy::DAILY_QUOTE_MAX_PER_PAGE, $per_page ) );
+		$now              = null === $now ? time() : (int) $now;
+		$search           = isset( $args['search'] ) ? trim( sanitize_text_field( (string) $args['search'] ) ) : '';
+		$sort             = Penalis_Policy::normalize_daily_quotes_sort( isset( $args['sort'] ) ? $args['sort'] : 'newest' );
+		$page             = isset( $args['page'] ) ? max( 1, (int) $args['page'] ) : 1;
+		$default_per_page = (int) Penalis_Config::editorial()['quote_per_page'];
+		$per_page         = isset( $args['per_page'] ) ? (int) $args['per_page'] : $default_per_page;
+		$per_page         = max( 1, min( Penalis_Policy::DAILY_QUOTE_MAX_PER_PAGE, $per_page ) );
 
 		$all_quotes = self::get_all_active_quotes( $now );
 		$total_all  = count( $all_quotes );
@@ -604,7 +626,10 @@ final class Penalis_Daily_Quotes {
 			);
 		}
 
-		set_transient( self::CACHE_KEY, $quotes, self::CACHE_TTL );
+		$cache_ttl = (int) Penalis_Config::performance()['quotes_cache_ttl'];
+		if ( $cache_ttl > 0 ) {
+			set_transient( self::CACHE_KEY, $quotes, $cache_ttl );
+		}
 
 		return $quotes;
 	}

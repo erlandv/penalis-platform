@@ -9,6 +9,8 @@
  * @package Penalis_Platform
  */
 
+define( 'DB_NAME', 'penalis_test' );
+
 if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', __DIR__ . '/' );
 }
@@ -715,6 +717,8 @@ if ( ! class_exists( 'Penalis_Test_WPDB' ) ) {
 		public $usermeta = 'wp_usermeta';
 		/** @var string */
 		public $posts = 'wp_posts';
+		/** @var string */
+		public $options = 'wp_options';
 
 		/**
 		 * Prepare a simple %s / %d query.

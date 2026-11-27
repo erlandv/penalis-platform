@@ -314,7 +314,7 @@ final class Penalis_Dashboard {
 		 *
 		 * @param bool $use_template Whether to use the bundled template.
 		 */
-		if ( ! apply_filters( 'penalis_use_dashboard_template', true ) ) {
+		if ( ! apply_filters( 'penalis_use_dashboard_template', (bool) Penalis_Config::general()['use_dashboard_template'] ) ) {
 			return $template;
 		}
 
@@ -440,6 +440,7 @@ final class Penalis_Dashboard {
 				'siteTimezone'   => Penalis_Datetime::site_timezone_payload(),
 				'brandLogoUrl'   => self::brand_assets()['logoUrl'],
 				'brandIconUrl'   => self::brand_assets()['iconUrl'],
+				'config'         => Penalis_Config::frontend_config(),
 				'isLoggedIn'     => $user_id > 0,
 				'registration'   => Penalis_Registration::is_registration_enabled(),
 				'turnstile'      => $user_id > 0 ? array( 'enabled' => false ) : Penalis_Turnstile::frontend_config(),
@@ -486,7 +487,10 @@ final class Penalis_Dashboard {
 	 * @return string
 	 */
 	public static function asset_base_url() {
-		$url = self::ensure_same_origin_url( PENALIS_PLATFORM_URL . 'build/' );
+		$custom = (string) Penalis_Config::security()['asset_base_url'];
+		$url    = '' !== $custom
+			? rtrim( $custom, '/' ) . '/'
+			: self::ensure_same_origin_url( PENALIS_PLATFORM_URL . 'build/' );
 
 		/**
 		 * Filter the asset base URL for the dashboard SPA.
@@ -509,9 +513,27 @@ final class Penalis_Dashboard {
 	 * @return array{logoUrl:string,iconUrl:string}
 	 */
 	public static function brand_assets() {
+		$general  = Penalis_Config::general();
+		$logo_url = PENALIS_PLATFORM_URL . 'assets/images/logo.png';
+		$icon_url = PENALIS_PLATFORM_URL . 'assets/images/icon.png';
+
+		if ( (int) $general['brand_logo_id'] > 0 && function_exists( 'wp_get_attachment_image_url' ) ) {
+			$custom_logo = wp_get_attachment_image_url( (int) $general['brand_logo_id'], 'full' );
+			if ( is_string( $custom_logo ) && '' !== $custom_logo ) {
+				$logo_url = $custom_logo;
+			}
+		}
+
+		if ( (int) $general['brand_icon_id'] > 0 && function_exists( 'wp_get_attachment_image_url' ) ) {
+			$custom_icon = wp_get_attachment_image_url( (int) $general['brand_icon_id'], 'full' );
+			if ( is_string( $custom_icon ) && '' !== $custom_icon ) {
+				$icon_url = $custom_icon;
+			}
+		}
+
 		return array(
-			'logoUrl' => esc_url_raw( self::ensure_same_origin_url( PENALIS_PLATFORM_URL . 'assets/images/logo.png' ) ),
-			'iconUrl' => esc_url_raw( self::ensure_same_origin_url( PENALIS_PLATFORM_URL . 'assets/images/icon.png' ) ),
+			'logoUrl' => esc_url_raw( self::ensure_same_origin_url( $logo_url ) ),
+			'iconUrl' => esc_url_raw( self::ensure_same_origin_url( $icon_url ) ),
 		);
 	}
 

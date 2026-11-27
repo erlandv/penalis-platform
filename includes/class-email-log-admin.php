@@ -447,7 +447,7 @@ final class Penalis_Email_Log_Admin {
 						sprintf(
 							'%1$d entri tersimpan, maksimal %2$d. Entri lama otomatis terhapus saat batas tercapai.',
 							$total,
-							Penalis_Email_Log::MAX_ENTRIES
+							class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::performance()['email_log_limit'] : Penalis_Email_Log::MAX_ENTRIES
 						)
 					);
 					?>

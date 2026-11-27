@@ -68,7 +68,7 @@ penalis-platform/
 │   ├── class-revisions.php               Revision limit for drafts so autosave cannot grow the history without bound
 │   ├── class-editorial-admin.php         Penalis → Review Karya Tulis and Karya Terhapus admin screens
 │   ├── class-admin.php                   Penalis top-level menu, Ringkasan overview, Penulis Penalis screen, shared modal & asset helpers
-│   ├── class-settings.php                Penalis → Pengaturan centralized tabbed settings screen (9 tabs)
+│   ├── class-settings.php                Penalis → Pengaturan centralized settings screen (7 categories)
 │   ├── class-analytics.php               Eight-week submission/review trend metrics for the Ringkasan screen
 │   ├── class-email-settings.php          Penalis → Pengaturan Email customizable transactional email registry & admin console
 │   ├── class-email-log.php               Capped delivery log for transactional email; never stores one-time secrets
@@ -463,10 +463,10 @@ editors.
      heading count (`4`), heading levels (`H2`–`H4`), insert position (`top` or
      `before_first_heading`), default collapsed/expanded state, smooth scroll,
      and LuckyWP Table of Contents transition status.
-   - **Email** (`email`, `Penalis_Email_Settings::render_tab()`) manages all 15
+   - **Email** (`email`, `Penalis_Email_Settings::render_tab()`) manages
      transactional emails, accessible only to administrators:
-     - Categorized tabbed navigation (`Semua Email`, `Verifikasi & Aktivasi`,
-       `Keamanan Akun`, `Status Penulis`, `Kurasi Karya Tulis`).
+     - Grouped template picker with default/custom status, a single-template
+       editor and save action, and a text preview using example data.
      - Customization fields for subject, body, and per-email contextual footer.
      - Rich Markdown formatting with live toolbar buttons for bold (`**text**`),
        inline links (`[Text](url)`), and one-click tag insertion chips.

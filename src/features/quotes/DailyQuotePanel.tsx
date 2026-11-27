@@ -74,8 +74,10 @@ export function DailyQuotePanel({ account }: { account: Account }) {
     }
   }, [loading]);
 
-  const maxLength = state?.maxLength ?? DAILY_QUOTE_MAX_LENGTH;
-  const maxLines = state?.maxLines ?? DAILY_QUOTE_MAX_LINES;
+  const cfg = getBootstrap().config;
+  const maxLength = state?.maxLength ?? cfg?.quoteMaxLength ?? DAILY_QUOTE_MAX_LENGTH;
+  const maxLines = state?.maxLines ?? cfg?.quoteMaxLines ?? DAILY_QUOTE_MAX_LINES;
+  const ttlHours = state?.ttlSeconds ? Math.max(1, Math.round(state.ttlSeconds / 3600)) : (cfg?.quoteTtlHours ?? 24);
   const publicUrl = state?.publicUrl || getBootstrap().dailyQuotesUrl || '';
 
   const normalizedDraft = normalizeDailyQuote(draft);
@@ -90,7 +92,7 @@ export function DailyQuotePanel({ account }: { account: Account }) {
       return;
     }
 
-    const clientError = validateDailyQuoteInput(draft);
+    const clientError = validateDailyQuoteInput(draft, maxLength, maxLines);
     if (clientError) {
       setFieldError(clientError);
       return;
@@ -265,8 +267,8 @@ export function DailyQuotePanel({ account }: { account: Account }) {
 
               <div className="penalis-daily-quote-form__bar">
                 <p id={hintId} className="penalis-fineprint">
-                  Tayang selama 24 jam di profilmu dan halaman #KalimatHariIni. Maksimal {maxLength}{' '}
-                  karakter ({maxLines} baris), hingga {quota?.limit ?? 3} kali dalam 24 jam.
+                  Tayang selama {ttlHours} jam di profilmu dan halaman #KalimatHariIni. Maksimal {maxLength}{' '}
+                  karakter ({maxLines} baris), hingga {quota?.limit ?? cfg?.quoteDailyLimit ?? 3} kali dalam {ttlHours} jam.
                 </p>
                 <span
                   className={`penalis-daily-quote-form__counter${isOverLength || isOverLines ? ' is-over' : ''}`}

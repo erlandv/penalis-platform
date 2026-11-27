@@ -270,8 +270,8 @@ final class Penalis_Admin {
 	/**
 	 * Save the default profile photo.
 	 *
-	 * The form lives on Penalis → Pengaturan → Foto Profil, so both the success
-	 * and the validation redirects return to that tab.
+	 * The success and validation redirects return to the photo panel under
+	 * Penalis → Pengaturan → Akun & Pendaftaran.
 	 *
 	 * @return void
 	 */
@@ -282,13 +282,18 @@ final class Penalis_Admin {
 
 		check_admin_referer( 'penalis_default_avatar' );
 
-		$redirect = Penalis_Settings::url( array( 'tab' => 'avatar' ) );
-		$clear    = isset( $_POST['penalis_clear_default_avatar'] );
-		$avatar   = isset( $_POST['penalis_default_avatar_id'] ) ? absint( wp_unslash( $_POST['penalis_default_avatar_id'] ) ) : 0;
+		$clear  = isset( $_POST['penalis_clear_default_avatar'] );
+		$avatar = isset( $_POST['penalis_default_avatar_id'] ) ? absint( wp_unslash( $_POST['penalis_default_avatar_id'] ) ) : 0;
 
 		if ( ! $clear && ( $avatar <= 0 || ! wp_attachment_is_image( $avatar ) ) ) {
-			wp_safe_redirect( add_query_arg( 'penalis_error', 'avatar_invalid', $redirect ) );
-			exit;
+			Penalis_Settings::redirect(
+				'registration',
+				'',
+				array(
+					'penalis_error'   => 'avatar_invalid',
+					'penalis_section' => 'avatar',
+				)
+			);
 		}
 
 		if ( $clear ) {
@@ -301,8 +306,7 @@ final class Penalis_Admin {
 			update_option( 'avatar_default', 'wp_user_avatar' );
 		}
 
-		wp_safe_redirect( add_query_arg( 'penalis_message', 'avatar_saved', $redirect ) );
-		exit;
+		Penalis_Settings::redirect( 'registration', 'avatar_saved', array( 'penalis_section' => 'avatar' ) );
 	}
 
 	/**
@@ -425,13 +429,14 @@ final class Penalis_Admin {
 			</div>
 
 			<?php
-			$trend_weeks  = Penalis_Analytics::DEFAULT_WEEKS;
+			$perf_cfg     = Penalis_Config::performance();
+			$trend_weeks  = (int) $perf_cfg['analytics_weeks'];
 			$trend_bounds = Penalis_Analytics::week_boundaries( $trend_weeks );
 			$trend_series = Penalis_Analytics::weekly_submissions( $trend_weeks );
 			$trend_since  = (int) $trend_bounds[0];
 			$trend_rate   = Penalis_Analytics::approval_rate( $trend_since );
 			$trend_ttp    = Penalis_Analytics::time_to_publish( $trend_since );
-			$trend_top    = Penalis_Analytics::top_authors( $trend_since );
+			$trend_top    = Penalis_Analytics::top_authors( $trend_since, (int) $perf_cfg['analytics_top_authors'] );
 			$trend_counts = array_column( $trend_series, 'count' );
 			$trend_peak   = max( 1, $trend_counts ? (int) max( $trend_counts ) : 0 );
 			$trend_total  = (int) array_sum( $trend_counts );
@@ -810,7 +815,7 @@ final class Penalis_Admin {
 			<?php if ( self::can_manage_settings() ) : ?>
 				<p class="penalis-intro">
 					Foto profil bawaan situs diatur di
-					<a href="<?php echo esc_url( Penalis_Settings::url( array( 'tab' => 'avatar' ) ) ); ?>">Pengaturan → Foto Profil</a>.
+					<a href="<?php echo esc_url( Penalis_Settings::url( array( 'tab' => 'registration' ) ) ); ?>">Pengaturan → Akun &amp; Pendaftaran</a>.
 				</p>
 			<?php endif; ?>
 

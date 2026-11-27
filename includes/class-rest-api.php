@@ -1700,7 +1700,9 @@ final class Penalis_Rest_Api {
 			$missing[]               = 'isi karya tulis';
 		}
 
-		if ( (int) get_post_thumbnail_id( $post->ID ) <= 0 ) {
+		$editorial = Penalis_Config::editorial();
+
+		if ( ! empty( $editorial['require_thumbnail'] ) && (int) get_post_thumbnail_id( $post->ID ) <= 0 ) {
 			$field_errors['featuredMedia'] = 'Pilih thumbnail karya tulis terlebih dahulu.';
 			$missing[]                     = 'thumbnail';
 		}
@@ -1725,14 +1727,17 @@ final class Penalis_Rest_Api {
 			}
 		}
 
-		if ( 0 === $valid_categories ) {
+		if ( ! empty( $editorial['require_category'] ) && 0 === $valid_categories ) {
 			$field_errors['categories'] = 'Pilih minimal satu kategori karya tulis.';
 			$missing[]                  = 'kategori';
 		}
 
-		if ( 0 === $tag_count ) {
-			$field_errors['tags'] = 'Tambahkan minimal satu tag karya tulis.';
-			$missing[]            = 'minimal 1 tag';
+		$min_tags = (int) $editorial['min_tags'];
+		if ( $min_tags > 0 && $tag_count < $min_tags ) {
+			$field_errors['tags'] = 1 === $min_tags
+				? 'Tambahkan minimal satu tag karya tulis.'
+				: sprintf( 'Tambahkan minimal %d tag karya tulis.', $min_tags );
+			$missing[]            = sprintf( 'minimal %d tag', $min_tags );
 		}
 
 		if ( empty( $field_errors ) ) {

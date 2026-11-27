@@ -103,7 +103,8 @@ final class Penalis_Email_Log {
 			'resendable' => ! $secret && ! $test && '' !== $template && ! empty( $vars ),
 		);
 
-		$entries = array_slice( array_merge( array( $entry ), self::entries() ), 0, self::MAX_ENTRIES );
+		$max_entries = class_exists( 'Penalis_Config' ) ? (int) Penalis_Config::performance()['email_log_limit'] : self::MAX_ENTRIES;
+		$entries     = array_slice( array_merge( array( $entry ), self::entries() ), 0, $max_entries );
 
 		update_option( self::OPTION_NAME, $entries, false );
 
