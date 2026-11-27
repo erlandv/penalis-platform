@@ -3,7 +3,7 @@ Contributors: penalis
 Tags: writing, dashboard, editorial, publishing, community
 Requires at least: 6.0
 Requires PHP: 8.2
-Stable tag: 2.5.2
+Stable tag: 2.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -123,6 +123,13 @@ by MIME type and by inspecting the image header (`getimagesize()`), so SVG and
 renamed executable files are rejected.
 
 == Changelog ==
+
+= 2.6.0 =
+* Feature: Redesign **Penalis → Pengaturan** (`Penalis_Settings`, `Penalis_Settings_Panels`, `assets/js/admin-settings.js`, `assets/css/admin.css`) into a 2-column vertical sidebar organized into 7 categories across **Pengaturan Utama** (`Umum & Halaman`, `Akun & Pendaftaran`, `Editorial & Komunitas`, `Tampilan Artikel`, `Email`) and **Sensitif & Sistem** (`Keamanan & Batas`, `Data, Cache & Log`), complete with sensitive-settings warning banners, reset-to-default controls, manual cache purge, and backward-compatible tab aliases (`captcha`, `rate-limit`, `avatar`, `thumbnail`, `views`, `toc`).
+* Feature: Introduce centralized site-wide configuration management (`Penalis_Config`) with safe defaults and server-enforced clamping across pages & brand assets, email branding (logo, contact email, footer, button/link colors), editorial & `#KalimatHariIni` rules (limits, TTL, moderation presets, allowed upload types), article display (share bar copy, reactions, views, TOC, default thumbnail), account policies (bio/password limits, avatars), security (per-form Turnstile toggles, OTP expiry/attempts), and cache/log retention, plus opt-in cleanup in `uninstall.php`.
+* Feature: Propagate dynamic `Penalis_Config` values to the React dashboard (`Penalis_Config::frontend_config()`) so registration legal links, password/bio validation, `#KalimatHariIni` character/line/quota limits, and Senator moderation presets automatically reflect admin settings.
+* Polish: Streamline the **Email** settings tab (`Penalis_Email_Settings`) into a grouped template picker with default/custom badges, a focused single-template editor, and an example-data preview.
+* Fix: Scope the `... karya tulis menunggu review.` admin notice (`Penalis_Editorial_Admin::should_show_pending_notice()`) to the WordPress **Dashboard** (`dashboard`) and **Posts** (`edit-post`) screens with `is-dismissible`, preventing notice clutter on unrelated plugin and settings screens.
 
 = 2.5.2 =
 * Fix: Anchor the **Terbit** (`state=published`) tab on **Penalis → Review Karya Tulis** (`Penalis_Editorial_Admin`) to publish date (`date DESC`) by default, add a **Tanggal terbit** sort option (while keeping **Terakhir diubah** available on demand), display a **Diterbitkan** column using `$post->post_date` instead of falling back to `$post->post_modified`, and show `Diterbitkan:` in the review detail metadata bar so routine `wp-admin` taxonomy or SEO edits never bump older published articles to the top or show edit timestamps under **Di-submit**.
@@ -265,6 +272,9 @@ renamed executable files are rejected.
   account actions.
 
 == Upgrade Notice ==
+
+= 2.6.0 =
+Redesigns Penalis → Pengaturan into a 7-category unified settings console backed by centralized configuration (`Penalis_Config`) covering public pages, branding, email appearance, editorial & #KalimatHariIni rules, article display, account limits, per-form Turnstile/OTP controls, and cache/log retention, and scopes the pending-review admin notice to the WordPress Dashboard and Posts screens. Upgrade is non-destructive: all existing options and legacy settings tab URLs continue to work automatically.
 
 = 2.5.2 =
 Anchors the Published tab in Penalis → Review Karya Tulis to publish date (`date DESC`) with a Diterbitkan date column and hides synthetic Review Cycle #1 badges on pre-plugin articles. Upgrade is non-destructive and requires no manual migration.
